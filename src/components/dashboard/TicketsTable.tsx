@@ -1,4 +1,9 @@
 import React, { useState } from 'react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { AlertCircle, PlayCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Ticket {
   id: string;
@@ -28,8 +33,32 @@ const mockTickets: Ticket[] = [
     priority: 'high',
     operator: 'Marcos Almeida',
     status: 'open'
+  },
+  {
+    id: '#1156',
+    requester: 'Ana Silva',
+    category: 'Hardware',
+    created: 'há 5h',
+    priority: 'medium',
+    operator: 'Marcos Almeida',
+    status: 'open'
+  },
+  {
+    id: '#1089',
+    requester: 'Carlos Santos',
+    category: 'Rede',
+    created: 'há 6h',
+    priority: 'low',
+    operator: 'Marcos Almeida',
+    status: 'open'
   }
 ];
+
+const priorityColors = {
+  high: 'bg-destructive hover:bg-destructive',
+  medium: 'bg-warning hover:bg-warning',
+  low: 'bg-muted hover:bg-muted'
+};
 
 export const TicketsTable: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>(mockTickets);
@@ -45,76 +74,56 @@ export const TicketsTable: React.FC = () => {
   };
 
   return (
-    <section className="bg-[rgba(240,240,240,1)] flex flex-col items-stretch text-base pt-[9px] pb-[165px] px-2 rounded-[14px] max-md:max-w-full max-md:pb-[100px]">
-      <div className="bg-[rgba(217,217,217,1)] flex w-full items-stretch gap-5 text-[rgba(37,37,37,1)] font-bold whitespace-nowrap flex-wrap justify-between pl-[22px] pr-20 py-[9px] rounded-[25px] max-md:max-w-full max-md:px-5">
-        <div className="flex items-stretch gap-[33px]">
-          <div>Ticket</div>
-          <div>Solicitante</div>
-        </div>
-        <div>Categoria</div>
-        <div className="flex items-stretch gap-[33px]">
-          <div>Criado</div>
-          <div>Prioridade</div>
-        </div>
-        <div className="flex items-stretch gap-[40px_73px]">
-          <div>Operador</div>
-          <div className="text-center">Status</div>
-        </div>
-      </div>
-      
-      <div className="self-center flex w-[885px] max-w-full items-stretch gap-5 text-[rgba(94,94,94,1)] font-normal flex-wrap justify-between mt-[23px]">
-        <div className="flex flex-col items-stretch my-auto">
-          {tickets.map((ticket, index) => (
-            <div key={ticket.id} className={`flex items-stretch gap-[29px] ${index > 0 ? 'mt-[26px]' : ''}`}>
-              <div>{ticket.id}</div>
-              <div className={index === 0 ? "basis-auto" : "grow shrink w-[118px]"}>
-                {ticket.requester}
-              </div>
-            </div>
+    <div className="bg-card rounded-3xl p-6 shadow-sm border border-border">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent border-b border-border">
+            <TableHead className="font-bold text-foreground">Ticket</TableHead>
+            <TableHead className="font-bold text-foreground">Solicitante</TableHead>
+            <TableHead className="font-bold text-foreground">Categoria</TableHead>
+            <TableHead className="font-bold text-foreground">Criado</TableHead>
+            <TableHead className="font-bold text-foreground">Prioridade</TableHead>
+            <TableHead className="font-bold text-foreground">Operador</TableHead>
+            <TableHead className="font-bold text-foreground text-right">Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tickets.map((ticket) => (
+            <TableRow key={ticket.id} className="hover:bg-muted/50 transition-colors">
+              <TableCell className="font-medium text-muted-foreground">{ticket.id}</TableCell>
+              <TableCell className="text-foreground">{ticket.requester}</TableCell>
+              <TableCell className="text-muted-foreground">{ticket.category}</TableCell>
+              <TableCell className="text-muted-foreground">{ticket.created}</TableCell>
+              <TableCell>
+                <Badge 
+                  variant="secondary" 
+                  className={cn(
+                    "w-8 h-8 rounded-full p-0 flex items-center justify-center border-0",
+                    priorityColors[ticket.priority]
+                  )}
+                >
+                  <AlertCircle className="w-4 h-4 text-white" />
+                </Badge>
+              </TableCell>
+              <TableCell className="font-semibold text-foreground">{ticket.operator}</TableCell>
+              <TableCell className="text-right">
+                <Button
+                  variant={ticket.status === 'in-progress' ? 'secondary' : 'default'}
+                  size="sm"
+                  onClick={() => handleStartTicket(ticket.id)}
+                  className={cn(
+                    "font-semibold gap-2",
+                    ticket.status === 'in-progress' && "bg-success hover:bg-success"
+                  )}
+                >
+                  <PlayCircle className="w-4 h-4" />
+                  {ticket.status === 'in-progress' ? 'Em andamento' : 'Iniciar'}
+                </Button>
+              </TableCell>
+            </TableRow>
           ))}
-        </div>
-        
-        <div>
-          {tickets.map((ticket, index) => (
-            <div key={ticket.id} className={`flex items-stretch gap-5 justify-between ${index > 0 ? 'mt-6' : ''}`}>
-              <div>{ticket.category}</div>
-              <div>{ticket.created}</div>
-              <img
-                src="https://api.builder.io/api/v1/image/assets/a8745fae349148d29c592f7172b9153a/df0bc80e9f02ffabe729367d0d4fe7277f1a5f6e?placeholderIfAbsent=true"
-                alt="Priority indicator"
-                className="aspect-[1.05] object-contain w-[22px] shrink-0"
-              />
-            </div>
-          ))}
-        </div>
-        
-        <div className="font-bold my-auto">
-          {tickets.map((ticket, index) => (
-            <div key={ticket.id} className={index > 0 ? 'mt-[26px]' : ''}>
-              {ticket.operator}
-            </div>
-          ))}
-        </div>
-        
-        <div className="font-bold whitespace-nowrap">
-          {tickets.map((ticket, index) => (
-            <div key={ticket.id} className={`flex items-stretch gap-1.5 ${index > 0 ? 'mt-5' : ''}`}>
-              <img
-                src="https://api.builder.io/api/v1/image/assets/a8745fae349148d29c592f7172b9153a/2e62f3ae70c212423697f0db2d98188fc827dae3?placeholderIfAbsent=true"
-                alt="Status icon"
-                className="aspect-[1] object-contain w-6 shrink-0"
-              />
-              <button
-                className="my-auto hover:text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded px-1 transition-colors"
-                onClick={() => handleStartTicket(ticket.id)}
-                aria-label={`Start ticket ${ticket.id}`}
-              >
-                {ticket.status === 'in-progress' ? 'Em andamento' : 'Iniciar'}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
+        </TableBody>
+      </Table>
+    </div>
   );
 };

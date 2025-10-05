@@ -6,14 +6,15 @@ import { RightSidebar } from './RightSidebar';
 
 export const Dashboard: React.FC = () => {
   return (
-    <div className="bg-white overflow-hidden pr-[31px] pt-2.5 max-md:pr-5">
-      <DashboardHeader userName="Samuel" />
+    <div className="flex min-h-screen bg-background">
+      <Sidebar />
       
-      <main className="flex gap-5 justify-between mt-[5px]">
-        <Sidebar />
+      <main className="flex-1 p-8 lg:p-12 max-w-7xl mx-auto w-full">
+        <DashboardHeader userName="Samuel" />
         <TicketsTable />
-        <RightSidebar />
       </main>
+      
+      <RightSidebar />
     </div>
   );
 };
