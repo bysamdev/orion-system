@@ -1,0 +1,241 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Sidebar } from '@/components/dashboard/Sidebar';
+import { TopBar } from '@/components/dashboard/TopBar';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Send } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+const ticketSchema = z.object({
+  title: z.string().min(5, 'Título deve ter no mínimo 5 caracteres').max(100, 'Título muito longo'),
+  category: z.string().min(1, 'Selecione uma categoria'),
+  priority: z.enum(['low', 'medium', 'high'], { required_error: 'Selecione uma prioridade' }),
+  description: z.string().min(20, 'Descrição deve ter no mínimo 20 caracteres').max(1000, 'Descrição muito longa'),
+  requester: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres').max(100, 'Nome muito longo'),
+  email: z.string().email('Email inválido'),
+  department: z.string().min(1, 'Selecione um departamento'),
+});
+
+type TicketFormValues = z.infer<typeof ticketSchema>;
+
+const NewTicket = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const form = useForm<TicketFormValues>({
+    resolver: zodResolver(ticketSchema),
+    defaultValues: {
+      title: '',
+      category: '',
+      priority: 'medium',
+      description: '',
+      requester: '',
+      email: '',
+      department: '',
+    },
+  });
+
+  const onSubmit = (data: TicketFormValues) => {
+    console.log('Ticket data:', data);
+    toast({
+      title: 'Chamado criado com sucesso!',
+      description: `Seu chamado foi registrado e será atendido em breve.`,
+    });
+    navigate('/');
+  };
+
+  return (
+    <div className="flex min-h-screen bg-background">
+      <Sidebar />
+      
+      <main className="flex-1 p-8 lg:p-12 max-w-5xl mx-auto w-full">
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/')}
+          className="mb-6 gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Voltar ao Dashboard
+        </Button>
+        
+        <TopBar />
+        
+        <Card className="border-border shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-2xl">Novo Chamado</CardTitle>
+            <CardDescription>
+              Preencha o formulário abaixo para abrir um novo chamado de suporte
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="requester"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome do Solicitante *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Digite seu nome completo" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email *</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="seu.email@empresa.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Título do Chamado *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Descreva o problema brevemente" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Categoria *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="erp">ERP</SelectItem>
+                            <SelectItem value="email">E-mail</SelectItem>
+                            <SelectItem value="hardware">Hardware</SelectItem>
+                            <SelectItem value="software">Software</SelectItem>
+                            <SelectItem value="rede">Rede</SelectItem>
+                            <SelectItem value="outros">Outros</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="priority"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prioridade *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="low">Baixa</SelectItem>
+                            <SelectItem value="medium">Média</SelectItem>
+                            <SelectItem value="high">Alta</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="department"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Departamento *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="ti">TI</SelectItem>
+                            <SelectItem value="financeiro">Financeiro</SelectItem>
+                            <SelectItem value="rh">RH</SelectItem>
+                            <SelectItem value="operacional">Operacional</SelectItem>
+                            <SelectItem value="comercial">Comercial</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrição do Problema *</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Descreva detalhadamente o problema que você está enfrentando..."
+                          className="min-h-[150px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end gap-4 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate('/')}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" className="gap-2">
+                    <Send className="w-4 h-4" />
+                    Abrir Chamado
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+};
+
+export default NewTicket;
