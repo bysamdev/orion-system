@@ -34,24 +34,24 @@ export const StatsReport: React.FC = () => {
 
   return (
     <Card className="border-border shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <Activity className="w-5 h-5 text-primary" />
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <Activity className="w-4 h-4 text-primary" />
           Relatório de Chamados
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs value={period} onValueChange={(v) => setPeriod(v as 'daily' | 'weekly')} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="daily">Diário</TabsTrigger>
-            <TabsTrigger value="weekly">Semanal</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 mb-4 bg-muted">
+            <TabsTrigger value="daily" className="data-[state=active]:bg-background">Diário</TabsTrigger>
+            <TabsTrigger value="weekly" className="data-[state=active]:bg-background">Semanal</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="daily" className="space-y-4">
+          <TabsContent value="daily" className="space-y-4 mt-4">
             <ReportContent data={data} />
           </TabsContent>
           
-          <TabsContent value="weekly" className="space-y-4">
+          <TabsContent value="weekly" className="space-y-4 mt-4">
             <ReportContent data={data} />
           </TabsContent>
         </Tabs>
@@ -64,31 +64,24 @@ const ReportContent: React.FC<{ data: ReportData }> = ({ data }) => {
   const solvedPercentage = (data.solved / data.opened * 100).toFixed(0);
   
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 rounded-lg bg-primary/10">
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-3 rounded-lg bg-muted/50">
           <p className="text-xs text-muted-foreground mb-1">Abertos</p>
-          <p className="text-2xl font-bold text-foreground">{data.opened}</p>
+          <p className="text-3xl font-bold text-foreground">{data.opened}</p>
         </div>
         
-        <div className="p-4 rounded-lg bg-success/10">
+        <div className="p-3 rounded-lg bg-success/10">
           <p className="text-xs text-muted-foreground mb-1">Solucionados</p>
-          <p className="text-2xl font-bold text-foreground">{data.solved}</p>
+          <p className="text-3xl font-bold text-foreground">{data.solved}</p>
         </div>
       </div>
       
-      <div className="p-4 rounded-lg bg-muted">
+      <div className="p-4 rounded-lg bg-muted/30">
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs text-muted-foreground">Taxa de Solução</p>
-          <div className={cn(
-            "flex items-center gap-1 text-xs font-medium",
-            data.trend === 'up' ? 'text-success' : 'text-destructive'
-          )}>
-            {data.trend === 'up' ? (
-              <TrendingUp className="w-3 h-3" />
-            ) : (
-              <TrendingDown className="w-3 h-3" />
-            )}
+          <div className="flex items-center gap-1 text-sm font-semibold text-success">
+            <TrendingUp className="w-3 h-3" />
             {solvedPercentage}%
           </div>
         </div>
@@ -100,9 +93,9 @@ const ReportContent: React.FC<{ data: ReportData }> = ({ data }) => {
         </div>
       </div>
       
-      <div className="p-4 rounded-lg bg-accent/10 border border-accent">
+      <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
         <p className="text-xs text-muted-foreground mb-1">Tempo Médio de Resposta</p>
-        <p className="text-xl font-bold text-foreground">{data.average}</p>
+        <p className="text-2xl font-bold text-foreground">{data.average}</p>
       </div>
     </div>
   );
