@@ -24,7 +24,7 @@ export const TopBar: React.FC = () => {
         <Button 
           variant="ghost" 
           size="sm"
-          onClick={() => navigate('/new-ticket')}
+          onClick={() => navigate('/novo-ticket')}
           className="text-primary hover:text-primary hover:bg-primary/10 font-medium"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -44,6 +44,7 @@ export const TopBar: React.FC = () => {
         <Button 
           variant="ghost" 
           size="sm"
+          onClick={() => navigate('/ajustes')}
           className="text-primary hover:text-primary hover:bg-primary/10 font-medium"
         >
           <Settings className="w-4 h-4 mr-2" />

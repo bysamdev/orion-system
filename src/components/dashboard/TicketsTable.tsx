@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -61,6 +62,7 @@ const priorityColors = {
 };
 
 export const TicketsTable: React.FC = () => {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>(mockTickets);
 
   const handleStartTicket = (ticketId: string) => {
@@ -89,7 +91,11 @@ export const TicketsTable: React.FC = () => {
         </TableHeader>
         <TableBody>
           {tickets.map((ticket) => (
-            <TableRow key={ticket.id} className="hover:bg-muted/30 transition-colors">
+            <TableRow 
+              key={ticket.id} 
+              className="hover:bg-muted/30 transition-colors cursor-pointer"
+              onClick={() => navigate(`/ticket/${ticket.id}`)}
+            >
               <TableCell className="font-mono font-medium text-foreground">{ticket.id}</TableCell>
               <TableCell>
                 <div>
@@ -110,7 +116,10 @@ export const TicketsTable: React.FC = () => {
                 <Button
                   variant={ticket.status === 'in-progress' ? 'secondary' : 'default'}
                   size="sm"
-                  onClick={() => handleStartTicket(ticket.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartTicket(ticket.id);
+                  }}
                   disabled={ticket.status === 'in-progress'}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2"
                 >
