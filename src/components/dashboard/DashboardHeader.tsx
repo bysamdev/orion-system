@@ -18,10 +18,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({ userName = "Sa
       <h1 className="text-4xl md:text-5xl font-light text-foreground">
         Olá <span className="font-bold">{userName}!</span>
       </h1>
-      <p className="text-muted-foreground text-sm mt-1 capitalize">
+      <p className="text-muted-foreground text-sm mt-2 capitalize">
         Hoje é {dateString}
       </p>
-      <div className="text-muted-foreground text-base mt-6">
+      <div className="text-foreground text-base mt-8 mb-4">
         <span className="font-bold">Últimos</span> chamados abertos:
       </div>
     </header>

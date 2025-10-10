@@ -1,34 +1,30 @@
 import React from 'react';
 import { DashboardHeader } from './DashboardHeader';
-import { Sidebar } from './Sidebar';
 import { TicketsTable } from './TicketsTable';
-import { RightSidebar } from './RightSidebar';
 import { TopBar } from './TopBar';
 import { ClosedTickets } from './ClosedTickets';
 import { StatsReport } from './StatsReport';
+import { QuickStats } from './QuickStats';
 
 export const Dashboard: React.FC = () => {
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      
-      <main className="flex-1 p-8 lg:p-12 max-w-7xl mx-auto w-full">
+    <div className="min-h-screen bg-background">
+      <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
         <TopBar />
         <DashboardHeader userName="Samuel" />
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
             <TicketsTable />
             <ClosedTickets />
           </div>
           
           <div className="space-y-6">
             <StatsReport />
+            <QuickStats />
           </div>
         </div>
       </main>
-      
-      <RightSidebar />
     </div>
   );
 };

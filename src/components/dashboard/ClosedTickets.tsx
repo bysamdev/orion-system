@@ -19,29 +19,29 @@ const closedTickets: ClosedTicket[] = [
 
 export const ClosedTickets: React.FC = () => {
   return (
-    <Card className="border-border shadow-sm mt-6">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 text-success" />
+    <Card className="border-border shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-success" />
           Últimos Chamados Fechados
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
           {closedTickets.map((ticket) => (
-            <div key={ticket.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="font-mono">{ticket.id}</Badge>
-                <div>
+            <div key={ticket.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+              <div className="flex items-center gap-4 flex-1">
+                <Badge variant="outline" className="font-mono font-semibold">{ticket.id}</Badge>
+                <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">{ticket.requester}</p>
                   <p className="text-xs text-muted-foreground">{ticket.category}</p>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-center mx-4">
                 <p className="text-xs text-muted-foreground">Resolvido por</p>
-                <p className="text-sm font-medium text-foreground">{ticket.resolvedBy}</p>
+                <p className="text-sm font-semibold text-foreground">{ticket.resolvedBy}</p>
               </div>
-              <p className="text-xs text-muted-foreground">{ticket.closedAt}</p>
+              <p className="text-xs text-muted-foreground min-w-[60px] text-right">{ticket.closedAt}</p>
             </div>
           ))}
         </div>

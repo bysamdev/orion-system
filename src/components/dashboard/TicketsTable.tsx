@@ -20,34 +20,34 @@ const mockTickets: Ticket[] = [
     id: '#1010',
     requester: 'Cleber Junior',
     category: 'ERP',
-    created: 'há 3h',
+    created: 'há 21m',
     priority: 'high',
     operator: 'Marcos Almeida',
     status: 'open'
   },
   {
-    id: '#1292',
+    id: '#1009',
     requester: 'Roberto Mariano',
     category: 'E-mail',
-    created: 'há 2h',
+    created: 'há 6h',
     priority: 'high',
     operator: 'Marcos Almeida',
     status: 'open'
   },
   {
-    id: '#1156',
+    id: '#1008',
     requester: 'Ana Silva',
     category: 'Hardware',
-    created: 'há 5h',
+    created: 'há 23h',
     priority: 'medium',
     operator: 'Marcos Almeida',
     status: 'open'
   },
   {
-    id: '#1089',
+    id: '#1007',
     requester: 'Carlos Santos',
     category: 'Rede',
-    created: 'há 6h',
+    created: 'há 12d',
     priority: 'low',
     operator: 'Marcos Almeida',
     status: 'open'
@@ -55,9 +55,9 @@ const mockTickets: Ticket[] = [
 ];
 
 const priorityColors = {
-  high: 'bg-destructive hover:bg-destructive',
-  medium: 'bg-warning hover:bg-warning',
-  low: 'bg-muted hover:bg-muted'
+  high: 'bg-destructive',
+  medium: 'bg-warning',
+  low: 'bg-muted'
 };
 
 export const TicketsTable: React.FC = () => {
@@ -74,50 +74,48 @@ export const TicketsTable: React.FC = () => {
   };
 
   return (
-    <div className="bg-card rounded-3xl p-6 shadow-sm border border-border">
+    <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent border-b border-border">
-            <TableHead className="font-bold text-foreground">Ticket</TableHead>
-            <TableHead className="font-bold text-foreground">Solicitante</TableHead>
-            <TableHead className="font-bold text-foreground">Categoria</TableHead>
-            <TableHead className="font-bold text-foreground">Criado</TableHead>
-            <TableHead className="font-bold text-foreground">Prioridade</TableHead>
-            <TableHead className="font-bold text-foreground">Operador</TableHead>
-            <TableHead className="font-bold text-foreground text-right">Status</TableHead>
+            <TableHead className="font-semibold text-foreground">Ticket</TableHead>
+            <TableHead className="font-semibold text-foreground">Solicitante</TableHead>
+            <TableHead className="font-semibold text-foreground">Categoria</TableHead>
+            <TableHead className="font-semibold text-foreground">Criado</TableHead>
+            <TableHead className="font-semibold text-foreground">Prioridade</TableHead>
+            <TableHead className="font-semibold text-foreground">Operador</TableHead>
+            <TableHead className="font-semibold text-foreground text-center">Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {tickets.map((ticket) => (
-            <TableRow key={ticket.id} className="hover:bg-muted/50 transition-colors">
-              <TableCell className="font-medium text-muted-foreground">{ticket.id}</TableCell>
-              <TableCell className="text-foreground">{ticket.requester}</TableCell>
-              <TableCell className="text-muted-foreground">{ticket.category}</TableCell>
-              <TableCell className="text-muted-foreground">{ticket.created}</TableCell>
+            <TableRow key={ticket.id} className="hover:bg-muted/30 transition-colors">
+              <TableCell className="font-mono font-medium text-foreground">{ticket.id}</TableCell>
               <TableCell>
-                <Badge 
-                  variant="secondary" 
-                  className={cn(
-                    "w-8 h-8 rounded-full p-0 flex items-center justify-center border-0",
-                    priorityColors[ticket.priority]
-                  )}
-                >
-                  <AlertCircle className="w-4 h-4 text-white" />
-                </Badge>
+                <div>
+                  <div className="font-medium text-foreground">{ticket.requester.split(' ')[0]}</div>
+                  <div className="text-sm text-muted-foreground">{ticket.requester.split(' ').slice(1).join(' ')}</div>
+                </div>
               </TableCell>
-              <TableCell className="font-semibold text-foreground">{ticket.operator}</TableCell>
-              <TableCell className="text-right">
+              <TableCell className="text-muted-foreground">{ticket.category}</TableCell>
+              <TableCell className="text-muted-foreground text-sm">{ticket.created}</TableCell>
+              <TableCell>
+                <div className={cn("w-6 h-6 rounded-full", priorityColors[ticket.priority])}></div>
+              </TableCell>
+              <TableCell>
+                <div className="font-medium text-foreground">{ticket.operator.split(' ')[0]}</div>
+                <div className="text-sm text-muted-foreground">{ticket.operator.split(' ').slice(1).join(' ')}</div>
+              </TableCell>
+              <TableCell className="text-center">
                 <Button
                   variant={ticket.status === 'in-progress' ? 'secondary' : 'default'}
                   size="sm"
                   onClick={() => handleStartTicket(ticket.id)}
-                  className={cn(
-                    "font-semibold gap-2",
-                    ticket.status === 'in-progress' && "bg-success hover:bg-success"
-                  )}
+                  disabled={ticket.status === 'in-progress'}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2"
                 >
                   <PlayCircle className="w-4 h-4" />
-                  {ticket.status === 'in-progress' ? 'Em andamento' : 'Iniciar'}
+                  {ticket.status === 'in-progress' ? 'Em Andamento' : 'Iniciar'}
                 </Button>
               </TableCell>
             </TableRow>
