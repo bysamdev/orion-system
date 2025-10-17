@@ -38,6 +38,7 @@ export const TicketsTable: React.FC = () => {
 
   return (
     <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
+      <h3 className="text-base font-semibold mb-4 text-foreground">Últimos chamados abertos</h3>
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent border-b border-border">
