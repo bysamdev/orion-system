@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { PlayCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTickets, useUpdateTicketStatus } from '@/hooks/useTickets';
+import { useUserRole } from '@/hooks/useUserRole';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -14,10 +15,21 @@ const priorityColors = {
   low: 'bg-muted'
 };
 
+const statusLabels: Record<string, string> = {
+  'open': 'Aberto',
+  'in-progress': 'Em Andamento',
+  'resolved': 'Resolvido',
+  'closed': 'Fechado'
+};
+
 export const TicketsTable: React.FC = () => {
   const navigate = useNavigate();
   const { data: tickets = [], isLoading } = useTickets('open');
+  const { data: userRole } = useUserRole();
   const updateStatus = useUpdateTicketStatus();
+
+  // Check if user can manage tickets (technician or admin)
+  const canManageTickets = userRole === 'technician' || userRole === 'admin';
 
   const handleStartTicket = async (ticketId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -81,16 +93,22 @@ export const TicketsTable: React.FC = () => {
                 )}
               </TableCell>
               <TableCell className="text-center">
-                <Button
-                  variant={ticket.status === 'in-progress' ? 'secondary' : 'default'}
-                  size="sm"
-                  onClick={(e) => handleStartTicket(ticket.id, e)}
-                  disabled={ticket.status === 'in-progress' || updateStatus.isPending}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2"
-                >
-                  <PlayCircle className="w-4 h-4" />
-                  {ticket.status === 'in-progress' ? 'Em Andamento' : 'Iniciar'}
-                </Button>
+                {canManageTickets ? (
+                  <Button
+                    variant={ticket.status === 'in-progress' ? 'secondary' : 'default'}
+                    size="sm"
+                    onClick={(e) => handleStartTicket(ticket.id, e)}
+                    disabled={ticket.status === 'in-progress' || updateStatus.isPending}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2"
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    {ticket.status === 'in-progress' ? 'Em Andamento' : 'Iniciar'}
+                  </Button>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    {statusLabels[ticket.status] || ticket.status}
+                  </span>
+                )}
               </TableCell>
             </TableRow>
           ))}
