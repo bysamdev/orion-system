@@ -34,34 +34,44 @@ export const useTickets = (status?: string) => {
     queryFn: async () => {
       let query = supabase
         .from('tickets')
-        .select(`
-          *,
-          profiles!tickets_user_id_fkey(
-            full_name,
-            companies(name)
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (status) {
         query = query.eq('status', status);
       }
 
-      const { data, error } = await query;
+      const { data: tickets, error } = await query;
 
       if (error) {
         console.error('Error fetching tickets:', error);
         throw error;
       }
       
-      // Map the data to include company_name
-      const tickets = data?.map((ticket: any) => ({
-        ...ticket,
-        company_name: ticket.profiles?.companies?.name || null,
-        profiles: undefined, // Remove nested object
-      })) as Ticket[];
+      if (!tickets || tickets.length === 0) {
+        return [];
+      }
+
+      // Fetch user profiles and companies separately
+      const userIds = [...new Set(tickets.map(t => t.user_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, company_id, companies(name)')
+        .in('id', userIds);
+
+      // Map profiles by user_id for easy lookup
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+      // Combine tickets with profile data
+      const enrichedTickets = tickets.map((ticket: any) => {
+        const profile = profileMap.get(ticket.user_id);
+        return {
+          ...ticket,
+          company_name: profile?.companies?.name || null,
+        };
+      }) as Ticket[];
       
-      return tickets || [];
+      return enrichedTickets;
     },
   });
 };
@@ -70,27 +80,28 @@ export const useTicket = (id: string) => {
   return useQuery({
     queryKey: ['ticket', id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: ticket, error } = await supabase
         .from('tickets')
-        .select(`
-          *,
-          profiles!tickets_user_id_fkey(
-            companies(name)
-          )
-        `)
+        .select('*')
         .eq('id', id)
         .single();
 
       if (error) throw error;
       
+      // Fetch profile and company data separately
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, company_id, companies(name)')
+        .eq('id', ticket.user_id)
+        .single();
+      
       // Include company_name
-      const ticket = {
-        ...data,
-        company_name: (data as any).profiles?.companies?.name || null,
-        profiles: undefined,
+      const enrichedTicket = {
+        ...ticket,
+        company_name: profile?.companies?.name || null,
       } as Ticket;
       
-      return ticket;
+      return enrichedTicket;
     },
     enabled: !!id,
   });
