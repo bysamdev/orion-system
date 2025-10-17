@@ -20,26 +20,29 @@ export default function Settings() {
   
   const [fullName, setFullName] = useState('');
   const [department, setDepartment] = useState('');
-  const [companyId, setCompanyId] = useState<string>('');
 
-  const { data: companies, isLoading: companiesLoading } = useQuery({
-    queryKey: ['companies'],
+  // Fetch user's company only (not all companies for security)
+  const { data: userCompany } = useQuery({
+    queryKey: ['user-company', profile?.company_id],
     queryFn: async () => {
+      if (!profile?.company_id) return null;
+      
       const { data, error } = await supabase
         .from('companies')
         .select('*')
-        .order('name');
-
+        .eq('id', profile.company_id)
+        .maybeSingle();
+      
       if (error) throw error;
       return data;
-    }
+    },
+    enabled: !!profile?.company_id
   });
 
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || '');
       setDepartment(profile.department || '');
-      setCompanyId(profile.company_id || '');
     }
   }, [profile]);
 
@@ -50,7 +53,6 @@ export default function Settings() {
         .update({
           full_name: fullName,
           department: department,
-          company_id: companyId || null
         })
         .eq('id', profile?.id);
 
@@ -72,7 +74,7 @@ export default function Settings() {
     }
   });
 
-  if (profileLoading || companiesLoading) {
+  if (profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -121,18 +123,15 @@ export default function Settings() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="company">Empresa</Label>
-                    <Select value={companyId} onValueChange={setCompanyId}>
-                      <SelectTrigger id="company">
-                        <SelectValue placeholder="Selecione uma empresa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companies?.map((company) => (
-                          <SelectItem key={company.id} value={company.id}>
-                            {company.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      id="company"
+                      value={userCompany?.name || 'Nenhuma empresa atribuída'}
+                      disabled
+                      className="bg-muted"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Contate um administrador para alterar sua empresa
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="department">Departamento</Label>

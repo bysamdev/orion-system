@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { TopBar } from '@/components/dashboard/TopBar';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,8 @@ import { ArrowLeft, Clock, User, Tag, AlertCircle, MessageSquare, CheckCircle2, 
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useAddTicketUpdate } from '@/hooks/useTickets';
+import { useUserRole } from '@/hooks/useUserRole';
+import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -21,11 +24,37 @@ const TicketDetails: React.FC = () => {
   
   const { data: ticket, isLoading: ticketLoading } = useTicket(id || '');
   const { data: updates = [], isLoading: updatesLoading } = useTicketUpdates(id || '');
+  const { data: userRole } = useUserRole();
   const updateStatus = useUpdateTicketStatus();
   const updateAssignment = useUpdateTicketAssignment();
   const addUpdate = useAddTicketUpdate();
   
   const [newUpdateText, setNewUpdateText] = useState('');
+
+  // Fetch real technicians with their roles
+  const { data: technicians = [], isLoading: techniciansLoading } = useQuery({
+    queryKey: ['technicians'],
+    queryFn: async () => {
+      // First get user IDs with technician/admin roles
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .in('role', ['technician', 'admin']);
+      
+      if (roleError) throw roleError;
+      if (!roleData || roleData.length === 0) return [];
+      
+      // Then fetch profiles for those users
+      const userIds = roleData.map(r => r.user_id);
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+      
+      if (profileError) throw profileError;
+      return profiles || [];
+    }
+  });
 
   const priorityColors = {
     high: 'bg-destructive',
@@ -53,19 +82,15 @@ const TicketDetails: React.FC = () => {
     'closed': 'bg-gray-500'
   };
 
-  const availableTechnicians = [
-    'Samuel Costa',
-    'Marcos Almeida',
-    'Ana Silva',
-    'Pedro Santos'
-  ];
+  // Check if user can manage tickets (technician or admin)
+  const canManageTickets = userRole === 'technician' || userRole === 'admin';
 
   const handleAddUpdate = async () => {
     if (!newUpdateText.trim() || !ticket) return;
 
+    // Author is now set automatically by database trigger
     await addUpdate.mutateAsync({
       ticket_id: ticket.id,
-      author: ticket.assigned_to || 'Sistema',
       content: newUpdateText,
       type: 'comment'
     });
@@ -74,29 +99,28 @@ const TicketDetails: React.FC = () => {
   };
 
   const handleStatusChange = async (newStatus: string) => {
-    if (!ticket) return;
+    if (!ticket || !canManageTickets) return;
     
     await updateStatus.mutateAsync({ id: ticket.id, status: newStatus });
     
-    // Add status change to updates
+    // Add status change to updates (author set by trigger)
     await addUpdate.mutateAsync({
       ticket_id: ticket.id,
-      author: 'Sistema',
       content: `Status alterado para: ${statusLabels[newStatus as keyof typeof statusLabels]}`,
       type: 'status'
     });
   };
 
-  const handleAssignmentChange = async (technician: string) => {
-    if (!ticket) return;
+  const handleAssignmentChange = async (technicianName: string) => {
+    if (!ticket || !canManageTickets) return;
     
-    await updateAssignment.mutateAsync({ id: ticket.id, assigned_to: technician });
+    // Assignment now validated by database trigger
+    await updateAssignment.mutateAsync({ id: ticket.id, assigned_to: technicianName });
     
-    // Add assignment change to updates
+    // Add assignment change to updates (author set by trigger)
     await addUpdate.mutateAsync({
       ticket_id: ticket.id,
-      author: 'Sistema',
-      content: `Chamado atribuído para: ${technician}`,
+      content: `Chamado atribuído para: ${technicianName}`,
       type: 'assignment'
     });
   };
@@ -289,12 +313,24 @@ const TicketDetails: React.FC = () => {
             <Card className="p-6">
               <h3 className="font-semibold text-foreground mb-4">Gestão do Chamado</h3>
               
+              {!canManageTickets && (
+                <div className="bg-muted/50 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-muted-foreground">
+                    Apenas técnicos e administradores podem gerenciar chamados.
+                  </p>
+                </div>
+              )}
+              
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-foreground mb-2 block">
                     Status do Chamado
                   </label>
-                  <Select value={ticket.status} onValueChange={handleStatusChange}>
+                  <Select 
+                    value={ticket.status} 
+                    onValueChange={handleStatusChange}
+                    disabled={!canManageTickets}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
@@ -311,13 +347,19 @@ const TicketDetails: React.FC = () => {
                   <label className="text-sm font-medium text-foreground mb-2 block">
                     Atribuir Técnico
                   </label>
-                  <Select value={ticket.assigned_to || ''} onValueChange={handleAssignmentChange}>
+                  <Select 
+                    value={ticket.assigned_to || ''} 
+                    onValueChange={handleAssignmentChange}
+                    disabled={!canManageTickets || techniciansLoading}
+                  >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione um técnico" />
+                      <SelectValue placeholder={techniciansLoading ? "Carregando..." : "Selecione um técnico"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableTechnicians.map((tech) => (
-                        <SelectItem key={tech} value={tech}>{tech}</SelectItem>
+                      {technicians.map((tech) => (
+                        <SelectItem key={tech.id} value={tech.full_name || ''}>
+                          {tech.full_name || 'Sem nome'}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -330,7 +372,7 @@ const TicketDetails: React.FC = () => {
                     variant="default"
                     className="w-full justify-start gap-2"
                     onClick={() => handleStatusChange('resolved')}
-                    disabled={ticket.status === 'resolved' || ticket.status === 'closed' || updateStatus.isPending}
+                    disabled={!canManageTickets || ticket.status === 'resolved' || ticket.status === 'closed' || updateStatus.isPending}
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     Marcar como Resolvido
