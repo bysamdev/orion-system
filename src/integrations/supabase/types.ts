@@ -14,7 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ticket_updates: {
+        Row: {
+          author: string
+          content: string
+          created_at: string | null
+          id: string
+          ticket_id: string
+          type: string
+        }
+        Insert: {
+          author: string
+          content: string
+          created_at?: string | null
+          id?: string
+          ticket_id: string
+          type: string
+        }
+        Update: {
+          author?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          ticket_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_updates_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          assigned_to: string | null
+          category: string
+          created_at: string | null
+          department: string | null
+          description: string
+          id: string
+          operator_name: string | null
+          priority: string
+          requester_name: string
+          status: string
+          ticket_number: number
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          category: string
+          created_at?: string | null
+          department?: string | null
+          description: string
+          id?: string
+          operator_name?: string | null
+          priority: string
+          requester_name: string
+          status?: string
+          ticket_number?: number
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          category?: string
+          created_at?: string | null
+          department?: string | null
+          description?: string
+          id?: string
+          operator_name?: string | null
+          priority?: string
+          requester_name?: string
+          status?: string
+          ticket_number?: number
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
