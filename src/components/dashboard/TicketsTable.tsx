@@ -43,6 +43,7 @@ export const TicketsTable: React.FC = () => {
           <TableRow className="hover:bg-transparent border-b border-border">
             <TableHead className="font-semibold text-foreground">Ticket</TableHead>
             <TableHead className="font-semibold text-foreground">Solicitante</TableHead>
+            <TableHead className="font-semibold text-foreground">Empresa</TableHead>
             <TableHead className="font-semibold text-foreground">Categoria</TableHead>
             <TableHead className="font-semibold text-foreground">Criado</TableHead>
             <TableHead className="font-semibold text-foreground">Prioridade</TableHead>
@@ -64,6 +65,7 @@ export const TicketsTable: React.FC = () => {
                   <div className="text-sm text-muted-foreground">{ticket.requester_name.split(' ').slice(1).join(' ')}</div>
                 </div>
               </TableCell>
+              <TableCell className="text-muted-foreground">{ticket.company_name || 'N/A'}</TableCell>
               <TableCell className="text-muted-foreground">{ticket.category}</TableCell>
               <TableCell className="text-muted-foreground text-sm">{formatTimeAgo(ticket.created_at)}</TableCell>
               <TableCell>
