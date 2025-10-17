@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Sidebar } from '@/components/dashboard/Sidebar';
 import { TopBar } from '@/components/dashboard/TopBar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -108,10 +107,10 @@ const NewTicket = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      
-      <main className="flex-1 p-8 lg:p-12 max-w-5xl mx-auto w-full">
+    <div className="min-h-screen bg-background">
+      <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
+        <TopBar />
+        
         <Button
           variant="ghost"
           onClick={() => navigate('/')}
@@ -120,8 +119,6 @@ const NewTicket = () => {
           <ArrowLeft className="w-4 h-4" />
           Voltar ao Dashboard
         </Button>
-        
-        <TopBar />
         
         <Card className="border-border shadow-sm">
           <CardHeader>
