@@ -1,17 +1,18 @@
 import React from 'react';
-import { Bell, Search, User, Plus, LayoutDashboard, Settings, LogOut } from 'lucide-react';
+import { Home, Plus, Settings, Shield, Bell, Search, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useUserProfile } from '@/hooks/useUserRole';
+import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const { data: profile } = useUserProfile();
+  const { data: role } = useUserRole();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -61,6 +62,18 @@ export const TopBar: React.FC = () => {
           <Settings className="w-4 h-4 mr-2" />
           Ajustes
         </Button>
+
+        {role === 'admin' && (
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => navigate('/admin')}
+            className="text-primary hover:text-primary hover:bg-primary/10 font-medium"
+          >
+            <Shield className="w-4 h-4 mr-2" />
+            Admin
+          </Button>
+        )}
         
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="w-5 h-5" />
