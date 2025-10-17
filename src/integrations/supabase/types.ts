@@ -76,6 +76,7 @@ export type Database = {
       ticket_updates: {
         Row: {
           author: string
+          author_id: string | null
           content: string
           created_at: string | null
           id: string
@@ -84,6 +85,7 @@ export type Database = {
         }
         Insert: {
           author: string
+          author_id?: string | null
           content: string
           created_at?: string | null
           id?: string
@@ -92,6 +94,7 @@ export type Database = {
         }
         Update: {
           author?: string
+          author_id?: string | null
           content?: string
           created_at?: string | null
           id?: string
@@ -111,6 +114,7 @@ export type Database = {
       tickets: {
         Row: {
           assigned_to: string | null
+          assigned_to_user_id: string | null
           category: string
           created_at: string | null
           department: string | null
@@ -123,10 +127,11 @@ export type Database = {
           ticket_number: number
           title: string
           updated_at: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           assigned_to?: string | null
+          assigned_to_user_id?: string | null
           category: string
           created_at?: string | null
           department?: string | null
@@ -139,10 +144,11 @@ export type Database = {
           ticket_number?: number
           title: string
           updated_at?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           assigned_to?: string | null
+          assigned_to_user_id?: string | null
           category?: string
           created_at?: string | null
           department?: string | null
@@ -155,9 +161,17 @@ export type Database = {
           ticket_number?: number
           title?: string
           updated_at?: string | null
-          user_id?: string | null
+          user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tickets_assigned_to_user_id_fkey"
+            columns: ["assigned_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

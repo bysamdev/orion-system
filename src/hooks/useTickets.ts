@@ -150,15 +150,16 @@ export const useUpdateTicketAssignment = () => {
 
 export const useAddTicketUpdate = () => {
   const queryClient = useQueryClient();
-
+  
   return useMutation({
-    mutationFn: async (update: Omit<TicketUpdate, 'id' | 'created_at'>) => {
+    mutationFn: async (update: { ticket_id: string; content: string; type: string }) => {
+      // Author is set automatically by database trigger - we provide a placeholder
       const { data, error } = await supabase
         .from('ticket_updates')
-        .insert(update)
+        .insert([{ ...update, author: '' }])
         .select()
         .single();
-
+      
       if (error) throw error;
       return data;
     },
