@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { supabaseRead } from '@/integrations/supabase/read-client';
 import { toast } from '@/hooks/use-toast';
 
 export interface Ticket {
@@ -32,7 +33,8 @@ export const useTickets = (status?: string) => {
   return useQuery({
     queryKey: ['tickets', status],
     queryFn: async () => {
-      let query = supabase
+      // Use read client for queries
+      let query = supabaseRead
         .from('tickets')
         .select('*')
         .order('created_at', { ascending: false });
@@ -52,9 +54,9 @@ export const useTickets = (status?: string) => {
         return [];
       }
 
-      // Fetch user profiles and companies separately
+      // Fetch user profiles and companies separately (using read client)
       const userIds = [...new Set(tickets.map(t => t.user_id))];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await supabaseRead
         .from('profiles')
         .select('id, full_name, company_id, companies(name)')
         .in('id', userIds);
@@ -80,7 +82,8 @@ export const useTicket = (id: string) => {
   return useQuery({
     queryKey: ['ticket', id],
     queryFn: async () => {
-      const { data: ticket, error } = await supabase
+      // Use read client for queries
+      const { data: ticket, error } = await supabaseRead
         .from('tickets')
         .select('*')
         .eq('id', id)
@@ -88,8 +91,8 @@ export const useTicket = (id: string) => {
 
       if (error) throw error;
       
-      // Fetch profile and company data separately
-      const { data: profile } = await supabase
+      // Fetch profile and company data separately (using read client)
+      const { data: profile } = await supabaseRead
         .from('profiles')
         .select('full_name, company_id, companies(name)')
         .eq('id', ticket.user_id)
@@ -111,7 +114,8 @@ export const useTicketUpdates = (ticketId: string) => {
   return useQuery({
     queryKey: ['ticket-updates', ticketId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Use read client for queries
+      const { data, error } = await supabaseRead
         .from('ticket_updates')
         .select('*')
         .eq('ticket_id', ticketId)
