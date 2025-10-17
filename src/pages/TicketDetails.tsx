@@ -10,48 +10,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Clock, User, Tag, AlertCircle, MessageSquare, CheckCircle2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-
-interface TicketUpdate {
-  id: string;
-  author: string;
-  content: string;
-  timestamp: string;
-  date: string;
-  type: 'comment' | 'status' | 'assignment' | 'created';
-}
+import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useAddTicketUpdate } from '@/hooks/useTickets';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const TicketDetails: React.FC = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [status, setStatus] = useState<'open' | 'in-progress' | 'resolved' | 'closed'>('open');
-  const [assignedTo, setAssignedTo] = useState<string>('');
-  const [newUpdate, setNewUpdate] = useState('');
-  const [updates, setUpdates] = useState<TicketUpdate[]>([
-    {
-      id: '1',
-      author: 'Sistema',
-      content: 'Chamado criado por Cleber Junior',
-      timestamp: '10:30',
-      date: '18 Jan 2025',
-      type: 'created'
-    }
-  ]);
-
-  // Mock data - em produção viria de uma API
-  const ticket = {
-    id: id || '#1010',
-    title: 'Problema no acesso ao ERP',
-    requester: 'Cleber Junior',
-    email: 'cleber.junior@exemplo.com',
-    department: 'Financeiro',
-    category: 'ERP',
-    priority: 'high' as const,
-    operator: 'Marcos Almeida',
-    created: 'há 21m',
-    description: 'Não consigo acessar o sistema ERP. Quando tento fazer login, aparece uma mensagem de erro "Conexão recusada". Já tentei limpar o cache do navegador e reiniciar o computador, mas o problema persiste.',
-  };
+  const { data: ticket, isLoading: ticketLoading } = useTicket(id || '');
+  const { data: updates = [], isLoading: updatesLoading } = useTicketUpdates(id || '');
+  const updateStatus = useUpdateTicketStatus();
+  const updateAssignment = useUpdateTicketAssignment();
+  const addUpdate = useAddTicketUpdate();
+  
+  const [newUpdateText, setNewUpdateText] = useState('');
 
   const priorityColors = {
     high: 'bg-destructive',
@@ -86,73 +60,82 @@ const TicketDetails: React.FC = () => {
     'Pedro Santos'
   ];
 
-  const handleAddUpdate = () => {
-    if (!newUpdate.trim()) return;
+  const handleAddUpdate = async () => {
+    if (!newUpdateText.trim() || !ticket) return;
 
-    const now = new Date();
-    const update: TicketUpdate = {
-      id: Date.now().toString(),
-      author: assignedTo || 'Samuel Costa',
-      content: newUpdate,
-      timestamp: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      date: now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
+    await addUpdate.mutateAsync({
+      ticket_id: ticket.id,
+      author: ticket.assigned_to || 'Sistema',
+      content: newUpdateText,
       type: 'comment'
-    };
-
-    setUpdates([...updates, update]);
-    setNewUpdate('');
-    
-    toast({
-      title: "Comentário adicionado",
-      description: "Sua resposta foi registrada no chamado.",
     });
+
+    setNewUpdateText('');
   };
 
-  const handleStatusChange = (newStatus: typeof status) => {
-    const now = new Date();
-    setStatus(newStatus);
+  const handleStatusChange = async (newStatus: string) => {
+    if (!ticket) return;
     
-    const statusUpdate: TicketUpdate = {
-      id: Date.now().toString(),
+    await updateStatus.mutateAsync({ id: ticket.id, status: newStatus });
+    
+    // Add status change to updates
+    await addUpdate.mutateAsync({
+      ticket_id: ticket.id,
       author: 'Sistema',
-      content: `Status alterado para: ${statusLabels[newStatus]}`,
-      timestamp: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      date: now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
+      content: `Status alterado para: ${statusLabels[newStatus as keyof typeof statusLabels]}`,
       type: 'status'
-    };
-
-    setUpdates([...updates, statusUpdate]);
-    
-    toast({
-      title: "Status atualizado",
-      description: `Chamado marcado como ${statusLabels[newStatus]}`,
     });
   };
 
-  const handleAssignmentChange = (technician: string) => {
-    const now = new Date();
-    setAssignedTo(technician);
+  const handleAssignmentChange = async (technician: string) => {
+    if (!ticket) return;
     
-    const assignmentUpdate: TicketUpdate = {
-      id: Date.now().toString(),
+    await updateAssignment.mutateAsync({ id: ticket.id, assigned_to: technician });
+    
+    // Add assignment change to updates
+    await addUpdate.mutateAsync({
+      ticket_id: ticket.id,
       author: 'Sistema',
       content: `Chamado atribuído para: ${technician}`,
-      timestamp: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      date: now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
       type: 'assignment'
-    };
-
-    setUpdates([...updates, assignmentUpdate]);
-    
-    toast({
-      title: "Técnico atribuído",
-      description: `Chamado atribuído para ${technician}`,
     });
   };
+
+  const formatTimeAgo = (date: string) => {
+    return formatDistanceToNow(new Date(date), { locale: ptBR, addSuffix: true });
+  };
+
+  if (ticketLoading || updatesLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="p-4 md:p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
+          <TopBar />
+          <p className="text-muted-foreground mt-8">Carregando chamado...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!ticket) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="p-4 md:p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
+          <TopBar />
+          <div className="mt-8">
+            <p className="text-muted-foreground mb-4">Chamado não encontrado.</p>
+            <Button onClick={() => navigate('/')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar ao Dashboard
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
+      <main className="p-4 md:p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
         <TopBar />
         
         <Button
@@ -169,27 +152,26 @@ const TicketDetails: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             {/* Cabeçalho do Chamado */}
             <Card className="p-6">
-              <div className="flex items-start justify-between mb-6">
+              <div className="flex flex-col md:flex-row items-start justify-between mb-6 gap-4">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h1 className="text-2xl font-bold text-foreground">{ticket.id}</h1>
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
+                    <h1 className="text-xl md:text-2xl font-bold text-foreground">#{ticket.ticket_number}</h1>
                     <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", statusColors[status])}></div>
-                      <Badge variant="outline">{statusLabels[status]}</Badge>
+                      <div className={cn("w-2 h-2 rounded-full", statusColors[ticket.status])}></div>
+                      <Badge variant="outline">{statusLabels[ticket.status]}</Badge>
                     </div>
                   </div>
-                  <h2 className="text-xl text-foreground">{ticket.title}</h2>
+                  <h2 className="text-lg md:text-xl text-foreground">{ticket.title}</h2>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
                     <User className="w-3 h-3" />
                     Solicitante
                   </p>
-                  <p className="font-medium text-foreground">{ticket.requester}</p>
-                  <p className="text-xs text-muted-foreground">{ticket.email}</p>
+                  <p className="font-medium text-foreground">{ticket.requester_name}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
@@ -213,7 +195,7 @@ const TicketDetails: React.FC = () => {
                     <Clock className="w-3 h-3" />
                     Criado
                   </p>
-                  <p className="font-medium text-foreground">{ticket.created}</p>
+                  <p className="font-medium text-foreground">{formatTimeAgo(ticket.created_at)}</p>
                 </div>
               </div>
             </Card>
@@ -236,46 +218,47 @@ const TicketDetails: React.FC = () => {
                 Histórico e Comentários
               </h3>
               <div className="space-y-4">
-                {updates.map((update, index) => (
-                  <div key={update.id} className="flex gap-4">
-                    {/* Timeline vertical */}
-                    <div className="flex flex-col items-center">
-                      <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center",
-                        update.type === 'created' ? 'bg-blue-500/20' :
-                        update.type === 'status' ? 'bg-yellow-500/20' :
-                        update.type === 'assignment' ? 'bg-purple-500/20' :
-                        'bg-green-500/20'
-                      )}>
-                        {update.type === 'created' ? <AlertCircle className="w-4 h-4 text-blue-500" /> :
-                         update.type === 'status' ? <Clock className="w-4 h-4 text-yellow-500" /> :
-                         update.type === 'assignment' ? <User className="w-4 h-4 text-purple-500" /> :
-                         <MessageSquare className="w-4 h-4 text-green-500" />}
-                      </div>
-                      {index < updates.length - 1 && (
-                        <div className="w-0.5 h-full bg-border mt-2" />
-                      )}
-                    </div>
-                    
-                    {/* Conteúdo */}
-                    <div className="flex-1 pb-6">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-foreground text-sm">{update.author}</span>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{update.date}</span>
-                          <span>•</span>
-                          <span>{update.timestamp}</span>
+                {updates.map((update, index) => {
+                  const updateDate = new Date(update.created_at);
+                  return (
+                    <div key={update.id} className="flex gap-3 md:gap-4">
+                      {/* Timeline vertical */}
+                      <div className="flex flex-col items-center flex-shrink-0">
+                        <div className={cn(
+                          "w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center",
+                          update.type === 'created' ? 'bg-blue-500/20' :
+                          update.type === 'status' ? 'bg-yellow-500/20' :
+                          update.type === 'assignment' ? 'bg-purple-500/20' :
+                          'bg-green-500/20'
+                        )}>
+                          {update.type === 'created' ? <AlertCircle className="w-3 h-3 md:w-4 md:h-4 text-blue-500" /> :
+                           update.type === 'status' ? <Clock className="w-3 h-3 md:w-4 md:h-4 text-yellow-500" /> :
+                           update.type === 'assignment' ? <User className="w-3 h-3 md:w-4 md:h-4 text-purple-500" /> :
+                           <MessageSquare className="w-3 h-3 md:w-4 md:h-4 text-green-500" />}
                         </div>
+                        {index < updates.length - 1 && (
+                          <div className="w-0.5 h-full bg-border mt-2" />
+                        )}
                       </div>
-                      <p className={cn(
-                        "text-sm leading-relaxed",
-                        update.type === 'comment' ? 'text-foreground bg-muted/30 rounded-lg p-3' : 'text-muted-foreground italic'
-                      )}>
-                        {update.content}
-                      </p>
+                      
+                      {/* Conteúdo */}
+                      <div className="flex-1 pb-6 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1">
+                          <span className="font-medium text-foreground text-sm truncate">{update.author}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatTimeAgo(update.created_at)}
+                          </span>
+                        </div>
+                        <p className={cn(
+                          "text-sm leading-relaxed break-words",
+                          update.type === 'comment' ? 'text-foreground bg-muted/30 rounded-lg p-3' : 'text-muted-foreground italic'
+                        )}>
+                          {update.content}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
 
@@ -284,12 +267,16 @@ const TicketDetails: React.FC = () => {
               <h3 className="font-semibold text-foreground mb-3">Adicionar Comentário</h3>
               <Textarea
                 placeholder="Digite sua resposta ou solução para o problema..."
-                value={newUpdate}
-                onChange={(e) => setNewUpdate(e.target.value)}
+                value={newUpdateText}
+                onChange={(e) => setNewUpdateText(e.target.value)}
                 className="mb-3"
                 rows={4}
               />
-              <Button onClick={handleAddUpdate} className="w-full">
+              <Button 
+                onClick={handleAddUpdate} 
+                className="w-full"
+                disabled={addUpdate.isPending || !newUpdateText.trim()}
+              >
                 <MessageSquare className="w-4 h-4 mr-2" />
                 Enviar Comentário
               </Button>
@@ -307,7 +294,7 @@ const TicketDetails: React.FC = () => {
                   <label className="text-sm font-medium text-foreground mb-2 block">
                     Status do Chamado
                   </label>
-                  <Select value={status} onValueChange={(value) => handleStatusChange(value as typeof status)}>
+                  <Select value={ticket.status} onValueChange={handleStatusChange}>
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
@@ -324,7 +311,7 @@ const TicketDetails: React.FC = () => {
                   <label className="text-sm font-medium text-foreground mb-2 block">
                     Atribuir Técnico
                   </label>
-                  <Select value={assignedTo} onValueChange={handleAssignmentChange}>
+                  <Select value={ticket.assigned_to || ''} onValueChange={handleAssignmentChange}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Selecione um técnico" />
                     </SelectTrigger>
@@ -343,13 +330,13 @@ const TicketDetails: React.FC = () => {
                     variant="default"
                     className="w-full justify-start gap-2"
                     onClick={() => handleStatusChange('resolved')}
-                    disabled={status === 'resolved' || status === 'closed'}
+                    disabled={ticket.status === 'resolved' || ticket.status === 'closed' || updateStatus.isPending}
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     Marcar como Resolvido
                   </Button>
                   
-                  {status === 'resolved' && (
+                  {ticket.status === 'resolved' && (
                     <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Clock className="w-3 h-3" />
@@ -368,18 +355,18 @@ const TicketDetails: React.FC = () => {
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Técnico Responsável</p>
                   <p className="font-medium text-foreground">
-                    {assignedTo || ticket.operator}
+                    {ticket.assigned_to || ticket.operator_name || 'Não atribuído'}
                   </p>
                 </div>
                 <Separator />
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Departamento</p>
-                  <p className="font-medium text-foreground">{ticket.department}</p>
+                  <p className="font-medium text-foreground">{ticket.department || 'N/A'}</p>
                 </div>
                 <Separator />
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">ID do Chamado</p>
-                  <p className="font-medium text-foreground font-mono text-sm">{ticket.id}</p>
+                  <p className="font-medium text-foreground font-mono text-sm">#{ticket.ticket_number}</p>
                 </div>
               </div>
             </Card>
