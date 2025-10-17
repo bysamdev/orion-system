@@ -2,6 +2,7 @@ import React from 'react';
 import { DashboardHeader } from './DashboardHeader';
 import { TicketsTable } from './TicketsTable';
 import { TopBar } from './TopBar';
+import { InProgressTickets } from './InProgressTickets';
 import { ClosedTickets } from './ClosedTickets';
 import { StatsReport } from './StatsReport';
 import { QuickStats } from './QuickStats';
@@ -40,6 +41,7 @@ export const Dashboard: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               <TicketsTable />
+              <InProgressTickets />
               <ClosedTickets />
             </div>
             
