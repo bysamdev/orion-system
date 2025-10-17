@@ -7,7 +7,13 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export const ClosedTickets: React.FC = () => {
-  const { data: tickets = [], isLoading } = useTickets('closed');
+  const { data: openTickets = [], isLoading: loadingClosed } = useTickets('closed');
+  const { data: resolvedTickets = [], isLoading: loadingResolved } = useTickets('resolved');
+  
+  const tickets = [...openTickets, ...resolvedTickets].sort((a, b) => 
+    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  );
+  const isLoading = loadingClosed || loadingResolved;
 
   const formatTimeAgo = (date: string) => {
     return formatDistanceToNow(new Date(date), { locale: ptBR, addSuffix: true });

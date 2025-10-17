@@ -37,6 +37,7 @@ export const useTickets = (status?: string) => {
         .select(`
           *,
           profiles!tickets_user_id_fkey(
+            full_name,
             companies(name)
           )
         `)
@@ -48,7 +49,10 @@ export const useTickets = (status?: string) => {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching tickets:', error);
+        throw error;
+      }
       
       // Map the data to include company_name
       const tickets = data?.map((ticket: any) => ({
@@ -57,7 +61,7 @@ export const useTickets = (status?: string) => {
         profiles: undefined, // Remove nested object
       })) as Ticket[];
       
-      return tickets;
+      return tickets || [];
     },
   });
 };
