@@ -5,11 +5,13 @@ import { Input } from '@/components/ui/input';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUserProfile } from '@/hooks/useUserRole';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { data: profile } = useUserProfile();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -67,7 +69,7 @@ export const TopBar: React.FC = () => {
         
         <Button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
           <User className="w-4 h-4" />
-          <span className="text-sm font-medium">Samuel</span>
+          <span className="text-sm font-medium">{profile?.full_name || 'Usuário'}</span>
         </Button>
 
         <Button 
