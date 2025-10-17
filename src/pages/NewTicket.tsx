@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,14 +14,13 @@ import { ArrowLeft, Send, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserProfile } from '@/hooks/useUserRole';
 
 const ticketSchema = z.object({
   title: z.string().min(5, 'Título deve ter no mínimo 5 caracteres').max(100, 'Título muito longo'),
   category: z.string().min(1, 'Selecione uma categoria'),
   priority: z.enum(['low', 'medium', 'high'], { required_error: 'Selecione uma prioridade' }),
   description: z.string().min(20, 'Descrição deve ter no mínimo 20 caracteres').max(1000, 'Descrição muito longa'),
-  requester: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres').max(100, 'Nome muito longo'),
-  email: z.string().email('Email inválido'),
   department: z.string().min(1, 'Selecione um departamento'),
 });
 
@@ -31,7 +30,34 @@ const NewTicket = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { data: profile } = useUserProfile();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userInfo, setUserInfo] = useState<{ name: string; email: string; company: string }>({
+    name: '',
+    email: '',
+    company: ''
+  });
+  
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      if (!user || !profile) return;
+
+      // Buscar empresa do usuário
+      const { data: companyData } = await supabase
+        .from('companies')
+        .select('name')
+        .eq('id', profile.company_id)
+        .single();
+
+      setUserInfo({
+        name: profile.full_name || '',
+        email: profile.email || user.email || '',
+        company: companyData?.name || ''
+      });
+    };
+
+    fetchUserInfo();
+  }, [user, profile]);
   
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketSchema),
@@ -40,8 +66,6 @@ const NewTicket = () => {
       category: '',
       priority: 'medium',
       description: '',
-      requester: '',
-      email: '',
       department: '',
     },
   });
@@ -51,6 +75,15 @@ const NewTicket = () => {
       toast({
         title: 'Erro',
         description: 'Você precisa estar autenticado para criar um chamado.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!userInfo.name || !userInfo.email) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível carregar suas informações. Tente novamente.',
         variant: 'destructive',
       });
       return;
@@ -67,7 +100,7 @@ const NewTicket = () => {
           category: data.category,
           priority: data.priority,
           description: data.description,
-          requester_name: data.requester,
+          requester_name: userInfo.name,
           department: data.department,
           status: 'open',
           user_id: user.id,
@@ -83,7 +116,7 @@ const NewTicket = () => {
         .insert([{
           ticket_id: ticket.id,
           type: 'created',
-          content: `Chamado criado por ${data.requester}`,
+          content: `Chamado criado por ${userInfo.name}`,
           author: '', // Placeholder - trigger will set from auth.uid()
         }]);
 
@@ -130,34 +163,20 @@ const NewTicket = () => {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="requester"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome do Solicitante *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Digite seu nome completo" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email *</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="seu.email@empresa.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {/* Informações do usuário - Read-only */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 bg-muted/30 rounded-lg border border-border">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Nome do Solicitante</label>
+                    <p className="mt-1 text-base font-medium text-foreground">{userInfo.name || 'Carregando...'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Email</label>
+                    <p className="mt-1 text-base font-medium text-foreground">{userInfo.email || 'Carregando...'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Empresa</label>
+                    <p className="mt-1 text-base font-medium text-foreground">{userInfo.company || 'Carregando...'}</p>
+                  </div>
                 </div>
 
                 <FormField
