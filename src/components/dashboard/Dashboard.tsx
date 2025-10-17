@@ -32,9 +32,15 @@ export const Dashboard: React.FC = () => {
         <DashboardHeader userName={userName} />
         
         {isCustomer ? (
-          // Colaborador: Ver apenas seus próprios chamados
+          // Colaborador: Ver apenas seus próprios chamados em aberto em destaque
           <div className="space-y-6">
-            <TicketsTable />
+            <div className="bg-primary/10 border-2 border-primary rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-3 w-3 rounded-full bg-primary animate-pulse"></div>
+                <h2 className="text-xl font-bold text-foreground">Seus Chamados em Aberto</h2>
+              </div>
+              <TicketsTable />
+            </div>
           </div>
         ) : (
           // Técnico e Gestor: Ver todos os chamados e métricas
