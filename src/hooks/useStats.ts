@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { supabaseRead } from '@/integrations/supabase/read-client';
 import { startOfDay, startOfWeek, endOfDay, endOfWeek } from 'date-fns';
 
 export const useActiveOperators = () => {
   return useQuery({
     queryKey: ['active-operators'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Use read client for statistics queries
+      const { data, error } = await supabaseRead
         .from('user_roles')
         .select('user_id, role')
         .in('role', ['technician', 'admin']);
@@ -28,8 +30,8 @@ export const useTicketStats = (period: 'daily' | 'weekly') => {
       const startDate = period === 'daily' ? startOfDay(now) : startOfWeek(now, { weekStartsOn: 0 });
       const endDate = period === 'daily' ? endOfDay(now) : endOfWeek(now, { weekStartsOn: 0 });
 
-      // Get tickets created in the period
-      const { data: createdTickets, error: createdError } = await supabase
+      // Get tickets created in the period (using read client)
+      const { data: createdTickets, error: createdError } = await supabaseRead
         .from('tickets')
         .select('id, created_at')
         .gte('created_at', startDate.toISOString())
@@ -37,8 +39,8 @@ export const useTicketStats = (period: 'daily' | 'weekly') => {
 
       if (createdError) throw createdError;
 
-      // Get tickets resolved/closed in the period
-      const { data: solvedTickets, error: solvedError } = await supabase
+      // Get tickets resolved/closed in the period (using read client)
+      const { data: solvedTickets, error: solvedError } = await supabaseRead
         .from('tickets')
         .select('id, updated_at, created_at')
         .in('status', ['resolved', 'closed'])
@@ -75,16 +77,16 @@ export const useGlobalTicketStats = () => {
       const now = new Date();
       const today = startOfDay(now);
 
-      // In progress tickets
-      const { data: inProgressTickets, error: inProgressError } = await supabase
+      // In progress tickets (using read client)
+      const { data: inProgressTickets, error: inProgressError } = await supabaseRead
         .from('tickets')
         .select('id', { count: 'exact' })
         .eq('status', 'in-progress');
 
       if (inProgressError) throw inProgressError;
 
-      // Tickets resolved today
-      const { data: resolvedToday, error: resolvedTodayError } = await supabase
+      // Tickets resolved today (using read client)
+      const { data: resolvedToday, error: resolvedTodayError } = await supabaseRead
         .from('tickets')
         .select('id, created_at, updated_at')
         .in('status', ['resolved', 'closed'])
@@ -105,24 +107,24 @@ export const useGlobalTicketStats = () => {
         slaCompliance = (withinSLA / resolvedToday.length) * 100;
       }
 
-      // Open tickets
-      const { data: openTickets, error: openError } = await supabase
+      // Open tickets (using read client)
+      const { data: openTickets, error: openError } = await supabaseRead
         .from('tickets')
         .select('id', { count: 'exact' })
         .eq('status', 'open');
 
       if (openError) throw openError;
 
-      // Tickets opened today
-      const { data: openedToday, error: openedTodayError } = await supabase
+      // Tickets opened today (using read client)
+      const { data: openedToday, error: openedTodayError } = await supabaseRead
         .from('tickets')
         .select('id', { count: 'exact' })
         .gte('created_at', today.toISOString());
 
       if (openedTodayError) throw openedTodayError;
 
-      // Average response time (all tickets)
-      const { data: allTickets, error: allTicketsError } = await supabase
+      // Average response time (all tickets) (using read client)
+      const { data: allTickets, error: allTicketsError } = await supabaseRead
         .from('tickets')
         .select('created_at, updated_at, status')
         .in('status', ['resolved', 'closed', 'in-progress']);
