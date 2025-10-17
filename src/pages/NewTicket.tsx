@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,8 +11,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ticketSchema = z.object({
   title: z.string().min(5, 'Título deve ter no mínimo 5 caracteres').max(100, 'Título muito longo'),
@@ -29,6 +31,8 @@ type TicketFormValues = z.infer<typeof ticketSchema>;
 const NewTicket = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketSchema),
@@ -43,13 +47,64 @@ const NewTicket = () => {
     },
   });
 
-  const onSubmit = (data: TicketFormValues) => {
-    console.log('Ticket data:', data);
-    toast({
-      title: 'Chamado criado com sucesso!',
-      description: `Seu chamado foi registrado e será atendido em breve.`,
-    });
-    navigate('/');
+  const onSubmit = async (data: TicketFormValues) => {
+    if (!user) {
+      toast({
+        title: 'Erro',
+        description: 'Você precisa estar autenticado para criar um chamado.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Insert the ticket
+      const { data: ticket, error: ticketError } = await supabase
+        .from('tickets')
+        .insert({
+          title: data.title,
+          category: data.category,
+          priority: data.priority,
+          description: data.description,
+          requester_name: data.requester,
+          department: data.department,
+          status: 'open',
+          user_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (ticketError) throw ticketError;
+
+      // Create initial ticket update
+      const { error: updateError } = await supabase
+        .from('ticket_updates')
+        .insert({
+          ticket_id: ticket.id,
+          type: 'created',
+          content: `Chamado criado por ${data.requester}`,
+          author: data.requester,
+        });
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: 'Chamado criado com sucesso!',
+        description: `Número do chamado: #${ticket.ticket_number}`,
+      });
+      
+      navigate('/');
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao criar chamado',
+        description: error.message || 'Ocorreu um erro ao criar o chamado.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -221,10 +276,12 @@ const NewTicket = () => {
                     type="button"
                     variant="outline"
                     onClick={() => navigate('/')}
+                    disabled={isSubmitting}
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" className="gap-2">
+                  <Button type="submit" className="gap-2" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     <Send className="w-4 h-4" />
                     Abrir Chamado
                   </Button>
