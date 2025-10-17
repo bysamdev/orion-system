@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Clock, User, Tag, AlertCircle, PlayCircle, PauseCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Clock, User, Tag, AlertCircle, MessageSquare, CheckCircle2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -15,7 +16,8 @@ interface TicketUpdate {
   author: string;
   content: string;
   timestamp: string;
-  type: 'comment' | 'status' | 'assignment';
+  date: string;
+  type: 'comment' | 'status' | 'assignment' | 'created';
 }
 
 const TicketDetails: React.FC = () => {
@@ -23,15 +25,17 @@ const TicketDetails: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [status, setStatus] = useState<'open' | 'in-progress' | 'paused' | 'closed'>('open');
+  const [status, setStatus] = useState<'open' | 'in-progress' | 'resolved' | 'closed'>('open');
+  const [assignedTo, setAssignedTo] = useState<string>('');
   const [newUpdate, setNewUpdate] = useState('');
   const [updates, setUpdates] = useState<TicketUpdate[]>([
     {
       id: '1',
-      author: 'Marcos Almeida',
-      content: 'Ticket criado e aguardando análise.',
-      timestamp: 'há 21m',
-      type: 'status'
+      author: 'Sistema',
+      content: 'Chamado criado por Cleber Junior',
+      timestamp: '10:30',
+      date: '18 Jan 2025',
+      type: 'created'
     }
   ]);
 
@@ -64,18 +68,34 @@ const TicketDetails: React.FC = () => {
   const statusLabels = {
     'open': 'Aberto',
     'in-progress': 'Em Andamento',
-    'paused': 'Pausado',
+    'resolved': 'Resolvido',
     'closed': 'Fechado'
   };
+
+  const statusColors = {
+    'open': 'bg-blue-500',
+    'in-progress': 'bg-yellow-500',
+    'resolved': 'bg-green-500',
+    'closed': 'bg-gray-500'
+  };
+
+  const availableTechnicians = [
+    'Samuel Costa',
+    'Marcos Almeida',
+    'Ana Silva',
+    'Pedro Santos'
+  ];
 
   const handleAddUpdate = () => {
     if (!newUpdate.trim()) return;
 
+    const now = new Date();
     const update: TicketUpdate = {
       id: Date.now().toString(),
-      author: 'Samuel',
+      author: assignedTo || 'Samuel Costa',
       content: newUpdate,
-      timestamp: 'agora',
+      timestamp: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      date: now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
       type: 'comment'
     };
 
@@ -83,19 +103,21 @@ const TicketDetails: React.FC = () => {
     setNewUpdate('');
     
     toast({
-      title: "Atualização adicionada",
-      description: "Sua atualização foi registrada no ticket.",
+      title: "Comentário adicionado",
+      description: "Sua resposta foi registrada no chamado.",
     });
   };
 
   const handleStatusChange = (newStatus: typeof status) => {
+    const now = new Date();
     setStatus(newStatus);
     
     const statusUpdate: TicketUpdate = {
       id: Date.now().toString(),
-      author: 'Samuel',
+      author: 'Sistema',
       content: `Status alterado para: ${statusLabels[newStatus]}`,
-      timestamp: 'agora',
+      timestamp: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      date: now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
       type: 'status'
     };
 
@@ -103,7 +125,28 @@ const TicketDetails: React.FC = () => {
     
     toast({
       title: "Status atualizado",
-      description: `Ticket marcado como ${statusLabels[newStatus]}`,
+      description: `Chamado marcado como ${statusLabels[newStatus]}`,
+    });
+  };
+
+  const handleAssignmentChange = (technician: string) => {
+    const now = new Date();
+    setAssignedTo(technician);
+    
+    const assignmentUpdate: TicketUpdate = {
+      id: Date.now().toString(),
+      author: 'Sistema',
+      content: `Chamado atribuído para: ${technician}`,
+      timestamp: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      date: now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
+      type: 'assignment'
+    };
+
+    setUpdates([...updates, assignmentUpdate]);
+    
+    toast({
+      title: "Técnico atribuído",
+      description: `Chamado atribuído para ${technician}`,
     });
   };
 
@@ -124,135 +167,209 @@ const TicketDetails: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Detalhes do Ticket */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Cabeçalho do Chamado */}
             <Card className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h1 className="text-2xl font-bold text-foreground">{ticket.id}</h1>
-                    <Badge variant="outline">{statusLabels[status]}</Badge>
+                    <div className="flex items-center gap-2">
+                      <div className={cn("w-2 h-2 rounded-full", statusColors[status])}></div>
+                      <Badge variant="outline">{statusLabels[status]}</Badge>
+                    </div>
                   </div>
-                  <h2 className="text-xl text-foreground mb-4">{ticket.title}</h2>
+                  <h2 className="text-xl text-foreground">{ticket.title}</h2>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Solicitante</p>
+                  <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    Solicitante
+                  </p>
                   <p className="font-medium text-foreground">{ticket.requester}</p>
+                  <p className="text-xs text-muted-foreground">{ticket.email}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Categoria</p>
+                  <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+                    <Tag className="w-3 h-3" />
+                    Categoria
+                  </p>
                   <p className="font-medium text-foreground">{ticket.category}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Prioridade</p>
+                  <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Prioridade
+                  </p>
                   <div className="flex items-center gap-2">
                     <div className={cn("w-3 h-3 rounded-full", priorityColors[ticket.priority])}></div>
                     <span className="font-medium text-foreground">{priorityLabels[ticket.priority]}</span>
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Criado</p>
+                  <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Criado
+                  </p>
                   <p className="font-medium text-foreground">{ticket.created}</p>
                 </div>
               </div>
+            </Card>
 
-              <Separator className="my-6" />
+            {/* Descrição */}
+            <Card className="p-6">
+              <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                <Info className="w-4 h-4" />
+                Descrição do Problema
+              </h3>
+              <p className="text-muted-foreground leading-relaxed bg-muted/30 rounded-lg p-4">
+                {ticket.description}
+              </p>
+            </Card>
 
-              <div className="mb-6">
-                <h3 className="font-semibold text-foreground mb-3">Descrição</h3>
-                <p className="text-muted-foreground leading-relaxed">{ticket.description}</p>
-              </div>
-
-              <Separator className="my-6" />
-
-              {/* Atualizações */}
-              <div className="mb-6">
-                <h3 className="font-semibold text-foreground mb-4">Atualizações</h3>
-                <div className="space-y-4">
-                  {updates.map((update) => (
-                    <div key={update.id} className="bg-muted/30 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium text-foreground">{update.author}</span>
-                        </div>
-                        <span className="text-sm text-muted-foreground">{update.timestamp}</span>
+            {/* Timeline de Atualizações */}
+            <Card className="p-6">
+              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                Histórico e Comentários
+              </h3>
+              <div className="space-y-4">
+                {updates.map((update, index) => (
+                  <div key={update.id} className="flex gap-4">
+                    {/* Timeline vertical */}
+                    <div className="flex flex-col items-center">
+                      <div className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center",
+                        update.type === 'created' ? 'bg-blue-500/20' :
+                        update.type === 'status' ? 'bg-yellow-500/20' :
+                        update.type === 'assignment' ? 'bg-purple-500/20' :
+                        'bg-green-500/20'
+                      )}>
+                        {update.type === 'created' ? <AlertCircle className="w-4 h-4 text-blue-500" /> :
+                         update.type === 'status' ? <Clock className="w-4 h-4 text-yellow-500" /> :
+                         update.type === 'assignment' ? <User className="w-4 h-4 text-purple-500" /> :
+                         <MessageSquare className="w-4 h-4 text-green-500" />}
                       </div>
-                      <p className="text-muted-foreground">{update.content}</p>
+                      {index < updates.length - 1 && (
+                        <div className="w-0.5 h-full bg-border mt-2" />
+                      )}
                     </div>
-                  ))}
-                </div>
+                    
+                    {/* Conteúdo */}
+                    <div className="flex-1 pb-6">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-foreground text-sm">{update.author}</span>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{update.date}</span>
+                          <span>•</span>
+                          <span>{update.timestamp}</span>
+                        </div>
+                      </div>
+                      <p className={cn(
+                        "text-sm leading-relaxed",
+                        update.type === 'comment' ? 'text-foreground bg-muted/30 rounded-lg p-3' : 'text-muted-foreground italic'
+                      )}>
+                        {update.content}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
+            </Card>
 
-              {/* Adicionar Atualização */}
-              <div>
-                <h3 className="font-semibold text-foreground mb-3">Adicionar Atualização</h3>
-                <Textarea
-                  placeholder="Digite sua atualização..."
-                  value={newUpdate}
-                  onChange={(e) => setNewUpdate(e.target.value)}
-                  className="mb-3"
-                  rows={4}
-                />
-                <Button onClick={handleAddUpdate}>Adicionar Atualização</Button>
-              </div>
+            {/* Campo de Resposta */}
+            <Card className="p-6">
+              <h3 className="font-semibold text-foreground mb-3">Adicionar Comentário</h3>
+              <Textarea
+                placeholder="Digite sua resposta ou solução para o problema..."
+                value={newUpdate}
+                onChange={(e) => setNewUpdate(e.target.value)}
+                className="mb-3"
+                rows={4}
+              />
+              <Button onClick={handleAddUpdate} className="w-full">
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Enviar Comentário
+              </Button>
             </Card>
           </div>
 
-          {/* Ações do Ticket */}
+          {/* Painel de Gestão */}
           <div className="space-y-6">
+            {/* Status e Atribuição */}
             <Card className="p-6">
-              <h3 className="font-semibold text-foreground mb-4">Ações</h3>
-              <div className="space-y-3">
-                <Button
-                  variant="default"
-                  className="w-full justify-start gap-2"
-                  onClick={() => handleStatusChange('in-progress')}
-                  disabled={status === 'in-progress' || status === 'closed'}
-                >
-                  <PlayCircle className="w-4 h-4" />
-                  Iniciar Atendimento
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-2"
-                  onClick={() => handleStatusChange('paused')}
-                  disabled={status !== 'in-progress'}
-                >
-                  <PauseCircle className="w-4 h-4" />
-                  Pausar
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-2 text-success hover:text-success"
-                  onClick={() => handleStatusChange('closed')}
-                  disabled={status === 'closed'}
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Fechar Ticket
-                </Button>
-                
-                <Separator />
-                
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-2 text-destructive hover:text-destructive"
-                >
-                  <XCircle className="w-4 h-4" />
-                  Cancelar Ticket
-                </Button>
+              <h3 className="font-semibold text-foreground mb-4">Gestão do Chamado</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    Status do Chamado
+                  </label>
+                  <Select value={status} onValueChange={(value) => handleStatusChange(value as typeof status)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Aberto</SelectItem>
+                      <SelectItem value="in-progress">Em Andamento</SelectItem>
+                      <SelectItem value="resolved">Resolvido</SelectItem>
+                      <SelectItem value="closed">Fechado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    Atribuir Técnico
+                  </label>
+                  <Select value={assignedTo} onValueChange={handleAssignmentChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione um técnico" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTechnicians.map((tech) => (
+                        <SelectItem key={tech} value={tech}>{tech}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Separator className="my-4" />
+
+                <div className="space-y-2">
+                  <Button
+                    variant="default"
+                    className="w-full justify-start gap-2"
+                    onClick={() => handleStatusChange('resolved')}
+                    disabled={status === 'resolved' || status === 'closed'}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Marcar como Resolvido
+                  </Button>
+                  
+                  {status === 'resolved' && (
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Este chamado será fechado automaticamente em 48 horas se não houver resposta do solicitante.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </Card>
 
+            {/* Informações do Chamado */}
             <Card className="p-6">
               <h3 className="font-semibold text-foreground mb-4">Informações</h3>
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Operador Responsável</p>
-                  <p className="font-medium text-foreground">{ticket.operator}</p>
+                  <p className="text-sm text-muted-foreground mb-1">Técnico Responsável</p>
+                  <p className="font-medium text-foreground">
+                    {assignedTo || ticket.operator}
+                  </p>
                 </div>
                 <Separator />
                 <div>
@@ -261,8 +378,8 @@ const TicketDetails: React.FC = () => {
                 </div>
                 <Separator />
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">E-mail do Solicitante</p>
-                  <p className="font-medium text-foreground text-sm break-all">{ticket.email}</p>
+                  <p className="text-sm text-muted-foreground mb-1">ID do Chamado</p>
+                  <p className="font-medium text-foreground font-mono text-sm">{ticket.id}</p>
                 </div>
               </div>
             </Card>
