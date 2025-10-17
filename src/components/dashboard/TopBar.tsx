@@ -1,12 +1,21 @@
 import React from 'react';
-import { Bell, Search, User, Plus, LayoutDashboard, Settings } from 'lucide-react';
+import { Bell, Search, User, Plus, LayoutDashboard, Settings, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    toast({ title: 'Logout realizado com sucesso' });
+    navigate('/auth');
+  };
 
   return (
     <div className="flex items-center justify-between mb-8 pb-4">
@@ -59,6 +68,16 @@ export const TopBar: React.FC = () => {
         <Button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
           <User className="w-4 h-4" />
           <span className="text-sm font-medium">Samuel</span>
+        </Button>
+
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={handleSignOut}
+          title="Sair"
+          className="hover:bg-destructive/10"
+        >
+          <LogOut className="w-5 h-5 text-destructive" />
         </Button>
       </div>
     </div>
