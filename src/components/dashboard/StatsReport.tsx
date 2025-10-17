@@ -1,36 +1,47 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { TrendingUp, Activity, Loader2 } from 'lucide-react';
+import { useTicketStats } from '@/hooks/useStats';
 
 interface ReportData {
-  period: string;
   opened: number;
   solved: number;
   average: string;
-  trend: 'up' | 'down';
 }
-
-const dailyData: ReportData = {
-  period: 'Hoje',
-  opened: 12,
-  solved: 8,
-  average: '2.5h',
-  trend: 'up'
-};
-
-const weeklyData: ReportData = {
-  period: 'Esta Semana',
-  opened: 47,
-  solved: 41,
-  average: '3.2h',
-  trend: 'down'
-};
 
 export const StatsReport: React.FC = () => {
   const [period, setPeriod] = useState<'daily' | 'weekly'>('daily');
-  const data = period === 'daily' ? dailyData : weeklyData;
+  const { data: stats, isLoading } = useTicketStats(period);
+
+  const formatHours = (hours: number) => {
+    if (hours < 1) {
+      return `${Math.round(hours * 60)}min`;
+    }
+    return `${hours.toFixed(1)}h`;
+  };
+
+  const data: ReportData = {
+    opened: stats?.opened || 0,
+    solved: stats?.solved || 0,
+    average: stats ? formatHours(stats.averageHours) : '0h',
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="border-border shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Activity className="w-4 h-4 text-primary" />
+            Relatório de Chamados
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-border shadow-sm">
@@ -61,7 +72,7 @@ export const StatsReport: React.FC = () => {
 };
 
 const ReportContent: React.FC<{ data: ReportData }> = ({ data }) => {
-  const solvedPercentage = (data.solved / data.opened * 100).toFixed(0);
+  const solvedPercentage = data.opened > 0 ? (data.solved / data.opened * 100).toFixed(0) : '0';
   
   return (
     <div className="space-y-3">
