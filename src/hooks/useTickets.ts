@@ -16,6 +16,7 @@ export interface Ticket {
   department: string | null;
   created_at: string;
   updated_at: string;
+  company_name: string | null;
 }
 
 export interface TicketUpdate {
@@ -33,7 +34,12 @@ export const useTickets = (status?: string) => {
     queryFn: async () => {
       let query = supabase
         .from('tickets')
-        .select('*')
+        .select(`
+          *,
+          profiles!tickets_user_id_fkey(
+            companies(name)
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (status) {
@@ -43,7 +49,15 @@ export const useTickets = (status?: string) => {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as Ticket[];
+      
+      // Map the data to include company_name
+      const tickets = data?.map((ticket: any) => ({
+        ...ticket,
+        company_name: ticket.profiles?.companies?.name || null,
+        profiles: undefined, // Remove nested object
+      })) as Ticket[];
+      
+      return tickets;
     },
   });
 };
@@ -54,12 +68,25 @@ export const useTicket = (id: string) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tickets')
-        .select('*')
+        .select(`
+          *,
+          profiles!tickets_user_id_fkey(
+            companies(name)
+          )
+        `)
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      return data as Ticket;
+      
+      // Include company_name
+      const ticket = {
+        ...data,
+        company_name: (data as any).profiles?.companies?.name || null,
+        profiles: undefined,
+      } as Ticket;
+      
+      return ticket;
     },
     enabled: !!id,
   });
