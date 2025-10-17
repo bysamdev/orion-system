@@ -1,59 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, PlayCircle } from 'lucide-react';
+import { PlayCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface Ticket {
-  id: string;
-  requester: string;
-  category: string;
-  created: string;
-  priority: 'high' | 'medium' | 'low';
-  operator: string;
-  status: 'open' | 'in-progress' | 'closed';
-}
-
-const mockTickets: Ticket[] = [
-  {
-    id: '#1010',
-    requester: 'Cleber Junior',
-    category: 'ERP',
-    created: 'há 21m',
-    priority: 'high',
-    operator: 'Marcos Almeida',
-    status: 'open'
-  },
-  {
-    id: '#1009',
-    requester: 'Roberto Mariano',
-    category: 'E-mail',
-    created: 'há 6h',
-    priority: 'high',
-    operator: 'Marcos Almeida',
-    status: 'open'
-  },
-  {
-    id: '#1008',
-    requester: 'Ana Silva',
-    category: 'Hardware',
-    created: 'há 23h',
-    priority: 'medium',
-    operator: 'Marcos Almeida',
-    status: 'open'
-  },
-  {
-    id: '#1007',
-    requester: 'Carlos Santos',
-    category: 'Rede',
-    created: 'há 12d',
-    priority: 'low',
-    operator: 'Marcos Almeida',
-    status: 'open'
-  }
-];
+import { useTickets, useUpdateTicketStatus } from '@/hooks/useTickets';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const priorityColors = {
   high: 'bg-destructive',
@@ -63,17 +16,25 @@ const priorityColors = {
 
 export const TicketsTable: React.FC = () => {
   const navigate = useNavigate();
-  const [tickets, setTickets] = useState<Ticket[]>(mockTickets);
+  const { data: tickets = [], isLoading } = useTickets('open');
+  const updateStatus = useUpdateTicketStatus();
 
-  const handleStartTicket = (ticketId: string) => {
-    setTickets(prev => 
-      prev.map(ticket => 
-        ticket.id === ticketId 
-          ? { ...ticket, status: 'in-progress' as const }
-          : ticket
-      )
-    );
+  const handleStartTicket = async (ticketId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await updateStatus.mutateAsync({ id: ticketId, status: 'in-progress' });
   };
+
+  const formatTimeAgo = (date: string) => {
+    return formatDistanceToNow(new Date(date), { locale: ptBR, addSuffix: true });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
+        <p className="text-muted-foreground">Carregando chamados...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
@@ -96,31 +57,32 @@ export const TicketsTable: React.FC = () => {
               className="hover:bg-muted/30 transition-colors cursor-pointer"
               onClick={() => navigate(`/ticket/${ticket.id}`)}
             >
-              <TableCell className="font-mono font-medium text-foreground">{ticket.id}</TableCell>
+              <TableCell className="font-mono font-medium text-foreground">#{ticket.ticket_number}</TableCell>
               <TableCell>
                 <div>
-                  <div className="font-medium text-foreground">{ticket.requester.split(' ')[0]}</div>
-                  <div className="text-sm text-muted-foreground">{ticket.requester.split(' ').slice(1).join(' ')}</div>
+                  <div className="font-medium text-foreground">{ticket.requester_name.split(' ')[0]}</div>
+                  <div className="text-sm text-muted-foreground">{ticket.requester_name.split(' ').slice(1).join(' ')}</div>
                 </div>
               </TableCell>
               <TableCell className="text-muted-foreground">{ticket.category}</TableCell>
-              <TableCell className="text-muted-foreground text-sm">{ticket.created}</TableCell>
+              <TableCell className="text-muted-foreground text-sm">{formatTimeAgo(ticket.created_at)}</TableCell>
               <TableCell>
                 <div className={cn("w-6 h-6 rounded-full", priorityColors[ticket.priority])}></div>
               </TableCell>
               <TableCell>
-                <div className="font-medium text-foreground">{ticket.operator.split(' ')[0]}</div>
-                <div className="text-sm text-muted-foreground">{ticket.operator.split(' ').slice(1).join(' ')}</div>
+                {ticket.operator_name && (
+                  <>
+                    <div className="font-medium text-foreground">{ticket.operator_name.split(' ')[0]}</div>
+                    <div className="text-sm text-muted-foreground">{ticket.operator_name.split(' ').slice(1).join(' ')}</div>
+                  </>
+                )}
               </TableCell>
               <TableCell className="text-center">
                 <Button
                   variant={ticket.status === 'in-progress' ? 'secondary' : 'default'}
                   size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleStartTicket(ticket.id);
-                  }}
-                  disabled={ticket.status === 'in-progress'}
+                  onClick={(e) => handleStartTicket(ticket.id, e)}
+                  disabled={ticket.status === 'in-progress' || updateStatus.isPending}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2"
                 >
                   <PlayCircle className="w-4 h-4" />
