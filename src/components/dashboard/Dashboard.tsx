@@ -6,6 +6,7 @@ import { InProgressTickets } from './InProgressTickets';
 import { ClosedTickets } from './ClosedTickets';
 import { StatsReport } from './StatsReport';
 import { QuickStats } from './QuickStats';
+import { TrendChart } from './TrendChart';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { Loader2 } from 'lucide-react';
 
@@ -54,6 +55,7 @@ export const Dashboard: React.FC = () => {
             {isGestor && (
               <div className="space-y-6">
                 <StatsReport />
+                <TrendChart days={7} />
                 <QuickStats />
               </div>
             )}
