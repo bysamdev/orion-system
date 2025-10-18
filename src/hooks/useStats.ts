@@ -1,7 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseRead } from '@/integrations/supabase/read-client';
-import { startOfDay, startOfWeek, endOfDay, endOfWeek } from 'date-fns';
+import { startOfDay, startOfWeek, endOfDay, endOfWeek, subDays, format } from 'date-fns';
+
+// SLA targets by priority (in hours)
+export const SLA_TARGETS = {
+  high: 2,
+  medium: 4,
+  low: 8,
+} as const;
 
 export const useActiveOperators = () => {
   return useQuery({
@@ -49,22 +56,43 @@ export const useTicketStats = (period: 'daily' | 'weekly') => {
 
       if (solvedError) throw solvedError;
 
-      // Calculate average response time for solved tickets
+      // Get full ticket data for SLA calculation
+      const { data: solvedTicketsWithPriority, error: solvedFullError } = await supabaseRead
+        .from('tickets')
+        .select('id, updated_at, created_at, priority')
+        .in('status', ['resolved', 'closed'])
+        .gte('updated_at', startDate.toISOString())
+        .lte('updated_at', endDate.toISOString());
+
+      if (solvedFullError) throw solvedFullError;
+
+      // Calculate average response time and SLA compliance for solved tickets
       let avgHours = 0;
-      if (solvedTickets && solvedTickets.length > 0) {
-        const totalHours = solvedTickets.reduce((sum, ticket) => {
+      let slaCompliance = 0;
+      if (solvedTicketsWithPriority && solvedTicketsWithPriority.length > 0) {
+        let withinSLA = 0;
+        const totalHours = solvedTicketsWithPriority.reduce((sum, ticket) => {
           const created = new Date(ticket.created_at);
           const updated = new Date(ticket.updated_at);
           const hours = (updated.getTime() - created.getTime()) / (1000 * 60 * 60);
+          
+          // Check SLA based on priority
+          const slaTarget = SLA_TARGETS[ticket.priority as keyof typeof SLA_TARGETS] || SLA_TARGETS.medium;
+          if (hours <= slaTarget) {
+            withinSLA++;
+          }
+          
           return sum + hours;
         }, 0);
-        avgHours = totalHours / solvedTickets.length;
+        avgHours = totalHours / solvedTicketsWithPriority.length;
+        slaCompliance = Math.round((withinSLA / solvedTicketsWithPriority.length) * 100);
       }
 
       return {
         opened: createdTickets?.length || 0,
-        solved: solvedTickets?.length || 0,
+        solved: solvedTicketsWithPriority?.length || 0,
         averageHours: avgHours,
+        slaCompliance,
       };
     },
   });
@@ -94,17 +122,26 @@ export const useGlobalTicketStats = () => {
 
       if (resolvedTodayError) throw resolvedTodayError;
 
-      // Calculate SLA compliance (assuming 4 hours as target)
-      const slaTarget = 4; // hours
+      // Get full data for SLA calculation with priority
+      const { data: resolvedTodayFull, error: resolvedTodayFullError } = await supabaseRead
+        .from('tickets')
+        .select('id, created_at, updated_at, priority')
+        .in('status', ['resolved', 'closed'])
+        .gte('updated_at', today.toISOString());
+
+      if (resolvedTodayFullError) throw resolvedTodayFullError;
+
+      // Calculate SLA compliance based on priority
       let slaCompliance = 0;
-      if (resolvedToday && resolvedToday.length > 0) {
-        const withinSLA = resolvedToday.filter(ticket => {
+      if (resolvedTodayFull && resolvedTodayFull.length > 0) {
+        const withinSLA = resolvedTodayFull.filter(ticket => {
           const created = new Date(ticket.created_at);
           const updated = new Date(ticket.updated_at);
           const hours = (updated.getTime() - created.getTime()) / (1000 * 60 * 60);
+          const slaTarget = SLA_TARGETS[ticket.priority as keyof typeof SLA_TARGETS] || SLA_TARGETS.medium;
           return hours <= slaTarget;
         }).length;
-        slaCompliance = (withinSLA / resolvedToday.length) * 100;
+        slaCompliance = (withinSLA / resolvedTodayFull.length) * 100;
       }
 
       // Open tickets (using read client)
@@ -123,10 +160,10 @@ export const useGlobalTicketStats = () => {
 
       if (openedTodayError) throw openedTodayError;
 
-      // Average response time (all tickets) (using read client)
+      // Average response time (all tickets) with priority-based SLA
       const { data: allTickets, error: allTicketsError } = await supabaseRead
         .from('tickets')
-        .select('created_at, updated_at, status')
+        .select('created_at, updated_at, status, priority')
         .in('status', ['resolved', 'closed', 'in-progress']);
 
       if (allTicketsError) throw allTicketsError;
@@ -142,11 +179,12 @@ export const useGlobalTicketStats = () => {
         }, 0);
         avgResponseTime = totalHours / allTickets.length;
 
-        // Calculate overall SLA
+        // Calculate overall SLA with priority-based targets
         const withinSLA = allTickets.filter(ticket => {
           const created = new Date(ticket.created_at);
           const updated = new Date(ticket.updated_at);
           const hours = (updated.getTime() - created.getTime()) / (1000 * 60 * 60);
+          const slaTarget = SLA_TARGETS[ticket.priority as keyof typeof SLA_TARGETS] || SLA_TARGETS.medium;
           return hours <= slaTarget;
         }).length;
         slaOverall = (withinSLA / allTickets.length) * 100;
@@ -154,7 +192,7 @@ export const useGlobalTicketStats = () => {
 
       return {
         inProgress: inProgressTickets?.length || 0,
-        resolvedToday: resolvedToday?.length || 0,
+        resolvedToday: resolvedTodayFull?.length || 0,
         slaComplianceToday: Math.round(slaCompliance),
         openTickets: openTickets?.length || 0,
         openedToday: openedToday?.length || 0,
