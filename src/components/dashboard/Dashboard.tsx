@@ -8,11 +8,15 @@ import { StatsReport } from './StatsReport';
 import { QuickStats } from './QuickStats';
 import { TrendChart } from './TrendChart';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
+import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { Loader2 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: profile, isLoading: profileLoading } = useUserProfile();
+  
+  // Enable real-time notifications
+  useRealtimeTickets();
 
   if (roleLoading || profileLoading) {
     return (
