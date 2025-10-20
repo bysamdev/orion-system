@@ -1,14 +1,13 @@
 import React from 'react';
 import { TopBar } from '@/components/dashboard/TopBar';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserManagement } from '@/components/admin/UserManagement';
-import { CompanyManagement } from '@/components/admin/CompanyManagement';
+import { CompanyUserManagement } from '@/components/management/CompanyUserManagement';
+import { DepartmentManagement } from '@/components/management/DepartmentManagement';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
-export default function Admin() {
+export default function Management() {
   const { data: role, isLoading } = useUserRole();
 
   if (isLoading) {
@@ -19,7 +18,7 @@ export default function Admin() {
     );
   }
 
-  if (role !== 'developer') {
+  if (role !== 'admin') {
     return <Navigate to="/" replace />;
   }
 
@@ -29,21 +28,21 @@ export default function Admin() {
         <TopBar />
         
         <div className="mt-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Administração do Sistema</h1>
-          <p className="text-muted-foreground mb-6">Painel master para gerenciar todas as empresas e usuários do sistema</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Gestão</h1>
+          <p className="text-muted-foreground mb-6">Gerencie os usuários e setores da sua empresa</p>
           
           <Tabs defaultValue="users" className="w-full">
             <TabsList>
               <TabsTrigger value="users">Usuários</TabsTrigger>
-              <TabsTrigger value="companies">Empresas</TabsTrigger>
+              <TabsTrigger value="departments">Setores</TabsTrigger>
             </TabsList>
             
             <TabsContent value="users" className="mt-6">
-              <UserManagement />
+              <CompanyUserManagement />
             </TabsContent>
             
-            <TabsContent value="companies" className="mt-6">
-              <CompanyManagement />
+            <TabsContent value="departments" className="mt-6">
+              <DepartmentManagement />
             </TabsContent>
           </Tabs>
         </div>
