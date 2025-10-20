@@ -19,7 +19,7 @@ export default function Admin() {
     );
   }
 
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'developer') {
     return <Navigate to="/" replace />;
   }
 
