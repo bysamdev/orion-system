@@ -6,6 +6,8 @@ import { PlayCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTickets, useUpdateTicketStatus } from '@/hooks/useTickets';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useTicketFilters } from '@/hooks/useTicketFilters';
+import { TicketFilters } from './TicketFilters';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -27,6 +29,9 @@ export const TicketsTable: React.FC = () => {
   const { data: tickets = [], isLoading } = useTickets('open');
   const { data: userRole } = useUserRole();
   const updateStatus = useUpdateTicketStatus();
+  
+  // Advanced filters
+  const { filters, filteredTickets, updateFilters, resetFilters, activeFiltersCount } = useTicketFilters(tickets);
 
   // Check if user can manage tickets (technician or admin)
   const canManageTickets = userRole === 'technician' || userRole === 'admin';
@@ -50,8 +55,25 @@ export const TicketsTable: React.FC = () => {
 
   return (
     <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
-      <h3 className="text-base font-semibold mb-4 text-foreground">Últimos chamados abertos</h3>
-      <Table>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-semibold text-foreground">
+          Últimos chamados abertos
+          {activeFiltersCount > 0 && (
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              ({filteredTickets.length} de {tickets.length})
+            </span>
+          )}
+        </h3>
+      </div>
+      
+      <TicketFilters 
+        filters={filters}
+        onFiltersChange={updateFilters}
+        onReset={resetFilters}
+      />
+      
+      <div className="mt-6">
+        <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent border-b border-border">
             <TableHead className="font-semibold text-foreground">Ticket</TableHead>
@@ -65,7 +87,14 @@ export const TicketsTable: React.FC = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {tickets.map((ticket) => (
+          {filteredTickets.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                Nenhum chamado encontrado
+              </TableCell>
+            </TableRow>
+          ) : (
+            filteredTickets.map((ticket) => (
             <TableRow 
               key={ticket.id} 
               className="hover:bg-muted/30 transition-colors cursor-pointer"
@@ -111,9 +140,11 @@ export const TicketsTable: React.FC = () => {
                 )}
               </TableCell>
             </TableRow>
-          ))}
+            ))
+          )}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 };
