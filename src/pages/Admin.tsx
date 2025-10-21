@@ -19,7 +19,7 @@ export default function Admin() {
     );
   }
 
-  if (role !== 'developer') {
+  if (role !== 'admin') {
     return <Navigate to="/" replace />;
   }
 
@@ -29,8 +29,8 @@ export default function Admin() {
         <TopBar />
         
         <div className="mt-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Administração do Sistema</h1>
-          <p className="text-muted-foreground mb-6">Painel master para gerenciar todas as empresas e usuários do sistema</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Administração</h1>
+          <p className="text-muted-foreground mb-6">Gerencie usuários, empresas e configurações do sistema</p>
           
           <Tabs defaultValue="users" className="w-full">
             <TabsList>
