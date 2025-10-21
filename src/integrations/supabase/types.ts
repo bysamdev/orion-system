@@ -35,6 +35,38 @@ export type Database = {
         }
         Relationships: []
       }
+      departments: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           company_id: string | null
@@ -208,7 +240,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "customer" | "technician" | "admin"
+      app_role: "customer" | "technician" | "admin" | "developer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -336,7 +368,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["customer", "technician", "admin"],
+      app_role: ["customer", "technician", "admin", "developer"],
     },
   },
 } as const
