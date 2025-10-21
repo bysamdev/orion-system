@@ -242,6 +242,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      ticket_belongs_to_user_company: {
+        Args: { _ticket_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "customer" | "technician" | "admin" | "developer"
