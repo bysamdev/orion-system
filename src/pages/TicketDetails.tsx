@@ -16,6 +16,14 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { z } from 'zod';
+
+const ticketUpdateSchema = z.object({
+  content: z.string()
+    .trim()
+    .min(1, 'O comentário não pode estar vazio')
+    .max(5000, 'O comentário não pode ter mais de 5000 caracteres')
+});
 
 const TicketDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -86,12 +94,24 @@ const TicketDetails: React.FC = () => {
   const canManageTickets = userRole === 'technician' || userRole === 'admin';
 
   const handleAddUpdate = async () => {
-    if (!newUpdateText.trim() || !ticket) return;
+    if (!ticket) return;
+
+    // Validate input
+    const validationResult = ticketUpdateSchema.safeParse({ content: newUpdateText });
+    
+    if (!validationResult.success) {
+      toast({
+        title: "Erro de validação",
+        description: validationResult.error.errors[0].message,
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Author is now set automatically by database trigger
     await addUpdate.mutateAsync({
       ticket_id: ticket.id,
-      content: newUpdateText,
+      content: validationResult.data.content,
       type: 'comment'
     });
 
@@ -293,9 +313,20 @@ const TicketDetails: React.FC = () => {
                 placeholder="Digite sua resposta ou solução para o problema..."
                 value={newUpdateText}
                 onChange={(e) => setNewUpdateText(e.target.value)}
-                className="mb-3"
+                className="mb-2"
                 rows={4}
+                maxLength={5000}
               />
+              <div className="flex justify-between items-center mb-3">
+                <p className="text-xs text-muted-foreground">
+                  {newUpdateText.length}/5000 caracteres
+                </p>
+                {newUpdateText.length > 4500 && (
+                  <p className="text-xs text-warning">
+                    {5000 - newUpdateText.length} caracteres restantes
+                  </p>
+                )}
+              </div>
               <Button 
                 onClick={handleAddUpdate} 
                 className="w-full"
