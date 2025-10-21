@@ -4,6 +4,7 @@ import { TicketFiltersState } from '@/components/dashboard/TicketFilters';
 
 const DEFAULT_FILTERS: TicketFiltersState = {
   search: '',
+  status: 'all',
   priority: 'all',
   category: 'all',
   sortBy: 'created_at',
@@ -25,6 +26,11 @@ export const useTicketFilters = (tickets: Ticket[] = []) => {
         ticket.ticket_number.toString().includes(searchLower) ||
         ticket.requester_name.toLowerCase().includes(searchLower)
       );
+    }
+
+    // Status filter
+    if (filters.status !== 'all') {
+      result = result.filter(ticket => ticket.status === filters.status);
     }
 
     // Priority filter
@@ -80,6 +86,7 @@ export const useTicketFilters = (tickets: Ticket[] = []) => {
     resetFilters,
     activeFiltersCount: [
       filters.search,
+      filters.status !== 'all',
       filters.priority !== 'all',
       filters.category !== 'all'
     ].filter(Boolean).length

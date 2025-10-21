@@ -67,18 +67,6 @@ export const TopBar: React.FC = () => {
           <Button 
             variant="ghost" 
             size="sm"
-            onClick={() => navigate('/gestao')}
-            className="text-primary hover:text-primary hover:bg-primary/10 font-medium"
-          >
-            <Shield className="w-4 h-4 mr-2" />
-            Gestão
-          </Button>
-        )}
-
-        {role === 'developer' && (
-          <Button 
-            variant="ghost" 
-            size="sm"
             onClick={() => navigate('/admin')}
             className="text-primary hover:text-primary hover:bg-primary/10 font-medium"
           >

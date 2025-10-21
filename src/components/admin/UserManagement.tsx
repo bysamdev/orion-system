@@ -64,8 +64,7 @@ export const UserManagement = () => {
     const labels = {
       'customer': 'Colaborador',
       'technician': 'Técnico',
-      'admin': 'Gestor',
-      'developer': 'Desenvolvedor'
+      'admin': 'Gestor'
     };
     return labels[role as keyof typeof labels] || role;
   };
@@ -95,7 +94,7 @@ export const UserManagement = () => {
               <TableHead>Nome</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Empresa</TableHead>
-              <TableHead>Setor</TableHead>
+              <TableHead>Departamento</TableHead>
               <TableHead>Função</TableHead>
             </TableRow>
           </TableHeader>
@@ -123,7 +122,6 @@ export const UserManagement = () => {
                       <SelectItem value="customer">Colaborador</SelectItem>
                       <SelectItem value="technician">Técnico</SelectItem>
                       <SelectItem value="admin">Gestor</SelectItem>
-                      <SelectItem value="developer">Desenvolvedor</SelectItem>
                     </SelectContent>
                   </Select>
                 </TableCell>
