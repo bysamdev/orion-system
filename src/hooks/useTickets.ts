@@ -134,7 +134,17 @@ export const useUpdateTicketStatus = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ 
+      id, 
+      status, 
+      assigned_to, 
+      assigned_to_user_id 
+    }: { 
+      id: string; 
+      status: string;
+      assigned_to?: string;
+      assigned_to_user_id?: string;
+    }) => {
       // Validate status before sending to database
       const validationResult = ticketStatusSchema.safeParse(status);
       
@@ -142,9 +152,20 @@ export const useUpdateTicketStatus = () => {
         throw new Error(validationResult.error.errors[0].message);
       }
 
+      // Build update object
+      const updateData: any = { status: validationResult.data };
+      
+      // Add assignment fields if provided
+      if (assigned_to !== undefined) {
+        updateData.assigned_to = assigned_to;
+      }
+      if (assigned_to_user_id !== undefined) {
+        updateData.assigned_to_user_id = assigned_to_user_id;
+      }
+
       const { data, error } = await supabase
         .from('tickets')
-        .update({ status: validationResult.data })
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
