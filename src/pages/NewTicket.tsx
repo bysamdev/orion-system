@@ -115,7 +115,7 @@ const NewTicket = () => {
         .from('ticket_updates')
         .insert([{
           ticket_id: ticket.id,
-          type: 'created',
+          type: 'comment',
           content: `Chamado criado por ${userInfo.name}`,
           author: '', // Placeholder - trigger will set display name
           author_id: user.id,
