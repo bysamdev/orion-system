@@ -135,12 +135,17 @@ export const useUpdateTicketStatus = () => {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      console.log('[UPDATE STATUS] Iniciando atualização:', { id, status });
+      
       // Validate status before sending to database
       const validationResult = ticketStatusSchema.safeParse(status);
       
       if (!validationResult.success) {
+        console.error('[UPDATE STATUS] Validação falhou:', validationResult.error);
         throw new Error(validationResult.error.errors[0].message);
       }
+
+      console.log('[UPDATE STATUS] Status validado:', validationResult.data);
 
       const { data, error } = await supabase
         .from('tickets')
@@ -149,7 +154,17 @@ export const useUpdateTicketStatus = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[UPDATE STATUS] Erro do Supabase:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
+      
+      console.log('[UPDATE STATUS] Sucesso:', data);
       return data;
     },
     onSuccess: (data) => {
