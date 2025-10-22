@@ -92,7 +92,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Orion System</CardTitle>
@@ -196,7 +196,7 @@ const Auth = () => {
           </Tabs>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 };
 
