@@ -110,14 +110,15 @@ const NewTicket = () => {
 
       if (ticketError) throw ticketError;
 
-      // Create initial ticket update (author set automatically by trigger)
+      // Create initial ticket update
       const { error: updateError } = await supabase
         .from('ticket_updates')
         .insert([{
           ticket_id: ticket.id,
           type: 'created',
           content: `Chamado criado por ${userInfo.name}`,
-          author: '', // Placeholder - trigger will set from auth.uid()
+          author: '', // Placeholder - trigger will set display name
+          author_id: user.id,
         }]);
 
       if (updateError) throw updateError;
