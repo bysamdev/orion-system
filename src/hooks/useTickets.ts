@@ -199,10 +199,17 @@ export const useAddTicketUpdate = () => {
   
   return useMutation({
     mutationFn: async (update: { ticket_id: string; content: string; type: string }) => {
-      // Author is set automatically by database trigger - we provide a placeholder
+      // Get current user ID for author_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      
       const { data, error } = await supabase
         .from('ticket_updates')
-        .insert([{ ...update, author: '' }])
+        .insert([{ 
+          ...update, 
+          author: '', // Placeholder - trigger will set display name
+          author_id: user.id 
+        }])
         .select()
         .single();
       
