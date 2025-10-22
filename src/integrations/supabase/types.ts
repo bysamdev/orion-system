@@ -45,15 +45,7 @@ export type Database = {
           record_id?: string
           table_name?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "audit_log_changed_by_fkey"
-            columns: ["changed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       companies: {
         Row: {
@@ -111,30 +103,30 @@ export type Database = {
       profiles: {
         Row: {
           company_id: string | null
-          created_at: string | null
+          created_at: string
           department: string | null
           email: string
           full_name: string
           id: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           company_id?: string | null
-          created_at?: string | null
+          created_at?: string
           department?: string | null
           email: string
           full_name: string
           id: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           company_id?: string | null
-          created_at?: string | null
+          created_at?: string
           department?: string | null
           email?: string
           full_name?: string
           id?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -151,7 +143,7 @@ export type Database = {
           author: string
           author_id: string
           content: string
-          created_at: string | null
+          created_at: string
           id: string
           ticket_id: string
           type: string
@@ -160,16 +152,16 @@ export type Database = {
           author: string
           author_id: string
           content: string
-          created_at?: string | null
+          created_at?: string
           id?: string
           ticket_id: string
-          type: string
+          type?: string
         }
         Update: {
           author?: string
           author_id?: string
           content?: string
-          created_at?: string | null
+          created_at?: string
           id?: string
           ticket_id?: string
           type?: string
@@ -189,7 +181,7 @@ export type Database = {
           assigned_to: string | null
           assigned_to_user_id: string | null
           category: string
-          created_at: string | null
+          created_at: string
           department: string | null
           description: string
           id: string
@@ -200,32 +192,32 @@ export type Database = {
           status: string
           ticket_number: number
           title: string
-          updated_at: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
           assigned_to?: string | null
           assigned_to_user_id?: string | null
           category: string
-          created_at?: string | null
+          created_at?: string
           department?: string | null
           description: string
           id?: string
           operator_name?: string | null
-          priority: string
+          priority?: string
           requester_name: string
           search_vector?: unknown | null
           status?: string
           ticket_number?: number
           title: string
-          updated_at?: string | null
+          updated_at?: string
           user_id: string
         }
         Update: {
           assigned_to?: string | null
           assigned_to_user_id?: string | null
           category?: string
-          created_at?: string | null
+          created_at?: string
           department?: string | null
           description?: string
           id?: string
@@ -236,34 +228,26 @@ export type Database = {
           status?: string
           ticket_number?: number
           title?: string
-          updated_at?: string | null
+          updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "tickets_assigned_to_user_id_fkey"
-            columns: ["assigned_to_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_roles: {
         Row: {
-          created_at: string | null
+          created_at: string
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
+          role?: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
