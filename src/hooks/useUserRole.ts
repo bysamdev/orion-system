@@ -16,10 +16,10 @@ export const useUserRole = () => {
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return data?.role as UserRole;
+      return data?.role as UserRole | null;
     },
     enabled: !!user?.id,
   });
@@ -37,7 +37,7 @@ export const useUserProfile = () => {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
