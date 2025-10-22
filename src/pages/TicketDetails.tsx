@@ -127,7 +127,7 @@ const TicketDetails: React.FC = () => {
     await addUpdate.mutateAsync({
       ticket_id: ticket.id,
       content: `Status alterado para: ${statusLabels[newStatus as keyof typeof statusLabels]}`,
-      type: 'status'
+      type: 'status_change'
     });
   };
 
