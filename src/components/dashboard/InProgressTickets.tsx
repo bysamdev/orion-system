@@ -6,10 +6,14 @@ import { useTickets } from '@/hooks/useTickets';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 
 export const InProgressTickets: React.FC = () => {
   const { data: tickets = [], isLoading } = useTickets('in-progress');
   const navigate = useNavigate();
+  
+  // Enable realtime updates
+  useRealtimeTickets();
 
   const formatTimeAgo = (date: string) => {
     return formatDistanceToNow(new Date(date), { locale: ptBR, addSuffix: true });

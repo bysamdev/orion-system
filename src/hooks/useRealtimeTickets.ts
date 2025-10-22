@@ -1,14 +1,17 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
 
+/**
+ * Hook para escutar mudanças em tempo real nos tickets
+ * Atualiza automaticamente as queries quando há mudanças no banco
+ */
 export const useRealtimeTickets = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
     const channel = supabase
-      .channel('tickets-changes')
+      .channel('tickets-realtime')
       .on(
         'postgres_changes',
         {
@@ -17,50 +20,15 @@ export const useRealtimeTickets = () => {
           table: 'tickets'
         },
         (payload) => {
-          console.log('Ticket change detected:', payload);
+          console.log('Ticket atualizado em tempo real:', payload);
           
-          // Invalidate all ticket queries
+          // Invalidar todas as queries de tickets para recarregar dados
           queryClient.invalidateQueries({ queryKey: ['tickets'] });
+          
+          // Se houver um ID específico, invalidar também
           if (payload.new && 'id' in payload.new) {
             queryClient.invalidateQueries({ queryKey: ['ticket', payload.new.id] });
           }
-          
-          // Show notification based on event type
-          if (payload.eventType === 'INSERT') {
-            toast({
-              title: '🎫 Novo Chamado',
-              description: `Chamado #${payload.new.ticket_number} criado`,
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            const statusChanged = payload.old?.status !== payload.new?.status;
-            if (statusChanged) {
-              toast({
-                title: '📝 Status Atualizado',
-                description: `Chamado #${payload.new.ticket_number}: ${payload.new.status}`,
-              });
-            }
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'ticket_updates'
-        },
-        (payload) => {
-          console.log('New ticket update:', payload);
-          
-          // Invalidate ticket updates queries
-          queryClient.invalidateQueries({ 
-            queryKey: ['ticket-updates', payload.new.ticket_id] 
-          });
-          
-          toast({
-            title: '💬 Nova Atualização',
-            description: 'Um comentário foi adicionado ao chamado',
-          });
         }
       )
       .subscribe();
@@ -69,4 +37,39 @@ export const useRealtimeTickets = () => {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
+};
+
+/**
+ * Hook para escutar mudanças em tempo real em um ticket específico
+ */
+export const useRealtimeTicket = (ticketId: string) => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!ticketId) return;
+
+    const channel = supabase
+      .channel(`ticket-${ticketId}-realtime`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets',
+          filter: `id=eq.${ticketId}`
+        },
+        (payload) => {
+          console.log('Ticket específico atualizado:', payload);
+          
+          // Invalidar queries relacionadas a este ticket
+          queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
+          queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [ticketId, queryClient]);
 };

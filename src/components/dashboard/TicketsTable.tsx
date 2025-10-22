@@ -11,6 +11,7 @@ import { TicketFilters } from './TicketFilters';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
+import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 
 const priorityColors = {
   high: 'bg-destructive',
@@ -30,6 +31,9 @@ export const TicketsTable: React.FC = () => {
   const { data: tickets = [], isLoading } = useTickets('open');
   const { data: userRole } = useUserRole();
   const updateStatus = useUpdateTicketStatus();
+  
+  // Enable realtime updates
+  useRealtimeTickets();
   
   // Advanced filters
   const { filters, filteredTickets, updateFilters, resetFilters, activeFiltersCount } = useTicketFilters(tickets);
