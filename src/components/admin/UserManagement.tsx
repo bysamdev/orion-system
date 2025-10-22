@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import type { UserRole } from '@/hooks/useUserRole';
+import { userRoleSchema } from '@/lib/validation';
+import { mapDatabaseError, logError } from '@/lib/error-handling';
 
 export const UserManagement = () => {
   const { toast } = useToast();
@@ -37,9 +39,16 @@ export const UserManagement = () => {
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: UserRole }) => {
+      // Validate role before sending to database
+      const validationResult = userRoleSchema.safeParse(newRole);
+      
+      if (!validationResult.success) {
+        throw new Error(validationResult.error.errors[0].message);
+      }
+
       const { error } = await supabase
         .from('user_roles')
-        .update({ role: newRole })
+        .update({ role: validationResult.data })
         .eq('user_id', userId);
 
       if (error) throw error;
@@ -51,10 +60,11 @@ export const UserManagement = () => {
         description: 'Função do usuário atualizada com sucesso',
       });
     },
-    onError: () => {
+    onError: (error) => {
+      logError('updateRoleMutation', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível atualizar a função do usuário',
+        description: mapDatabaseError(error),
         variant: 'destructive',
       });
     }

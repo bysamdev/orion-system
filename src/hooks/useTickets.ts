@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseRead } from '@/integrations/supabase/read-client';
 import { toast } from '@/hooks/use-toast';
+import { ticketStatusSchema, ticketUpdateSchema } from '@/lib/validation';
+import { mapDatabaseError, logError } from '@/lib/error-handling';
 
 export interface Ticket {
   id: string;
@@ -133,9 +135,16 @@ export const useUpdateTicketStatus = () => {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      // Validate status before sending to database
+      const validationResult = ticketStatusSchema.safeParse(status);
+      
+      if (!validationResult.success) {
+        throw new Error(validationResult.error.errors[0].message);
+      }
+
       const { data, error } = await supabase
         .from('tickets')
-        .update({ status })
+        .update({ status: validationResult.data })
         .eq('id', id)
         .select()
         .single();
@@ -151,10 +160,11 @@ export const useUpdateTicketStatus = () => {
         description: 'O status do chamado foi atualizado com sucesso.',
       });
     },
-    onError: () => {
+    onError: (error) => {
+      logError('useUpdateTicketStatus', error);
       toast({
         title: 'Erro',
-        description: 'Ocorreu um erro ao atualizar o status do chamado.',
+        description: mapDatabaseError(error),
         variant: 'destructive',
       });
     },
@@ -184,10 +194,11 @@ export const useUpdateTicketAssignment = () => {
         description: 'O técnico foi atribuído ao chamado com sucesso.',
       });
     },
-    onError: () => {
+    onError: (error) => {
+      logError('useUpdateTicketAssignment', error);
       toast({
         title: 'Erro',
-        description: 'Ocorreu um erro ao atribuir o técnico.',
+        description: mapDatabaseError(error),
         variant: 'destructive',
       });
     },
@@ -199,14 +210,24 @@ export const useAddTicketUpdate = () => {
   
   return useMutation({
     mutationFn: async (update: { ticket_id: string; content: string; type: string }) => {
+      // Validate input before sending to database
+      const validationResult = ticketUpdateSchema.safeParse(update);
+      
+      if (!validationResult.success) {
+        throw new Error(validationResult.error.errors[0].message);
+      }
+
       // Get current user ID for author_id
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user) throw new Error('Usuário não autenticado');
       
+      const validData = validationResult.data;
       const { data, error } = await supabase
         .from('ticket_updates')
         .insert([{ 
-          ...update, 
+          ticket_id: validData.ticket_id,
+          content: validData.content,
+          type: validData.type,
           author: '', // Placeholder - trigger will set display name
           author_id: user.id 
         }])
@@ -223,10 +244,11 @@ export const useAddTicketUpdate = () => {
         description: 'Seu comentário foi adicionado com sucesso.',
       });
     },
-    onError: () => {
+    onError: (error) => {
+      logError('useAddTicketUpdate', error);
       toast({
         title: 'Erro',
-        description: 'Ocorreu um erro ao adicionar o comentário.',
+        description: mapDatabaseError(error),
         variant: 'destructive',
       });
     },

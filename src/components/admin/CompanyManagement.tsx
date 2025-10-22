@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Loader2, Trash2 } from 'lucide-react';
+import { companyNameSchema } from '@/lib/validation';
+import { mapDatabaseError, logError } from '@/lib/error-handling';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,9 +41,16 @@ export const CompanyManagement = () => {
 
   const createCompanyMutation = useMutation({
     mutationFn: async (name: string) => {
+      // Validate company name before sending to database
+      const validationResult = companyNameSchema.safeParse(name);
+      
+      if (!validationResult.success) {
+        throw new Error(validationResult.error.errors[0].message);
+      }
+
       const { error } = await supabase
         .from('companies')
-        .insert({ name });
+        .insert({ name: validationResult.data });
 
       if (error) throw error;
     },
@@ -53,10 +62,11 @@ export const CompanyManagement = () => {
         description: 'Empresa criada com sucesso',
       });
     },
-    onError: () => {
+    onError: (error) => {
+      logError('createCompanyMutation', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível criar a empresa',
+        description: mapDatabaseError(error),
         variant: 'destructive',
       });
     }
@@ -79,24 +89,18 @@ export const CompanyManagement = () => {
         description: 'Empresa removida com sucesso',
       });
     },
-    onError: () => {
+    onError: (error) => {
+      logError('deleteCompanyMutation', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível remover a empresa',
+        description: mapDatabaseError(error),
         variant: 'destructive',
       });
     }
   });
 
   const handleCreateCompany = () => {
-    if (!newCompanyName.trim()) {
-      toast({
-        title: 'Erro',
-        description: 'Digite um nome para a empresa',
-        variant: 'destructive',
-      });
-      return;
-    }
+    // Validation is now handled in the mutation
     createCompanyMutation.mutate(newCompanyName);
   };
 

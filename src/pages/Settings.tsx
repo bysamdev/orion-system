@@ -12,6 +12,8 @@ import { useUserProfile } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { profileUpdateSchema } from "@/lib/validation";
+import { mapDatabaseError, logError } from "@/lib/error-handling";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -48,12 +50,19 @@ export default function Settings() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async () => {
+      // Validate profile data before sending to database
+      const validationResult = profileUpdateSchema.safeParse({
+        full_name: fullName,
+        department: department || undefined
+      });
+      
+      if (!validationResult.success) {
+        throw new Error(validationResult.error.errors[0].message);
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          full_name: fullName,
-          department: department,
-        })
+        .update(validationResult.data)
         .eq('id', profile?.id);
 
       if (error) throw error;
@@ -65,10 +74,11 @@ export default function Settings() {
         description: 'Perfil atualizado com sucesso',
       });
     },
-    onError: () => {
+    onError: (error) => {
+      logError('updateProfileMutation', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível atualizar o perfil',
+        description: mapDatabaseError(error),
         variant: 'destructive',
       });
     }
