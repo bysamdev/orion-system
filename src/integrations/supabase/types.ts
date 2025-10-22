@@ -106,13 +106,6 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_departments_company_id"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
         ]
       }
       profiles: {
@@ -144,13 +137,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_profiles_company_id"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "profiles_company_id_fkey"
             columns: ["company_id"]
@@ -189,20 +175,6 @@ export type Database = {
           type?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_ticket_updates_author_id"
-            columns: ["author_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_ticket_updates_ticket_id"
-            columns: ["ticket_id"]
-            isOneToOne: false
-            referencedRelation: "tickets"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "ticket_updates_ticket_id_fkey"
             columns: ["ticket_id"]
@@ -269,20 +241,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_tickets_assigned_to_user_id"
-            columns: ["assigned_to_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_tickets_user_id"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "tickets_assigned_to_user_id_fkey"
             columns: ["assigned_to_user_id"]
             isOneToOne: false
@@ -310,15 +268,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_user_roles_user_id"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
