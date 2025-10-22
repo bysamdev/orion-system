@@ -309,6 +309,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_master_company_user: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       search_tickets: {
         Args: { search_query: string }
         Returns: {
