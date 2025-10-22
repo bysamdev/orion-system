@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { z } from 'zod';
+import { useRealtimeTicket } from '@/hooks/useRealtimeTickets';
 
 const ticketUpdateSchema = z.object({
   content: z.string()
@@ -38,6 +39,9 @@ const TicketDetails: React.FC = () => {
   const addUpdate = useAddTicketUpdate();
   
   const [newUpdateText, setNewUpdateText] = useState('');
+  
+  // Enable realtime updates for this ticket
+  useRealtimeTicket(id || '');
 
   // Fetch real technicians with their roles
   const { data: technicians = [], isLoading: techniciansLoading } = useQuery({

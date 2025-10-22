@@ -176,10 +176,20 @@ export const useUpdateTicketStatus = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
-      toast({
-        title: 'Status atualizado',
-        description: 'O status do chamado foi atualizado com sucesso.',
-      });
+      
+      // Mensagem customizada baseada no que foi atualizado
+      const messages = [];
+      if (data.status === 'in-progress' && data.assigned_to) {
+        toast({
+          title: 'Atendimento iniciado',
+          description: `Você foi atribuído ao chamado #${data.ticket_number}`,
+        });
+      } else {
+        toast({
+          title: 'Status atualizado',
+          description: 'O status do chamado foi atualizado com sucesso.',
+        });
+      }
     },
     onError: (error) => {
       logError('useUpdateTicketStatus', error);
