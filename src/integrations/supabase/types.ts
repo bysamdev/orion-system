@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string
+          table_name: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id: string
+          table_name: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           created_at: string
@@ -65,6 +106,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_departments_company_id"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
         ]
       }
       profiles: {
@@ -72,8 +120,8 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           department: string | null
-          email: string | null
-          full_name: string | null
+          email: string
+          full_name: string
           id: string
           updated_at: string | null
         }
@@ -81,8 +129,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           department?: string | null
-          email?: string | null
-          full_name?: string | null
+          email: string
+          full_name: string
           id: string
           updated_at?: string | null
         }
@@ -90,12 +138,19 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           department?: string | null
-          email?: string | null
-          full_name?: string | null
+          email?: string
+          full_name?: string
           id?: string
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_profiles_company_id"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_company_id_fkey"
             columns: ["company_id"]
@@ -108,7 +163,7 @@ export type Database = {
       ticket_updates: {
         Row: {
           author: string
-          author_id: string | null
+          author_id: string
           content: string
           created_at: string | null
           id: string
@@ -117,7 +172,7 @@ export type Database = {
         }
         Insert: {
           author: string
-          author_id?: string | null
+          author_id: string
           content: string
           created_at?: string | null
           id?: string
@@ -126,7 +181,7 @@ export type Database = {
         }
         Update: {
           author?: string
-          author_id?: string | null
+          author_id?: string
           content?: string
           created_at?: string | null
           id?: string
@@ -134,6 +189,20 @@ export type Database = {
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_ticket_updates_author_id"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_ticket_updates_ticket_id"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ticket_updates_ticket_id_fkey"
             columns: ["ticket_id"]
@@ -155,6 +224,7 @@ export type Database = {
           operator_name: string | null
           priority: string
           requester_name: string
+          search_vector: unknown | null
           status: string
           ticket_number: number
           title: string
@@ -172,6 +242,7 @@ export type Database = {
           operator_name?: string | null
           priority: string
           requester_name: string
+          search_vector?: unknown | null
           status?: string
           ticket_number?: number
           title: string
@@ -189,6 +260,7 @@ export type Database = {
           operator_name?: string | null
           priority?: string
           requester_name?: string
+          search_vector?: unknown | null
           status?: string
           ticket_number?: number
           title?: string
@@ -196,6 +268,20 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_tickets_assigned_to_user_id"
+            columns: ["assigned_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_tickets_user_id"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tickets_assigned_to_user_id_fkey"
             columns: ["assigned_to_user_id"]
@@ -224,13 +310,44 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_user_roles_user_id"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      check_index_health: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          efficiency: number
+          index_name: string
+          index_scans: number
+          index_size: string
+          rows_fetched: number
+          rows_read: number
+          table_name: string
+        }[]
+      }
+      check_table_bloat: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          dead_ratio: number
+          dead_tuples: number
+          live_tuples: number
+          needs_vacuum: boolean
+          table_name: string
+          total_size: string
+        }[]
+      }
       get_user_company_id: {
         Args: { _user_id: string }
         Returns: string
@@ -241,6 +358,19 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      search_tickets: {
+        Args: { search_query: string }
+        Returns: {
+          created_at: string
+          description: string
+          id: string
+          priority: string
+          rank: number
+          status: string
+          ticket_number: number
+          title: string
+        }[]
       }
       ticket_belongs_to_user_company: {
         Args: { _ticket_id: string; _user_id: string }
