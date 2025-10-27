@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { useErrorHandler } from '@/lib/useErrorHandler';
 import { Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,6 +30,7 @@ type SignInFormValues = z.infer<typeof signInSchema>;
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { handleError } = useErrorHandler();
 
   const signUpForm = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -60,11 +62,7 @@ const Auth = () => {
     });
 
     if (error) {
-      toast({
-        title: 'Erro ao criar conta',
-        description: error.message,
-        variant: 'destructive',
-      });
+      handleError(error, 'Auth.handleSignUp', 'Erro ao criar conta');
     } else {
       toast({
         title: 'Conta criada com sucesso!',
@@ -81,11 +79,7 @@ const Auth = () => {
     });
 
     if (error) {
-      toast({
-        title: 'Erro ao fazer login',
-        description: error.message,
-        variant: 'destructive',
-      });
+      handleError(error, 'Auth.handleLogin', 'Erro ao fazer login');
     } else {
       navigate('/');
     }

@@ -15,14 +15,10 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserRole';
+import { ticketCreationSchema } from '@/lib/validation';
+import { useErrorHandler } from '@/lib/useErrorHandler';
 
-const ticketSchema = z.object({
-  title: z.string().min(5, 'Título deve ter no mínimo 5 caracteres').max(100, 'Título muito longo'),
-  category: z.string().min(1, 'Selecione uma categoria'),
-  priority: z.enum(['low', 'medium', 'high'], { required_error: 'Selecione uma prioridade' }),
-  description: z.string().min(20, 'Descrição deve ter no mínimo 20 caracteres').max(1000, 'Descrição muito longa'),
-  department: z.string().min(1, 'Selecione um departamento'),
-});
+const ticketSchema = ticketCreationSchema;
 
 type TicketFormValues = z.infer<typeof ticketSchema>;
 
@@ -31,6 +27,7 @@ const NewTicket = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { data: profile } = useUserProfile();
+  const { handleError } = useErrorHandler();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userInfo, setUserInfo] = useState<{ name: string; email: string; company: string }>({
     name: '',
@@ -92,6 +89,29 @@ const NewTicket = () => {
     setIsSubmitting(true);
 
     try {
+      // Verificar rate limit antes de criar ticket
+      const { data: rateLimitData, error: rateLimitError } = await supabase.functions.invoke(
+        'check-rate-limit',
+        {
+          headers: {
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+        }
+      );
+
+      if (rateLimitError) {
+        console.error('Rate limit check failed:', rateLimitError);
+        // Continuar mesmo se rate limit falhar (graceful degradation)
+      } else if (rateLimitData && !rateLimitData.allowed) {
+        toast({
+          title: 'Limite atingido',
+          description: rateLimitData.message || 'Você atingiu o limite de chamados. Tente novamente mais tarde.',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Insert the ticket
       const { data: ticket, error: ticketError } = await supabase
         .from('tickets')
@@ -130,11 +150,7 @@ const NewTicket = () => {
       
       navigate('/');
     } catch (error: any) {
-      toast({
-        title: 'Erro ao criar chamado',
-        description: error.message || 'Ocorreu um erro ao criar o chamado.',
-        variant: 'destructive',
-      });
+      handleError(error, 'NewTicket.onSubmit', 'Erro ao criar chamado');
     } finally {
       setIsSubmitting(false);
     }

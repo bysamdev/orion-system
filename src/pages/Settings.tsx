@@ -13,11 +13,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { profileUpdateSchema } from "@/lib/validation";
-import { mapDatabaseError, logError } from "@/lib/error-handling";
+import { useErrorHandler } from "@/lib/useErrorHandler";
 
 export default function Settings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { handleError, handleValidationError } = useErrorHandler();
   const { data: profile, isLoading: profileLoading } = useUserProfile();
   
   const [fullName, setFullName] = useState('');
@@ -57,7 +58,9 @@ export default function Settings() {
       });
       
       if (!validationResult.success) {
-        throw new Error(validationResult.error.errors[0].message);
+        // Cast to error type for handleValidationError
+        handleValidationError(validationResult as { success: false; error: { errors: Array<{ message: string }> } }, 'Settings.updateProfile');
+        return;
       }
 
       const { error } = await supabase
@@ -75,12 +78,7 @@ export default function Settings() {
       });
     },
     onError: (error) => {
-      logError('updateProfileMutation', error);
-      toast({
-        title: 'Erro',
-        description: mapDatabaseError(error),
-        variant: 'destructive',
-      });
+      handleError(error, 'Settings.updateProfile', 'Erro ao atualizar perfil');
     }
   });
 
