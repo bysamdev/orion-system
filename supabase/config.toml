@@ -1,1 +1,4 @@
 project_id = "kcxwealimsfxqstoprdg"
+
+[functions.check-rate-limit]
+verify_jwt = true
