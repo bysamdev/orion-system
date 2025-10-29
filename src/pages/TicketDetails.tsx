@@ -274,14 +274,14 @@ const TicketDetails: React.FC = () => {
                       <div className="flex flex-col items-center flex-shrink-0">
                         <div className={cn(
                           "w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center",
-                          update.type === 'created' ? 'bg-blue-500/20' :
-                          update.type === 'status' ? 'bg-yellow-500/20' :
+                          update.type === 'status_change' ? 'bg-yellow-500/20' :
                           update.type === 'assignment' ? 'bg-purple-500/20' :
+                          update.type === 'priority_change' ? 'bg-blue-500/20' :
                           'bg-green-500/20'
                         )}>
-                          {update.type === 'created' ? <AlertCircle className="w-3 h-3 md:w-4 md:h-4 text-blue-500" /> :
-                           update.type === 'status' ? <Clock className="w-3 h-3 md:w-4 md:h-4 text-yellow-500" /> :
+                          {update.type === 'status_change' ? <Clock className="w-3 h-3 md:w-4 md:h-4 text-yellow-500" /> :
                            update.type === 'assignment' ? <User className="w-3 h-3 md:w-4 md:h-4 text-purple-500" /> :
+                           update.type === 'priority_change' ? <AlertCircle className="w-3 h-3 md:w-4 md:h-4 text-blue-500" /> :
                            <MessageSquare className="w-3 h-3 md:w-4 md:h-4 text-green-500" />}
                         </div>
                         {index < updates.length - 1 && (

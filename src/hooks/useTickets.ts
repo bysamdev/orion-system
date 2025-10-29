@@ -27,7 +27,7 @@ export interface TicketUpdate {
   ticket_id: string;
   author: string;
   content: string;
-  type: 'created' | 'status' | 'assignment' | 'comment';
+  type: 'comment' | 'status_change' | 'assignment' | 'priority_change';
   created_at: string;
 }
 
