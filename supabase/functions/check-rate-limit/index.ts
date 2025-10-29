@@ -146,14 +146,15 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in check-rate-limit:', error);
     
+    // SECURITY: Fail closed - negar acesso em caso de erro do sistema
     return new Response(
       JSON.stringify({ 
-        error: 'Erro ao verificar limite de criação',
-        allowed: true, // Fallback: permitir em caso de erro da função
+        error: 'Sistema de proteção temporariamente indisponível. Tente novamente em alguns instantes.',
+        allowed: false, // Fallback seguro: negar em caso de erro
         remaining: 0,
-        resetAt: new Date().toISOString()
+        resetAt: new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5 minutos
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
