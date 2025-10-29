@@ -188,7 +188,7 @@ export type Database = {
           operator_name: string | null
           priority: string
           requester_name: string
-          search_vector: unknown | null
+          search_vector: unknown
           status: string
           ticket_number: number
           title: string
@@ -206,7 +206,7 @@ export type Database = {
           operator_name?: string | null
           priority?: string
           requester_name: string
-          search_vector?: unknown | null
+          search_vector?: unknown
           status?: string
           ticket_number?: number
           title: string
@@ -224,7 +224,7 @@ export type Database = {
           operator_name?: string | null
           priority?: string
           requester_name?: string
-          search_vector?: unknown | null
+          search_vector?: unknown
           status?: string
           ticket_number?: number
           title?: string
@@ -260,7 +260,7 @@ export type Database = {
     }
     Functions: {
       check_index_health: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           efficiency: number
           index_name: string
@@ -272,7 +272,7 @@ export type Database = {
         }[]
       }
       check_table_bloat: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           dead_ratio: number
           dead_tuples: number
@@ -282,10 +282,7 @@ export type Database = {
           total_size: string
         }[]
       }
-      get_user_company_id: {
-        Args: { _user_id: string }
-        Returns: string
-      }
+      get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -293,10 +290,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_master_company_user: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_master_company_user: { Args: { _user_id: string }; Returns: boolean }
       search_tickets: {
         Args: { search_query: string }
         Returns: {
