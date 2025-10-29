@@ -61,7 +61,9 @@ export const InProgressTickets: React.FC = () => {
               <div className="flex items-center gap-4 w-full sm:w-auto">
                 <div className="text-left sm:text-center flex-1 sm:flex-initial">
                   <p className="text-xs text-muted-foreground">Atendendo</p>
-                  <p className="text-sm font-semibold text-foreground truncate">{ticket.assigned_to || ticket.operator_name || 'N/A'}</p>
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {ticket.assigned_to || 'Não atribuído'}
+                  </p>
                 </div>
                 <p className="text-xs text-muted-foreground min-w-[60px] text-right flex-shrink-0">{formatTimeAgo(ticket.updated_at)}</p>
               </div>
