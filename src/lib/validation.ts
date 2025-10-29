@@ -13,7 +13,7 @@ export const ticketPrioritySchema = z.enum(['low', 'medium', 'high'], {
   errorMap: () => ({ message: 'Prioridade deve ser: baixa, média ou alta' })
 });
 
-export const ticketUpdateTypeSchema = z.enum(['created', 'status', 'assignment', 'comment'], {
+export const ticketUpdateTypeSchema = z.enum(['comment', 'status_change', 'assignment', 'priority_change'], {
   errorMap: () => ({ message: 'Tipo de atualização inválido' })
 });
 
