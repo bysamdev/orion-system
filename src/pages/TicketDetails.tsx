@@ -84,18 +84,23 @@ const TicketDetails: React.FC = () => {
     'open': 'Aberto',
     'in-progress': 'Em Andamento',
     'resolved': 'Resolvido',
-    'closed': 'Fechado'
+    'closed': 'Fechado',
+    'reopened': 'Reaberto'
   };
 
   const statusColors = {
     'open': 'bg-blue-500',
     'in-progress': 'bg-yellow-500',
     'resolved': 'bg-green-500',
-    'closed': 'bg-gray-500'
+    'closed': 'bg-gray-500',
+    'reopened': 'bg-orange-500'
   };
 
-  // Check if user can manage tickets (technician or admin)
-  const canManageTickets = userRole === 'technician' || userRole === 'admin';
+  // Check if user can manage tickets (technician or admin or developer)
+  const canManageTickets = userRole === 'technician' || userRole === 'admin' || userRole === 'developer';
+  
+  // Check if ticket can be reopened (closed or resolved)
+  const canReopenTicket = ticket?.status === 'closed' || ticket?.status === 'resolved';
 
   const handleAddUpdate = async () => {
     if (!ticket) return;
@@ -147,6 +152,35 @@ const TicketDetails: React.FC = () => {
       content: `Chamado atribuído para: ${technicianName}`,
       type: 'assignment'
     });
+  };
+  
+  const handleReopenTicket = async () => {
+    if (!ticket) return;
+    
+    try {
+      await updateStatus.mutateAsync({
+        id: ticket.id,
+        status: 'reopened'
+      });
+      
+      // Adicionar comentário automático sobre reabertura
+      await addUpdate.mutateAsync({
+        ticket_id: ticket.id,
+        content: 'Chamado reaberto pelo usuário',
+        type: 'status_change'
+      });
+      
+      toast({
+        title: 'Chamado reaberto',
+        description: 'O chamado foi reaberto com sucesso.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível reabrir o chamado.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const formatTimeAgo = (date: string) => {
@@ -311,35 +345,54 @@ const TicketDetails: React.FC = () => {
             </Card>
 
             {/* Campo de Resposta */}
-            <Card className="p-6">
-              <h3 className="font-semibold text-foreground mb-3">Adicionar Comentário</h3>
-              <Textarea
-                placeholder="Digite sua resposta ou solução para o problema..."
-                value={newUpdateText}
-                onChange={(e) => setNewUpdateText(e.target.value)}
-                className="mb-2"
-                rows={4}
-                maxLength={5000}
-              />
-              <div className="flex justify-between items-center mb-3">
-                <p className="text-xs text-muted-foreground">
-                  {newUpdateText.length}/5000 caracteres
-                </p>
-                {newUpdateText.length > 4500 && (
-                  <p className="text-xs text-warning">
-                    {5000 - newUpdateText.length} caracteres restantes
+            {!canReopenTicket && (
+              <Card className="p-6">
+                <h3 className="font-semibold text-foreground mb-3">Adicionar Comentário</h3>
+                <Textarea
+                  placeholder="Digite sua resposta ou solução para o problema..."
+                  value={newUpdateText}
+                  onChange={(e) => setNewUpdateText(e.target.value)}
+                  className="mb-2"
+                  rows={4}
+                  maxLength={5000}
+                />
+                <div className="flex justify-between items-center mb-3">
+                  <p className="text-xs text-muted-foreground">
+                    {newUpdateText.length}/5000 caracteres
                   </p>
-                )}
-              </div>
-              <Button 
-                onClick={handleAddUpdate} 
-                className="w-full"
-                disabled={addUpdate.isPending || !newUpdateText.trim()}
-              >
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Enviar Comentário
-              </Button>
-            </Card>
+                  {newUpdateText.length > 4500 && (
+                    <p className="text-xs text-warning">
+                      {5000 - newUpdateText.length} caracteres restantes
+                    </p>
+                  )}
+                </div>
+                <Button 
+                  onClick={handleAddUpdate} 
+                  className="w-full"
+                  disabled={addUpdate.isPending || !newUpdateText.trim()}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Enviar Comentário
+                </Button>
+              </Card>
+            )}
+            
+            {/* Mensagem para chamados fechados/resolvidos */}
+            {canReopenTicket && (
+              <Card className="p-6 bg-muted/30">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">
+                      Este chamado está {ticket.status === 'closed' ? 'fechado' : 'resolvido'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Para adicionar novos comentários, você precisa reabrir o chamado usando o botão "Reabrir Chamado" no painel lateral.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
 
           {/* Painel de Gestão */}
@@ -369,11 +422,12 @@ const TicketDetails: React.FC = () => {
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                     <SelectContent>
                       <SelectItem value="open">Aberto</SelectItem>
                       <SelectItem value="in-progress">Em Andamento</SelectItem>
                       <SelectItem value="resolved">Resolvido</SelectItem>
                       <SelectItem value="closed">Fechado</SelectItem>
+                      <SelectItem value="reopened">Reaberto</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -403,15 +457,31 @@ const TicketDetails: React.FC = () => {
                 <Separator className="my-4" />
 
                 <div className="space-y-2">
-                  <Button
-                    variant="default"
-                    className="w-full justify-start gap-2"
-                    onClick={() => handleStatusChange('resolved')}
-                    disabled={!canManageTickets || ticket.status === 'resolved' || ticket.status === 'closed' || updateStatus.isPending}
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Marcar como Resolvido
-                  </Button>
+                  {/* Botão de Reabrir para chamados fechados/resolvidos */}
+                  {canReopenTicket && (
+                    <Button
+                      variant="secondary"
+                      className="w-full justify-start gap-2"
+                      onClick={handleReopenTicket}
+                      disabled={updateStatus.isPending}
+                    >
+                      <AlertCircle className="w-4 h-4" />
+                      Reabrir Chamado
+                    </Button>
+                  )}
+                  
+                  {/* Botão de resolver - apenas para técnicos/admins */}
+                  {canManageTickets && !canReopenTicket && (
+                    <Button
+                      variant="default"
+                      className="w-full justify-start gap-2"
+                      onClick={() => handleStatusChange('resolved')}
+                      disabled={!canManageTickets || ticket.status === 'resolved' || updateStatus.isPending}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Marcar como Resolvido
+                    </Button>
+                  )}
                   
                   {ticket.status === 'resolved' && (
                     <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">

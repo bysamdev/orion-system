@@ -23,7 +23,8 @@ const statusLabels: Record<string, string> = {
   'open': 'Aberto',
   'in-progress': 'Em Andamento',
   'resolved': 'Resolvido',
-  'closed': 'Fechado'
+  'closed': 'Fechado',
+  'reopened': 'Reaberto'
 };
 
 export const TicketsTable: React.FC = () => {

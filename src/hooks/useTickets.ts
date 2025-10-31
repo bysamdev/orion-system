@@ -13,7 +13,7 @@ export interface Ticket {
   requester_name: string;
   category: string;
   priority: 'high' | 'medium' | 'low';
-  status: 'open' | 'in-progress' | 'resolved' | 'closed';
+  status: 'open' | 'in-progress' | 'resolved' | 'closed' | 'reopened';
   operator_name: string | null;
   assigned_to: string | null;
   department: string | null;
@@ -42,7 +42,12 @@ export const useTickets = (status?: string) => {
         .order('created_at', { ascending: false });
 
       if (status) {
-        query = query.eq('status', status);
+        // Se status for 'open', incluir também 'reopened'
+        if (status === 'open') {
+          query = query.in('status', ['open', 'reopened']);
+        } else {
+          query = query.eq('status', status);
+        }
       }
 
       const { data: tickets, error } = await query;
