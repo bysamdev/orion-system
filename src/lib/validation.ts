@@ -5,8 +5,8 @@ import { z } from 'zod';
  * These schemas enforce input validation before database operations
  */
 
-export const ticketStatusSchema = z.enum(['open', 'in-progress', 'resolved', 'closed'], {
-  errorMap: () => ({ message: 'Status deve ser: aberto, em andamento, resolvido ou fechado' })
+export const ticketStatusSchema = z.enum(['open', 'in-progress', 'resolved', 'closed', 'reopened'], {
+  errorMap: () => ({ message: 'Status deve ser: aberto, em andamento, resolvido, fechado ou reaberto' })
 });
 
 export const ticketPrioritySchema = z.enum(['low', 'medium', 'high'], {

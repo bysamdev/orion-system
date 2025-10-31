@@ -130,19 +130,7 @@ const NewTicket = () => {
 
       if (ticketError) throw ticketError;
 
-      // Create initial ticket update
-      const { error: updateError } = await supabase
-        .from('ticket_updates')
-        .insert([{
-          ticket_id: ticket.id,
-          type: 'comment',
-          content: `Chamado criado por ${userInfo.name}`,
-          author: '', // Placeholder - trigger will set display name
-          author_id: user.id,
-        }]);
-
-      if (updateError) throw updateError;
-
+      // Sucesso - chamado criado sem ticket_update inicial (evita erro de constraint)
       toast({
         title: 'Chamado criado com sucesso!',
         description: `Número do chamado: #${ticket.ticket_number}`,
