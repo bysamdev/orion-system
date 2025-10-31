@@ -29,6 +29,10 @@ export const Dashboard: React.FC = () => {
   const userName = profile?.full_name || 'Usuário';
   const isCustomer = role === 'customer';
   const isGestor = role === 'admin';
+  const isTechnician = role === 'technician';
+  
+  // Restringir acesso: apenas técnicos, admins e developers têm acesso ao painel de gerenciamento
+  const hasManagementAccess = isTechnician || isGestor || role === 'developer';
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,7 +41,7 @@ export const Dashboard: React.FC = () => {
         <DashboardHeader userName={userName} />
         
         {isCustomer ? (
-          // Colaborador: Ver apenas seus próprios chamados em aberto em destaque
+          // Colaborador: Ver apenas seus próprios chamados
           <div className="space-y-6">
             <div className="bg-primary/10 border-2 border-primary rounded-2xl p-6">
               <div className="flex items-center gap-3 mb-4">
@@ -46,9 +50,12 @@ export const Dashboard: React.FC = () => {
               </div>
               <TicketsTable />
             </div>
+            
+            {/* Mostrar chamados fechados do próprio usuário */}
+            <ClosedTickets />
           </div>
-        ) : (
-          // Técnico e Gestor: Ver todos os chamados e métricas
+        ) : hasManagementAccess ? (
+          // Técnico e Gestor: Ver todos os chamados e métricas (painel de gerenciamento)
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               <TicketsTable />
@@ -63,6 +70,14 @@ export const Dashboard: React.FC = () => {
                 <QuickStats />
               </div>
             )}
+          </div>
+        ) : (
+          // Acesso negado para outros roles
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center space-y-2">
+              <p className="text-lg font-semibold text-foreground">Acesso Restrito</p>
+              <p className="text-sm text-muted-foreground">Você não tem permissão para acessar o painel de gerenciamento.</p>
+            </div>
           </div>
         )}
       </main>
