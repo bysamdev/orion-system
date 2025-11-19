@@ -100,6 +100,7 @@ const ReportContent: React.FC<{ data: ReportData }> = ({ data }) => {
   }
 
   const solvedPercentage = data.opened > 0 ? (data.solved / data.opened * 100).toFixed(0) : '0';
+  const solvedPercentageCapped = Math.min(parseFloat(solvedPercentage), 100);
   const slaColor = data.slaCompliance >= 80 ? 'success' : data.slaCompliance >= 60 ? 'warning' : 'destructive';
   
   return (
@@ -127,7 +128,7 @@ const ReportContent: React.FC<{ data: ReportData }> = ({ data }) => {
         <div className="w-full bg-background rounded-full h-2">
           <div 
             className="bg-success h-2 rounded-full transition-all duration-500"
-            style={{ width: `${solvedPercentage}%` }}
+            style={{ width: `${solvedPercentageCapped}%` }}
           ></div>
         </div>
       </div>
