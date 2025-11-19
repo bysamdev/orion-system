@@ -9,8 +9,8 @@ export const ticketStatusSchema = z.enum(['open', 'in-progress', 'resolved', 'cl
   errorMap: () => ({ message: 'Status deve ser: aberto, em andamento, resolvido, fechado ou reaberto' })
 });
 
-export const ticketPrioritySchema = z.enum(['low', 'medium', 'high'], {
-  errorMap: () => ({ message: 'Prioridade deve ser: baixa, média ou alta' })
+export const ticketPrioritySchema = z.enum(['urgent', 'high', 'medium', 'low'], {
+  errorMap: () => ({ message: 'Prioridade deve ser: urgente, alta, média ou baixa' })
 });
 
 export const ticketUpdateTypeSchema = z.enum(['comment', 'status_change', 'assignment', 'priority_change'], {

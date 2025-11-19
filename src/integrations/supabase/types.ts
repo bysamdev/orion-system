@@ -212,11 +212,15 @@ export type Database = {
           created_at: string
           department: string | null
           description: string
+          first_response_at: string | null
           id: string
           operator_name: string | null
           priority: string
           requester_name: string
+          resolved_at: string | null
           search_vector: unknown
+          sla_due_date: string | null
+          sla_status: string | null
           status: string
           ticket_number: number
           title: string
@@ -230,11 +234,15 @@ export type Database = {
           created_at?: string
           department?: string | null
           description: string
+          first_response_at?: string | null
           id?: string
           operator_name?: string | null
           priority?: string
           requester_name: string
+          resolved_at?: string | null
           search_vector?: unknown
+          sla_due_date?: string | null
+          sla_status?: string | null
           status?: string
           ticket_number?: number
           title: string
@@ -248,11 +256,15 @@ export type Database = {
           created_at?: string
           department?: string | null
           description?: string
+          first_response_at?: string | null
           id?: string
           operator_name?: string | null
           priority?: string
           requester_name?: string
+          resolved_at?: string | null
           search_vector?: unknown
+          sla_due_date?: string | null
+          sla_status?: string | null
           status?: string
           ticket_number?: number
           title?: string
@@ -310,6 +322,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_sla_due_date: {
+        Args: { ticket_created_at: string; ticket_priority: string }
+        Returns: string
+      }
       check_index_health: {
         Args: never
         Returns: {
@@ -359,6 +375,7 @@ export type Database = {
         Args: { _ticket_id: string; _user_id: string }
         Returns: boolean
       }
+      update_all_tickets_sla_status: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "customer" | "technician" | "admin" | "developer"

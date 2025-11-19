@@ -238,9 +238,10 @@ const NewTicket = () => {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="low">Baixa</SelectItem>
-                            <SelectItem value="medium">Média</SelectItem>
-                            <SelectItem value="high">Alta</SelectItem>
+                            <SelectItem value="urgent">🔴 Urgente (SLA: 4h)</SelectItem>
+                            <SelectItem value="high">🟠 Alta (SLA: 24h)</SelectItem>
+                            <SelectItem value="medium">🟡 Média (SLA: 48h)</SelectItem>
+                            <SelectItem value="low">🟢 Baixa (SLA: 72h)</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
