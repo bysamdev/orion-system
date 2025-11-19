@@ -12,7 +12,7 @@ export interface Ticket {
   description: string;
   requester_name: string;
   category: string;
-  priority: 'high' | 'medium' | 'low';
+  priority: 'urgent' | 'high' | 'medium' | 'low';
   status: 'open' | 'in-progress' | 'resolved' | 'closed' | 'reopened';
   operator_name: string | null;
   assigned_to: string | null;
@@ -20,6 +20,11 @@ export interface Ticket {
   created_at: string;
   updated_at: string;
   company_name: string | null;
+  // Campos SLA
+  sla_due_date: string | null;
+  first_response_at: string | null;
+  resolved_at: string | null;
+  sla_status: 'ok' | 'attention' | 'breached' | null;
 }
 
 export interface TicketUpdate {
@@ -65,18 +70,27 @@ export const useTickets = (status?: string) => {
       const userIds = [...new Set(tickets.map(t => t.user_id))];
       const { data: profiles } = await supabaseRead
         .from('profiles')
-        .select('id, full_name, company_id, companies(name)')
+        .select('id, full_name, company_id')
         .in('id', userIds);
 
-      // Map profiles by user_id for easy lookup
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      // Get company IDs and fetch companies
+      const companyIds = [...new Set(profiles?.map(p => p.company_id) || [])];
+      const { data: companies } = await supabaseRead
+        .from('companies')
+        .select('id, name')
+        .in('id', companyIds);
 
-      // Combine tickets with profile data
+      // Map profiles and companies by ID for easy lookup
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const companyMap = new Map(companies?.map(c => [c.id, c]) || []);
+
+      // Combine tickets with profile and company data
       const enrichedTickets = tickets.map((ticket: any) => {
         const profile = profileMap.get(ticket.user_id);
+        const company = profile ? companyMap.get(profile.company_id) : null;
         return {
           ...ticket,
-          company_name: profile?.companies?.name || null,
+          company_name: company?.name || null,
         };
       }) as Ticket[];
       
@@ -101,14 +115,25 @@ export const useTicket = (id: string) => {
       // Fetch profile and company data separately (using read client)
       const { data: profile } = await supabaseRead
         .from('profiles')
-        .select('full_name, company_id, companies(name)')
+        .select('full_name, company_id')
         .eq('id', ticket.user_id)
         .single();
+      
+      let companyName = null;
+      if (profile) {
+        const { data: company } = await supabaseRead
+          .from('companies')
+          .select('name')
+          .eq('id', profile.company_id)
+          .single();
+        
+        companyName = company?.name || null;
+      }
       
       // Include company_name
       const enrichedTicket = {
         ...ticket,
-        company_name: profile?.companies?.name || null,
+        company_name: companyName,
       } as Ticket;
       
       return enrichedTicket;

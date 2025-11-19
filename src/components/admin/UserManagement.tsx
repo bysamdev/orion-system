@@ -17,12 +17,23 @@ export const UserManagement = () => {
   const { data: users, isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
-      const { data: profiles, error: profilesError } = await supabase
+      const { data: profiles, error: profilesError} = await supabase
         .from('profiles')
-        .select('*, companies(name)');
+        .select('id, full_name, email, department, company_id')
+        .order('full_name');
 
       if (profilesError) throw profilesError;
 
+      // Get company data separately
+      const companyIds = [...new Set(profiles.map(p => p.company_id))];
+      const { data: companies } = await supabase
+        .from('companies')
+        .select('id, name')
+        .in('id', companyIds);
+      
+      const companyMap = new Map(companies?.map(c => [c.id, c.name]) || []);
+
+      // Get user roles
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
@@ -32,7 +43,7 @@ export const UserManagement = () => {
       return profiles.map(profile => ({
         ...profile,
         role: roles.find(r => r.user_id === profile.id)?.role || 'customer',
-        company_name: profile.companies?.name || 'Sem empresa'
+        company_name: companyMap.get(profile.company_id) || 'Sem empresa'
       }));
     }
   });
