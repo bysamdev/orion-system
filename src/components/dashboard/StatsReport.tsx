@@ -125,7 +125,7 @@ const ReportContent: React.FC<{ data: ReportData }> = ({ data }) => {
             {solvedPercentage}%
           </div>
         </div>
-        <div className="w-full bg-background rounded-full h-2">
+        <div className="w-full bg-background rounded-full h-2 overflow-hidden">
           <div 
             className="bg-success h-2 rounded-full transition-all duration-500"
             style={{ width: `${solvedPercentageCapped}%` }}
@@ -152,14 +152,14 @@ const ReportContent: React.FC<{ data: ReportData }> = ({ data }) => {
               {data.slaCompliance}%
             </Badge>
           </div>
-          <div className="w-full bg-background rounded-full h-2">
+          <div className="w-full bg-background rounded-full h-2 overflow-hidden">
             <div 
               className={`h-2 rounded-full transition-all duration-500 ${
                 slaColor === 'success' ? 'bg-success' :
                 slaColor === 'warning' ? 'bg-warning' :
                 'bg-destructive'
               }`}
-              style={{ width: `${data.slaCompliance}%` }}
+              style={{ width: `${Math.min(data.slaCompliance, 100)}%` }}
             ></div>
           </div>
         </div>
