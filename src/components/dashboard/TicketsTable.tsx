@@ -8,12 +8,14 @@ import { useTickets, useUpdateTicketStatus } from '@/hooks/useTickets';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTicketFilters } from '@/hooks/useTicketFilters';
 import { TicketFilters } from './TicketFilters';
+import { SLABadge } from './SLABadge';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 
 const priorityColors = {
+  urgent: 'bg-red-500',
   high: 'bg-destructive',
   medium: 'bg-warning',
   low: 'bg-muted'
@@ -97,7 +99,7 @@ export const TicketsTable: React.FC = () => {
       
       <div className="mt-6">
         <Table>
-        <TableHeader>
+          <TableHeader>
           <TableRow className="hover:bg-transparent border-b border-border">
             <TableHead className="font-semibold text-foreground">Ticket</TableHead>
             <TableHead className="font-semibold text-foreground">Solicitante</TableHead>
@@ -105,6 +107,7 @@ export const TicketsTable: React.FC = () => {
             <TableHead className="font-semibold text-foreground">Categoria</TableHead>
             <TableHead className="font-semibold text-foreground">Criado</TableHead>
             <TableHead className="font-semibold text-foreground">Prioridade</TableHead>
+            <TableHead className="font-semibold text-foreground">SLA</TableHead>
             <TableHead className="font-semibold text-foreground">Operador</TableHead>
             <TableHead className="font-semibold text-foreground text-center">Status</TableHead>
           </TableRow>
@@ -134,7 +137,16 @@ export const TicketsTable: React.FC = () => {
               <TableCell className="text-muted-foreground">{ticket.category}</TableCell>
               <TableCell className="text-muted-foreground text-sm">{formatTimeAgo(ticket.created_at)}</TableCell>
               <TableCell>
-                <div className={cn("w-6 h-6 rounded-full", priorityColors[ticket.priority])}></div>
+                <div className={cn("inline-flex items-center px-2 py-1 rounded-full text-xs font-medium", priorityColors[ticket.priority])}>
+                  {ticket.priority === 'urgent' ? 'Urgente' : ticket.priority === 'high' ? 'Alta' : ticket.priority === 'medium' ? 'Média' : 'Baixa'}
+                </div>
+              </TableCell>
+              <TableCell>
+                <SLABadge 
+                  slaStatus={ticket.sla_status} 
+                  slaDueDate={ticket.sla_due_date}
+                  variant="compact"
+                />
               </TableCell>
               <TableCell>
                 {ticket.operator_name && (

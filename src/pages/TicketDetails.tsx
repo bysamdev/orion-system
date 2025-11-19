@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SLABadge } from '@/components/dashboard/SLABadge';
 import { ArrowLeft, Clock, User, Tag, AlertCircle, MessageSquare, CheckCircle2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -69,12 +70,14 @@ const TicketDetails: React.FC = () => {
   });
 
   const priorityColors = {
+    urgent: 'bg-red-500',
     high: 'bg-destructive',
     medium: 'bg-warning',
     low: 'bg-muted'
   };
 
   const priorityLabels = {
+    urgent: 'Urgente',
     high: 'Alta',
     medium: 'Média',
     low: 'Baixa'
@@ -242,6 +245,10 @@ const TicketDetails: React.FC = () => {
                       <div className={cn("w-2 h-2 rounded-full", statusColors[ticket.status])}></div>
                       <Badge variant="outline">{statusLabels[ticket.status]}</Badge>
                     </div>
+                    <SLABadge 
+                      slaStatus={ticket.sla_status} 
+                      slaDueDate={ticket.sla_due_date}
+                    />
                   </div>
                   <h2 className="text-lg md:text-xl text-foreground">{ticket.title}</h2>
                 </div>
@@ -271,6 +278,17 @@ const TicketDetails: React.FC = () => {
                     <div className={cn("w-3 h-3 rounded-full", priorityColors[ticket.priority])}></div>
                     <span className="font-medium text-foreground">{priorityLabels[ticket.priority]}</span>
                   </div>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Status SLA
+                  </p>
+                  <SLABadge 
+                    slaStatus={ticket.sla_status} 
+                    slaDueDate={ticket.sla_due_date}
+                    variant="compact"
+                  />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
@@ -499,6 +517,33 @@ const TicketDetails: React.FC = () => {
             <Card className="p-6">
               <h3 className="font-semibold text-foreground mb-4">Informações</h3>
               <div className="space-y-4">
+                {/* SLA Information */}
+                {ticket.sla_due_date && (
+                  <>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Status do SLA</p>
+                      <SLABadge 
+                        slaStatus={ticket.sla_status} 
+                        slaDueDate={ticket.sla_due_date}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Prazo: {new Date(ticket.sla_due_date).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                      {ticket.first_response_at && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          1ª resposta: {formatTimeAgo(ticket.first_response_at)}
+                        </p>
+                      )}
+                    </div>
+                    <Separator />
+                  </>
+                )}
+                
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Técnico Responsável</p>
                   <p className="font-medium text-foreground">
