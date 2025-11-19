@@ -209,6 +209,7 @@ export type Database = {
           assigned_to: string | null
           assigned_to_user_id: string | null
           category: string
+          company_id: string
           created_at: string
           department: string | null
           description: string
@@ -231,6 +232,7 @@ export type Database = {
           assigned_to?: string | null
           assigned_to_user_id?: string | null
           category: string
+          company_id: string
           created_at?: string
           department?: string | null
           description: string
@@ -253,6 +255,7 @@ export type Database = {
           assigned_to?: string | null
           assigned_to_user_id?: string | null
           category?: string
+          company_id?: string
           created_at?: string
           department?: string | null
           description?: string
@@ -277,6 +280,13 @@ export type Database = {
             columns: ["assigned_to_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_tickets_company"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
