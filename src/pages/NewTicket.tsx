@@ -124,6 +124,7 @@ const NewTicket = () => {
           department: data.department,
           status: 'open',
           user_id: user.id,
+          company_id: profile.company_id,
         })
         .select()
         .single();
