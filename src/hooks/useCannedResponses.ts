@@ -34,11 +34,15 @@ export const useAddCannedResponse = () => {
 
   return useMutation({
     mutationFn: async (response: { title: string; content: string; shortcut?: string }) => {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
       // Get user's company_id
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('company_id')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('id', user.id)
         .single();
 
       if (profileError) throw profileError;
@@ -48,7 +52,7 @@ export const useAddCannedResponse = () => {
         .insert({
           ...response,
           company_id: profile.company_id,
-          created_by: (await supabase.auth.getUser()).data.user?.id || '',
+          created_by: user.id,
         })
         .select()
         .single();
