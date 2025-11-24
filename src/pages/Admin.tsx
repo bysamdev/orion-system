@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { CompanyManagement } from '@/components/admin/CompanyManagement';
+import { CannedResponsesManagement } from '@/components/admin/CannedResponsesManagement';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -19,7 +20,8 @@ export default function Admin() {
     );
   }
 
-  if (role !== 'admin') {
+  // Permitir acesso para admin e technician
+  if (role !== 'admin' && role !== 'technician') {
     return <Navigate to="/" replace />;
   }
 
@@ -36,6 +38,7 @@ export default function Admin() {
             <TabsList>
               <TabsTrigger value="users">Usuários</TabsTrigger>
               <TabsTrigger value="companies">Empresas</TabsTrigger>
+              <TabsTrigger value="responses">Respostas Prontas</TabsTrigger>
             </TabsList>
             
             <TabsContent value="users" className="mt-6">
@@ -44,6 +47,10 @@ export default function Admin() {
             
             <TabsContent value="companies" className="mt-6">
               <CompanyManagement />
+            </TabsContent>
+            
+            <TabsContent value="responses" className="mt-6">
+              <CannedResponsesManagement />
             </TabsContent>
           </Tabs>
         </div>
