@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SLABadge } from '@/components/dashboard/SLABadge';
 import { ArrowLeft, Clock, User, Tag, AlertCircle, MessageSquare, CheckCircle2, Info } from 'lucide-react';
+import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useAddTicketUpdate } from '@/hooks/useTickets';
@@ -365,7 +366,14 @@ const TicketDetails: React.FC = () => {
             {/* Campo de Resposta */}
             {!canReopenTicket && (
               <Card className="p-6">
-                <h3 className="font-semibold text-foreground mb-3">Adicionar Comentário</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-foreground">Adicionar Comentário</h3>
+                  {canManageTickets && (
+                    <CannedResponseSelector 
+                      onSelect={(content) => setNewUpdateText(content)}
+                    />
+                  )}
+                </div>
                 <Textarea
                   placeholder="Digite sua resposta ou solução para o problema..."
                   value={newUpdateText}
