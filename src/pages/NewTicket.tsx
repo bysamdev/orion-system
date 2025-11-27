@@ -31,6 +31,8 @@ const NewTicket = () => {
   const { handleError } = useErrorHandler();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [remoteId, setRemoteId] = useState('');
+  const [remotePassword, setRemotePassword] = useState('');
   const [userInfo, setUserInfo] = useState<{ name: string; email: string; company: string }>({
     name: '',
     email: '',
@@ -127,6 +129,8 @@ const NewTicket = () => {
           status: 'open',
           user_id: user.id,
           company_id: profile.company_id,
+          remote_id: remoteId.trim() || null,
+          remote_password: remotePassword.trim() || null,
         })
         .select()
         .single();
@@ -326,6 +330,43 @@ const NewTicket = () => {
                     </FormItem>
                   )}
                 />
+
+                {/* Dados para Acesso Remoto (Opcional) */}
+                <div className="p-4 bg-muted/30 rounded-lg border border-border space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-1">
+                      Dados para Acesso Remoto (Opcional)
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Se precisar de suporte remoto, preencha os dados do TeamViewer ou AnyDesk. 
+                      Use apenas senhas temporárias de sessão.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">
+                        ID (AnyDesk/TeamViewer)
+                      </label>
+                      <Input
+                        placeholder="Ex: 123 456 789"
+                        value={remoteId}
+                        onChange={(e) => setRemoteId(e.target.value)}
+                        maxLength={50}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">
+                        Senha de Acesso
+                      </label>
+                      <Input
+                        placeholder="Senha temporária"
+                        value={remotePassword}
+                        onChange={(e) => setRemotePassword(e.target.value)}
+                        maxLength={50}
+                      />
+                    </div>
+                  </div>
+                </div>
 
                 {/* Área de Upload de Arquivos */}
                 <div>
