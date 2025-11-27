@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Pencil } from 'lucide-react';
 import type { UserRole } from '@/hooks/useUserRole';
 import { userRoleSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
@@ -24,12 +24,33 @@ interface NewUserForm {
   role: 'customer' | 'technician' | 'admin';
 }
 
+interface EditUserForm {
+  id: string;
+  full_name: string;
+  email: string;
+  department: string;
+  role: 'customer' | 'technician' | 'admin';
+  password: string;
+}
+
+interface UserData {
+  id: string;
+  full_name: string | null;
+  email: string;
+  department: string | null;
+  company_id: string;
+  role: string;
+  company_name: string;
+}
+
 export const UserManagement = () => {
   const { toast } = useToast();
   const { session, user } = useAuth();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState<NewUserForm>({
     full_name: '',
@@ -37,6 +58,14 @@ export const UserManagement = () => {
     password: '',
     department: '',
     role: 'customer',
+  });
+  const [editFormData, setEditFormData] = useState<EditUserForm>({
+    id: '',
+    full_name: '',
+    email: '',
+    department: '',
+    role: 'customer',
+    password: '',
   });
 
   // Buscar company_id do admin atual
@@ -97,7 +126,7 @@ export const UserManagement = () => {
         ...profile,
         role: roles.find(r => r.user_id === profile.id)?.role || 'customer',
         company_name: companyMap.get(profile.company_id) || 'Sem empresa'
-      }));
+      })) as UserData[];
     }
   });
 
@@ -251,6 +280,79 @@ export const UserManagement = () => {
     }
   };
 
+  const handleOpenEditDialog = (userItem: UserData) => {
+    setEditFormData({
+      id: userItem.id,
+      full_name: userItem.full_name || '',
+      email: userItem.email,
+      department: userItem.department || '',
+      role: userItem.role as 'customer' | 'technician' | 'admin',
+      password: '',
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editFormData.full_name || !editFormData.email) {
+      toast({
+        title: 'Erro',
+        description: 'Nome e e-mail são obrigatórios',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (editFormData.password && editFormData.password.length < 6) {
+      toast({
+        title: 'Erro',
+        description: 'A senha deve ter no mínimo 6 caracteres',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-update-user', {
+        body: {
+          user_id: editFormData.id,
+          email: editFormData.email.trim(),
+          full_name: editFormData.full_name.trim(),
+          department: editFormData.department || null,
+          role: editFormData.role,
+          password: editFormData.password || undefined,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Erro ao atualizar usuário');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast({
+        title: 'Sucesso',
+        description: 'Dados atualizados com sucesso',
+      });
+
+      setIsEditDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+
+    } catch (error: any) {
+      logError('handleUpdateUser', error);
+      toast({
+        title: 'Erro ao atualizar',
+        description: error.message || 'Tente novamente',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const getRoleLabel = (role: string) => {
     const labels = {
       'customer': 'Colaborador',
@@ -391,7 +493,7 @@ export const UserManagement = () => {
               <TableHead>Empresa</TableHead>
               <TableHead>Departamento</TableHead>
               <TableHead>Função</TableHead>
-              <TableHead className="w-[60px]">Ações</TableHead>
+              <TableHead className="w-[100px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -422,47 +524,158 @@ export const UserManagement = () => {
                   </Select>
                 </TableCell>
                 <TableCell>
-                  {userItem.id !== user?.id && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          disabled={deletingUserId === userItem.id}
-                        >
-                          {deletingUserId === userItem.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Excluir Usuário?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta ação não pode ser desfeita. O usuário <strong>{userItem.full_name}</strong> ({userItem.email}) perderá o acesso imediatamente. Tem certeza?
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDeleteUser(userItem.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleOpenEditDialog(userItem)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    {userItem.id !== user?.id && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            disabled={deletingUserId === userItem.id}
                           >
-                            Sim, Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
+                            {deletingUserId === userItem.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir Usuário?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta ação não pode ser desfeita. O usuário <strong>{userItem.full_name}</strong> ({userItem.email}) perderá o acesso imediatamente. Tem certeza?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteUser(userItem.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Sim, Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent>
+
+      {/* Modal de Edição */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>
+              Atualize os dados do usuário selecionado
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit_full_name">Nome Completo *</Label>
+              <Input
+                id="edit_full_name"
+                placeholder="Nome do usuário"
+                value={editFormData.full_name}
+                onChange={(e) => setEditFormData({ ...editFormData, full_name: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit_email">E-mail *</Label>
+              <Input
+                id="edit_email"
+                type="email"
+                placeholder="email@exemplo.com"
+                value={editFormData.email}
+                onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit_department">Departamento</Label>
+              {departments && departments.length > 0 ? (
+                <Select
+                  value={editFormData.department}
+                  onValueChange={(value) => setEditFormData({ ...editFormData, department: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um departamento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Nenhum</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.name}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="edit_department"
+                  placeholder="Ex: TI, RH, Financeiro"
+                  value={editFormData.department}
+                  onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })}
+                />
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit_role">Função *</Label>
+              <Select
+                value={editFormData.role}
+                onValueChange={(value: 'customer' | 'technician' | 'admin') => 
+                  setEditFormData({ ...editFormData, role: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a função" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="customer">Colaborador</SelectItem>
+                  <SelectItem value="technician">Técnico</SelectItem>
+                  <SelectItem value="admin">Gestor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit_password">Nova Senha (Opcional)</Label>
+              <Input
+                id="edit_password"
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                value={editFormData.password}
+                onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Preencha apenas se quiser alterar a senha do usuário
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleUpdateUser} disabled={isUpdating}>
+              {isUpdating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
