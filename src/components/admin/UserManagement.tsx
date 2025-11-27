@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import type { UserRole } from '@/hooks/useUserRole';
 import { userRoleSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
@@ -25,10 +26,11 @@ interface NewUserForm {
 
 export const UserManagement = () => {
   const { toast } = useToast();
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState<NewUserForm>({
     full_name: '',
     email: '',
@@ -130,6 +132,47 @@ export const UserManagement = () => {
       });
     }
   });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke('delete-user-admin', {
+        body: { user_id: userId },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Erro ao excluir usuário');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast({
+        title: 'Sucesso',
+        description: 'Usuário removido com sucesso',
+      });
+    },
+    onError: (error: any) => {
+      logError('deleteUserMutation', error);
+      toast({
+        title: 'Erro ao excluir',
+        description: error.message || 'Não foi possível excluir o usuário',
+        variant: 'destructive',
+      });
+    },
+    onSettled: () => {
+      setDeletingUserId(null);
+    }
+  });
+
+  const handleDeleteUser = (userId: string) => {
+    setDeletingUserId(userId);
+    deleteUserMutation.mutate(userId);
+  };
 
   const handleCreateUser = async () => {
     if (!formData.full_name || !formData.email || !formData.password) {
@@ -348,21 +391,22 @@ export const UserManagement = () => {
               <TableHead>Empresa</TableHead>
               <TableHead>Departamento</TableHead>
               <TableHead>Função</TableHead>
+              <TableHead className="w-[60px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users?.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.full_name || 'Sem nome'}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>{user.company_name}</TableCell>
-                <TableCell>{user.department || '-'}</TableCell>
+            {users?.map((userItem) => (
+              <TableRow key={userItem.id}>
+                <TableCell className="font-medium">{userItem.full_name || 'Sem nome'}</TableCell>
+                <TableCell>{userItem.email}</TableCell>
+                <TableCell>{userItem.company_name}</TableCell>
+                <TableCell>{userItem.department || '-'}</TableCell>
                 <TableCell>
                   <Select
-                    value={user.role}
+                    value={userItem.role}
                     onValueChange={(value) => 
                       updateRoleMutation.mutate({ 
-                        userId: user.id, 
+                        userId: userItem.id, 
                         newRole: value as UserRole 
                       })
                     }
@@ -376,6 +420,43 @@ export const UserManagement = () => {
                       <SelectItem value="admin">Gestor</SelectItem>
                     </SelectContent>
                   </Select>
+                </TableCell>
+                <TableCell>
+                  {userItem.id !== user?.id && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          disabled={deletingUserId === userItem.id}
+                        >
+                          {deletingUserId === userItem.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Excluir Usuário?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. O usuário <strong>{userItem.full_name}</strong> ({userItem.email}) perderá o acesso imediatamente. Tem certeza?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeleteUser(userItem.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Sim, Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
