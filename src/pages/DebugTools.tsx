@@ -28,6 +28,8 @@ interface RateLimitResult {
   allowed: boolean;
   message?: string;
   timestamp: string;
+  httpStatus?: number;
+  errorDetails?: string;
 }
 
 interface AuditLogEntry {
@@ -206,22 +208,65 @@ const DebugTools = () => {
       return;
     }
 
+    console.log('Starting rate limit test with token:', accessToken.slice(0, 20) + '...');
+
     try {
       for (let i = 1; i <= 15; i++) {
-        const { data, error } = await supabase.functions.invoke('check-rate-limit', {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
+        try {
+          const response = await supabase.functions.invoke('check-rate-limit', {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
 
-        const result: RateLimitResult = {
-          attempt: i,
-          allowed: error ? false : (data?.allowed ?? false),
-          message: error?.message || data?.message,
-          timestamp: new Date().toISOString(),
-        };
+          console.log(`Attempt ${i}:`, response);
 
-        setRateLimitResults(prev => [...prev, result]);
+          // Extract detailed error info
+          let httpStatus: number | undefined;
+          let errorDetails: string | undefined;
+          
+          if (response.error) {
+            // Parse error details
+            errorDetails = response.error.message || JSON.stringify(response.error);
+            // Try to extract status from error context
+            if (response.error.context?.status) {
+              httpStatus = response.error.context.status;
+            } else if (errorDetails.includes('404')) {
+              httpStatus = 404;
+            } else if (errorDetails.includes('500')) {
+              httpStatus = 500;
+            } else if (errorDetails.includes('401')) {
+              httpStatus = 401;
+            } else if (errorDetails.includes('non-2')) {
+              // Edge function returned error status
+              httpStatus = 500;
+            }
+          }
+
+          const result: RateLimitResult = {
+            attempt: i,
+            allowed: response.error ? false : (response.data?.allowed ?? false),
+            message: response.data?.message || response.error?.message,
+            timestamp: new Date().toISOString(),
+            httpStatus: httpStatus || (response.error ? 500 : 200),
+            errorDetails: errorDetails,
+          };
+
+          setRateLimitResults(prev => [...prev, result]);
+        } catch (innerError: any) {
+          console.error(`Attempt ${i} exception:`, innerError);
+          
+          const result: RateLimitResult = {
+            attempt: i,
+            allowed: false,
+            message: innerError.message,
+            timestamp: new Date().toISOString(),
+            httpStatus: 500,
+            errorDetails: JSON.stringify(innerError, null, 2),
+          };
+          
+          setRateLimitResults(prev => [...prev, result]);
+        }
 
         // Small delay to see results updating
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -468,9 +513,23 @@ const DebugTools = () => {
                   >
                     <div className="font-bold">#{result.attempt}</div>
                     <div className="text-sm">{result.allowed ? '✅ Permitido' : '❌ Bloqueado'}</div>
+                    {result.httpStatus && (
+                      <div className={`text-xs font-mono font-bold ${
+                        result.httpStatus === 200 ? 'text-green-600' :
+                        result.httpStatus === 429 ? 'text-yellow-600' :
+                        'text-red-600'
+                      }`}>
+                        HTTP {result.httpStatus}
+                      </div>
+                    )}
                     {result.message && (
                       <div className="text-xs text-muted-foreground truncate" title={result.message}>
-                        {result.message.slice(0, 30)}...
+                        {result.message.slice(0, 25)}
+                      </div>
+                    )}
+                    {result.errorDetails && result.httpStatus !== 200 && result.httpStatus !== 429 && (
+                      <div className="text-xs text-red-500 mt-1 truncate" title={result.errorDetails}>
+                        {result.errorDetails.slice(0, 40)}
                       </div>
                     )}
                   </div>
