@@ -46,7 +46,6 @@ export const TicketFilters = ({ filters, onFiltersChange, onReset }: TicketFilte
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os Status</SelectItem>
             <SelectItem value="open">Aberto</SelectItem>
             <SelectItem value="in-progress">Em Andamento</SelectItem>
             <SelectItem value="resolved">Resolvido</SelectItem>
