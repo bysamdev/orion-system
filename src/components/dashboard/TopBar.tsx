@@ -1,15 +1,15 @@
 import React from 'react';
-import { Home, Plus, Settings, Shield, Bell, Search, User, LogOut, LayoutDashboard } from 'lucide-react';
+import { Plus, Settings, Shield, Search, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
+import { NotificationsPopover } from './NotificationsPopover';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
   const { data: profile } = useUserProfile();
   const { data: role } = useUserRole();
@@ -75,10 +75,7 @@ export const TopBar: React.FC = () => {
           </Button>
         )}
         
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full"></span>
-        </Button>
+        <NotificationsPopover />
         
         <Button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
           <User className="w-4 h-4" />
