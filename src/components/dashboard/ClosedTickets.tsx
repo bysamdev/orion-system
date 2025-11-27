@@ -5,8 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { useTickets } from '@/hooks/useTickets';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 export const ClosedTickets: React.FC = () => {
+  const navigate = useNavigate();
   const { data: closedTickets = [], isLoading: loadingClosed } = useTickets('closed');
   const { data: resolvedTickets = [], isLoading: loadingResolved } = useTickets('resolved');
   
@@ -47,7 +49,11 @@ export const ClosedTickets: React.FC = () => {
       <CardContent>
         <div className="space-y-3">
           {tickets.slice(0, 5).map((ticket) => (
-            <div key={ticket.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors gap-3 sm:gap-0">
+            <div 
+              key={ticket.id} 
+              onClick={() => navigate(`/ticket/${ticket.id}`)}
+              className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors gap-3 sm:gap-0"
+            >
               <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                 <Badge variant="outline" className="font-mono font-semibold flex-shrink-0">#{ticket.ticket_number}</Badge>
                 <div className="flex-1 min-w-0">
