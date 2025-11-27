@@ -425,15 +425,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      calculate_sla_due_date:
-        | {
-            Args: { ticket_created_at: string; ticket_priority: string }
-            Returns: string
-          }
-        | {
-            Args: { ticket_created_at: string; ticket_priority: string }
-            Returns: string
-          }
+      calculate_sla_due_date: {
+        Args: { ticket_created_at: string; ticket_priority: string }
+        Returns: string
+      }
       check_index_health: {
         Args: never
         Returns: {
