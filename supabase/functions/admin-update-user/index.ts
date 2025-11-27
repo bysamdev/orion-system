@@ -43,14 +43,17 @@ serve(async (req) => {
       authUpdateData.email = email;
     }
     
-    if (password && password.trim() !== '') {
-      if (password.length < 6) {
+    // Só processar senha se foi fornecida e não é string vazia
+    const hasNewPassword = password && typeof password === 'string' && password.trim().length > 0;
+    
+    if (hasNewPassword) {
+      if (password.trim().length < 6) {
         return new Response(
           JSON.stringify({ error: 'A senha deve ter no mínimo 6 caracteres' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      authUpdateData.password = password;
+      authUpdateData.password = password.trim();
     }
 
     if (Object.keys(authUpdateData).length > 0) {
