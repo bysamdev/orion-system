@@ -21,7 +21,6 @@ interface TicketFiltersProps {
 export const TicketFilters = ({ filters, onFiltersChange, onReset }: TicketFiltersProps) => {
   const hasActiveFilters = 
     filters.search || 
-    filters.status !== 'all' || 
     filters.priority !== 'all' || 
     filters.category !== 'all';
 
@@ -39,20 +38,7 @@ export const TicketFilters = ({ filters, onFiltersChange, onReset }: TicketFilte
       </div>
 
       {/* Filter Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        {/* Status Filter */}
-        <Select value={filters.status} onValueChange={(value) => onFiltersChange({ status: value })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="open">Aberto</SelectItem>
-            <SelectItem value="in-progress">Em Andamento</SelectItem>
-            <SelectItem value="resolved">Resolvido</SelectItem>
-            <SelectItem value="closed">Fechado</SelectItem>
-          </SelectContent>
-        </Select>
-
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Priority Filter */}
         <Select value={filters.priority} onValueChange={(value) => onFiltersChange({ priority: value })}>
           <SelectTrigger>
