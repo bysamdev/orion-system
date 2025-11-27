@@ -12,6 +12,7 @@ import Admin from "./pages/Admin";
 import TicketDetails from "./pages/TicketDetails";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import DebugTools from "./pages/DebugTools";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/ajustes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="/ticket/:id" element={<ProtectedRoute><TicketDetails /></ProtectedRoute>} />
+            <Route path="/debug-tools" element={<ProtectedRoute><DebugTools /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
