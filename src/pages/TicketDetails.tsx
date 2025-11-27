@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { TopBar } from '@/components/dashboard/TopBar';
@@ -9,12 +9,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SLABadge } from '@/components/dashboard/SLABadge';
-import { ArrowLeft, Clock, User, Tag, AlertCircle, MessageSquare, CheckCircle2, Info } from 'lucide-react';
+import { ArrowLeft, Clock, User, Tag, AlertCircle, MessageSquare, CheckCircle2, Info, Paperclip, Upload } from 'lucide-react';
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
+import { AttachmentList } from '@/components/ticket/AttachmentList';
+import { ImagePasteHandler } from '@/components/ticket/ImagePasteHandler';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useAddTicketUpdate } from '@/hooks/useTickets';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useTicketAttachments, useUploadAttachment } from '@/hooks/useTicketAttachments';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -41,6 +44,11 @@ const TicketDetails: React.FC = () => {
   const addUpdate = useAddTicketUpdate();
   
   const [newUpdateText, setNewUpdateText] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Attachments
+  const { data: attachments = [], isLoading: attachmentsLoading } = useTicketAttachments(id || '');
+  const uploadAttachment = useUploadAttachment();
   
   // Enable realtime updates for this ticket
   useRealtimeTicket(id || '');
@@ -366,15 +374,54 @@ const TicketDetails: React.FC = () => {
             {/* Campo de Resposta */}
             {!canReopenTicket && (
               <Card className="p-6">
+                <ImagePasteHandler 
+                  onImagePaste={(file) => {
+                    if (id) {
+                      uploadAttachment.mutate({ ticketId: id, file });
+                    }
+                  }}
+                  disabled={uploadAttachment.isPending}
+                />
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-foreground">Adicionar Comentário</h3>
-                  {canManageTickets && (
-                    <CannedResponseSelector 
-                      onSelect={(content) => setNewUpdateText(content)}
-                    />
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* Upload de arquivo */}
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file && id) {
+                            uploadAttachment.mutate({ ticketId: id, file });
+                          }
+                          e.target.value = '';
+                        }}
+                        disabled={uploadAttachment.isPending}
+                      />
+                      <Button variant="outline" size="sm" asChild disabled={uploadAttachment.isPending}>
+                        <span>
+                          {uploadAttachment.isPending ? (
+                            <Upload className="w-4 h-4 animate-pulse" />
+                          ) : (
+                            <Paperclip className="w-4 h-4" />
+                          )}
+                        </span>
+                      </Button>
+                    </label>
+                    {canManageTickets && (
+                      <CannedResponseSelector 
+                        onSelect={(content) => setNewUpdateText(content)}
+                      />
+                    )}
+                  </div>
                 </div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  💡 Dica: Cole imagens diretamente (Ctrl+V) para anexar
+                </p>
                 <Textarea
+                  ref={textareaRef}
                   placeholder="Digite sua resposta ou solução para o problema..."
                   value={newUpdateText}
                   onChange={(e) => setNewUpdateText(e.target.value)}
@@ -569,6 +616,20 @@ const TicketDetails: React.FC = () => {
                   <p className="font-medium text-foreground font-mono text-sm">#{ticket.ticket_number}</p>
                 </div>
               </div>
+            </Card>
+
+            {/* Anexos do Chamado */}
+            <Card className="p-6">
+              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Paperclip className="w-4 h-4" />
+                Anexos ({attachments.length})
+              </h3>
+              <AttachmentList 
+                attachments={attachments}
+                ticketId={id || ''}
+                canDelete={canManageTickets}
+                isLoading={attachmentsLoading}
+              />
             </Card>
           </div>
         </div>
