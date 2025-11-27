@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send, Loader2 } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Paperclip } from 'lucide-react';
+import { FileUpload } from '@/components/ticket/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +30,7 @@ const NewTicket = () => {
   const { data: profile } = useUserProfile();
   const { handleError } = useErrorHandler();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [userInfo, setUserInfo] = useState<{ name: string; email: string; company: string }>({
     name: '',
     email: '',
@@ -131,7 +133,38 @@ const NewTicket = () => {
 
       if (ticketError) throw ticketError;
 
-      // Sucesso - chamado criado sem ticket_update inicial (evita erro de constraint)
+      // Upload dos arquivos pendentes
+      if (pendingFiles.length > 0) {
+        for (const file of pendingFiles) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${ticket.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('ticket-files')
+            .upload(fileName, file);
+          
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            continue;
+          }
+          
+          const { data: urlData } = await supabase.storage
+            .from('ticket-files')
+            .createSignedUrl(fileName, 60 * 60 * 24 * 365);
+          
+          if (urlData?.signedUrl) {
+            await supabase.from('ticket_attachments').insert({
+              ticket_id: ticket.id,
+              file_name: file.name,
+              file_url: urlData.signedUrl,
+              file_type: file.type,
+              uploaded_by: user.id
+            });
+          }
+        }
+      }
+
+      // Sucesso - chamado criado
       toast({
         title: 'Chamado criado com sucesso!',
         description: `Número do chamado: #${ticket.ticket_number}`,
@@ -293,6 +326,25 @@ const NewTicket = () => {
                     </FormItem>
                   )}
                 />
+
+                {/* Área de Upload de Arquivos */}
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                    <Paperclip className="w-4 h-4" />
+                    Anexos (opcional)
+                  </label>
+                  <FileUpload
+                    onFilesSelected={(files) => setPendingFiles(prev => [...prev, ...files])}
+                    isUploading={isSubmitting}
+                    maxFiles={5}
+                    maxSizeMB={10}
+                  />
+                  {pendingFiles.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {pendingFiles.length} arquivo(s) será(ão) enviado(s) com o chamado
+                    </p>
+                  )}
+                </div>
 
                 <div className="flex justify-end gap-4 pt-4">
                   <Button
