@@ -60,10 +60,10 @@ export const useUploadAttachment = () => {
       
       if (uploadError) throw uploadError;
       
-      // Gerar URL pública (signed URL para bucket privado)
+      // Gerar URL pública (signed URL para bucket privado) - 24h de validade
       const { data: urlData } = await supabase.storage
         .from('ticket-files')
-        .createSignedUrl(fileName, 60 * 60 * 24 * 365); // 1 ano
+        .createSignedUrl(fileName, 60 * 60 * 24); // 24 horas - melhor segurança
       
       if (!urlData?.signedUrl) throw new Error('Erro ao gerar URL do arquivo');
       
