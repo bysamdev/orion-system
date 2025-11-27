@@ -150,7 +150,7 @@ const NewTicket = () => {
           
           const { data: urlData } = await supabase.storage
             .from('ticket-files')
-            .createSignedUrl(fileName, 60 * 60 * 24 * 365);
+            .createSignedUrl(fileName, 60 * 60 * 24); // 24 horas - URLs são regeneradas ao carregar anexos
           
           if (urlData?.signedUrl) {
             await supabase.from('ticket_attachments').insert({
