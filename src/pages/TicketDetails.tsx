@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SLABadge } from '@/components/dashboard/SLABadge';
-import { ArrowLeft, Clock, User, Tag, AlertCircle, MessageSquare, CheckCircle2, Info, Paperclip, Upload } from 'lucide-react';
+import { ArrowLeft, Clock, User, Tag, AlertCircle, MessageSquare, CheckCircle2, Info, Paperclip, Upload, Monitor, Copy, Check } from 'lucide-react';
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
 import { ImagePasteHandler } from '@/components/ticket/ImagePasteHandler';
@@ -44,7 +44,26 @@ const TicketDetails: React.FC = () => {
   const addUpdate = useAddTicketUpdate();
   
   const [newUpdateText, setNewUpdateText] = useState('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      toast({
+        title: 'Copiado!',
+        description: 'Texto copiado para a área de transferência.',
+      });
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível copiar o texto.',
+        variant: 'destructive',
+      });
+    }
+  };
   
   // Attachments
   const { data: attachments = [], isLoading: attachmentsLoading } = useTicketAttachments(id || '');
@@ -617,6 +636,65 @@ const TicketDetails: React.FC = () => {
                 </div>
               </div>
             </Card>
+
+            {/* Acesso Remoto - Apenas para Técnicos/Admins */}
+            {canManageTickets && (ticket.remote_id || ticket.remote_password) && (
+              <Card className="p-6 border-primary/20 bg-primary/5">
+                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Monitor className="w-4 h-4" />
+                  Acesso Remoto
+                </h3>
+                <div className="space-y-3">
+                  {ticket.remote_id && (
+                    <div className="flex items-center justify-between gap-2 bg-background rounded-lg p-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-muted-foreground mb-1">ID (AnyDesk/TeamViewer)</p>
+                        <p className="font-mono text-sm font-medium text-foreground truncate">
+                          {ticket.remote_id}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="flex-shrink-0"
+                        onClick={() => copyToClipboard(ticket.remote_id!, 'remote_id')}
+                      >
+                        {copiedField === 'remote_id' ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                  {ticket.remote_password && (
+                    <div className="flex items-center justify-between gap-2 bg-background rounded-lg p-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-muted-foreground mb-1">Senha de Acesso</p>
+                        <p className="font-mono text-sm font-medium text-foreground truncate">
+                          {ticket.remote_password}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="flex-shrink-0"
+                        onClick={() => copyToClipboard(ticket.remote_password!, 'remote_password')}
+                      >
+                        {copiedField === 'remote_password' ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  ⚠️ Estas credenciais são temporárias e devem ser usadas apenas para esta sessão de suporte.
+                </p>
+              </Card>
+            )}
 
             {/* Anexos do Chamado */}
             <Card className="p-6">
