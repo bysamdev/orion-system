@@ -25,6 +25,9 @@ export interface Ticket {
   first_response_at: string | null;
   resolved_at: string | null;
   sla_status: 'ok' | 'attention' | 'breached' | null;
+  // Campos de Acesso Remoto
+  remote_id: string | null;
+  remote_password: string | null;
 }
 
 export interface TicketUpdate {

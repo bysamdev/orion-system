@@ -348,6 +348,8 @@ export type Database = {
           id: string
           operator_name: string | null
           priority: string
+          remote_id: string | null
+          remote_password: string | null
           requester_name: string
           resolved_at: string | null
           search_vector: unknown
@@ -371,6 +373,8 @@ export type Database = {
           id?: string
           operator_name?: string | null
           priority?: string
+          remote_id?: string | null
+          remote_password?: string | null
           requester_name: string
           resolved_at?: string | null
           search_vector?: unknown
@@ -394,6 +398,8 @@ export type Database = {
           id?: string
           operator_name?: string | null
           priority?: string
+          remote_id?: string | null
+          remote_password?: string | null
           requester_name?: string
           resolved_at?: string | null
           search_vector?: unknown
