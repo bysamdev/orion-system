@@ -3,15 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { PlayCircle } from 'lucide-react';
+import { Eye, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTickets, useUpdateTicketStatus } from '@/hooks/useTickets';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useTicketFilters } from '@/hooks/useTicketFilters';
-import { TicketFilters } from './TicketFilters';
 import { SLABadge } from './SLABadge';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 
@@ -22,14 +18,6 @@ const priorityColors = {
   low: 'bg-muted'
 };
 
-const statusLabels: Record<string, string> = {
-  'open': 'Aberto',
-  'in-progress': 'Em Andamento',
-  'resolved': 'Resolvido',
-  'closed': 'Fechado',
-  'reopened': 'Reaberto'
-};
-
 export const TicketsTable: React.FC = () => {
   const navigate = useNavigate();
   const { data: tickets = [], isLoading } = useTickets('open');
@@ -38,14 +26,11 @@ export const TicketsTable: React.FC = () => {
   
   // Enable realtime updates
   useRealtimeTickets();
-  
-  // Advanced filters
-  const { filters, filteredTickets, updateFilters, resetFilters, activeFiltersCount } = useTicketFilters(tickets);
 
   // Check if user can manage tickets (technician or admin)
   const canManageTickets = userRole === 'technician' || userRole === 'admin';
 
-  const handleStartTicket = async (ticketId: string, e: React.MouseEvent) => {
+  const handleAssignTicket = async (ticketId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     
     // Get current user info to assign ticket
@@ -58,17 +43,13 @@ export const TicketsTable: React.FC = () => {
       .eq('id', user.id)
       .single();
     
-    // Update both status and assignment
+    // Update assignment
     await updateStatus.mutateAsync({ 
       id: ticketId, 
       status: 'in-progress',
       assigned_to: profile?.full_name || '',
       assigned_to_user_id: user.id
     });
-  };
-
-  const formatTimeAgo = (date: string) => {
-    return formatDistanceToNow(new Date(date), { locale: ptBR, addSuffix: true });
   };
 
   if (isLoading) {
@@ -84,23 +65,14 @@ export const TicketsTable: React.FC = () => {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-semibold text-foreground">
           Últimos chamados abertos
-          {activeFiltersCount > 0 && (
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
-              ({filteredTickets.length} de {tickets.length})
-            </span>
-          )}
+          <span className="ml-2 text-sm font-normal text-muted-foreground">
+            ({tickets.length})
+          </span>
         </h3>
       </div>
       
-      <TicketFilters 
-        filters={filters}
-        onFiltersChange={updateFilters}
-        onReset={resetFilters}
-      />
-      
-      <div className="mt-6">
-        <Table>
-          <TableHeader>
+      <Table>
+        <TableHeader>
           <TableRow className="hover:bg-transparent border-b border-border">
             <TableHead className="font-semibold text-foreground">Ticket</TableHead>
             <TableHead className="font-semibold text-foreground">Solicitante</TableHead>
@@ -112,75 +84,83 @@ export const TicketsTable: React.FC = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredTickets.length === 0 ? (
+          {tickets.length === 0 ? (
             <TableRow>
               <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                 Nenhum chamado encontrado
               </TableCell>
             </TableRow>
           ) : (
-            filteredTickets.map((ticket) => (
-            <TableRow 
-              key={ticket.id} 
-              className="hover:bg-muted/30 transition-colors cursor-pointer"
-              onClick={() => navigate(`/ticket/${ticket.id}`)}
-            >
-              <TableCell className="font-mono font-medium text-foreground">#{ticket.ticket_number}</TableCell>
-              <TableCell className="max-w-[150px]">
-                <div className="truncate">
-                  <div className="font-medium text-foreground truncate">{ticket.requester_name}</div>
-                </div>
-              </TableCell>
-              <TableCell className="text-muted-foreground max-w-[120px] truncate">{ticket.company_name || 'N/A'}</TableCell>
-              <TableCell>
-                <div className={cn("inline-flex items-center px-2 py-1 rounded-full text-xs font-medium", priorityColors[ticket.priority])}>
-                  {ticket.priority === 'urgent' ? 'Urgente' : ticket.priority === 'high' ? 'Alta' : ticket.priority === 'medium' ? 'Média' : 'Baixa'}
-                </div>
-              </TableCell>
-              <TableCell>
-                <SLABadge 
-                  slaStatus={ticket.sla_status} 
-                  slaDueDate={ticket.sla_due_date}
-                  variant="compact"
-                />
-              </TableCell>
-              <TableCell className="max-w-[120px]">
-                {ticket.operator_name && (
-                  <div className="truncate text-foreground font-medium">{ticket.operator_name}</div>
-                )}
-              </TableCell>
-              <TableCell className="text-center">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      {canManageTickets ? (
+            tickets.map((ticket) => (
+              <TableRow 
+                key={ticket.id} 
+                className="hover:bg-muted/30 transition-colors cursor-pointer"
+                onClick={() => navigate(`/ticket/${ticket.id}`)}
+              >
+                <TableCell className="font-mono font-medium text-foreground">#{ticket.ticket_number}</TableCell>
+                <TableCell className="max-w-[150px]">
+                  <div className="truncate">
+                    <div className="font-medium text-foreground truncate">{ticket.requester_name}</div>
+                  </div>
+                </TableCell>
+                <TableCell className="text-muted-foreground max-w-[120px] truncate">{ticket.company_name || 'N/A'}</TableCell>
+                <TableCell>
+                  <div className={cn("inline-flex items-center px-2 py-1 rounded-full text-xs font-medium", priorityColors[ticket.priority as keyof typeof priorityColors])}>
+                    {ticket.priority === 'urgent' ? 'Urgente' : ticket.priority === 'high' ? 'Alta' : ticket.priority === 'medium' ? 'Média' : 'Baixa'}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <SLABadge 
+                    slaStatus={ticket.sla_status} 
+                    slaDueDate={ticket.sla_due_date}
+                    variant="compact"
+                  />
+                </TableCell>
+                <TableCell className="max-w-[120px]">
+                  {ticket.operator_name ? (
+                    <div className="truncate text-foreground font-medium">{ticket.operator_name}</div>
+                  ) : canManageTickets ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => handleAssignTicket(ticket.id, e)}
+                      disabled={updateStatus.isPending}
+                      className="text-xs h-7 px-2 text-primary hover:text-primary/80"
+                    >
+                      <UserPlus className="w-3 h-3 mr-1" />
+                      Assumir
+                    </Button>
+                  ) : (
+                    <span className="text-muted-foreground italic text-sm">Não atribuído</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-center">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                         <Button
-                          variant={ticket.status === 'in-progress' ? 'secondary' : 'default'}
+                          variant="ghost"
                           size="icon"
-                          onClick={(e) => handleStartTicket(ticket.id, e)}
-                          disabled={ticket.status === 'in-progress' || updateStatus.isPending}
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/ticket/${ticket.id}`);
+                          }}
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
                         >
-                          <PlayCircle className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </Button>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">
-                          {statusLabels[ticket.status] || ticket.status}
-                        </span>
-                      )}
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{ticket.status === 'in-progress' ? 'Em Andamento' : 'Iniciar Atendimento'}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </TableCell>
-            </TableRow>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Visualizar Detalhes</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableCell>
+              </TableRow>
             ))
           )}
         </TableBody>
       </Table>
-      </div>
     </div>
   );
 };
