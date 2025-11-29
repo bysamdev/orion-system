@@ -10,6 +10,7 @@ import { TrendChart } from './TrendChart';
 import { NeedsAttention } from './NeedsAttention';
 import { QuickAccessCard } from './QuickAccessCard';
 import { CustomerTicketsTable } from './CustomerTicketsTable';
+import { TechnicianDashboard } from './TechnicianDashboard';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { Loader2 } from 'lucide-react';
@@ -63,11 +64,13 @@ export const Dashboard: React.FC = () => {
               emptyMessage="Você ainda não possui chamados finalizados."
             />
           </div>
-        ) : hasManagementAccess ? (
-          // Técnico e Gestor: Ver todos os chamados e métricas (painel de gerenciamento)
+        ) : isTechnician ? (
+          // Técnico: Cockpit Operacional personalizado
+          <TechnicianDashboard />
+        ) : isGestor ? (
+          // Gestor: Ver todos os chamados e métricas (painel de gerenciamento)
           <div className="space-y-6">
-            {/* QuickStats no topo - apenas para Gestores */}
-            {isGestor && <QuickStats />}
+            <QuickStats />
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
@@ -76,13 +79,11 @@ export const Dashboard: React.FC = () => {
                 <ClosedTickets />
               </div>
               
-              {isGestor && (
-                <div className="space-y-6">
-                  <StatsReport />
-                  <TrendChart days={7} />
-                  <NeedsAttention />
-                </div>
-              )}
+              <div className="space-y-6">
+                <StatsReport />
+                <TrendChart days={7} />
+                <NeedsAttention />
+              </div>
             </div>
           </div>
         ) : (

@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, Pencil } from 'lucide-react';
+import { Loader2, Plus, Trash2, Pencil, AlertTriangle } from 'lucide-react';
 import type { UserRole } from '@/hooks/useUserRole';
 import { userRoleSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
@@ -31,6 +32,7 @@ interface EditUserForm {
   department: string;
   role: 'customer' | 'technician' | 'admin';
   password: string;
+  company_id: string;
 }
 
 interface UserData {
@@ -66,6 +68,20 @@ export const UserManagement = () => {
     department: '',
     role: 'customer',
     password: '',
+    company_id: '',
+  });
+
+  // Buscar todas as empresas para o select de edição
+  const { data: allCompanies } = useQuery({
+    queryKey: ['all-companies'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
   });
 
   // Buscar company_id do admin atual
@@ -288,6 +304,7 @@ export const UserManagement = () => {
       department: userItem.department || '',
       role: userItem.role as 'customer' | 'technician' | 'admin',
       password: '',
+      company_id: userItem.company_id,
     });
     setIsEditDialogOpen(true);
   };
@@ -314,6 +331,10 @@ export const UserManagement = () => {
     setIsUpdating(true);
 
     try {
+      // Verificar se a empresa foi alterada
+      const originalUser = users?.find(u => u.id === editFormData.id);
+      const companyChanged = originalUser && originalUser.company_id !== editFormData.company_id;
+
       const { data, error } = await supabase.functions.invoke('admin-update-user', {
         body: {
           user_id: editFormData.id,
@@ -322,6 +343,7 @@ export const UserManagement = () => {
           department: editFormData.department || null,
           role: editFormData.role,
           password: editFormData.password || undefined,
+          company_id: companyChanged ? editFormData.company_id : undefined,
         },
       });
 
@@ -631,6 +653,32 @@ export const UserManagement = () => {
                   value={editFormData.department}
                   onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })}
                 />
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit_company">Empresa / Filial</Label>
+              <Select
+                value={editFormData.company_id}
+                onValueChange={(value) => setEditFormData({ ...editFormData, company_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allCompanies?.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {editFormData.company_id !== users?.find(u => u.id === editFormData.id)?.company_id && (
+                <Alert variant="destructive" className="mt-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    <strong>Atenção:</strong> Mudar a empresa alterará o acesso do usuário aos tickets e dados imediatamente.
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
             <div className="grid gap-2">
