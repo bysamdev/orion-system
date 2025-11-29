@@ -8,6 +8,8 @@ import { StatsReport } from './StatsReport';
 import { QuickStats } from './QuickStats';
 import { TrendChart } from './TrendChart';
 import { NeedsAttention } from './NeedsAttention';
+import { QuickAccessCard } from './QuickAccessCard';
+import { CustomerTicketsTable } from './CustomerTicketsTable';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { Loader2 } from 'lucide-react';
@@ -42,18 +44,24 @@ export const Dashboard: React.FC = () => {
         <DashboardHeader userName={userName} />
         
         {isCustomer ? (
-          // Colaborador: Ver apenas seus próprios chamados
+          // Portal do Usuário: Interface simplificada de autoatendimento
           <div className="space-y-6">
-            <div className="bg-primary/10 border-2 border-primary rounded-2xl p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-3 w-3 rounded-full bg-primary animate-pulse"></div>
-                <h2 className="text-xl font-bold text-foreground">Seus Chamados em Aberto</h2>
-              </div>
-              <TicketsTable />
-            </div>
+            {/* Card de Acesso Rápido */}
+            <QuickAccessCard />
             
-            {/* Mostrar chamados fechados do próprio usuário */}
-            <ClosedTickets />
+            {/* Chamados em Aberto */}
+            <CustomerTicketsTable 
+              filter="open" 
+              title="Meus Chamados em Aberto"
+              emptyMessage="Você não possui chamados em aberto no momento."
+            />
+            
+            {/* Chamados Finalizados */}
+            <CustomerTicketsTable 
+              filter="closed" 
+              title="Histórico de Chamados"
+              emptyMessage="Você ainda não possui chamados finalizados."
+            />
           </div>
         ) : hasManagementAccess ? (
           // Técnico e Gestor: Ver todos os chamados e métricas (painel de gerenciamento)
