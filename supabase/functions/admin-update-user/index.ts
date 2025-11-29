@@ -86,9 +86,9 @@ serve(async (req) => {
     console.log('Permissão verificada. Role:', callerRole.role);
 
     // 6. Parse do body da requisição
-    const { user_id, email, password, full_name, department, role } = await req.json();
+    const { user_id, email, password, full_name, department, role, company_id } = await req.json();
 
-    console.log('Admin update user request for:', user_id);
+    console.log('Admin update user request for:', user_id, 'company_id:', company_id);
 
     if (!user_id) {
       return new Response(
@@ -142,8 +142,8 @@ serve(async (req) => {
       console.log('Auth atualizado com sucesso');
     }
 
-    // 2. Atualizar profile (full_name, department, email)
-    const profileUpdateData: { full_name?: string; department?: string | null; email?: string } = {};
+    // 2. Atualizar profile (full_name, department, email, company_id)
+    const profileUpdateData: { full_name?: string; department?: string | null; email?: string; company_id?: string } = {};
     
     if (full_name) {
       profileUpdateData.full_name = full_name.trim();
@@ -155,6 +155,27 @@ serve(async (req) => {
 
     if (email) {
       profileUpdateData.email = email.trim();
+    }
+
+    // Atualizar company_id se fornecido (transferência de empresa)
+    if (company_id) {
+      // Verificar se a empresa existe
+      const { data: companyExists, error: companyCheckError } = await supabaseAdmin
+        .from('companies')
+        .select('id')
+        .eq('id', company_id)
+        .single();
+
+      if (companyCheckError || !companyExists) {
+        console.error('Empresa não encontrada:', company_id);
+        return new Response(
+          JSON.stringify({ error: 'Empresa não encontrada' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      profileUpdateData.company_id = company_id;
+      console.log('Transferindo usuário para empresa:', company_id);
     }
 
     if (Object.keys(profileUpdateData).length > 0) {
