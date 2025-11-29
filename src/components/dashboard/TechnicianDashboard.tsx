@@ -261,7 +261,7 @@ export const TechnicianDashboard: React.FC = () => {
                       key={ticket.id} 
                       className="p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <button
                             onClick={() => navigate(`/ticket/${ticket.id}`)}
