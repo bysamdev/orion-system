@@ -26,7 +26,7 @@ export const QuickAccessCard: React.FC = () => {
           
           <Button 
             size="lg"
-            onClick={() => navigate('/new-ticket')}
+            onClick={() => navigate('/novo-ticket')}
             className="w-full sm:w-auto gap-2 text-base font-semibold shadow-md hover:shadow-lg transition-all"
           >
             <Plus className="w-5 h-5" />
