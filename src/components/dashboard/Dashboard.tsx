@@ -7,6 +7,7 @@ import { ClosedTickets } from './ClosedTickets';
 import { StatsReport } from './StatsReport';
 import { QuickStats } from './QuickStats';
 import { TrendChart } from './TrendChart';
+import { NeedsAttention } from './NeedsAttention';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { Loader2 } from 'lucide-react';
@@ -56,20 +57,25 @@ export const Dashboard: React.FC = () => {
           </div>
         ) : hasManagementAccess ? (
           // Técnico e Gestor: Ver todos os chamados e métricas (painel de gerenciamento)
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <TicketsTable />
-              <InProgressTickets />
-              <ClosedTickets />
-            </div>
+          <div className="space-y-6">
+            {/* QuickStats no topo - apenas para Gestores */}
+            {isGestor && <QuickStats />}
             
-            {isGestor && (
-              <div className="space-y-6">
-                <StatsReport />
-                <TrendChart days={7} />
-                <QuickStats />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <TicketsTable />
+                <InProgressTickets />
+                <ClosedTickets />
               </div>
-            )}
+              
+              {isGestor && (
+                <div className="space-y-6">
+                  <StatsReport />
+                  <TrendChart days={7} />
+                  <NeedsAttention />
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           // Acesso negado para outros roles

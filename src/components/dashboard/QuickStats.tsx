@@ -15,25 +15,23 @@ interface StatCardProps {
 const StatCard: React.FC<StatCardProps> = ({ icon, title, value, subtitle, trend, isLoading }) => {
   return (
     <Card className="border-border shadow-sm">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <div className="text-muted-foreground text-xs font-medium flex items-center gap-1">
-            {icon}
-            {title}
-          </div>
+      <CardContent className="p-3">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="text-muted-foreground">{icon}</div>
+          <span className="text-muted-foreground text-xs font-medium">{title}</span>
         </div>
         {isLoading ? (
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         ) : (
-          <>
-            <div className="text-3xl font-bold text-foreground mb-1">{value}</div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-foreground">{value}</span>
             {subtitle && (
-              <div className="text-xs text-muted-foreground">{subtitle}</div>
+              <span className="text-xs text-muted-foreground">{subtitle}</span>
             )}
             {trend && (
-              <div className="text-xs text-success font-medium mt-1">{trend}</div>
+              <span className="text-xs text-success font-medium">{trend}</span>
             )}
-          </>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -52,23 +50,23 @@ export const QuickStats: React.FC = () => {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
       <StatCard
-        icon={<Users className="w-3 h-3" />}
+        icon={<Users className="w-4 h-4" />}
         title="Operadores Ativos"
         value={operatorsCount || 0}
         isLoading={loadingOperators}
       />
       
       <StatCard
-        icon={<Activity className="w-3 h-3" />}
+        icon={<Activity className="w-4 h-4" />}
         title="Em Andamento"
         value={stats?.inProgress || 0}
         isLoading={loadingStats}
       />
       
       <StatCard
-        icon={<CheckCircle className="w-3 h-3" />}
+        icon={<CheckCircle className="w-4 h-4" />}
         title="Resolvidos Hoje"
         value={stats?.resolvedToday || 0}
         subtitle={`${stats?.slaComplianceToday || 0}% SLA`}
@@ -76,7 +74,7 @@ export const QuickStats: React.FC = () => {
       />
       
       <StatCard
-        icon={<TrendingUp className="w-3 h-3" />}
+        icon={<TrendingUp className="w-4 h-4" />}
         title="Tickets Abertos"
         value={stats?.openTickets || 0}
         trend={stats?.openedToday ? `+${stats.openedToday} hoje` : undefined}
@@ -84,10 +82,10 @@ export const QuickStats: React.FC = () => {
       />
       
       <StatCard
-        icon={<Clock className="w-3 h-3" />}
-        title="Tempo Médio de Resposta"
+        icon={<Clock className="w-4 h-4" />}
+        title="Tempo Médio"
         value={stats ? formatHours(stats.avgResponseTime) : '0h'}
-        subtitle={`${stats?.slaOverall || 0}% dentro do SLA`}
+        subtitle={`${stats?.slaOverall || 0}% SLA`}
         isLoading={loadingStats}
       />
     </div>
