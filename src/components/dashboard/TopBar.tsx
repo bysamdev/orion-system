@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
 import { NotificationsPopover } from './NotificationsPopover';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
@@ -76,6 +77,8 @@ export const TopBar: React.FC = () => {
         )}
         
         <NotificationsPopover />
+        
+        <ThemeToggle />
         
         <Button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
           <User className="w-4 h-4" />
