@@ -160,10 +160,10 @@ export const useGlobalTicketStats = () => {
 
       if (openedTodayError) throw openedTodayError;
 
-      // Average response time (all tickets) with priority-based SLA
+      // Average response time - usando first_response_at para cálculo correto
       const { data: allTickets, error: allTicketsError } = await supabaseRead
         .from('tickets')
-        .select('created_at, updated_at, status, priority')
+        .select('created_at, first_response_at, resolved_at, status, priority')
         .in('status', ['resolved', 'closed', 'in-progress']);
 
       if (allTicketsError) throw allTicketsError;
@@ -171,23 +171,31 @@ export const useGlobalTicketStats = () => {
       let avgResponseTime = 0;
       let slaOverall = 0;
       if (allTickets && allTickets.length > 0) {
-        const totalHours = allTickets.reduce((sum, ticket) => {
-          const created = new Date(ticket.created_at);
-          const updated = new Date(ticket.updated_at);
-          const hours = (updated.getTime() - created.getTime()) / (1000 * 60 * 60);
-          return sum + hours;
-        }, 0);
-        avgResponseTime = totalHours / allTickets.length;
+        // Filtrar apenas tickets que têm first_response_at para calcular tempo médio de resposta
+        const ticketsWithResponse = allTickets.filter(t => t.first_response_at !== null);
+        
+        if (ticketsWithResponse.length > 0) {
+          const totalHours = ticketsWithResponse.reduce((sum, ticket) => {
+            const created = new Date(ticket.created_at);
+            const firstResponse = new Date(ticket.first_response_at!);
+            const hours = (firstResponse.getTime() - created.getTime()) / (1000 * 60 * 60);
+            return sum + Math.max(0, hours); // Garantir que não seja negativo
+          }, 0);
+          avgResponseTime = totalHours / ticketsWithResponse.length;
+        }
 
-        // Calculate overall SLA with priority-based targets
-        const withinSLA = allTickets.filter(ticket => {
-          const created = new Date(ticket.created_at);
-          const updated = new Date(ticket.updated_at);
-          const hours = (updated.getTime() - created.getTime()) / (1000 * 60 * 60);
-          const slaTarget = SLA_TARGETS[ticket.priority as keyof typeof SLA_TARGETS] || SLA_TARGETS.medium;
-          return hours <= slaTarget;
-        }).length;
-        slaOverall = (withinSLA / allTickets.length) * 100;
+        // Calculate overall SLA com base em first_response_at
+        const ticketsForSLA = allTickets.filter(t => t.first_response_at !== null);
+        if (ticketsForSLA.length > 0) {
+          const withinSLA = ticketsForSLA.filter(ticket => {
+            const created = new Date(ticket.created_at);
+            const firstResponse = new Date(ticket.first_response_at!);
+            const hours = (firstResponse.getTime() - created.getTime()) / (1000 * 60 * 60);
+            const slaTarget = SLA_TARGETS[ticket.priority as keyof typeof SLA_TARGETS] || SLA_TARGETS.medium;
+            return hours <= slaTarget;
+          }).length;
+          slaOverall = (withinSLA / ticketsForSLA.length) * 100;
+        }
       }
 
       return {
