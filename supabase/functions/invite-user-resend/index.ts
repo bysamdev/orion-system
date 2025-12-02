@@ -113,40 +113,44 @@ serve(async (req) => {
     console.log('Link gerado com sucesso. User ID:', userId);
     console.log('Action link:', actionLink);
 
-    // Passo B: Criar perfil nas tabelas profiles e user_roles
-    console.log('=== Passo B: Criando perfil do usuário ===');
+    // Passo B: Atualizar perfil nas tabelas profiles e user_roles
+    console.log('=== Passo B: Atualizando perfil do usuário ===');
 
-    // Inserir na tabela profiles
+    // Aguardar um momento para o trigger handle_new_user completar
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Atualizar na tabela profiles (o trigger já criou com company padrão)
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
-        id: userId,
-        email: email,
+      .update({
         full_name: full_name,
         department: department,
         company_id: company_id,
-      });
+      })
+      .eq('id', userId);
 
     if (profileError) {
-      console.error('Erro ao criar profile:', profileError);
-      throw new Error(`Erro ao criar perfil: ${profileError.message}`);
+      console.error('Erro ao atualizar profile:', profileError);
+      throw new Error(`Erro ao atualizar perfil: ${profileError.message}`);
     }
 
-    console.log('Profile criado com sucesso');
+    console.log('Profile atualizado com sucesso');
 
-    // Inserir na tabela user_roles (apenas se não for customer, que é o padrão)
+    // Atualizar na tabela user_roles (o trigger já criou com role 'customer')
     if (role !== 'customer') {
-      const { error: roleInsertError } = await supabaseAdmin
+      const { error: roleUpdateError } = await supabaseAdmin
         .from('user_roles')
         .update({ role: role })
         .eq('user_id', userId);
 
-      if (roleInsertError) {
-        console.error('Erro ao definir role:', roleInsertError);
-        throw new Error(`Erro ao definir função: ${roleInsertError.message}`);
+      if (roleUpdateError) {
+        console.error('Erro ao definir role:', roleUpdateError);
+        throw new Error(`Erro ao definir função: ${roleUpdateError.message}`);
       }
 
-      console.log('Role definida:', role);
+      console.log('Role atualizada para:', role);
+    } else {
+      console.log('Role padrão mantida: customer');
     }
 
     // Passo C: Enviar e-mail via Resend
