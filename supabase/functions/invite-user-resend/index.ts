@@ -99,6 +99,7 @@ serve(async (req) => {
         data: {
           full_name: full_name,
         },
+        redirectTo: `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com')}/definir-senha`,
       },
     });
 
