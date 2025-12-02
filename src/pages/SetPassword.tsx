@@ -1,14 +1,13 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useEffect } from 'react';
+import { Loader2, Lock, AlertCircle } from 'lucide-react';
 import { z } from 'zod';
 
 // Schema de validação
@@ -25,8 +24,11 @@ const passwordSchema = z.object({
 export default function SetPassword() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidating, setIsValidating] = useState(true);
+  const [tokenValid, setTokenValid] = useState(false);
+  const [tokenError, setTokenError] = useState('');
   const [formData, setFormData] = useState({
     password: '',
     confirmPassword: '',
@@ -36,17 +38,60 @@ export default function SetPassword() {
     confirmPassword?: string;
   }>({});
 
-  // Redirecionar se o usuário não estiver autenticado
+  const token = searchParams.get('token');
+
+  // Validar token ao carregar a página
   useEffect(() => {
-    if (!user) {
-      toast({
-        title: 'Acesso negado',
-        description: 'Você precisa estar autenticado para definir uma senha',
-        variant: 'destructive',
-      });
-      navigate('/auth');
-    }
-  }, [user, navigate, toast]);
+    const validateToken = async () => {
+      if (!token) {
+        setTokenError('Token não fornecido na URL');
+        setIsValidating(false);
+        return;
+      }
+
+      try {
+        // Buscar token na tabela invite_tokens
+        const { data, error } = await supabase
+          .from('invite_tokens')
+          .select('email, expires_at')
+          .eq('token', token)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Erro ao validar token:', error);
+          setTokenError('Erro ao validar token');
+          setIsValidating(false);
+          return;
+        }
+
+        if (!data) {
+          setTokenError('Link inválido ou já utilizado');
+          setIsValidating(false);
+          return;
+        }
+
+        // Verificar se expirou
+        const expiresAt = new Date(data.expires_at);
+        const now = new Date();
+
+        if (now > expiresAt) {
+          setTokenError('Link expirado. Solicite um novo convite ao administrador.');
+          setIsValidating(false);
+          return;
+        }
+
+        // Token válido
+        setTokenValid(true);
+        setIsValidating(false);
+      } catch (error: any) {
+        console.error('Erro ao validar token:', error);
+        setTokenError('Erro ao validar token');
+        setIsValidating(false);
+      }
+    };
+
+    validateToken();
+  }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,23 +113,30 @@ export default function SetPassword() {
     setIsLoading(true);
 
     try {
-      // Atualizar senha do usuário atual (já autenticado via link mágico)
-      const { error } = await supabase.auth.updateUser({
-        password: formData.password,
+      // Chamar edge function para resetar senha com token
+      const { data, error } = await supabase.functions.invoke('reset-password-with-token', {
+        body: {
+          token: token,
+          newPassword: formData.password,
+        },
       });
 
       if (error) {
         throw error;
       }
 
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       toast({
         title: 'Senha definida com sucesso!',
-        description: 'Você será redirecionado para o painel principal',
+        description: 'Você pode fazer login agora',
       });
 
-      // Pequeno delay para o usuário ver a mensagem de sucesso
+      // Redirecionar para login
       setTimeout(() => {
-        navigate('/');
+        navigate('/auth');
       }, 1500);
 
     } catch (error: any) {
@@ -99,9 +151,16 @@ export default function SetPassword() {
     }
   };
 
-  // Não renderizar nada enquanto verifica autenticação
-  if (!user) {
-    return null;
+  // Mostrar loading enquanto valida
+  if (isValidating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Validando convite...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -119,13 +178,28 @@ export default function SetPassword() {
         <Card className="border-border/50 shadow-lg">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">
-              Bem-vindo!
+              {tokenValid ? 'Bem-vindo!' : 'Erro no Convite'}
             </CardTitle>
             <CardDescription className="text-center text-base">
-              Defina sua senha de acesso para começar a usar o sistema
+              {tokenValid 
+                ? 'Defina sua senha de acesso para começar a usar o sistema'
+                : 'Não foi possível validar seu link de convite'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Mostrar erro se token inválido */}
+            {!tokenValid && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {tokenError}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Mostrar formulário apenas se token válido */}
+            {tokenValid && (
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Campo Nova Senha */}
               <div className="space-y-2">
@@ -177,13 +251,16 @@ export default function SetPassword() {
                 )}
               </Button>
             </form>
+            )}
           </CardContent>
         </Card>
 
         {/* Informação adicional */}
-        <p className="text-center text-sm text-muted-foreground">
-          Sua senha deve ter no mínimo 6 caracteres e será usada para acessar o sistema
-        </p>
+        {tokenValid && (
+          <p className="text-center text-sm text-muted-foreground">
+            Sua senha deve ter no mínimo 6 caracteres e será usada para acessar o sistema
+          </p>
+        )}
       </div>
     </div>
   );
