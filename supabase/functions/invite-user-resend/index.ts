@@ -89,38 +89,35 @@ serve(async (req) => {
       }
     );
 
-    console.log('=== Passo A: Gerando link de convite ===');
+    console.log('=== Passo A: Criando usuário com senha temporária ===');
 
-    // Passo A: Gerar link de convite (sem enviar e-mail padrão do Supabase)
-    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'invite',
+    // Gerar senha aleatória complexa (usuário nunca vai saber)
+    const tempPassword = crypto.randomUUID() + crypto.randomUUID();
+
+    // Passo A: Criar usuário no Auth
+    const { data: createUserData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
-      options: {
-        data: {
-          full_name: full_name,
-        },
-        redirectTo: `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com')}/definir-senha`,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name: full_name,
       },
     });
 
-    if (inviteError || !inviteData.user) {
-      console.error('Erro ao gerar link de convite:', inviteError);
-      throw new Error(`Erro ao gerar convite: ${inviteError?.message || 'Desconhecido'}`);
+    if (createUserError || !createUserData.user) {
+      console.error('Erro ao criar usuário:', createUserError);
+      throw new Error(`Erro ao criar usuário: ${createUserError?.message || 'Desconhecido'}`);
     }
 
-    const userId = inviteData.user.id;
-    const actionLink = inviteData.properties.action_link;
+    const userId = createUserData.user.id;
+    console.log('Usuário criado com sucesso. User ID:', userId);
 
-    console.log('Link gerado com sucesso. User ID:', userId);
-    console.log('Action link:', actionLink);
+    // Aguardar trigger handle_new_user completar
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     // Passo B: Atualizar perfil nas tabelas profiles e user_roles
     console.log('=== Passo B: Atualizando perfil do usuário ===');
 
-    // Aguardar um momento para o trigger handle_new_user completar
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Atualizar na tabela profiles (o trigger já criou com company padrão)
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .update({
@@ -137,7 +134,6 @@ serve(async (req) => {
 
     console.log('Profile atualizado com sucesso');
 
-    // Atualizar na tabela user_roles (o trigger já criou com role 'customer')
     if (role !== 'customer') {
       const { error: roleUpdateError } = await supabaseAdmin
         .from('user_roles')
@@ -154,8 +150,33 @@ serve(async (req) => {
       console.log('Role padrão mantida: customer');
     }
 
-    // Passo C: Enviar e-mail via Resend
-    console.log('=== Passo C: Enviando e-mail via Resend ===');
+    // Passo C: Gerar token único e salvar na tabela invite_tokens
+    console.log('=== Passo C: Gerando token de convite ===');
+
+    const token = crypto.randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24); // Expira em 24 horas
+
+    const { error: tokenError } = await supabaseAdmin
+      .from('invite_tokens')
+      .insert({
+        email: email,
+        token: token,
+        expires_at: expiresAt.toISOString(),
+      });
+
+    if (tokenError) {
+      console.error('Erro ao salvar token:', tokenError);
+      throw new Error(`Erro ao gerar token: ${tokenError.message}`);
+    }
+
+    console.log('Token gerado e salvo com sucesso');
+
+    // Construir link de convite customizado
+    const inviteLink = `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com')}/definir-senha?token=${token}`;
+
+    // Passo D: Enviar e-mail via Resend
+    console.log('=== Passo D: Enviando e-mail via Resend ===');
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     
@@ -194,7 +215,7 @@ serve(async (req) => {
             
             <!-- CTA Button -->
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${actionLink}" 
+              <a href="${inviteLink}" 
                  style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
                 Definir Minha Senha
               </a>
