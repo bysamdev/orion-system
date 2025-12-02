@@ -11,6 +11,7 @@ import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import TicketDetails from "./pages/TicketDetails";
 import Auth from "./pages/Auth";
+import SetPassword from "./pages/SetPassword";
 import NotFound from "./pages/NotFound";
 import DebugTools from "./pages/DebugTools";
 
@@ -25,6 +26,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/definir-senha" element={<SetPassword />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/novo-ticket" element={<ProtectedRoute><NewTicket /></ProtectedRoute>} />
             <Route path="/ajustes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
