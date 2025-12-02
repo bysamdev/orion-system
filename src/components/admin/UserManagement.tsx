@@ -20,7 +20,6 @@ import { useAuth } from '@/contexts/AuthContext';
 interface NewUserForm {
   full_name: string;
   email: string;
-  password: string;
   department: string;
   role: 'customer' | 'technician' | 'admin';
 }
@@ -57,7 +56,6 @@ export const UserManagement = () => {
   const [formData, setFormData] = useState<NewUserForm>({
     full_name: '',
     email: '',
-    password: '',
     department: '',
     role: 'customer',
   });
@@ -220,19 +218,10 @@ export const UserManagement = () => {
   };
 
   const handleCreateUser = async () => {
-    if (!formData.full_name || !formData.email || !formData.password) {
+    if (!formData.full_name || !formData.email) {
       toast({
         title: 'Erro',
         description: 'Preencha todos os campos obrigatórios',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      toast({
-        title: 'Erro',
-        description: 'A senha deve ter no mínimo 6 caracteres',
         variant: 'destructive',
       });
       return;
@@ -250,10 +239,9 @@ export const UserManagement = () => {
     setIsCreating(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('create-new-user', {
+      const { data, error } = await supabase.functions.invoke('invite-user-resend', {
         body: {
           email: formData.email.trim(),
-          password: formData.password,
           full_name: formData.full_name.trim(),
           department: formData.department || null,
           role: formData.role,
@@ -262,7 +250,7 @@ export const UserManagement = () => {
       });
 
       if (error) {
-        throw new Error(error.message || 'Erro ao criar usuário');
+        throw new Error(error.message || 'Erro ao enviar convite');
       }
 
       if (data?.error) {
@@ -270,14 +258,13 @@ export const UserManagement = () => {
       }
 
       toast({
-        title: 'Sucesso',
-        description: 'Usuário criado com sucesso',
+        title: 'Convite enviado!',
+        description: `Convite enviado para ${formData.email} com sucesso!`,
       });
 
       setFormData({
         full_name: '',
         email: '',
-        password: '',
         department: '',
         role: 'customer',
       });
@@ -287,7 +274,7 @@ export const UserManagement = () => {
     } catch (error: any) {
       logError('handleCreateUser', error);
       toast({
-        title: 'Erro ao criar usuário',
+        title: 'Erro ao enviar convite',
         description: error.message || 'Tente novamente',
         variant: 'destructive',
       });
@@ -438,16 +425,6 @@ export const UserManagement = () => {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="password">Senha Provisória *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Mínimo 6 caracteres"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
                 <Label htmlFor="department">Departamento</Label>
                 {departments && departments.length > 0 ? (
                   <Select
@@ -500,7 +477,7 @@ export const UserManagement = () => {
               </Button>
               <Button onClick={handleCreateUser} disabled={isCreating}>
                 {isCreating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Criar Usuário
+                Enviar Convite
               </Button>
             </DialogFooter>
           </DialogContent>
