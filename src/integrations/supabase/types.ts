@@ -155,6 +155,30 @@ export type Database = {
           },
         ]
       }
+      invite_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          token: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          token?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -496,6 +520,7 @@ export type Database = {
           total_size: string
         }[]
       }
+      cleanup_expired_invite_tokens: { Args: never; Returns: number }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
