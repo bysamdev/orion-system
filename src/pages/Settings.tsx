@@ -102,6 +102,19 @@ export default function Settings() {
       });
 
       if (error) throw error;
+
+      // Enviar alerta de segurança por e-mail
+      try {
+        await supabase.functions.invoke('send-password-changed-alert', {
+          body: {
+            email: profile?.email,
+            full_name: profile?.full_name || 'Usuário',
+          },
+        });
+      } catch (emailError) {
+        console.error('Erro ao enviar alerta de segurança:', emailError);
+        // Não falhar a operação se o e-mail não for enviado
+      }
     },
     onSuccess: () => {
       setCurrentPassword('');
@@ -109,7 +122,7 @@ export default function Settings() {
       setConfirmPassword('');
       toast({
         title: 'Sucesso',
-        description: 'Senha alterada com sucesso',
+        description: 'Senha alterada com sucesso. Um alerta foi enviado para seu e-mail.',
       });
     },
     onError: (error) => {
