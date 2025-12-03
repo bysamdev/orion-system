@@ -27,7 +27,6 @@ export default function Settings() {
   const [department, setDepartment] = useState('');
 
   // Estados para alterar senha
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -117,7 +116,6 @@ export default function Settings() {
       }
     },
     onSuccess: () => {
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       toast({
@@ -262,16 +260,6 @@ export default function Settings() {
                   <CardDescription>Gerencie suas configurações de segurança</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="current-password">Senha Atual</Label>
-                    <Input 
-                      id="current-password" 
-                      type="password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="Digite sua senha atual"
-                    />
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="new-password">Nova Senha</Label>
                     <Input 
