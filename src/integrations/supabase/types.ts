@@ -493,6 +493,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auto_close_resolved_tickets: { Args: never; Returns: number }
       calculate_sla_due_date: {
         Args: { ticket_created_at: string; ticket_priority: string }
         Returns: string
