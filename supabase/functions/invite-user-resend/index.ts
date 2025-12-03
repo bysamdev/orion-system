@@ -172,8 +172,9 @@ serve(async (req) => {
 
     console.log('Token gerado e salvo com sucesso');
 
-    // Construir link de convite customizado
-    const inviteLink = `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com')}/definir-senha?token=${token}`;
+    // Construir link de convite com domínio de produção
+    const baseUrl = 'https://www.bysam.dev';
+    const inviteLink = `${baseUrl}/definir-senha?token=${token}`;
 
     // Passo D: Enviar e-mail via Resend
     console.log('=== Passo D: Enviando e-mail via Resend ===');
