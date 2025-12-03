@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.reset-password-with-token]
 verify_jwt = false
+
+[functions.create-user-credentials]
+verify_jwt = false
+
+[functions.send-password-changed-alert]
+verify_jwt = false

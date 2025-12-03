@@ -239,7 +239,7 @@ export const UserManagement = () => {
     setIsCreating(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('invite-user-resend', {
+      const { data, error } = await supabase.functions.invoke('create-user-credentials', {
         body: {
           email: formData.email.trim(),
           full_name: formData.full_name.trim(),
@@ -250,7 +250,7 @@ export const UserManagement = () => {
       });
 
       if (error) {
-        throw new Error(error.message || 'Erro ao enviar convite');
+        throw new Error(error.message || 'Erro ao criar usuário');
       }
 
       if (data?.error) {
@@ -258,8 +258,8 @@ export const UserManagement = () => {
       }
 
       toast({
-        title: 'Convite enviado!',
-        description: `Convite enviado para ${formData.email} com sucesso!`,
+        title: 'Usuário criado!',
+        description: 'Usuário criado e credenciais enviadas por e-mail.',
       });
 
       setFormData({
@@ -274,7 +274,7 @@ export const UserManagement = () => {
     } catch (error: any) {
       logError('handleCreateUser', error);
       toast({
-        title: 'Erro ao enviar convite',
+        title: 'Erro ao criar usuário',
         description: error.message || 'Tente novamente',
         variant: 'destructive',
       });
@@ -477,7 +477,7 @@ export const UserManagement = () => {
               </Button>
               <Button onClick={handleCreateUser} disabled={isCreating}>
                 {isCreating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Enviar Convite
+                Criar Usuário
               </Button>
             </DialogFooter>
           </DialogContent>
