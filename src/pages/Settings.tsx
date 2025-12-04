@@ -27,6 +27,7 @@ export default function Settings() {
   const [department, setDepartment] = useState('');
 
   // Estados para alterar senha
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -88,6 +89,10 @@ export default function Settings() {
 
   const changePasswordMutation = useMutation({
     mutationFn: async () => {
+      if (!currentPassword) {
+        throw new Error('Digite sua senha atual');
+      }
+
       if (newPassword !== confirmPassword) {
         throw new Error('As senhas não coincidem');
       }
@@ -96,6 +101,17 @@ export default function Settings() {
         throw new Error('A nova senha deve ter pelo menos 6 caracteres');
       }
 
+      // Re-autenticar com a senha atual para verificar se está correta
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: profile?.email || '',
+        password: currentPassword,
+      });
+
+      if (authError) {
+        throw new Error('A senha atual está incorreta');
+      }
+
+      // Só atualiza a senha após re-autenticação bem-sucedida
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
@@ -111,20 +127,28 @@ export default function Settings() {
           },
         });
       } catch (emailError) {
-        console.error('Erro ao enviar alerta de segurança:', emailError);
         // Não falhar a operação se o e-mail não for enviado
       }
     },
     onSuccess: () => {
+      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       toast({
         title: 'Sucesso',
-        description: 'Senha alterada com sucesso. Um alerta foi enviado para seu e-mail.',
+        description: 'Senha alterada com sucesso!',
       });
     },
     onError: (error) => {
-      handleError(error, 'Settings.changePassword', 'Erro ao alterar senha');
+      if (error instanceof Error && error.message === 'A senha atual está incorreta') {
+        toast({
+          title: 'Erro',
+          description: 'A senha atual está incorreta',
+          variant: 'destructive',
+        });
+      } else {
+        handleError(error, 'Settings.changePassword', 'Erro ao alterar senha');
+      }
     }
   });
 
@@ -261,6 +285,16 @@ export default function Settings() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
+                    <Label htmlFor="current-password">Senha Atual</Label>
+                    <Input 
+                      id="current-password" 
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Digite sua senha atual"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="new-password">Nova Senha</Label>
                     <Input 
                       id="new-password" 
@@ -282,7 +316,7 @@ export default function Settings() {
                   </div>
                   <Button 
                     onClick={() => changePasswordMutation.mutate()}
-                    disabled={changePasswordMutation.isPending || !newPassword || !confirmPassword}
+                    disabled={changePasswordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
                   >
                     {changePasswordMutation.isPending ? (
                       <>
