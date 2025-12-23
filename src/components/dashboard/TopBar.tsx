@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Settings, Shield, Search, User, LogOut, LayoutDashboard } from 'lucide-react';
+import { Plus, Settings, Shield, Search, User, LogOut, LayoutDashboard, PieChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -92,24 +92,44 @@ export const TopBar: React.FC = () => {
           <TooltipContent>Ajustes</TooltipContent>
         </Tooltip>
 
-        {role === 'admin' && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => navigate('/admin')}
-                className={`transition-colors ${
-                  isActive('/admin') 
-                    ? 'text-primary bg-primary/10' 
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                }`}
-              >
-                <Shield className="w-5 h-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Admin</TooltipContent>
-          </Tooltip>
+        {(role === 'admin' || role === 'developer') && (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => navigate('/relatorios')}
+                  className={`transition-colors ${
+                    isActive('/relatorios') 
+                      ? 'text-primary bg-primary/10' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <PieChart className="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Relatórios</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => navigate('/admin')}
+                  className={`transition-colors ${
+                    isActive('/admin') 
+                      ? 'text-primary bg-primary/10' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Shield className="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Admin</TooltipContent>
+            </Tooltip>
+          </>
         )}
         
         {/* Separador */}
