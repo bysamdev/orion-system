@@ -1,17 +1,20 @@
 import React from 'react';
-import { BarChart3, Ticket, Archive, Server, Briefcase, Cloud, Shield } from 'lucide-react';
+import { BarChart3, Ticket, Archive, Server, Briefcase, Cloud, Shield, PieChart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface NavItem {
   icon: React.ElementType;
   label: string;
   path: string;
+  roles?: string[]; // Se definido, só mostra para esses roles
 }
 
 const navigationItems: NavItem[] = [
   { icon: BarChart3, label: 'Dashboard', path: '/' },
   { icon: Ticket, label: 'Novo Ticket', path: '/novo-ticket' },
+  { icon: PieChart, label: 'Relatórios', path: '/relatorios', roles: ['admin', 'developer'] },
   { icon: Archive, label: 'Arquivo', path: '/arquivo' },
   { icon: Server, label: 'Servidores', path: '/servidores' },
   { icon: Briefcase, label: 'Projetos', path: '/projetos' },
@@ -25,6 +28,13 @@ const bottomItems: NavItem[] = [
 export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { data: role } = useUserRole();
+
+  // Filtra itens baseado no role do usuário
+  const filteredNavItems = navigationItems.filter(item => {
+    if (!item.roles) return true;
+    return role && item.roles.includes(role);
+  });
 
   return (
     <nav className="bg-sidebar-background h-screen w-32 flex flex-col items-center py-8 sticky top-0">
@@ -33,7 +43,7 @@ export const Sidebar: React.FC = () => {
       </div>
       
       <div className="flex flex-col items-center gap-6 flex-1 w-full px-4">
-        {navigationItems.map((item, index) => {
+        {filteredNavItems.map((item, index) => {
           const isActive = location.pathname === item.path;
           return (
             <button

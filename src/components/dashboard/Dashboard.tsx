@@ -4,7 +4,6 @@ import { TopBar } from './TopBar';
 import { QuickAccessCard } from './QuickAccessCard';
 import { CustomerTicketsTable } from './CustomerTicketsTable';
 import { TechnicianDashboard } from './TechnicianDashboard';
-import { AdminDashboard } from './AdminDashboard';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { Loader2 } from 'lucide-react';
@@ -26,11 +25,8 @@ export const Dashboard: React.FC = () => {
 
   const userName = profile?.full_name || 'Usuário';
   const isCustomer = role === 'customer';
-  const isGestor = role === 'admin';
-  const isTechnician = role === 'technician';
-  
-  // Restringir acesso: apenas técnicos, admins e developers têm acesso ao painel de gerenciamento
-  const hasManagementAccess = isTechnician || isGestor || role === 'developer';
+  // Admin e técnico agora veem a mesma interface de gerenciamento de chamados
+  const hasManagementAccess = role === 'technician' || role === 'admin' || role === 'developer';
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,12 +54,9 @@ export const Dashboard: React.FC = () => {
               emptyMessage="Você ainda não possui chamados finalizados."
             />
           </div>
-        ) : isTechnician ? (
-          // Técnico: Cockpit Operacional personalizado
+        ) : hasManagementAccess ? (
+          // Técnico e Admin: Cockpit Operacional com lista de chamados
           <TechnicianDashboard />
-        ) : isGestor ? (
-          // Gestor: Dashboard com KPIs e gráficos
-          <AdminDashboard />
         ) : (
           // Acesso negado para outros roles
           <div className="flex items-center justify-center min-h-[400px]">

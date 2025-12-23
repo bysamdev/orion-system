@@ -14,6 +14,7 @@ import Auth from "./pages/Auth";
 import SetPassword from "./pages/SetPassword";
 import NotFound from "./pages/NotFound";
 import DebugTools from "./pages/DebugTools";
+import Reports from "./pages/Reports";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/novo-ticket" element={<ProtectedRoute><NewTicket /></ProtectedRoute>} />
             <Route path="/ajustes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+            <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/ticket/:id" element={<ProtectedRoute><TicketDetails /></ProtectedRoute>} />
             <Route path="/debug-tools" element={<ProtectedRoute><DebugTools /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
