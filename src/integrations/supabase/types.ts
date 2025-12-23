@@ -98,23 +98,34 @@ export type Database = {
       companies: {
         Row: {
           created_at: string
+          current_plan_id: string | null
           id: string
           name: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          current_plan_id?: string | null
           id?: string
           name: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          current_plan_id?: string | null
           id?: string
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_current_plan_id_fkey"
+            columns: ["current_plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       departments: {
         Row: {
@@ -216,6 +227,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plans: {
+        Row: {
+          created_at: string
+          id: string
+          max_users: number
+          name: string
+          price: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_users: number
+          name: string
+          price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_users?: number
+          name?: string
+          price?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -525,6 +563,7 @@ export type Database = {
         }[]
       }
       cleanup_expired_invite_tokens: { Args: never; Returns: number }
+      get_company_plan_usage: { Args: never; Returns: Json }
       get_dashboard_stats: { Args: never; Returns: Json }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
