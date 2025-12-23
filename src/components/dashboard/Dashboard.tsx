@@ -1,16 +1,10 @@
 import React from 'react';
 import { DashboardHeader } from './DashboardHeader';
-import { TicketsTable } from './TicketsTable';
 import { TopBar } from './TopBar';
-import { InProgressTickets } from './InProgressTickets';
-import { ClosedTickets } from './ClosedTickets';
-import { StatsReport } from './StatsReport';
-import { QuickStats } from './QuickStats';
-import { TrendChart } from './TrendChart';
-import { NeedsAttention } from './NeedsAttention';
 import { QuickAccessCard } from './QuickAccessCard';
 import { CustomerTicketsTable } from './CustomerTicketsTable';
 import { TechnicianDashboard } from './TechnicianDashboard';
+import { AdminDashboard } from './AdminDashboard';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { Loader2 } from 'lucide-react';
@@ -68,24 +62,8 @@ export const Dashboard: React.FC = () => {
           // Técnico: Cockpit Operacional personalizado
           <TechnicianDashboard />
         ) : isGestor ? (
-          // Gestor: Ver todos os chamados e métricas (painel de gerenciamento)
-          <div className="space-y-6">
-            <QuickStats />
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                <TicketsTable />
-                <InProgressTickets />
-                <ClosedTickets />
-              </div>
-              
-              <div className="space-y-6">
-                <StatsReport />
-                <TrendChart days={7} />
-                <NeedsAttention />
-              </div>
-            </div>
-          </div>
+          // Gestor: Dashboard com KPIs e gráficos
+          <AdminDashboard />
         ) : (
           // Acesso negado para outros roles
           <div className="flex items-center justify-center min-h-[400px]">
