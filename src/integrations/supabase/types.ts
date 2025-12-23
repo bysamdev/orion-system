@@ -522,6 +522,7 @@ export type Database = {
         }[]
       }
       cleanup_expired_invite_tokens: { Args: never; Returns: number }
+      get_dashboard_stats: { Args: never; Returns: Json }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
