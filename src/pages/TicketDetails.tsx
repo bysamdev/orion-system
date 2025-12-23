@@ -8,8 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { SLABadge } from '@/components/dashboard/SLABadge';
-import { ArrowLeft, Clock, User, Tag, AlertCircle, MessageSquare, CheckCircle2, Info, Paperclip, Upload, Monitor, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Clock, User, Tag, AlertCircle, MessageSquare, CheckCircle2, Info, Paperclip, Upload, Monitor, Copy, Check, Lock } from 'lucide-react';
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
 import { ImagePasteHandler } from '@/components/ticket/ImagePasteHandler';
@@ -44,6 +46,7 @@ const TicketDetails: React.FC = () => {
   const addUpdate = useAddTicketUpdate();
   
   const [newUpdateText, setNewUpdateText] = useState('');
+  const [isInternalNote, setIsInternalNote] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
@@ -152,10 +155,12 @@ const TicketDetails: React.FC = () => {
     await addUpdate.mutateAsync({
       ticket_id: ticket.id,
       content: validationResult.data.content,
-      type: 'comment'
+      type: 'comment',
+      is_internal: isInternalNote
     });
 
     setNewUpdateText('');
+    setIsInternalNote(false);
   };
 
   const handleStatusChange = async (newStatus: string) => {
@@ -348,18 +353,21 @@ const TicketDetails: React.FC = () => {
               <div className="space-y-4">
                 {updates.map((update, index) => {
                   const updateDate = new Date(update.created_at);
+                  const isInternal = update.is_internal;
                   return (
                     <div key={update.id} className="flex gap-3 md:gap-4">
                       {/* Timeline vertical */}
                       <div className="flex flex-col items-center flex-shrink-0">
                         <div className={cn(
                           "w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center",
+                          isInternal ? 'bg-amber-500/20' :
                           update.type === 'status_change' ? 'bg-yellow-500/20' :
                           update.type === 'assignment' ? 'bg-purple-500/20' :
                           update.type === 'priority_change' ? 'bg-blue-500/20' :
                           'bg-green-500/20'
                         )}>
-                          {update.type === 'status_change' ? <Clock className="w-3 h-3 md:w-4 md:h-4 text-yellow-500" /> :
+                          {isInternal ? <Lock className="w-3 h-3 md:w-4 md:h-4 text-amber-600" /> :
+                           update.type === 'status_change' ? <Clock className="w-3 h-3 md:w-4 md:h-4 text-yellow-500" /> :
                            update.type === 'assignment' ? <User className="w-3 h-3 md:w-4 md:h-4 text-purple-500" /> :
                            update.type === 'priority_change' ? <AlertCircle className="w-3 h-3 md:w-4 md:h-4 text-blue-500" /> :
                            <MessageSquare className="w-3 h-3 md:w-4 md:h-4 text-green-500" />}
@@ -372,14 +380,26 @@ const TicketDetails: React.FC = () => {
                       {/* Conteúdo */}
                       <div className="flex-1 pb-6 min-w-0">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1">
-                          <span className="font-medium text-foreground text-sm truncate">{update.author}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-foreground text-sm truncate">{update.author}</span>
+                            {isInternal && (
+                              <Badge variant="outline" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300 dark:border-amber-700 text-xs">
+                                <Lock className="w-3 h-3 mr-1" />
+                                Nota Interna
+                              </Badge>
+                            )}
+                          </div>
                           <span className="text-xs text-muted-foreground">
                             {formatTimeAgo(update.created_at)}
                           </span>
                         </div>
                         <p className={cn(
                           "text-sm leading-relaxed break-words",
-                          update.type === 'comment' ? 'text-foreground bg-muted/30 rounded-lg p-3' : 'text-muted-foreground italic'
+                          isInternal 
+                            ? 'text-foreground bg-amber-100/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3' 
+                            : update.type === 'comment' 
+                              ? 'text-foreground bg-muted/30 rounded-lg p-3' 
+                              : 'text-muted-foreground italic'
                         )}>
                           {update.content}
                         </p>
@@ -458,13 +478,54 @@ const TicketDetails: React.FC = () => {
                     </p>
                   )}
                 </div>
+                
+                {/* Switch para nota interna - apenas para técnicos/admins */}
+                {canManageTickets && (
+                  <div className={cn(
+                    "flex items-center justify-between p-3 rounded-lg mb-3 transition-colors",
+                    isInternalNote 
+                      ? "bg-amber-100/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800" 
+                      : "bg-muted/30"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <Lock className={cn("w-4 h-4", isInternalNote ? "text-amber-600" : "text-muted-foreground")} />
+                      <Label 
+                        htmlFor="internal-note" 
+                        className={cn(
+                          "text-sm font-medium cursor-pointer",
+                          isInternalNote ? "text-amber-800 dark:text-amber-400" : "text-muted-foreground"
+                        )}
+                      >
+                        Nota Interna (Apenas Equipe)
+                      </Label>
+                    </div>
+                    <Switch
+                      id="internal-note"
+                      checked={isInternalNote}
+                      onCheckedChange={setIsInternalNote}
+                    />
+                  </div>
+                )}
+                
                 <Button 
                   onClick={handleAddUpdate} 
-                  className="w-full"
+                  className={cn(
+                    "w-full",
+                    isInternalNote && "bg-amber-600 hover:bg-amber-700"
+                  )}
                   disabled={addUpdate.isPending || !newUpdateText.trim()}
                 >
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Enviar Comentário
+                  {isInternalNote ? (
+                    <>
+                      <Lock className="w-4 h-4 mr-2" />
+                      Enviar Nota Interna
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Enviar Comentário
+                    </>
+                  )}
                 </Button>
               </Card>
             )}
