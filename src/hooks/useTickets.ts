@@ -37,6 +37,7 @@ export interface TicketUpdate {
   content: string;
   type: 'comment' | 'status_change' | 'assignment' | 'priority_change';
   created_at: string;
+  is_internal: boolean;
 }
 
 export const useTickets = (status?: string) => {
@@ -273,7 +274,7 @@ export const useAddTicketUpdate = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (update: { ticket_id: string; content: string; type: string }) => {
+    mutationFn: async (update: { ticket_id: string; content: string; type: string; is_internal?: boolean }) => {
       // Validate input before sending to database
       const validationResult = ticketUpdateSchema.safeParse(update);
       
@@ -293,7 +294,8 @@ export const useAddTicketUpdate = () => {
           content: validData.content,
           type: validData.type,
           author: '', // Placeholder - trigger will set display name
-          author_id: user.id 
+          author_id: user.id,
+          is_internal: update.is_internal || false
         }])
         .select()
         .single();
