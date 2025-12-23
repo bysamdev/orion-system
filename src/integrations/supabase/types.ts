@@ -314,6 +314,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          is_internal: boolean
           ticket_id: string
           type: string
         }
@@ -323,6 +324,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          is_internal?: boolean
           ticket_id: string
           type?: string
         }
@@ -332,6 +334,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_internal?: boolean
           ticket_id?: string
           type?: string
         }
