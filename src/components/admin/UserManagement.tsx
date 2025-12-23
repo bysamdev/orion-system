@@ -16,6 +16,8 @@ import type { UserRole } from '@/hooks/useUserRole';
 import { userRoleSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
 import { useAuth } from '@/contexts/AuthContext';
+import { PlanUsageCard } from './PlanUsageCard';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface NewUserForm {
   full_name: string;
@@ -53,6 +55,7 @@ export const UserManagement = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [isLimitReached, setIsLimitReached] = useState(false);
   const [formData, setFormData] = useState<NewUserForm>({
     full_name: '',
     email: '',
@@ -382,21 +385,38 @@ export const UserManagement = () => {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Gerenciar Usuários</CardTitle>
-          <CardDescription>
-            Defina as funções e permissões de cada usuário do sistema
-          </CardDescription>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Usuário
-            </Button>
-          </DialogTrigger>
+    <div className="space-y-4">
+      {/* Card de uso do plano */}
+      <PlanUsageCard onLimitReached={setIsLimitReached} />
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Gerenciar Usuários</CardTitle>
+            <CardDescription>
+              Defina as funções e permissões de cada usuário do sistema
+            </CardDescription>
+          </div>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <DialogTrigger asChild>
+                      <Button disabled={isLimitReached}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Adicionar Usuário
+                      </Button>
+                    </DialogTrigger>
+                  </span>
+                </TooltipTrigger>
+                {isLimitReached && (
+                  <TooltipContent>
+                    <p>Limite de usuários atingido. Faça upgrade do plano.</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Novo Usuário</DialogTitle>
@@ -701,6 +721,7 @@ export const UserManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+      </Card>
+    </div>
   );
 };
