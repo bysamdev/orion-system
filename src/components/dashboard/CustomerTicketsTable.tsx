@@ -93,15 +93,17 @@ export const CustomerTicketsTable: React.FC<CustomerTicketsTableProps> = ({
                     className="hover:bg-muted/30 transition-colors cursor-pointer"
                     onClick={() => navigate(`/ticket/${ticket.id}`)}
                   >
-                    <TableCell className="font-mono font-semibold text-primary">
+                    <TableCell className="font-mono font-semibold text-primary whitespace-nowrap">
                       #{ticket.ticket_number}
                     </TableCell>
                     <TableCell className="max-w-[250px]">
-                      <div className="truncate font-medium text-foreground">
-                        {ticket.title}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true, locale: ptBR })}
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">
+                          {ticket.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true, locale: ptBR })}
+                        </p>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -115,11 +117,11 @@ export const CustomerTicketsTable: React.FC<CustomerTicketsTableProps> = ({
                         {priorityLabels[ticket.priority as keyof typeof priorityLabels] || ticket.priority}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-[150px]">
                       {ticket.operator_name ? (
-                        <span className="font-medium text-foreground">{ticket.operator_name}</span>
+                        <span className="font-medium text-foreground truncate block">{ticket.operator_name}</span>
                       ) : (
-                        <span className="text-muted-foreground/70 italic text-sm">
+                        <span className="text-muted-foreground/70 italic text-sm whitespace-nowrap">
                           Aguardando Atendimento
                         </span>
                       )}

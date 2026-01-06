@@ -518,10 +518,18 @@ export const UserManagement = () => {
           <TableBody>
             {users?.map((userItem) => (
               <TableRow key={userItem.id}>
-                <TableCell className="font-medium">{userItem.full_name || 'Sem nome'}</TableCell>
-                <TableCell>{userItem.email}</TableCell>
-                <TableCell>{userItem.company_name}</TableCell>
-                <TableCell>{userItem.department || '-'}</TableCell>
+                <TableCell className="font-medium max-w-[150px]">
+                  <span className="truncate block">{userItem.full_name || 'Sem nome'}</span>
+                </TableCell>
+                <TableCell className="max-w-[200px]">
+                  <span className="truncate block">{userItem.email}</span>
+                </TableCell>
+                <TableCell className="max-w-[150px]">
+                  <span className="truncate block">{userItem.company_name}</span>
+                </TableCell>
+                <TableCell className="max-w-[100px]">
+                  <span className="truncate block">{userItem.department || '-'}</span>
+                </TableCell>
                 <TableCell>
                   <Select
                     value={userItem.role}

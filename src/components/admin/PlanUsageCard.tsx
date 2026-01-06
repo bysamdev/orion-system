@@ -75,12 +75,12 @@ export const PlanUsageCard: React.FC<PlanUsageCardProps> = ({ onLimitReached }) 
   return (
     <Card className={`mb-6 ${isLimitReached ? 'border-destructive' : ''}`}>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-muted-foreground" />
-            <CardTitle className="text-lg">Uso do Plano</CardTitle>
-          </div>
-          {getPlanBadge()}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Users className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              <CardTitle className="text-lg truncate">Uso do Plano</CardTitle>
+            </div>
+            {getPlanBadge()}
         </div>
         <CardDescription>
           Licenças de usuários utilizadas na sua empresa
