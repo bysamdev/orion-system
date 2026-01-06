@@ -27,8 +27,8 @@ export const ClosedTickets: React.FC = () => {
       <Card className="border-border shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-success" />
-            Últimos Chamados Fechados
+            <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
+            <span>Últimos Chamados Fechados</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -41,9 +41,9 @@ export const ClosedTickets: React.FC = () => {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-success" />
-          Últimos Chamados Fechados
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
+            <span>Últimos Chamados Fechados</span>
         </CardTitle>
       </CardHeader>
       <CardContent>

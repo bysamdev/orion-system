@@ -49,11 +49,11 @@ const NotificationItem: React.FC<{
             )}
           />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2">
             <p
               className={cn(
-                'text-sm font-medium truncate',
+                'text-sm font-medium truncate flex-1 min-w-0',
                 notification.is_read ? 'text-muted-foreground' : 'text-foreground'
               )}
             >
@@ -63,7 +63,7 @@ const NotificationItem: React.FC<{
               <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
             )}
           </div>
-          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 break-words">
             {notification.message}
           </p>
           <p className="text-xs text-muted-foreground/70 mt-1">

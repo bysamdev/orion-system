@@ -157,8 +157,10 @@ export const CompanyManagement = () => {
             <TableBody>
               {companies?.map((company) => (
                 <TableRow key={company.id}>
-                  <TableCell className="font-medium">{company.name}</TableCell>
-                  <TableCell>
+                  <TableCell className="font-medium max-w-[300px]">
+                    <span className="truncate block">{company.name}</span>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
                     {new Date(company.created_at).toLocaleDateString('pt-BR')}
                   </TableCell>
                   <TableCell className="text-right">

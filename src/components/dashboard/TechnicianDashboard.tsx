@@ -262,16 +262,16 @@ export const TechnicianDashboard: React.FC = () => {
                       className="p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 overflow-hidden">
                           <button
                             onClick={() => navigate(`/ticket/${ticket.id}`)}
-                            className="text-sm font-medium text-foreground hover:text-primary truncate block text-left"
+                            className="text-sm font-medium text-foreground hover:text-primary truncate block text-left w-full"
                           >
                             #{ticket.ticket_number} - {ticket.title}
                           </button>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             {getPriorityBadge(ticket.priority)}
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
                               {formatDistanceToNow(new Date(ticket.created_at), { 
                                 addSuffix: true, 
                                 locale: ptBR 

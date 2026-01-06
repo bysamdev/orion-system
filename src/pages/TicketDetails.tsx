@@ -336,10 +336,10 @@ const TicketDetails: React.FC = () => {
             {/* Descrição */}
             <Card className="p-6">
               <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                <Info className="w-4 h-4" />
+                <Info className="w-4 h-4 flex-shrink-0" />
                 Descrição do Problema
               </h3>
-              <p className="text-muted-foreground leading-relaxed bg-muted/30 rounded-lg p-4">
+              <p className="text-muted-foreground leading-relaxed bg-muted/30 rounded-lg p-4 break-words whitespace-pre-wrap">
                 {ticket.description}
               </p>
             </Card>
@@ -378,10 +378,10 @@ const TicketDetails: React.FC = () => {
                       </div>
                       
                       {/* Conteúdo */}
-                      <div className="flex-1 pb-6 min-w-0">
+                      <div className="flex-1 pb-6 min-w-0 overflow-hidden">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-foreground text-sm truncate">{update.author}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-medium text-foreground text-sm truncate max-w-[150px]">{update.author}</span>
                             {isInternal && (
                               <Badge variant="outline" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300 dark:border-amber-700 text-xs">
                                 <Lock className="w-3 h-3 mr-1" />
@@ -394,7 +394,7 @@ const TicketDetails: React.FC = () => {
                           </span>
                         </div>
                         <p className={cn(
-                          "text-sm leading-relaxed break-words",
+                          "text-sm leading-relaxed break-words whitespace-pre-wrap overflow-hidden",
                           isInternal 
                             ? 'text-foreground bg-amber-100/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3' 
                             : update.type === 'comment' 
