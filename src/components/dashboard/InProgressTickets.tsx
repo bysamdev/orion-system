@@ -24,8 +24,8 @@ export const InProgressTickets: React.FC = () => {
       <Card className="border-border shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Clock className="w-4 h-4 text-warning" />
-            Chamados em Atendimento
+            <Clock className="w-4 h-4 text-warning flex-shrink-0" />
+            <span>Chamados em Atendimento</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -38,9 +38,9 @@ export const InProgressTickets: React.FC = () => {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Clock className="w-4 h-4 text-warning" />
-          Chamados em Atendimento
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Clock className="w-4 h-4 text-warning flex-shrink-0" />
+            <span>Chamados em Atendimento</span>
         </CardTitle>
       </CardHeader>
       <CardContent>

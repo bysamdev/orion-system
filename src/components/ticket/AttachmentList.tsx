@@ -62,7 +62,7 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
       {attachments.map((attachment) => (
         <div 
           key={attachment.id} 
-          className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg group"
+          className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg group overflow-hidden"
         >
           {/* Preview de imagem ou ícone */}
           {isImage(attachment.file_type) ? (
@@ -79,11 +79,11 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
           )}
           
           {/* Info do arquivo */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 overflow-hidden">
             <p className="text-sm font-medium text-foreground truncate">
               {attachment.file_name}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground whitespace-nowrap">
               {formatDistanceToNow(new Date(attachment.created_at), { 
                 locale: ptBR, 
                 addSuffix: true 
