@@ -18,7 +18,7 @@ const StatCard: React.FC<StatCardProps> = ({ icon, title, value, subtitle, trend
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-center gap-2 mb-1">
           <div className="text-muted-foreground flex-shrink-0">{icon}</div>
-          <span className="text-muted-foreground text-xs font-medium whitespace-nowrap truncate">{title}</span>
+          <span className="text-muted-foreground text-xs font-medium truncate">{title}</span>
         </div>
         {isLoading ? (
           <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />

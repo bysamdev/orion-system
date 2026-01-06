@@ -97,13 +97,15 @@ export const TicketsTable: React.FC = () => {
                 className="hover:bg-muted/30 transition-colors cursor-pointer"
                 onClick={() => navigate(`/ticket/${ticket.id}`)}
               >
-                <TableCell className="font-mono font-medium text-foreground">#{ticket.ticket_number}</TableCell>
+                <TableCell className="font-mono font-medium text-foreground whitespace-nowrap">#{ticket.ticket_number}</TableCell>
                 <TableCell className="max-w-[150px]">
-                  <div className="truncate">
+                  <div className="min-w-0">
                     <div className="font-medium text-foreground truncate">{ticket.requester_name}</div>
                   </div>
                 </TableCell>
-                <TableCell className="text-muted-foreground max-w-[120px] truncate">{ticket.company_name || 'N/A'}</TableCell>
+                <TableCell className="max-w-[120px]">
+                  <span className="text-muted-foreground truncate block">{ticket.company_name || 'N/A'}</span>
+                </TableCell>
                 <TableCell>
                   <div className={cn("inline-flex items-center px-2 py-1 rounded-full text-xs font-medium", priorityColors[ticket.priority as keyof typeof priorityColors])}>
                     {ticket.priority === 'urgent' ? 'Urgente' : ticket.priority === 'high' ? 'Alta' : ticket.priority === 'medium' ? 'Média' : 'Baixa'}
@@ -118,7 +120,7 @@ export const TicketsTable: React.FC = () => {
                 </TableCell>
                 <TableCell className="max-w-[120px]">
                   {ticket.operator_name ? (
-                    <div className="truncate text-foreground font-medium">{ticket.operator_name}</div>
+                    <span className="truncate block text-foreground font-medium">{ticket.operator_name}</span>
                   ) : canManageTickets ? (
                     <Button
                       variant="ghost"
