@@ -1,73 +1,47 @@
-# Welcome to your Lovable project
+# Orion System
 
-## Project info
+A helpdesk and ticketing platform built for modern teams. Orion System streamlines support workflows, ticket management, and team collaboration in a clean, responsive interface.
 
-**URL**: https://lovable.dev/projects/d54bf003-bd57-42d3-b516-ca3a5fdad0fa
+## Tech Stack
 
-## How can I edit this code?
+- **Frontend:** React + TypeScript + Vite
+- **UI:** Tailwind CSS + shadcn/ui
+- **Backend:** Supabase (PostgreSQL + Auth + Storage)
+- **Deployment:** Vercel
 
-There are several ways of editing your application.
+## Features
 
-**Use Lovable**
+- Ticket creation and management
+- Role-based access control
+- Real-time updates
+- Dashboard with analytics
+- Responsive design
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d54bf003-bd57-42d3-b516-ca3a5fdad0fa) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js 18+
+- npm or bun
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Installation
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+git clone https://github.com/bysamdev/orion-system-main-alpha.git
+cd orion-system-main-alpha
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Environment Variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Create a `.env` file at the root with your Supabase credentials:
 
-**Use GitHub Codespaces**
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## License
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/d54bf003-bd57-42d3-b516-ca3a5fdad0fa) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+MIT
