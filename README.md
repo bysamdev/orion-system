@@ -1,30 +1,30 @@
 # Orion System
 
-A helpdesk and ticketing platform built for modern teams. Orion System streamlines support workflows, ticket management, and team collaboration in a clean, responsive interface.
+Plataforma de helpdesk e gerenciamento de tickets desenvolvida para equipes modernas. O Orion System simplifica fluxos de suporte, gerenciamento de chamados e colaboração entre times numa interface limpa e responsiva.
 
-## Tech Stack
+## Tecnologias
 
 - **Frontend:** React + TypeScript + Vite
-- **UI:** Tailwind CSS + shadcn/ui
+- **Estilização:** Tailwind CSS + shadcn/ui
 - **Backend:** Supabase (PostgreSQL + Auth + Storage)
-- **Deployment:** Vercel
+- **Deploy:** Vercel
 
-## Features
+## Funcionalidades
 
-- Ticket creation and management
-- Role-based access control
-- Real-time updates
-- Dashboard with analytics
-- Responsive design
+- Criação e gerenciamento de tickets
+- Controle de acesso por função (RBAC)
+- Atualizações em tempo real
+- Dashboard com métricas
+- Design responsivo
 
-## Getting Started
+## Como rodar localmente
 
-### Prerequisites
+### Pré-requisitos
 
 - Node.js 18+
-- npm or bun
+- npm ou bun
 
-### Installation
+### Instalação
 
 ```sh
 git clone https://github.com/bysamdev/orion-system-main-alpha.git
@@ -33,15 +33,15 @@ npm install
 npm run dev
 ```
 
-### Environment Variables
+### Variáveis de ambiente
 
-Create a `.env` file at the root with your Supabase credentials:
+Crie um arquivo `.env` na raiz do projeto com as credenciais do Supabase:
 
 ```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUPABASE_URL=sua_url_do_supabase
+VITE_SUPABASE_ANON_KEY=sua_chave_anonima
 ```
 
-## License
+## Licença
 
 MIT
