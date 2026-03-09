@@ -13,7 +13,7 @@ export interface Ticket {
   requester_name: string;
   category: string;
   priority: 'urgent' | 'high' | 'medium' | 'low';
-  status: 'open' | 'in-progress' | 'resolved' | 'closed' | 'reopened';
+  status: 'open' | 'in-progress' | 'awaiting-customer' | 'awaiting-third-party' | 'resolved' | 'closed' | 'reopened' | 'cancelled';
   operator_name: string | null;
   assigned_to: string | null;
   department: string | null;
