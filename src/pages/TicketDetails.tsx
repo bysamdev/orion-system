@@ -584,9 +584,12 @@ const TicketDetails: React.FC = () => {
                      <SelectContent>
                       <SelectItem value="open">Aberto</SelectItem>
                       <SelectItem value="in-progress">Em Andamento</SelectItem>
+                      <SelectItem value="awaiting-customer">Aguardando Cliente</SelectItem>
+                      <SelectItem value="awaiting-third-party">Aguardando Terceiro</SelectItem>
                       <SelectItem value="resolved">Resolvido</SelectItem>
                       <SelectItem value="closed">Fechado</SelectItem>
                       <SelectItem value="reopened">Reaberto</SelectItem>
+                      <SelectItem value="cancelled">Cancelado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
