@@ -4,19 +4,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Eye, UserPlus } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useTickets, useUpdateTicketStatus } from '@/hooks/useTickets';
 import { useUserRole } from '@/hooks/useUserRole';
 import { SLABadge } from './SLABadge';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
-
-const priorityColors = {
-  urgent: 'bg-red-500',
-  high: 'bg-destructive',
-  medium: 'bg-warning',
-  low: 'bg-muted'
-};
 
 export const TicketsTable: React.FC = () => {
   const navigate = useNavigate();
@@ -24,26 +18,19 @@ export const TicketsTable: React.FC = () => {
   const { data: userRole } = useUserRole();
   const updateStatus = useUpdateTicketStatus();
   
-  // Enable realtime updates
   useRealtimeTickets();
 
-  // Check if user can manage tickets (technician or admin)
   const canManageTickets = userRole === 'technician' || userRole === 'admin';
 
   const handleAssignTicket = async (ticketId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
-    // Get current user info to assign ticket
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    
     const { data: profile } = await supabase
       .from('profiles')
       .select('full_name')
       .eq('id', user.id)
       .single();
-    
-    // Update assignment
     await updateStatus.mutateAsync({ 
       id: ticketId, 
       status: 'in-progress',
@@ -78,6 +65,7 @@ export const TicketsTable: React.FC = () => {
             <TableHead className="font-semibold text-foreground">Solicitante</TableHead>
             <TableHead className="font-semibold text-foreground">Empresa</TableHead>
             <TableHead className="font-semibold text-foreground">Prioridade</TableHead>
+            <TableHead className="font-semibold text-foreground">Status</TableHead>
             <TableHead className="font-semibold text-foreground">SLA</TableHead>
             <TableHead className="font-semibold text-foreground">Operador</TableHead>
             <TableHead className="font-semibold text-foreground text-center">Ação</TableHead>
@@ -86,7 +74,7 @@ export const TicketsTable: React.FC = () => {
         <TableBody>
           {tickets.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                 Nenhum chamado encontrado
               </TableCell>
             </TableRow>
@@ -99,17 +87,16 @@ export const TicketsTable: React.FC = () => {
               >
                 <TableCell className="font-mono font-medium text-foreground whitespace-nowrap">#{ticket.ticket_number}</TableCell>
                 <TableCell className="max-w-[150px]">
-                  <div className="min-w-0">
-                    <div className="font-medium text-foreground truncate">{ticket.requester_name}</div>
-                  </div>
+                  <div className="font-medium text-foreground truncate">{ticket.requester_name}</div>
                 </TableCell>
                 <TableCell className="max-w-[120px]">
                   <span className="text-muted-foreground truncate block">{ticket.company_name || 'N/A'}</span>
                 </TableCell>
                 <TableCell>
-                  <div className={cn("inline-flex items-center px-2 py-1 rounded-full text-xs font-medium", priorityColors[ticket.priority as keyof typeof priorityColors])}>
-                    {ticket.priority === 'urgent' ? 'Urgente' : ticket.priority === 'high' ? 'Alta' : ticket.priority === 'medium' ? 'Média' : 'Baixa'}
-                  </div>
+                  <PriorityBadge priority={ticket.priority} />
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={ticket.status} />
                 </TableCell>
                 <TableCell>
                   <SLABadge 
