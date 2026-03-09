@@ -14,8 +14,8 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Loader2, ArrowLeft, BarChart3, Clock, CheckCircle2, AlertTriangle, TrendingUp } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Loader2, ArrowLeft, BarChart3, Clock, CheckCircle2, AlertTriangle, TrendingUp, ShieldAlert } from 'lucide-react';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -116,12 +116,18 @@ const Reports: React.FC = () => {
     return { open, resolved, closed, total: tickets.length, avgResolutionHours, slaOk, slaAttention, slaBreached };
   }, [tickets]);
 
+  // Loading state
   if (roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // RBAC: Clientes não podem acessar relatórios
+  if (role === 'customer') {
+    return <Navigate to="/" replace />;
   }
 
   if (role !== 'admin' && role !== 'developer' && role !== 'technician') {
