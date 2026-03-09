@@ -7,12 +7,13 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
+import { SLABadge } from './SLABadge';
+import { PriorityBadge } from '@/components/shared/PriorityBadge';
 
 export const InProgressTickets: React.FC = () => {
   const { data: tickets = [], isLoading } = useTickets('in-progress');
   const navigate = useNavigate();
   
-  // Enable realtime updates
   useRealtimeTickets();
 
   const formatTimeAgo = (date: string) => {
@@ -38,9 +39,10 @@ export const InProgressTickets: React.FC = () => {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Clock className="w-4 h-4 text-warning flex-shrink-0" />
-            <span>Chamados em Atendimento</span>
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <Clock className="w-4 h-4 text-warning flex-shrink-0" />
+          <span>Chamados em Atendimento</span>
+          <span className="text-sm font-normal text-muted-foreground">({tickets.length})</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -48,30 +50,38 @@ export const InProgressTickets: React.FC = () => {
           {tickets.map((ticket) => (
             <div 
               key={ticket.id} 
-              className="grid grid-cols-[5rem_1fr_11rem_6rem] items-center gap-4 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
               onClick={() => navigate(`/ticket/${ticket.id}`)}
             >
-              {/* Coluna 1 - ID */}
-              <Badge variant="outline" className="font-mono font-semibold w-fit">
+              <Badge variant="outline" className="font-mono font-semibold flex-shrink-0">
                 #{ticket.ticket_number}
               </Badge>
               
-              {/* Coluna 2 - Solicitante/Categoria */}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground truncate">{ticket.requester_name}</p>
-                <p className="text-xs text-muted-foreground truncate">{ticket.category}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="truncate">{ticket.company_name || 'N/A'}</span>
+                  <span>·</span>
+                  <span className="truncate">{ticket.category}</span>
+                </div>
               </div>
+
+              <PriorityBadge priority={ticket.priority} size="sm" />
               
-              {/* Coluna 3 - Técnico */}
-              <div className="text-right min-w-0">
+              <SLABadge 
+                slaStatus={ticket.sla_status} 
+                slaDueDate={ticket.sla_due_date}
+                variant="compact"
+              />
+              
+              <div className="text-right flex-shrink-0 min-w-[90px]">
                 <p className="text-xs text-muted-foreground">Atendendo</p>
                 <p className="text-sm font-semibold text-foreground truncate">
                   {ticket.assigned_to || 'Não atribuído'}
                 </p>
               </div>
               
-              {/* Coluna 4 - Data */}
-              <p className="text-xs text-muted-foreground text-right">
+              <p className="text-xs text-muted-foreground flex-shrink-0">
                 {formatTimeAgo(ticket.updated_at)}
               </p>
             </div>
