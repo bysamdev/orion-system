@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserRole';
 import { ticketCreationSchema } from '@/lib/validation';
 import { useErrorHandler } from '@/lib/useErrorHandler';
+import { useActiveContracts } from '@/hooks/useContracts';
 
 const ticketSchema = ticketCreationSchema;
 
