@@ -20,6 +20,7 @@ import { useUserProfile } from '@/hooks/useUserRole';
 import { ticketCreationSchema } from '@/lib/validation';
 import { useErrorHandler } from '@/lib/useErrorHandler';
 import { useActiveContracts } from '@/hooks/useContracts';
+import { invokeOrionFunction } from '@/lib/orion-functions';
 
 const ticketSchema = ticketCreationSchema;
 
@@ -98,14 +99,12 @@ const NewTicket = () => {
 
     try {
       // Verificar rate limit antes de criar ticket
-      const { data: rateLimitData, error: rateLimitError } = await supabase.functions.invoke(
-        'check-rate-limit',
-        {
-          headers: {
-            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-          },
-        }
-      );
+      const { data: rateLimitData, error: rateLimitError } = await invokeOrionFunction<{
+        allowed: boolean;
+        remaining: number;
+        resetAt: string;
+        message?: string;
+      }>('check-rate-limit');
 
       if (rateLimitError) {
         console.error('Rate limit check failed:', rateLimitError);

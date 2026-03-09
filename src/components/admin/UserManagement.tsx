@@ -18,6 +18,7 @@ import { mapDatabaseError, logError } from '@/lib/error-handling';
 import { useAuth } from '@/contexts/AuthContext';
 import { PlanUsageCard } from './PlanUsageCard';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { invokeOrionFunction } from '@/lib/orion-functions';
 
 interface NewUserForm {
   full_name: string;
@@ -181,9 +182,7 @@ export const UserManagement = () => {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const { data, error } = await supabase.functions.invoke('delete-user-admin', {
-        body: { user_id: userId },
-      });
+      const { data, error } = await invokeOrionFunction('delete-user-admin', { user_id: userId });
 
       if (error) {
         throw new Error(error.message || 'Erro ao excluir usuário');
@@ -242,14 +241,12 @@ export const UserManagement = () => {
     setIsCreating(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('create-user-credentials', {
-        body: {
-          email: formData.email.trim(),
-          full_name: formData.full_name.trim(),
-          department: formData.department || null,
-          role: formData.role,
-          company_id: currentUserProfile.company_id,
-        },
+      const { data, error } = await invokeOrionFunction('create-user-credentials', {
+        email: formData.email.trim(),
+        full_name: formData.full_name.trim(),
+        department: formData.department || null,
+        role: formData.role,
+        company_id: currentUserProfile.company_id,
       });
 
       if (error) {
@@ -325,16 +322,14 @@ export const UserManagement = () => {
       const originalUser = users?.find(u => u.id === editFormData.id);
       const companyChanged = originalUser && originalUser.company_id !== editFormData.company_id;
 
-      const { data, error } = await supabase.functions.invoke('admin-update-user', {
-        body: {
-          user_id: editFormData.id,
-          email: editFormData.email.trim(),
-          full_name: editFormData.full_name.trim(),
-          department: editFormData.department || null,
-          role: editFormData.role,
-          password: editFormData.password || undefined,
-          company_id: companyChanged ? editFormData.company_id : undefined,
-        },
+      const { data, error } = await invokeOrionFunction('admin-update-user', {
+        user_id: editFormData.id,
+        email: editFormData.email.trim(),
+        full_name: editFormData.full_name.trim(),
+        department: editFormData.department || null,
+        role: editFormData.role,
+        password: editFormData.password || undefined,
+        company_id: companyChanged ? editFormData.company_id : undefined,
       });
 
       if (error) {

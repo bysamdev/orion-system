@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Environment
+.env
+.env.*
+backend-go/.env
+backend-go/.env.*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
