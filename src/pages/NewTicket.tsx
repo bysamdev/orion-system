@@ -134,6 +134,7 @@ const NewTicket = () => {
           company_id: profile.company_id,
           remote_id: remoteId.trim() || null,
           remote_password: remotePassword.trim() || null,
+          contract_id: selectedContractId || null,
         })
         .select()
         .single();
