@@ -40,57 +40,15 @@ export default function SetPassword() {
 
   const token = searchParams.get('token');
 
-  // Validar token ao carregar a página
+  // Validar token ao carregar a página (apenas verifica presença na URL)
   useEffect(() => {
-    const validateToken = async () => {
-      if (!token) {
-        setTokenError('Token não fornecido na URL');
-        setIsValidating(false);
-        return;
-      }
-
-      try {
-        // Buscar token na tabela invite_tokens
-        const { data, error } = await supabase
-          .from('invite_tokens')
-          .select('email, expires_at')
-          .eq('token', token)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Erro ao validar token:', error);
-          setTokenError('Erro ao validar token');
-          setIsValidating(false);
-          return;
-        }
-
-        if (!data) {
-          setTokenError('Link inválido ou já utilizado');
-          setIsValidating(false);
-          return;
-        }
-
-        // Verificar se expirou
-        const expiresAt = new Date(data.expires_at);
-        const now = new Date();
-
-        if (now > expiresAt) {
-          setTokenError('Link expirado. Solicite um novo convite ao administrador.');
-          setIsValidating(false);
-          return;
-        }
-
-        // Token válido
-        setTokenValid(true);
-        setIsValidating(false);
-      } catch (error: any) {
-        console.error('Erro ao validar token:', error);
-        setTokenError('Erro ao validar token');
-        setIsValidating(false);
-      }
-    };
-
-    validateToken();
+    if (!token) {
+      setTokenError('Token não fornecido na URL');
+      setTokenValid(false);
+    } else {
+      setTokenValid(true);
+    }
+    setIsValidating(false);
   }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
