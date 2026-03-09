@@ -107,6 +107,8 @@ export const useTechnicianWorkload = (userId: string | undefined) => {
         open: 0,
         'in-progress': 0,
         reopened: 0,
+        'awaiting-customer': 0,
+        'awaiting-third-party': 0,
       };
 
       tickets?.forEach(ticket => {
