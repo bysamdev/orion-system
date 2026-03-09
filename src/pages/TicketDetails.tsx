@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TopBar } from '@/components/dashboard/TopBar';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ import { supabaseRead } from '@/integrations/supabase/read-client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { z } from 'zod';
+import { ticketPrioritySchema } from '@/lib/validation';
 import { useRealtimeTicket } from '@/hooks/useRealtimeTickets';
 
 const ticketUpdateSchema = z.object({
@@ -380,8 +381,35 @@ const TicketDetails: React.FC = () => {
                     value={ticket.priority}
                     onValueChange={async (newPriority) => {
                       if (!canManageTickets) return;
-                      await supabase.from('tickets').update({ priority: newPriority }).eq('id', ticket.id);
-                      await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Prioridade alterada para: ${newPriority}`, type: 'priority_change' });
+                      
+                      // Validar prioridade com Zod antes de enviar
+                      const validated = ticketPrioritySchema.safeParse(newPriority);
+                      if (!validated.success) {
+                        toast({ 
+                          title: 'Erro de validação', 
+                          description: validated.error.errors[0].message, 
+                          variant: 'destructive' 
+                        });
+                        return;
+                      }
+                      
+                      const { error } = await supabase.from('tickets').update({ priority: validated.data }).eq('id', ticket.id);
+                      if (error) {
+                        toast({ 
+                          title: 'Erro', 
+                          description: 'Não foi possível alterar a prioridade.', 
+                          variant: 'destructive' 
+                        });
+                        return;
+                      }
+                      
+                      await addUpdate.mutateAsync({ 
+                        ticket_id: ticket.id, 
+                        content: `Prioridade alterada para: ${newPriority}`, 
+                        type: 'priority_change' 
+                      });
+                      
+                      toast({ title: 'Prioridade atualizada', description: `A prioridade foi alterada para ${newPriority}.` });
                     }}
                     disabled={!canManageTickets}
                   >

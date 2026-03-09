@@ -21,9 +21,13 @@ export default function Admin() {
     );
   }
 
-  if (role !== 'admin' && role !== 'technician') {
+  // Clientes não têm acesso à administração
+  if (role !== 'admin' && role !== 'technician' && role !== 'developer') {
     return <Navigate to="/" replace />;
   }
+
+  // Técnicos só acessam Respostas Prontas
+  const isTechnician = role === 'technician';
 
   return (
     <div className="min-h-screen bg-background">
@@ -32,27 +36,41 @@ export default function Admin() {
         
         <div className="mt-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Administração</h1>
-          <p className="text-muted-foreground mb-6">Gerencie usuários, empresas, contratos e configurações</p>
+          <p className="text-muted-foreground mb-6">
+            {isTechnician
+              ? 'Gerencie respostas prontas para agilizar o atendimento'
+              : 'Gerencie usuários, empresas, contratos e configurações'}
+          </p>
           
-          <Tabs defaultValue="users" className="w-full">
+          <Tabs defaultValue={isTechnician ? 'responses' : 'users'} className="w-full">
             <TabsList>
-              <TabsTrigger value="users">Usuários</TabsTrigger>
-              <TabsTrigger value="companies">Empresas</TabsTrigger>
-              <TabsTrigger value="contracts">Contratos</TabsTrigger>
+              {/* Abas exclusivas para admin/developer */}
+              {!isTechnician && (
+                <>
+                  <TabsTrigger value="users">Usuários</TabsTrigger>
+                  <TabsTrigger value="companies">Empresas</TabsTrigger>
+                  <TabsTrigger value="contracts">Contratos</TabsTrigger>
+                </>
+              )}
+              {/* Aba disponível para todos (admin, technician, developer) */}
               <TabsTrigger value="responses">Respostas Prontas</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="users" className="mt-6">
-              <UserManagement />
-            </TabsContent>
-            
-            <TabsContent value="companies" className="mt-6">
-              <CompanyManagement />
-            </TabsContent>
-            
-            <TabsContent value="contracts" className="mt-6">
-              <ContractManagement />
-            </TabsContent>
+            {!isTechnician && (
+              <>
+                <TabsContent value="users" className="mt-6">
+                  <UserManagement />
+                </TabsContent>
+                
+                <TabsContent value="companies" className="mt-6">
+                  <CompanyManagement />
+                </TabsContent>
+                
+                <TabsContent value="contracts" className="mt-6">
+                  <ContractManagement />
+                </TabsContent>
+              </>
+            )}
             
             <TabsContent value="responses" className="mt-6">
               <CannedResponsesManagement />
