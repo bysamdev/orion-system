@@ -98,7 +98,7 @@ export const useTechnicianWorkload = (userId: string | undefined) => {
         .from('tickets')
         .select('status')
         .eq('assigned_to_user_id', userId)
-        .not('status', 'in', '("resolved","closed")');
+        .not('status', 'in', '("resolved","closed","cancelled")');
 
       if (error) throw error;
 
