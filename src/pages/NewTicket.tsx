@@ -334,7 +334,7 @@ const NewTicket = () => {
                   </div>
                 )}
 
-
+                <FormField
                   control={form.control}
                   name="description"
                   render={({ field }) => (
