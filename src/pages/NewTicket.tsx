@@ -317,7 +317,24 @@ const NewTicket = () => {
                   />
                 </div>
 
-                <FormField
+                {/* Contrato opcional */}
+                {activeContracts && activeContracts.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-medium">Contrato (opcional)</Label>
+                    <Select value={selectedContractId} onValueChange={setSelectedContractId}>
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="Selecione um contrato" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeContracts.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+
                   control={form.control}
                   name="description"
                   render={({ field }) => (
