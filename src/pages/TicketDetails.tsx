@@ -365,7 +365,7 @@ const TicketDetails: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground mb-2 block">Técnico Responsável</label>
-                  <Select id="technician-select" value={ticket.assigned_to || ''} onValueChange={handleAssignmentChange} disabled={!canManageTickets || techniciansLoading}>
+                  <Select value={ticket.assigned_to || ''} onValueChange={handleAssignmentChange} disabled={!canManageTickets || techniciansLoading}>
                     <SelectTrigger><SelectValue placeholder={techniciansLoading ? "Carregando..." : "Selecione um técnico"} /></SelectTrigger>
                     <SelectContent>
                       {technicians.map(tech => (
