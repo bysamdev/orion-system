@@ -34,6 +34,7 @@ const NewTicket = () => {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [remoteId, setRemoteId] = useState('');
   const [remotePassword, setRemotePassword] = useState('');
+  const [selectedContractId, setSelectedContractId] = useState<string>('');
   const [userInfo, setUserInfo] = useState<{ name: string; email: string; company: string }>({
     name: '',
     email: '',
