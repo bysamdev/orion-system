@@ -30,6 +30,7 @@ const NewTicket = () => {
   const { user } = useAuth();
   const { data: profile } = useUserProfile();
   const { handleError } = useErrorHandler();
+  const { data: activeContracts } = useActiveContracts(profile?.company_id);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [remoteId, setRemoteId] = useState('');
