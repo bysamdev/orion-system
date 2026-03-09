@@ -7,6 +7,7 @@ import { TopBar } from '@/components/dashboard/TopBar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserRole';
 import { ticketCreationSchema } from '@/lib/validation';
 import { useErrorHandler } from '@/lib/useErrorHandler';
+import { useActiveContracts } from '@/hooks/useContracts';
 
 const ticketSchema = ticketCreationSchema;
 
@@ -29,10 +31,12 @@ const NewTicket = () => {
   const { user } = useAuth();
   const { data: profile } = useUserProfile();
   const { handleError } = useErrorHandler();
+  const { data: activeContracts } = useActiveContracts(profile?.company_id);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [remoteId, setRemoteId] = useState('');
   const [remotePassword, setRemotePassword] = useState('');
+  const [selectedContractId, setSelectedContractId] = useState<string>('');
   const [userInfo, setUserInfo] = useState<{ name: string; email: string; company: string }>({
     name: '',
     email: '',
@@ -131,6 +135,7 @@ const NewTicket = () => {
           company_id: profile.company_id,
           remote_id: remoteId.trim() || null,
           remote_password: remotePassword.trim() || null,
+          contract_id: selectedContractId || null,
         })
         .select()
         .single();
@@ -312,6 +317,23 @@ const NewTicket = () => {
                     )}
                   />
                 </div>
+
+                {/* Contrato opcional */}
+                {activeContracts && activeContracts.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-medium">Contrato (opcional)</Label>
+                    <Select value={selectedContractId} onValueChange={setSelectedContractId}>
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="Selecione um contrato" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeContracts.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <FormField
                   control={form.control}
