@@ -114,20 +114,26 @@ const TicketDetails: React.FC = () => {
     low: 'Baixa'
   };
 
-  const statusLabels = {
+  const statusLabels: Record<string, string> = {
     'open': 'Aberto',
     'in-progress': 'Em Andamento',
+    'awaiting-customer': 'Aguardando Cliente',
+    'awaiting-third-party': 'Aguardando Terceiro',
     'resolved': 'Resolvido',
     'closed': 'Fechado',
-    'reopened': 'Reaberto'
+    'reopened': 'Reaberto',
+    'cancelled': 'Cancelado'
   };
 
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     'open': 'bg-blue-500',
     'in-progress': 'bg-yellow-500',
+    'awaiting-customer': 'bg-purple-500',
+    'awaiting-third-party': 'bg-indigo-500',
     'resolved': 'bg-green-500',
     'closed': 'bg-gray-500',
-    'reopened': 'bg-orange-500'
+    'reopened': 'bg-orange-500',
+    'cancelled': 'bg-red-800'
   };
 
   // Check if user can manage tickets (technician or admin or developer)
