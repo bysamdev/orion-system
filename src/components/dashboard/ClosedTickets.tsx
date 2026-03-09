@@ -6,13 +6,13 @@ import { useTickets } from '@/hooks/useTickets';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 
 export const ClosedTickets: React.FC = () => {
   const navigate = useNavigate();
   const { data: closedTickets = [], isLoading: loadingClosed } = useTickets('closed');
   const { data: resolvedTickets = [], isLoading: loadingResolved } = useTickets('resolved');
   
-  // Combinar chamados fechados e resolvidos, ordenar por mais recentes
   const tickets = [...closedTickets, ...resolvedTickets].sort((a, b) => 
     new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
   );
@@ -41,9 +41,10 @@ export const ClosedTickets: React.FC = () => {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
-            <span>Últimos Chamados Fechados</span>
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
+          <span>Últimos Chamados Fechados</span>
+          <span className="text-sm font-normal text-muted-foreground">({tickets.length})</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -52,31 +53,29 @@ export const ClosedTickets: React.FC = () => {
             <div 
               key={ticket.id} 
               onClick={() => navigate(`/ticket/${ticket.id}`)}
-              className="grid grid-cols-[5rem_1fr_9rem_7rem] items-center gap-4 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
+              className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
             >
-              {/* Coluna 1 - ID */}
-              <Badge variant="outline" className="font-mono font-semibold w-fit">
+              <Badge variant="outline" className="font-mono font-semibold flex-shrink-0">
                 #{ticket.ticket_number}
               </Badge>
               
-              {/* Coluna 2 - Título/Categoria */}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground truncate">{ticket.title}</p>
-                <p className="text-xs text-muted-foreground truncate">{ticket.category}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="truncate">{ticket.company_name || 'N/A'}</span>
+                  <span>·</span>
+                  <span className="truncate">{ticket.category}</span>
+                </div>
               </div>
               
-              {/* Coluna 3 - Resolvido por */}
-              <div className="text-right min-w-0">
+              <div className="text-right flex-shrink-0 min-w-[80px]">
                 <p className="text-xs text-muted-foreground">Resolvido por</p>
                 <p className="text-sm font-semibold text-foreground truncate">{ticket.assigned_to || 'Sistema'}</p>
               </div>
               
-              {/* Coluna 4 - Badge/Data */}
-              <div className="text-right">
-                <Badge variant={ticket.status === 'closed' ? 'secondary' : 'default'} className="text-xs">
-                  {ticket.status === 'closed' ? 'Fechado' : 'Resolvido'}
-                </Badge>
-                <p className="text-xs text-muted-foreground mt-1">{formatTimeAgo(ticket.updated_at)}</p>
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                <StatusBadge status={ticket.status} />
+                <p className="text-xs text-muted-foreground">{formatTimeAgo(ticket.updated_at)}</p>
               </div>
             </div>
           ))}
