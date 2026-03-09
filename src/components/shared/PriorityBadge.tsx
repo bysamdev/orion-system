@@ -27,10 +27,10 @@ const priorityConfig: Record<string, { label: string; className: string }> = {
   },
 };
 
-export const PriorityBadge: React.FC<PriorityBadgeProps> = ({ priority, className }) => {
+export const PriorityBadge: React.FC<PriorityBadgeProps> = ({ priority, size = 'default', className }) => {
   const config = priorityConfig[priority] || priorityConfig.medium;
   return (
-    <Badge variant="outline" className={cn(config.className, className)}>
+    <Badge variant="outline" className={cn(config.className, size === 'sm' && 'text-[10px] px-1.5 py-0', className)}>
       {config.label}
     </Badge>
   );
