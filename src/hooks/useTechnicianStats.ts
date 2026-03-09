@@ -69,7 +69,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
         .from('tickets')
         .select('id')
         .eq('assigned_to_user_id', userId)
-        .in('status', ['open', 'reopened']);
+        .in('status', ['open', 'reopened', 'awaiting-customer', 'awaiting-third-party']);
 
       if (pendingError) throw pendingError;
 

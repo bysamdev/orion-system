@@ -51,9 +51,11 @@ export const useTickets = (status?: string) => {
         .order('created_at', { ascending: false });
 
       if (status) {
-        // Se status for 'open', incluir também 'reopened'
+        // Se status for 'open', incluir também 'reopened' e aguardando
         if (status === 'open') {
-          query = query.in('status', ['open', 'reopened']);
+          query = query.in('status', ['open', 'reopened', 'awaiting-customer', 'awaiting-third-party']);
+        } else if (status === 'closed') {
+          query = query.in('status', ['closed', 'cancelled']);
         } else {
           query = query.eq('status', status);
         }
