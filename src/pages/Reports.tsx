@@ -23,11 +23,6 @@ const Reports: React.FC = () => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
 
-  // RBAC: Clientes não podem acessar relatórios
-  if (!roleLoading && role === 'customer') {
-    return <Navigate to="/" replace />;
-  }
-
   // Filtros
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
@@ -121,12 +116,18 @@ const Reports: React.FC = () => {
     return { open, resolved, closed, total: tickets.length, avgResolutionHours, slaOk, slaAttention, slaBreached };
   }, [tickets]);
 
+  // Loading state
   if (roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // RBAC: Clientes não podem acessar relatórios
+  if (role === 'customer') {
+    return <Navigate to="/" replace />;
   }
 
   if (role !== 'admin' && role !== 'developer' && role !== 'technician') {
