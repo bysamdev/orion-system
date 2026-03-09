@@ -48,7 +48,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
         .from('tickets')
         .select('id')
         .eq('assigned_to_user_id', userId)
-        .not('status', 'in', '("resolved","closed")')
+        .not('status', 'in', '("resolved","closed","cancelled")')
         .lt('sla_due_date', fourHoursFromNow.toISOString())
         .gt('sla_due_date', now.toISOString());
 
@@ -59,7 +59,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
         .from('tickets')
         .select('id')
         .eq('assigned_to_user_id', userId)
-        .not('status', 'in', '("resolved","closed")')
+        .not('status', 'in', '("resolved","closed","cancelled")')
         .lt('sla_due_date', now.toISOString());
 
       if (slaBreachedError) throw slaBreachedError;
@@ -69,7 +69,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
         .from('tickets')
         .select('id')
         .eq('assigned_to_user_id', userId)
-        .in('status', ['open', 'reopened']);
+        .in('status', ['open', 'reopened', 'awaiting-customer', 'awaiting-third-party']);
 
       if (pendingError) throw pendingError;
 
@@ -98,7 +98,7 @@ export const useTechnicianWorkload = (userId: string | undefined) => {
         .from('tickets')
         .select('status')
         .eq('assigned_to_user_id', userId)
-        .not('status', 'in', '("resolved","closed")');
+        .not('status', 'in', '("resolved","closed","cancelled")');
 
       if (error) throw error;
 
@@ -107,6 +107,8 @@ export const useTechnicianWorkload = (userId: string | undefined) => {
         open: 0,
         'in-progress': 0,
         reopened: 0,
+        'awaiting-customer': 0,
+        'awaiting-third-party': 0,
       };
 
       tickets?.forEach(ticket => {
@@ -119,6 +121,8 @@ export const useTechnicianWorkload = (userId: string | undefined) => {
         { name: 'Abertos', value: statusCount['open'], color: 'hsl(var(--warning))' },
         { name: 'Em Andamento', value: statusCount['in-progress'], color: 'hsl(var(--primary))' },
         { name: 'Reabertos', value: statusCount['reopened'], color: 'hsl(var(--destructive))' },
+        { name: 'Aguard. Cliente', value: statusCount['awaiting-customer'], color: '#a855f7' },
+        { name: 'Aguard. Terceiro', value: statusCount['awaiting-third-party'], color: '#6366f1' },
       ].filter(item => item.value > 0);
     },
     enabled: !!userId,

@@ -11,12 +11,15 @@ import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-const statusConfig = {
-  open: { label: 'Aberto', variant: 'warning' as const, className: 'bg-amber-500/20 text-amber-600 border-amber-500/30' },
-  'in-progress': { label: 'Em Andamento', variant: 'default' as const, className: 'bg-blue-500/20 text-blue-600 border-blue-500/30' },
-  resolved: { label: 'Resolvido', variant: 'success' as const, className: 'bg-emerald-500/20 text-emerald-600 border-emerald-500/30' },
-  closed: { label: 'Fechado', variant: 'secondary' as const, className: 'bg-muted text-muted-foreground border-border' },
-  reopened: { label: 'Reaberto', variant: 'destructive' as const, className: 'bg-orange-500/20 text-orange-600 border-orange-500/30' },
+const statusConfig: Record<string, { label: string; variant: 'warning' | 'default' | 'success' | 'secondary' | 'destructive'; className: string }> = {
+  open: { label: 'Aberto', variant: 'warning', className: 'bg-amber-500/20 text-amber-600 border-amber-500/30' },
+  'in-progress': { label: 'Em Andamento', variant: 'default', className: 'bg-blue-500/20 text-blue-600 border-blue-500/30' },
+  'awaiting-customer': { label: 'Aguard. Cliente', variant: 'default', className: 'bg-purple-500/20 text-purple-600 border-purple-500/30' },
+  'awaiting-third-party': { label: 'Aguard. Terceiro', variant: 'default', className: 'bg-indigo-500/20 text-indigo-600 border-indigo-500/30' },
+  resolved: { label: 'Resolvido', variant: 'success', className: 'bg-emerald-500/20 text-emerald-600 border-emerald-500/30' },
+  closed: { label: 'Fechado', variant: 'secondary', className: 'bg-muted text-muted-foreground border-border' },
+  reopened: { label: 'Reaberto', variant: 'destructive', className: 'bg-orange-500/20 text-orange-600 border-orange-500/30' },
+  cancelled: { label: 'Cancelado', variant: 'secondary', className: 'bg-red-800/20 text-red-700 border-red-800/30' },
 };
 
 const priorityLabels = {
