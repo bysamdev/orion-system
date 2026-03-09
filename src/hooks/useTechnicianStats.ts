@@ -59,7 +59,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
         .from('tickets')
         .select('id')
         .eq('assigned_to_user_id', userId)
-        .not('status', 'in', '("resolved","closed")')
+        .not('status', 'in', '("resolved","closed","cancelled")')
         .lt('sla_due_date', now.toISOString());
 
       if (slaBreachedError) throw slaBreachedError;
