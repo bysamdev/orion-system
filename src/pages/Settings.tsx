@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { profileUpdateSchema } from "@/lib/validation";
 import { useErrorHandler } from "@/lib/useErrorHandler";
+import { invokeOrionFunction } from "@/lib/orion-functions";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -120,11 +121,9 @@ export default function Settings() {
 
       // Enviar alerta de segurança por e-mail
       try {
-        await supabase.functions.invoke('send-password-changed-alert', {
-          body: {
-            email: profile?.email,
-            full_name: profile?.full_name || 'Usuário',
-          },
+        await invokeOrionFunction("send-password-changed-alert", {
+          email: profile?.email,
+          full_name: profile?.full_name || "Usuário",
         });
       } catch (emailError) {
         // Não falhar a operação se o e-mail não for enviado
