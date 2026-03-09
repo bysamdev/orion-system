@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeOrionFunction } from '@/lib/orion-functions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,12 +72,13 @@ export default function SetPassword() {
 
     try {
       // Chamar edge function para resetar senha com token
-      const { data, error } = await supabase.functions.invoke('reset-password-with-token', {
-        body: {
+      const { data, error } = await invokeOrionFunction<{ success?: boolean; message?: string; error?: string }>(
+        'reset-password-with-token',
+        {
           token: token,
           newPassword: formData.password,
-        },
-      });
+        }
+      );
 
       if (error) {
         throw error;

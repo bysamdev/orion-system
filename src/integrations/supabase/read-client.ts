@@ -8,8 +8,15 @@ import type { Database } from './types';
 // 2. Enable Read Replicas (Pro plan required)
 // 3. Copy the Read Replica connection string
 // 4. Replace the URL below with the replica URL
-const SUPABASE_READ_URL = "https://kcxwealimsfxqstoprdg.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjeHdlYWxpbXNmeHFzdG9wcmRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3MDM4MDUsImV4cCI6MjA3NjI3OTgwNX0.AwpuHd329foLiEGY7OOllpALaw7KqHyReRciyr8tRM8";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_READ_URL = (import.meta.env.VITE_SUPABASE_READ_URL as string | undefined) || SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+
+if (!SUPABASE_READ_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error(
+    'Variáveis de ambiente do Supabase ausentes. Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env'
+  );
+}
 
 export const supabaseRead = createClient<Database>(SUPABASE_READ_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
@@ -29,5 +36,5 @@ export const supabaseRead = createClient<Database>(SUPABASE_READ_URL, SUPABASE_P
 
 // Helper function to check if read replicas are configured
 export const isReadReplicaConfigured = () => {
-  return SUPABASE_READ_URL !== "https://kcxwealimsfxqstoprdg.supabase.co";
+  return Boolean(import.meta.env.VITE_SUPABASE_READ_URL);
 };

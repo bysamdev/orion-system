@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
+import { invokeOrionFunction } from '@/lib/orion-functions';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -213,11 +214,7 @@ const DebugTools = () => {
     try {
       for (let i = 1; i <= 15; i++) {
         try {
-          const response = await supabase.functions.invoke('check-rate-limit', {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          });
+          const response = await invokeOrionFunction('check-rate-limit');
 
           console.log(`Attempt ${i}:`, response);
 
