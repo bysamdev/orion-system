@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { CompanyManagement } from '@/components/admin/CompanyManagement';
+import { ContractManagement } from '@/components/admin/ContractManagement';
 import { CannedResponsesManagement } from '@/components/admin/CannedResponsesManagement';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
@@ -20,7 +21,6 @@ export default function Admin() {
     );
   }
 
-  // Permitir acesso para admin e technician
   if (role !== 'admin' && role !== 'technician') {
     return <Navigate to="/" replace />;
   }
@@ -32,12 +32,13 @@ export default function Admin() {
         
         <div className="mt-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Administração</h1>
-          <p className="text-muted-foreground mb-6">Gerencie usuários, empresas e configurações do sistema</p>
+          <p className="text-muted-foreground mb-6">Gerencie usuários, empresas, contratos e configurações</p>
           
           <Tabs defaultValue="users" className="w-full">
             <TabsList>
               <TabsTrigger value="users">Usuários</TabsTrigger>
               <TabsTrigger value="companies">Empresas</TabsTrigger>
+              <TabsTrigger value="contracts">Contratos</TabsTrigger>
               <TabsTrigger value="responses">Respostas Prontas</TabsTrigger>
             </TabsList>
             
@@ -47,6 +48,10 @@ export default function Admin() {
             
             <TabsContent value="companies" className="mt-6">
               <CompanyManagement />
+            </TabsContent>
+            
+            <TabsContent value="contracts" className="mt-6">
+              <ContractManagement />
             </TabsContent>
             
             <TabsContent value="responses" className="mt-6">
