@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 
 interface PriorityBadgeProps {
   priority: string;
+  size?: 'default' | 'sm';
   className?: string;
 }
 
