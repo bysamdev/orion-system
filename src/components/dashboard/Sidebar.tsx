@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Ticket, Archive, Server, Briefcase, Cloud, Shield, PieChart } from 'lucide-react';
+import { BarChart3, Ticket, Archive, Server, Briefcase, Cloud, Shield, PieChart, Monitor } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -15,6 +15,7 @@ const navigationItems: NavItem[] = [
   { icon: BarChart3, label: 'Dashboard', path: '/' },
   { icon: Ticket, label: 'Novo Ticket', path: '/novo-ticket' },
   { icon: PieChart, label: 'Relatórios', path: '/relatorios', roles: ['admin', 'developer'] },
+  { icon: Monitor, label: 'Monitoramento', path: '/monitoring', roles: ['admin', 'developer', 'technician'] },
   { icon: Archive, label: 'Arquivo', path: '/arquivo' },
   { icon: Server, label: 'Servidores', path: '/servidores' },
   { icon: Briefcase, label: 'Projetos', path: '/projetos' },

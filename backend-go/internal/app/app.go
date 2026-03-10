@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -78,6 +80,50 @@ func (a *App) Router() http.Handler {
 		r.Post("/reset-password-with-token", h.ResetPasswordWithToken)
 	})
 
+	// ── Monitoring ──────────────────────────────────────────────────────────
+	r.Route("/api/monitoring", func(r chi.Router) {
+		// Dashboard geral
+		r.Get("/dashboard", h.MonitoringDashboard)
+
+		// Grupos de máquinas
+		r.Get("/groups", h.MonitoringListGroups)
+		r.Get("/groups/{id}/machines", h.MonitoringGroupMachines)
+
+		// Máquinas
+		r.Get("/machines/{id}", h.MonitoringMachineDetail)
+		r.Get("/machines/{id}/metrics", h.MonitoringMachineMetrics)
+		r.Get("/machines/{id}/alerts", h.MonitoringMachineAlerts)
+
+		// Heartbeat do agente (sem Bearer — usa X-Agent-Key)
+		r.Post("/machines/heartbeat", h.MonitoringHeartbeat)
+	})
+
 	return r
 }
+
+// StartMonitoringCron inicia um goroutine que marca máquinas como offline
+// a cada minuto, quando last_seen > 5 minutos atrás.
+// O goroutine para quando ctx é cancelado.
+func (a *App) StartMonitoringCron(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		log.Println("monitoring cron: iniciado (tick a cada 1 minuto)")
+		for {
+			select {
+			case <-ctx.Done():
+				log.Println("monitoring cron: encerrado")
+				return
+			case <-ticker.C:
+				n, err := a.db.MarkOfflineMachines(ctx)
+				if err != nil {
+					log.Printf("monitoring cron: erro ao marcar offline: %v", err)
+				} else if n > 0 {
+					log.Printf("monitoring cron: %d máquina(s) marcada(s) como offline", n)
+				}
+			}
+		}
+	}()
+}
+
 
