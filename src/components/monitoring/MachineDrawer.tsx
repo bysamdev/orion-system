@@ -7,7 +7,6 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,7 +20,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { AlertTriangle, CheckCircle2, HardDrive, Cpu, MemoryStick, Monitor } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, HardDrive, Cpu, Monitor } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
