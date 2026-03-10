@@ -62,7 +62,3 @@ go run ./cmd/api
 ```
 
 3) Com `VITE_API_URL` configurado, o frontend passa a chamar `POST /functions/*` na API Go.
-
-## Licença
-
-MIT
