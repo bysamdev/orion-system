@@ -1,5 +1,13 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/api/:path*", "destination": "/api/router" },
+    { "source": "/:path*", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/monitoring/cron/mark-offline",
+      "schedule": "*/5 * * * *"
+    }
   ]
 }
+
