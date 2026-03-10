@@ -8,17 +8,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import {
-  RefreshCw,
-  ChevronRight,
-  ChevronDown,
-  Monitor,
-  Wifi,
-  WifiOff,
-  AlertTriangle,
-  Search,
-  Server,
-} from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
+import { Loader2, RefreshCw, ChevronRight, ChevronDown, Monitor, Wifi, WifiOff, AlertTriangle, Search, Server } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
 import {
   useMonitoringDashboard,
   useMonitoringGroups,
@@ -135,6 +127,7 @@ function MachinesGrid({
 
 // ── Página principal ──────────────────────────────────────
 const Monitoring: React.FC = () => {
+  const { data: role, isLoading: roleLoading } = useUserRole();
   const queryClient = useQueryClient();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedMachine, setSelectedMachine] = useState<MachineWithMetric | null>(null);
@@ -142,6 +135,35 @@ const Monitoring: React.FC = () => {
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(true);
+
+  // RBAC — same pattern as Reports.tsx
+  if (roleLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (role === 'customer') {
+    return <Navigate to="/" replace />;
+  }
+
+  if (role !== 'admin' && role !== 'developer' && role !== 'technician') {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
+          <TopBar />
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center space-y-2">
+              <p className="text-lg font-semibold text-foreground">Acesso Restrito</p>
+              <p className="text-sm text-muted-foreground">Você não tem permissão para acessar o monitoramento.</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   const { data: dashboard } = useMonitoringDashboard();
   const { data: groups, isLoading: groupsLoading } = useMonitoringGroups();
