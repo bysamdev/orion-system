@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Settings, Shield, Search, User, LogOut, LayoutDashboard, PieChart } from 'lucide-react';
+import { Plus, Settings, Shield, Search, User, LogOut, LayoutDashboard, PieChart, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -129,6 +129,24 @@ export const TopBar: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>Admin</TooltipContent>
             </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => navigate('/monitoring')}
+                  className={`transition-colors ${
+                    isActive('/monitoring') 
+                      ? 'text-primary bg-primary/10' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Monitor className="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Monitoramento</TooltipContent>
+            </Tooltip>
+
           </>
         )}
         

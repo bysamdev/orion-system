@@ -26,6 +26,13 @@ func main() {
 	}
 	defer a.Close()
 
+	// Contexto cancelado no shutdown para parar o cron de monitoramento
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Inicia cron de monitoramento (marca máquinas offline a cada minuto)
+	a.StartMonitoringCron(ctx)
+
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           a.Router(),
@@ -46,9 +53,12 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	cancel() // para o cron antes do shutdown HTTP
 
-	_ = srv.Shutdown(ctx)
+	shutCtx, shutCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutCancel()
+
+	_ = srv.Shutdown(shutCtx)
 }
+
 

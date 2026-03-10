@@ -22,6 +22,10 @@ type Config struct {
 
 	LoginURL  string
 	InviteURL string
+
+	// AgentKey é a chave secreta que os agentes de monitoramento devem enviar
+	// no header X-Agent-Key ao chamar POST /api/monitoring/machines/heartbeat.
+	AgentKey string
 }
 
 func FromEnv() (Config, error) {
@@ -59,6 +63,8 @@ func FromEnv() (Config, error) {
 		// seu frontend usa HashRouter; manter compatível com o link atual
 		cfg.InviteURL = "http://localhost:5173/#/definir-senha"
 	}
+
+	cfg.AgentKey = os.Getenv("AGENT_KEY")
 
 	if cfg.SupabaseURL == "" || cfg.SupabaseAnonKey == "" || cfg.SupabaseServiceRoleKey == "" {
 		return Config{}, errors.New("env obrigatórias: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY")
