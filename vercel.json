@@ -5,7 +5,7 @@
   ],
   "functions": {
     "api/router.go": {
-      "runtime": "vercel-go@3.0.3"
+      "runtime": "go1.x"
     }
   },
   "crons": [
