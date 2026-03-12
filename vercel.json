@@ -3,11 +3,15 @@
     { "source": "/api/:path*", "destination": "/api/router" },
     { "source": "/:path*", "destination": "/index.html" }
   ],
+  "functions": {
+    "api/router.go": {
+      "runtime": "vercel-go@3.0.3"
+    }
+  },
   "crons": [
     {
       "path": "/api/monitoring/cron/mark-offline",
-            "schedule": "0 0 * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
-
