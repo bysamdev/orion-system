@@ -3,9 +3,6 @@
     { "source": "/api/:path*", "destination": "/api/router" },
     { "source": "/:path*", "destination": "/index.html" }
   ],
-  "functions": {
-    "api/router.go": {}
-  },
   "crons": [
     {
       "path": "/api/monitoring/cron/mark-offline",
