@@ -4,9 +4,7 @@
     { "source": "/:path*", "destination": "/index.html" }
   ],
   "functions": {
-    "api/router.go": {
-      "runtime": "go1.x"
-    }
+    "api/router.go": {}
   },
   "crons": [
     {
