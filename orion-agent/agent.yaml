@@ -3,7 +3,7 @@
 
 # URL do endpoint de heartbeat no Vercel (mesmo domínio do frontend)
 # Substitua SEU-DOMINIO pelo domínio do seu projeto Vercel
-api_url: https://orion-helpdesk.vercel.app/api/monitoring/machines/heartbeat
+api_url: https://orion.bysam.dev/api/monitoring/machines/heartbeat
 
 # Chave de autenticação (deve ser igual ao AGENT_KEY configurado no Vercel)
 agent_key: COLOQUE_SUA_CHAVE_AQUI
