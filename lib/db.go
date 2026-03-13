@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"errors"
+	"net"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -19,6 +20,14 @@ func NewDB(databaseURL string) (*DB, error) {
 	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, err
+	}
+
+	// Forçar IPv4 para evitar erro "cannot assign requested address" na Vercel
+	dialer := &net.Dialer{
+		KeepAlive: 5 * time.Minute,
+	}
+	cfg.ConnConfig.DialFunc = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return dialer.DialContext(ctx, "tcp4", addr)
 	}
 	cfg.MaxConns = 10
 	cfg.MinConns = 2
