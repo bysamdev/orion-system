@@ -185,12 +185,14 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 	groupID, err := db.GetOrCreateMachineGroup(ctx, domain)
 	if err != nil {
+		fmt.Println("Erro GetOrCreateMachineGroup:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar grupo de máquina: %v", err)})
 		return
 	}
 
 	machineID, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion)
 	if err != nil {
+		fmt.Println("Erro UpsertMachine:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar máquina: %v", err)})
 		return
 	}
