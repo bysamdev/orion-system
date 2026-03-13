@@ -81,6 +81,14 @@ export function mapDatabaseError(error: unknown): string {
     return 'A operação demorou muito tempo. Tente novamente';
   }
 
+  if (message.includes('invalid login credentials')) {
+    return 'A senha está incorreta ou a conta não existe.';
+  }
+
+  if (message.includes('email not confirmed')) {
+    return 'Você precisa confirmar seu email antes de fazer login.';
+  }
+
   if (message.includes('network') || message.includes('fetch')) {
     return 'Erro de conexão. Verifique sua internet e tente novamente';
   }
