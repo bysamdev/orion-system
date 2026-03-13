@@ -18,21 +18,25 @@ if (!SUPABASE_READ_URL || !SUPABASE_PUBLISHABLE_KEY) {
   );
 }
 
-export const supabaseRead = createClient<Database>(SUPABASE_READ_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-  db: {
-    schema: 'public',
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'supabase-read-replica',
+export const supabaseRead = createClient<Database>(
+  SUPABASE_READ_URL || 'https://placeholder.supabase.co', 
+  SUPABASE_PUBLISHABLE_KEY || 'placeholder_key', 
+  {
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
     },
-  },
-});
+    db: {
+      schema: 'public',
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'supabase-read-replica',
+      },
+    },
+  }
+);
 
 // Helper function to check if read replicas are configured
 export const isReadReplicaConfigured = () => {
