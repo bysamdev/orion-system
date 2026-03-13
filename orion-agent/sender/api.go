@@ -55,6 +55,13 @@ func doPost(url, agentKey string, body []byte) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var errBody struct {
+			Error string `json:"error"`
+		}
+		json.NewDecoder(resp.Body).Decode(&errBody)
+		if errBody.Error != "" {
+			return fmt.Errorf("status HTTP %d: %s", resp.StatusCode, errBody.Error)
+		}
 		return fmt.Errorf("status HTTP %d de %s", resp.StatusCode, url)
 	}
 	return nil
