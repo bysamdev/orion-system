@@ -200,14 +200,37 @@ FROM public.machine_alerts WHERE machine_id = $1 AND resolved = false ORDER BY c
 	return out, rows.Err()
 }
 
-func (d *DB) UpsertMachine(ctx context.Context, hostname, ip, osName, osVersion, agentVersion string) (string, error) {
+// GetOrCreateMachineGroup returns the group ID for the given domain.
+// If the group doesn't exist, it creates it.
+func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string) (string, error) {
+	var id string
+	// Tenta buscar primeiro
+	err := d.pool.QueryRow(ctx, `SELECT id::text FROM public.machine_groups WHERE name = $1`, domainName).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+
+	// Se não achar, cria (usando ON CONFLICT caso o banco já tenha a constraint UNIQUE)
+	err = d.pool.QueryRow(ctx, `
+INSERT INTO public.machine_groups (name, description)
+VALUES ($1, 'Grupo gerado automaticamente a partir do domínio')
+ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+RETURNING id::text`, domainName).Scan(&id)
+	
+	// Caso ON CONFLICT não funcione por falta da constraint durante o INSERT, 
+	// o fallback seria capturar o erro e tentar o SELECT de novo, 
+	// mas a instrução SQL já foi passada para o usuário corrigir o banco.
+	return id, err
+}
+
+func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion string) (string, error) {
 	var id string
 	err := d.pool.QueryRow(ctx, `
-INSERT INTO public.machines (hostname, ip_address, os, os_version, status, last_seen, agent_version)
-VALUES ($1, $2, $3, $4, 'online', now(), $5)
+INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version)
+VALUES ($1, $2, $3, $4, $5, 'online', now(), $6)
 ON CONFLICT (hostname) DO UPDATE
-  SET ip_address=$2, os=$3, os_version=$4, status='online', last_seen=now(), agent_version=$5
-RETURNING id::text`, hostname, ip, osName, osVersion, agentVersion).Scan(&id)
+  SET group_id=$1, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6
+RETURNING id::text`, groupID, hostname, ip, osName, osVersion, agentVersion).Scan(&id)
 	return id, err
 }
 
