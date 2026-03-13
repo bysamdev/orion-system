@@ -13,8 +13,8 @@ const SUPABASE_READ_URL = (import.meta.env.VITE_SUPABASE_READ_URL as string | un
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 if (!SUPABASE_READ_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  throw new Error(
-    'Variáveis de ambiente do Supabase ausentes. Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env'
+  console.error(
+    'Variáveis de ambiente do Supabase ausentes. Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no painel da Vercel.'
   );
 }
 
