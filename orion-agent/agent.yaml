@@ -6,7 +6,7 @@
 api_url: https://orion.bysam.dev/api/monitoring/machines/heartbeat
 
 # Chave de autenticação (deve ser igual ao AGENT_KEY configurado no Vercel)
-agent_key: COLOQUE_SUA_CHAVE_AQUI
+agent_key: OrionMonitor2026!@Kds92
 
 # Intervalo de envio em segundos (padrão: 60)
 interval_seconds: 60
