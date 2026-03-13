@@ -29,6 +29,7 @@ type Payload struct {
 	CPUModel  string  `json:"cpu_model"`
 	GPU       string  `json:"gpu"`
 	Disks     []any   `json:"disks"`
+	Domain    string  `json:"domain"`
 }
 
 // diskRoot returns the primary disk root path for the current OS.
@@ -110,6 +111,14 @@ func Collect() (*Payload, error) {
 		osName = runtime.GOOS
 	}
 
+	domain := os.Getenv("USERDOMAIN")
+	if domain == "" {
+		domain = os.Getenv("USERDNSDOMAIN")
+	}
+	if domain == "" {
+		domain = "WORKGROUP"
+	}
+
 	return &Payload{
 		Hostname:  hostname,
 		IP:        primaryIP(),
@@ -124,5 +133,6 @@ func Collect() (*Payload, error) {
 		CPUModel:  cpuModel,
 		GPU:       "",
 		Disks:     []any{},
+		Domain:    domain,
 	}, nil
 }

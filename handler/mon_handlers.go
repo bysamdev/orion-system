@@ -144,6 +144,7 @@ type heartbeatReq struct {
 	CPUModel     string          `json:"cpu_model"`
 	GPU          string          `json:"gpu"`
 	Disks        json.RawMessage `json:"disks"`
+	Domain       string          `json:"domain"`
 }
 
 func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
@@ -172,7 +173,18 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	machineID, err := db.UpsertMachine(ctx, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion)
+	// Tratamento do Domínio via GetOrCreateMachineGroup
+	domain := req.Domain
+	if domain == "" {
+		domain = "WORKGROUP"
+	}
+	groupID, err := db.GetOrCreateMachineGroup(ctx, domain)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar grupo de máquina: %v", err)})
+		return
+	}
+
+	machineID, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar máquina: %v", err)})
 		return
