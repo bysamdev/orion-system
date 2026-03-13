@@ -157,6 +157,11 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if db == nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Conexão com o banco de dados não inicializada no Vercel (verifique as credenciais no .env / Vercel)"})
+		return
+	}
+
 	key := agentKeyHeader
 	if key == "" {
 		key = req.AgentKey
