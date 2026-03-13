@@ -24,8 +24,8 @@ func LoadConfig() Config {
 		AgentKey:           os.Getenv("AGENT_KEY"),
 		ResendAPIKey:       os.Getenv("RESEND_API_KEY"),
 		ResendFrom:         envOr("RESEND_FROM", "Orion System <no-reply@orion.local>"),
-		LoginURL:           envOr("LOGIN_URL", "https://orion.vercel.app/auth"),
-		InviteURL:          envOr("INVITE_URL", "https://orion.vercel.app/#/definir-senha"),
+		LoginURL:           envOr("LOGIN_URL", "https://orion.bysam.dev/auth"),
+		InviteURL:          envOr("INVITE_URL", "https://orion.bysam.dev/definir-senha"),
 	}
 }
 
