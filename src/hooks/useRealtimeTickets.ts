@@ -22,8 +22,12 @@ export const useRealtimeTickets = () => {
         (payload) => {
           console.log('Ticket atualizado em tempo real:', payload);
           
-          // Invalidar todas as queries de tickets para recarregar dados
+          // Invalidar todas as queries de tickets relacionadas ao dashboard do técnico
           queryClient.invalidateQueries({ queryKey: ['tickets'] });
+          queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
+          queryClient.invalidateQueries({ queryKey: ['sla-at-risk-tickets'] });
+          queryClient.invalidateQueries({ queryKey: ['my-active-tickets'] });
+          queryClient.invalidateQueries({ queryKey: ['my-recent-closed'] });
           
           // Se houver um ID específico, invalidar também
           if (payload.new && 'id' in payload.new) {
