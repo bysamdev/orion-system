@@ -17,6 +17,8 @@ import DebugTools from "./pages/DebugTools";
 import Reports from "./pages/Reports";
 import Monitoring from "./pages/Monitoring";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import TicketHistory from "./pages/TicketHistory";
+import Avaliacao from "./pages/Avaliacao";
 
 const queryClient = new QueryClient();
 
@@ -37,7 +39,9 @@ const App = () => (
             <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/monitoring" element={<ProtectedRoute><Monitoring /></ProtectedRoute>} />
             <Route path="/ticket/:id" element={<ProtectedRoute><TicketDetails /></ProtectedRoute>} />
+            <Route path="/historico" element={<ProtectedRoute><TicketHistory /></ProtectedRoute>} />
             <Route path="/debug-tools" element={<ProtectedRoute><DebugTools /></ProtectedRoute>} />
+            <Route path="/avaliacao/:id" element={<Avaliacao />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
