@@ -17,6 +17,8 @@ import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
 import { ImagePasteHandler } from '@/components/ticket/ImagePasteHandler';
+import { TimeTracker } from '@/components/ticket/TimeTracker';
+import { SatisfactionSurvey } from '@/components/ticket/SatisfactionSurvey';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useAddTicketUpdate } from '@/hooks/useTickets';
@@ -275,6 +277,10 @@ const TicketDetails: React.FC = () => {
           {/* Main Content (Left Column) */}
           <div className="xl:col-span-2 space-y-8">
             
+            {(ticket.status === 'resolved' || ticket.status === 'closed') && !canManageTickets && (
+              <SatisfactionSurvey ticketId={ticket.id} />
+            )}
+
             {/* Problema / Descrição */}
             <Card className="p-8 border-none shadow-sm bg-muted/20">
               <div className="flex items-center gap-2 mb-4">
@@ -532,10 +538,21 @@ const TicketDetails: React.FC = () => {
             )}
 
             {/* Cronógrafo */}
+            {canManageTickets && (
+              <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
+                <div className="flex items-center gap-2 mb-4">
+                  <Timer className="w-4 h-4 text-primary" />
+                  <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Cronógrafo de Atendimento</h3>
+                </div>
+                <TimeTracker ticketId={ticket.id} />
+              </Card>
+            )}
+
+            {/* Resumo de Tempo (Visual para todos) */}
             <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
               <div className="flex items-center gap-2 mb-4">
-                <Timer className="w-4 h-4 text-primary" />
-                <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Cronógrafo</h3>
+                <Clock className="w-4 h-4 text-primary" />
+                <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Esforço Total</h3>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-muted/30 rounded-xl p-3">
