@@ -54,13 +54,14 @@ type MetricRow struct {
 }
 
 type HardwareRow struct {
-	ID        string
-	MachineID string
-	CPUModel  *string
-	RAMSlots  []byte
-	Disks     []byte
-	GPU       *string
-	UpdatedAt time.Time
+	ID                string
+	MachineID         string
+	CPUModel          *string
+	RAMSlots          []byte
+	Disks             []byte
+	NetworkInterfaces []byte
+	GPU               *string
+	UpdatedAt         time.Time
 }
 
 type AlertRow struct {
@@ -71,6 +72,16 @@ type AlertRow struct {
 	Message   string
 	Resolved  bool
 	CreatedAt time.Time
+}
+
+type CommandRow struct {
+	ID        string
+	MachineID string
+	Command   string
+	Status    string
+	Output    *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type DashboardSummary struct {
@@ -150,9 +161,9 @@ FROM public.machines WHERE id = $1`, id).Scan(
 func (d *DB) MachineHardwareByMachineID(ctx context.Context, machineID string) (*HardwareRow, error) {
 	var r HardwareRow
 	err := d.pool.QueryRow(ctx, `
-SELECT id::text, machine_id::text, cpu_model, ram_slots, disks, gpu, updated_at
+SELECT id::text, machine_id::text, cpu_model, ram_slots, disks, network_interfaces, gpu, updated_at
 FROM public.machine_hardware WHERE machine_id = $1`, machineID).
-		Scan(&r.ID, &r.MachineID, &r.CPUModel, &r.RAMSlots, &r.Disks, &r.GPU, &r.UpdatedAt)
+		Scan(&r.ID, &r.MachineID, &r.CPUModel, &r.RAMSlots, &r.Disks, &r.NetworkInterfaces, &r.GPU, &r.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -254,20 +265,21 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
 }
 
 type UpsertHardwareInput struct {
-	MachineID string
-	CPUModel  string
-	RAMSlots  []byte
-	Disks     []byte
-	GPU       string
+	MachineID         string
+	CPUModel          string
+	RAMSlots          []byte
+	Disks             []byte
+	NetworkInterfaces []byte
+	GPU               string
 }
 
 func (d *DB) UpsertHardware(ctx context.Context, in UpsertHardwareInput) error {
 	_, err := d.pool.Exec(ctx, `
-INSERT INTO public.machine_hardware (machine_id, cpu_model, ram_slots, disks, gpu, updated_at)
-VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, now())
+INSERT INTO public.machine_hardware (machine_id, cpu_model, ram_slots, disks, network_interfaces, gpu, updated_at)
+VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6, now())
 ON CONFLICT (machine_id) DO UPDATE
-  SET cpu_model=$2, ram_slots=$3::jsonb, disks=$4::jsonb, gpu=$5, updated_at=now()`,
-		in.MachineID, in.CPUModel, string(in.RAMSlots), string(in.Disks), in.GPU)
+  SET cpu_model=$2, ram_slots=$3::jsonb, disks=$4::jsonb, network_interfaces=$5::jsonb, gpu=$6, updated_at=now()`,
+		in.MachineID, in.CPUModel, string(in.RAMSlots), string(in.Disks), string(in.NetworkInterfaces), in.GPU)
 	return err
 }
 
@@ -282,6 +294,70 @@ func (d *DB) InsertAlert(ctx context.Context, in InsertAlertInput) error {
 	_, err := d.pool.Exec(ctx, `
 INSERT INTO public.machine_alerts (machine_id, type, severity, message)
 VALUES ($1, $2, $3, $4)`, in.MachineID, in.Type, in.Severity, in.Message)
+	return err
+}
+
+type InsertCommandInput struct {
+	MachineID string
+	Command   string
+}
+
+func (d *DB) CreateCommand(ctx context.Context, in InsertCommandInput) (string, error) {
+	var id string
+	err := d.pool.QueryRow(ctx, `
+INSERT INTO public.machine_commands (machine_id, command, status)
+VALUES ($1, $2, 'pending') RETURNING id::text`, in.MachineID, in.Command).Scan(&id)
+	return id, err
+}
+
+func (d *DB) GetPendingCommands(ctx context.Context, machineID string) ([]CommandRow, error) {
+	rows, err := d.pool.Query(ctx, `
+SELECT id::text, machine_id::text, command, status, output, created_at, updated_at
+FROM public.machine_commands WHERE machine_id = $1 AND status = 'pending'
+ORDER BY created_at ASC`, machineID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CommandRow
+	for rows.Next() {
+		var r CommandRow
+		if err := rows.Scan(&r.ID, &r.MachineID, &r.Command, &r.Status, &r.Output, &r.CreatedAt, &r.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) ListCommandsByMachineID(ctx context.Context, machineID string, limit int) ([]CommandRow, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := d.pool.Query(ctx, `
+SELECT id::text, machine_id::text, command, status, output, created_at, updated_at
+FROM public.machine_commands WHERE machine_id = $1
+ORDER BY created_at DESC LIMIT $2`, machineID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CommandRow
+	for rows.Next() {
+		var r CommandRow
+		if err := rows.Scan(&r.ID, &r.MachineID, &r.Command, &r.Status, &r.Output, &r.CreatedAt, &r.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) UpdateCommandStatus(ctx context.Context, id, status, output string) error {
+	_, err := d.pool.Exec(ctx, `
+UPDATE public.machine_commands 
+SET status = $2, output = $3, updated_at = now()
+WHERE id = $1`, id, status, output)
 	return err
 }
 

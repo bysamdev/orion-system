@@ -129,22 +129,23 @@ func monitoringMachineAlerts(w http.ResponseWriter, r *http.Request) {
 // ─── Heartbeat ───────────────────────────────────────────────────────────────
 
 type heartbeatReq struct {
-	AgentKey     string          `json:"agent_key"`
-	Hostname     string          `json:"hostname"`
-	IP           string          `json:"ip"`
-	OS           string          `json:"os"`
-	OSVersion    string          `json:"os_version"`
-	AgentVersion string          `json:"agent_version"`
-	CPUUsage     float64         `json:"cpu_usage"`
-	RAMTotal     int64           `json:"ram_total"`
-	RAMUsed      int64           `json:"ram_used"`
-	DiskTotal    int64           `json:"disk_total"`
-	DiskUsed     int64           `json:"disk_used"`
-	Uptime       int64           `json:"uptime"`
-	CPUModel     string          `json:"cpu_model"`
-	GPU          string          `json:"gpu"`
-	Disks        json.RawMessage `json:"disks"`
-	Domain       string          `json:"domain"`
+	AgentKey     string            `json:"agent_key"`
+	Hostname     string            `json:"hostname"`
+	IP           string            `json:"ip"`
+	OS           string            `json:"os"`
+	OSVersion    string            `json:"os_version"`
+	AgentVersion string            `json:"agent_version"`
+	CPUUsage     float64           `json:"cpu_usage"`
+	RAMTotal     int64             `json:"ram_total"`
+	RAMUsed      int64             `json:"ram_used"`
+	DiskTotal    int64             `json:"disk_total"`
+	DiskUsed     int64             `json:"disk_used"`
+	Uptime       int64             `json:"uptime"`
+	CPUModel     string            `json:"cpu_model"`
+	GPU          string            `json:"gpu"`
+	Disks        json.RawMessage   `json:"disks"`
+	Interfaces   json.RawMessage   `json:"interfaces"`
+	Domain       string            `json:"domain"`
 }
 
 func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
@@ -210,9 +211,13 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if len(disksJSON) == 0 {
 		disksJSON = json.RawMessage(`[]`)
 	}
+	ifacesJSON := req.Interfaces
+	if len(ifacesJSON) == 0 {
+		ifacesJSON = json.RawMessage(`[]`)
+	}
 	_ = db.UpsertHardware(ctx, lib.UpsertHardwareInput{
 		MachineID: machineID, CPUModel: req.CPUModel,
-		RAMSlots: []byte(`null`), Disks: disksJSON, GPU: req.GPU,
+		RAMSlots: []byte(`null`), Disks: disksJSON, NetworkInterfaces: ifacesJSON, GPU: req.GPU,
 	})
 
 	if req.DiskTotal > 0 {
@@ -226,4 +231,105 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "machine_id": machineID})
+}
+
+// ─── Remote Commands ──────────────────────────────────────────────────────────
+
+func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
+	if _, err := requireAuth(r); err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	machineID := chi.URLParam(r, "id")
+	var req struct {
+		Command string `json:"command"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "corpo inválido"})
+		return
+	}
+
+	id, err := db.CreateCommand(r.Context(), lib.InsertCommandInput{
+		MachineID: machineID,
+		Command:   req.Command,
+	})
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro ao criar comando"})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"id": id})
+}
+
+func monitoringGetMachineCommands(w http.ResponseWriter, r *http.Request) {
+	if _, err := requireAuth(r); err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	machineID := chi.URLParam(r, "id")
+	cmds, err := db.ListCommandsByMachineID(r.Context(), machineID, 50)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro ao buscar comandos"})
+		return
+	}
+	if cmds == nil {
+		cmds = []lib.CommandRow{}
+	}
+	lib.WriteJSON(w, http.StatusOK, cmds)
+}
+
+func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
+	// Require Agent Key
+	if err := lib.RequireAgentKey(r, cfg.AgentKey); err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+
+	machineID := r.URL.Query().Get("machine_id")
+	if machineID == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "machine_id obrigatório"})
+		return
+	}
+
+	cmds, err := db.GetPendingCommands(r.Context(), machineID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+
+	if len(cmds) == 0 {
+		lib.WriteJSON(w, http.StatusOK, []any{})
+		return
+	}
+
+	// For simplicity, once polled, we mark them as 'sent'
+	for _, c := range cmds {
+		_ = db.UpdateCommandStatus(r.Context(), c.ID, "sent", "")
+	}
+
+	lib.WriteJSON(w, http.StatusOK, cmds)
+}
+
+func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
+	// Require Agent Key
+	if err := lib.RequireAgentKey(r, cfg.AgentKey); err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+
+	var req struct {
+		ID     string `json:"id"`
+		Status string `json:"status"` // completed, failed
+		Output string `json:"output"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "corpo inválido"})
+		return
+	}
+
+	err := db.UpdateCommandStatus(r.Context(), req.ID, req.Status, req.Output)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
 }

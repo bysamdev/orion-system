@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Loader2, RefreshCw, ChevronRight, ChevronDown, Monitor, Wifi, WifiOff, AlertTriangle, Search, Server } from 'lucide-react';
@@ -16,6 +18,7 @@ import {
   useMonitoringGroups,
   useGroupMachines,
   hasDiskAlert,
+  pct,
 } from '@/hooks/useMonitoring';
 import type { MachineGroup, MachineWithMetric } from '@/hooks/useMonitoring';
 import { MachineCard, MachineCardSkeleton } from '@/components/monitoring/MachineCard';
@@ -65,7 +68,34 @@ function GroupItem({
   );
 }
 
-// ── Grid de máquinas ──────────────────────────────────────
+// ── Components Internos Profissionais ─────────────────────
+function MetricSection({ label, value, subtext, icon: Icon, colorClass }: {
+  label: string;
+  value: string | number;
+  subtext?: string;
+  icon: any;
+  colorClass?: string;
+}) {
+  return (
+    <Card className="flex-1 min-w-[200px] border-none shadow-none bg-muted/30">
+      <CardContent className="p-4 flex items-center gap-4">
+        <div className={cn("p-2.5 rounded-xl bg-background border flex-shrink-0", colorClass)}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground leading-none mb-1.5">
+            {label}
+          </p>
+          <div className="flex items-baseline gap-1.5">
+            <h4 className="text-xl font-bold text-foreground leading-none">{value}</h4>
+            {subtext && <span className="text-[10px] text-muted-foreground truncate">{subtext}</span>}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function MachinesGrid({
   groupId,
   statusFilter,
@@ -92,32 +122,39 @@ function MachinesGrid({
 
   if (!groupId) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3">
-        <Server className="h-12 w-12 opacity-20" />
-        <p className="text-sm">Selecione um grupo na lateral para ver as máquinas</p>
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-muted-foreground gap-4 border-2 border-dashed rounded-2xl opacity-50">
+        <div className="p-4 bg-muted rounded-full">
+          <Server className="h-10 w-10 text-muted-foreground/40" />
+        </div>
+        <div className="text-center">
+          <p className="text-base font-medium">Nenhum Grupo Selecionado</p>
+          <p className="text-xs">Escolha um cliente ou grupo na lateral para gerenciar as máquinas.</p>
+        </div>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {Array.from({ length: 8 }).map((_, i) => <MachineCardSkeleton key={i} />)}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+        {Array.from({ length: 6 }).map((_, i) => <MachineCardSkeleton key={i} />)}
       </div>
     );
   }
 
   if (filtered.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground gap-2">
-        <Monitor className="h-10 w-10 opacity-20" />
-        <p className="text-sm">Nenhuma máquina encontrada</p>
+      <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-2xl opacity-50">
+          <div className="p-4 bg-muted rounded-full">
+            <Monitor className="h-10 w-10 text-muted-foreground/40" />
+          </div>
+          <p className="text-sm font-medium">Nenhuma máquina encontrada filtros ativos.</p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
       {filtered.map((m) => (
         <MachineCard key={m.id} machine={m} onClick={() => onSelect(m)} />
       ))}
@@ -224,66 +261,119 @@ const Monitoring: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Filters ── */}
-        <div className="flex items-center gap-3 mb-6 flex-wrap">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar hostname..."
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+        {/* ── Summary Cards ── */}
+        {dashboard && (
+          <div className="flex flex-wrap gap-4 mb-8">
+            <MetricSection 
+              label="Total de Dispositivos" 
+              value={dashboard.total} 
+              icon={Server} 
+              colorClass="bg-blue-500/10 text-blue-500 border-blue-500/20"
+            />
+            <MetricSection 
+              label="Máquinas Online" 
+              value={dashboard.online} 
+              subtext={`${pct(dashboard.online, dashboard.total)}% do total`}
+              icon={Wifi} 
+              colorClass="bg-green-500/10 text-green-500 border-green-500/20"
+            />
+            <MetricSection 
+              label="Máquinas Offline" 
+              value={dashboard.offline} 
+              subtext={`${pct(dashboard.offline, dashboard.total)}% do total`}
+              icon={WifiOff} 
+              colorClass="bg-red-500/10 text-red-500 border-red-500/20"
+            />
+            <MetricSection 
+              label="Alertas Ativos" 
+              value={dashboard.active_alerts} 
+              subtext="Problemas pendentes"
+              icon={AlertTriangle} 
+              colorClass="bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
             />
           </div>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="online">Online</SelectItem>
-              <SelectItem value="offline">Offline</SelectItem>
-              <SelectItem value="alert">Com Alerta</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        )}
 
         {/* ── Body ── */}
-        <div className="flex gap-6 min-h-[500px]">
+        <div className="flex flex-col lg:flex-row gap-8">
           {/* Left sidebar — groups */}
-          <aside className="w-56 flex-shrink-0">
-            <Collapsible open={groupsOpen} onOpenChange={setGroupsOpen}>
-              <CollapsibleTrigger asChild>
-                <button className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 hover:text-foreground transition-colors w-full">
-                  {groupsOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                  Grupos / Clientes
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <ScrollArea className="h-[calc(100vh-320px)]">
-                  <div className="space-y-1 pr-1">
-                    {groupsLoading ? (
-                      Array.from({ length: 4 }).map((_, i) => (
-                        <Skeleton key={i} className="h-10 w-full rounded-lg" />
-                      ))
-                    ) : !groups || groups.length === 0 ? (
-                      <p className="text-xs text-muted-foreground px-3 py-2">
-                        Nenhum grupo cadastrado
-                      </p>
-                    ) : (
-                      groups.map((g) => (
-                        <GroupItem
-                          key={g.id}
-                          group={g}
-                          selected={selectedGroupId === g.id}
-                          onClick={() => setSelectedGroupId(g.id)}
-                        />
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </CollapsibleContent>
-            </Collapsible>
+          <aside className="w-full lg:w-64 flex-shrink-0">
+            <div className="sticky top-8">
+              <div className="mb-6">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 px-3">
+                  Filtrar por Status
+                </h3>
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 px-1">
+                   <Button 
+                    variant={statusFilter === 'all' ? 'secondary' : 'ghost'} 
+                    size="sm" 
+                    className="justify-start gap-2"
+                    onClick={() => setStatusFilter('all')}
+                   >
+                     Todos
+                   </Button>
+                   <Button 
+                    variant={statusFilter === 'online' ? 'secondary' : 'ghost'} 
+                    size="sm" 
+                    className="justify-start gap-2 text-green-600"
+                    onClick={() => setStatusFilter('online')}
+                   >
+                     <Wifi className="w-3.5 h-3.5" /> Online
+                   </Button>
+                   <Button 
+                    variant={statusFilter === 'offline' ? 'secondary' : 'ghost'} 
+                    size="sm" 
+                    className="justify-start gap-2 text-red-600"
+                    onClick={() => setStatusFilter('offline')}
+                   >
+                     <WifiOff className="w-3.5 h-3.5" /> Offline
+                   </Button>
+                   <Button 
+                    variant={statusFilter === 'alert' ? 'secondary' : 'ghost'} 
+                    size="sm" 
+                    className="justify-start gap-2 text-yellow-600"
+                    onClick={() => setStatusFilter('alert')}
+                   >
+                     <AlertTriangle className="w-3.5 h-3.5" /> Com Alerta
+                   </Button>
+                </div>
+              </div>
+
+              <Separator className="my-6 opacity-50" />
+
+              <Collapsible open={groupsOpen} onOpenChange={setGroupsOpen}>
+                <CollapsibleTrigger asChild>
+                  <button className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider px-3 hover:text-foreground transition-colors w-full mb-4">
+                    {groupsOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    Grupos / Clientes
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <ScrollArea className="h-[calc(100vh-500px)]">
+                    <div className="space-y-1 pr-3 pl-1">
+                      {groupsLoading ? (
+                        Array.from({ length: 4 }).map((_, i) => (
+                          <Skeleton key={i} className="h-10 w-full rounded-lg" />
+                        ))
+                      ) : !groups || groups.length === 0 ? (
+                        <p className="text-xs text-muted-foreground px-3 py-2">
+                          Nenhum grupo cadastrado
+                        </p>
+                      ) : (
+                        groups.map((g) => (
+                          <GroupItem
+                            key={g.id}
+                            group={g}
+                            selected={selectedGroupId === g.id}
+                            onClick={() => setSelectedGroupId(g.id)}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
           </aside>
 
           {/* Main — machine grid */}

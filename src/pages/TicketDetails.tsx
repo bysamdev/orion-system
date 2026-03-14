@@ -13,7 +13,7 @@ import { SLABadge } from '@/components/dashboard/SLABadge';
 import { TicketHeroHeader } from '@/components/ticket/TicketHeroHeader';
 import { UnifiedTimeline } from '@/components/ticket/UnifiedTimeline';
 import { ResolutionDialog } from '@/components/ticket/ResolutionDialog';
-import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer } from 'lucide-react';
+import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2 } from 'lucide-react';
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
 import { ImagePasteHandler } from '@/components/ticket/ImagePasteHandler';
@@ -34,6 +34,66 @@ import { useRealtimeTicket } from '@/hooks/useRealtimeTickets';
 const ticketUpdateSchema = z.object({
   content: z.string().trim().min(1, 'O comentário não pode estar vazio').max(5000, 'O comentário não pode ter mais de 5000 caracteres')
 });
+
+// ── Ticket Status Stepper ─────────────────────────────────
+const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
+  const steps = [
+    { key: 'open', label: 'Aberto' },
+    { key: 'in-progress', label: 'Em Atendimento' },
+    { key: 'resolved', label: 'Resolvido' },
+    { key: 'closed', label: 'Concluído' },
+  ];
+
+  const getStatusIndex = (status: string) => {
+    if (status === 'reopened') return 1;
+    if (status === 'awaiting-customer' || status === 'awaiting-third-party') return 1;
+    if (status === 'cancelled') return -1;
+    return steps.findIndex(s => s.key === status);
+  };
+
+  const currentIndex = getStatusIndex(currentStatus);
+
+  return (
+    <div className="w-full py-6 px-4 mb-6 bg-muted/20 border border-border/50 rounded-xl overflow-x-auto">
+      <div className="flex items-center justify-between min-w-[500px]">
+        {steps.map((step, idx) => {
+          const isActive = idx === currentIndex;
+          const isPast = idx < currentIndex;
+          const isLast = idx === steps.length - 1;
+
+          return (
+            <React.Fragment key={step.key}>
+              <div className="flex flex-col items-center gap-2 relative z-10">
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500",
+                  isActive ? "bg-primary border-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.3)]" :
+                  isPast ? "bg-green-500 border-green-500 text-white" :
+                  "bg-background border-muted-foreground/20 text-muted-foreground"
+                )}>
+                  {isPast ? <Check className="w-4 h-4" /> : <span className="text-xs font-bold">{idx + 1}</span>}
+                </div>
+                <span className={cn(
+                  "text-[10px] font-bold uppercase tracking-tight whitespace-nowrap",
+                  isActive ? "text-primary" : isPast ? "text-green-600" : "text-muted-foreground opacity-60"
+                )}>
+                  {step.label}
+                </span>
+              </div>
+              {!isLast && (
+                <div className="flex-1 h-[2px] mx-2 bg-muted-foreground/10 relative -translate-y-3.5">
+                  <div className={cn(
+                    "absolute top-0 left-0 h-full transition-all duration-1000",
+                    isPast ? "w-full bg-green-500" : "w-0 bg-primary"
+                  )} />
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 const TicketDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -133,7 +193,6 @@ const TicketDetails: React.FC = () => {
 
   const handleResolveConfirm = async (notes: string, _sendSurvey: boolean) => {
     if (!ticket) return;
-    // Salvar resolution_notes
     await supabase.from('tickets').update({ resolution_notes: notes }).eq('id', ticket.id);
     await handleStatusChange('resolved');
     await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Resolução: ${notes}`, type: 'comment' });
@@ -153,7 +212,6 @@ const TicketDetails: React.FC = () => {
 
   const formatTimeAgo = (date: string) => formatDistanceToNow(new Date(date), { locale: ptBR, addSuffix: true });
 
-  // Totais de horas
   const totalMinutes = timeEntries.reduce((sum, te) => sum + (te.duration_minutes || 0), 0);
   const billableMinutes = timeEntries.filter(te => te.billable).reduce((sum, te) => sum + (te.duration_minutes || 0), 0);
   const formatMinutes = (m: number) => {
@@ -164,11 +222,8 @@ const TicketDetails: React.FC = () => {
 
   if (ticketLoading || updatesLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="p-4 md:p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-          <TopBar />
-          <p className="text-muted-foreground mt-8">Carregando chamado...</p>
-        </main>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -176,34 +231,39 @@ const TicketDetails: React.FC = () => {
   if (!ticket) {
     return (
       <div className="min-h-screen bg-background">
-        <main className="p-4 md:p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
+        <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full text-center">
           <TopBar />
-          <div className="mt-8">
-            <p className="text-muted-foreground mb-4">Chamado não encontrado.</p>
-            <Button onClick={() => navigate('/')}><ArrowLeft className="w-4 h-4 mr-2" />Voltar ao Dashboard</Button>
-          </div>
+          <p className="text-muted-foreground mt-20 mb-4">Chamado não encontrado.</p>
+          <Button onClick={() => navigate('/')}><ArrowLeft className="w-4 h-4 mr-2" />Voltar ao Dashboard</Button>
         </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <main className="p-4 md:p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
         <TopBar />
 
-        <Button variant="ghost" onClick={() => navigate('/')} className="mb-6 text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-4 h-4 mr-2" />Voltar ao Dashboard
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate('/')} 
+          className="mb-8 text-muted-foreground hover:text-foreground hover:bg-muted/50 -ml-2"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Painel de Chamados
         </Button>
 
+        {/* Status Stepper */}
+        <TicketStatusStepper currentStatus={ticket.status} />
+
         {/* Hero Header */}
-        <div className="mb-6">
+        <div className="mb-8">
           <TicketHeroHeader
             ticket={ticket}
             canManageTickets={canManageTickets}
             onResolve={() => setResolveDialogOpen(true)}
             onEscalate={() => {
-              // Focar no select de técnico na sidebar
               const el = document.getElementById('technician-select');
               el?.click();
             }}
@@ -211,24 +271,31 @@ const TicketDetails: React.FC = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Coluna Principal */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Descrição */}
-            <Card className="p-6">
-              <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                <Info className="w-4 h-4 flex-shrink-0" />Descrição do Problema
-              </h3>
-              <p className="text-muted-foreground leading-relaxed bg-muted/30 rounded-lg p-4 break-words whitespace-pre-wrap">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          {/* Main Content (Left Column) */}
+          <div className="xl:col-span-2 space-y-8">
+            
+            {/* Problema / Descrição */}
+            <Card className="p-8 border-none shadow-sm bg-muted/20">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <Info className="w-4 h-4 text-blue-500" />
+                </div>
+                <h3 className="font-bold text-lg">Descrição do Problema</h3>
+              </div>
+              <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap text-sm md:text-base selection:bg-primary/20">
                 {ticket.description}
               </p>
             </Card>
 
-            {/* Timeline Unificada */}
-            <Card className="p-6">
-              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />Histórico e Interações
-              </h3>
+            {/* Histórico / Timeline */}
+            <Card className="p-8 border-none shadow-sm overflow-hidden bg-background border border-border/40">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                </div>
+                <h3 className="font-bold text-lg text-foreground">Histórico e Interações</h3>
+              </div>
               <UnifiedTimeline
                 updates={updates}
                 statusHistory={statusHistory}
@@ -236,17 +303,16 @@ const TicketDetails: React.FC = () => {
               />
             </Card>
 
-            {/* Campo de Resposta */}
-            {!canReopenTicket && (
-              <Card className="p-6">
+            {/* Campo de Resposta / Nova Interação */}
+            {!canReopenTicket ? (
+              <Card className="p-8 border-none shadow-sm bg-muted/10 border-t-2 border-primary/20">
                 <ImagePasteHandler
                   onImagePaste={(file) => { if (id) uploadAttachment.mutate({ ticketId: id, file }); }}
                   disabled={uploadAttachment.isPending}
                 />
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-foreground">Adicionar Comentário</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-lg">Nova Interação</h3>
                   <div className="flex items-center gap-2">
-                    {/* Upload de arquivo oculto */}
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -259,303 +325,297 @@ const TicketDetails: React.FC = () => {
                       }}
                       disabled={uploadAttachment.isPending}
                     />
-                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploadAttachment.isPending}>
-                      {uploadAttachment.isPending ? <Upload className="w-4 h-4 animate-pulse" /> : <Paperclip className="w-4 h-4" />}
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-9 px-3 gap-2 border-border/50 hover:bg-background"
+                      onClick={() => fileInputRef.current?.click()} 
+                      disabled={uploadAttachment.isPending}
+                    >
+                      {uploadAttachment.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                      Anexar
                     </Button>
                     {canManageTickets && <CannedResponseSelector onSelect={(content) => setNewUpdateText(content)} />}
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground mb-2">💡 Dica: Cole imagens diretamente (Ctrl+V) para anexar</p>
-                <Textarea
-                  ref={textareaRef}
-                  placeholder="Digite sua resposta ou solução para o problema..."
-                  value={newUpdateText}
-                  onChange={(e) => setNewUpdateText(e.target.value)}
-                  className="mb-2"
-                  rows={4}
-                  maxLength={5000}
-                />
-                <div className="flex justify-between items-center mb-3">
-                  <p className="text-xs text-muted-foreground">{newUpdateText.length}/5000 caracteres</p>
-                  {newUpdateText.length > 4500 && <p className="text-xs text-warning">{5000 - newUpdateText.length} caracteres restantes</p>}
+                
+                <div className="relative group">
+                  <Textarea
+                    ref={textareaRef}
+                    placeholder="Escreva sua resposta ou nota aqui..."
+                    value={newUpdateText}
+                    onChange={(e) => setNewUpdateText(e.target.value)}
+                    className="min-h-[160px] bg-background border-border/50 focus-visible:ring-primary/20 resize-none p-4 text-base transition-all group-hover:border-primary/20"
+                    maxLength={5000}
+                  />
+                  <div className="absolute bottom-3 right-3 text-[10px] font-medium text-muted-foreground/60">
+                    {newUpdateText.length}/5000
+                  </div>
                 </div>
 
-                {canManageTickets && (
-                  <div className={cn(
-                    "flex items-center justify-between p-3 rounded-lg mb-3 transition-colors",
-                    isInternalNote ? "bg-amber-100/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800" : "bg-muted/30"
-                  )}>
-                    <div className="flex items-center gap-2">
-                      <Lock className={cn("w-4 h-4", isInternalNote ? "text-amber-600" : "text-muted-foreground")} />
-                      <Label htmlFor="internal-note" className={cn("text-sm font-medium cursor-pointer", isInternalNote ? "text-amber-800 dark:text-amber-400" : "text-muted-foreground")}>
-                        Nota Interna (Apenas Equipe)
-                      </Label>
+                <div className="mt-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  {canManageTickets ? (
+                    <div className={cn(
+                      "flex items-center justify-between p-3 rounded-xl border transition-all w-full md:w-auto md:min-w-[280px]",
+                      isInternalNote 
+                        ? "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400" 
+                        : "bg-background border-border/50"
+                    )}>
+                      <div className="flex items-center gap-2.5">
+                        <Lock className={cn("w-4 h-4", isInternalNote ? "text-amber-500" : "text-muted-foreground")} />
+                        <Label htmlFor="internal-note" className="text-xs font-bold cursor-pointer uppercase tracking-tight">
+                          Nota Interna (Privada)
+                        </Label>
+                      </div>
+                      <Switch id="internal-note" checked={isInternalNote} onCheckedChange={setIsInternalNote} />
                     </div>
-                    <Switch id="internal-note" checked={isInternalNote} onCheckedChange={setIsInternalNote} />
-                  </div>
-                )}
+                  ) : <div />}
 
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleAddUpdate}
-                    className={cn("flex-1", isInternalNote && "bg-amber-600 hover:bg-amber-700")}
-                    disabled={addUpdate.isPending || !newUpdateText.trim()}
-                  >
-                    {isInternalNote ? <><Lock className="w-4 h-4 mr-2" />Enviar Nota Interna</> : <><MessageSquare className="w-4 h-4 mr-2" />Enviar Comentário</>}
-                  </Button>
-                  {canManageTickets && newUpdateText.trim() && (
+                  <div className="flex items-center gap-3">
                     <Button
-                      variant="default"
-                      onClick={() => {
-                        // Enviar comentário + abrir dialog de resolução
-                        handleAddUpdate().then(() => setResolveDialogOpen(true));
-                      }}
-                      disabled={addUpdate.isPending}
-                      className="gap-2"
+                      onClick={handleAddUpdate}
+                      disabled={addUpdate.isPending || !newUpdateText.trim()}
+                      className={cn(
+                        "h-11 px-6 font-bold transition-all shadow-sm",
+                        isInternalNote ? "bg-amber-600 hover:bg-amber-700 text-white" : "bg-primary hover:bg-primary/90"
+                      )}
                     >
-                      Responder e Resolver
+                      {isInternalNote ? "Publicar Nota Privada" : "Enviar Resposta"}
                     </Button>
-                  )}
+                    {canManageTickets && newUpdateText.trim() && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => handleAddUpdate().then(() => setResolveDialogOpen(true))}
+                        disabled={addUpdate.isPending}
+                        className="h-11 px-6 border border-border/50"
+                      >
+                        Responder e Resolver
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </Card>
-            )}
-
-            {canReopenTicket && (
-              <Card className="p-6 bg-muted/30">
-                <div className="flex items-start gap-3">
-                  <Info className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-foreground">
-                      Este chamado está {ticket.status === 'closed' ? 'fechado' : 'resolvido'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Para adicionar novos comentários, reabra o chamado usando o botão "Reabrir Chamado".
-                    </p>
-                  </div>
+            ) : (
+              <Card className="p-8 bg-muted/20 border-dashed flex flex-col items-center text-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                  <Lock className="w-6 h-6 text-muted-foreground/50" />
                 </div>
+                <div>
+                  <h4 className="font-bold text-foreground">Chamado Resolvido/Fechado</h4>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-[400px]">
+                    Novas interações estão bloqueadas. Reabra o chamado clicando no botão abaixo caso o problema ainda persista.
+                  </p>
+                </div>
+                <Button variant="outline" className="h-11 px-8 font-bold border-primary text-primary hover:bg-primary/5" onClick={handleReopenTicket}>
+                  Reabrir Chamado
+                </Button>
               </Card>
             )}
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Gestão */}
-            <Card className="p-6">
-              <h3 className="font-semibold text-foreground mb-4">Gestão do Chamado</h3>
-              {!canManageTickets && (
-                <div className="bg-muted/50 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-muted-foreground">Apenas técnicos e administradores podem gerenciar chamados.</p>
+          {/* Sidebar (Right Column) */}
+          <div className="space-y-8">
+            
+            {/* Gestão Sidebar */}
+            <Card className="p-6 border-none shadow-sm bg-muted/30">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Settings className="w-4 h-4 text-primary" />
+                </div>
+                <h3 className="font-bold text-foreground uppercase text-xs tracking-widest">Controles do Chamado</h3>
+              </div>
+
+              {!canManageTickets ? (
+                <div className="bg-background/60 border border-border/50 rounded-xl p-4">
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Apenas técnicos autorizados podem alterar o fluxo de trabalho deste ticket.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Progresso do Fluxo</label>
+                    <Select value={ticket.status} onValueChange={handleStatusChange}>
+                      <SelectTrigger className="h-11 bg-background border-border/50 font-medium">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Aberto</SelectItem>
+                        <SelectItem value="in-progress">Em Andamento</SelectItem>
+                        <SelectItem value="awaiting-customer">Aguardando Cliente</SelectItem>
+                        <SelectItem value="awaiting-third-party">Aguardando Terceiro</SelectItem>
+                        <SelectItem value="resolved">Resolvido</SelectItem>
+                        <SelectItem value="closed">Fechado</SelectItem>
+                        <SelectItem value="reopened">Reaberto</SelectItem>
+                        <SelectItem value="cancelled">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Agente Responsável</label>
+                    <Select 
+                      value={ticket.assigned_to || ''} 
+                      onValueChange={handleAssignmentChange} 
+                      disabled={techniciansLoading}
+                    >
+                      <SelectTrigger className="h-11 bg-background border-border/50 font-medium">
+                        <SelectValue placeholder={techniciansLoading ? "..." : "Selecione..."} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {technicians.map(tech => (
+                          <SelectItem key={tech.id} value={tech.full_name || ''}>{tech.full_name || 'Sem nome'}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Intensidade de Prioridade</label>
+                    <Select
+                      value={ticket.priority}
+                      onValueChange={async (val) => {
+                         const validated = ticketPrioritySchema.safeParse(val);
+                         if (!validated.success) return;
+                         const { error } = await supabase.from('tickets').update({ priority: validated.data }).eq('id', ticket.id);
+                         if (error) return;
+                         await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Prioridade alterada para: ${val}`, type: 'priority_change' });
+                         toast({ title: 'Prioridade alterada' });
+                      }}
+                    >
+                      <SelectTrigger className="h-11 bg-background border-border/50 font-medium">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="urgent" className="text-red-600 font-bold">Urgente</SelectItem>
+                        <SelectItem value="high">Alta</SelectItem>
+                        <SelectItem value="medium">Média</SelectItem>
+                        <SelectItem value="low">Baixa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Separator className="bg-border/30" />
+
+                  {ticket.status === 'resolved' && (
+                    <div className="bg-green-500/5 border border-green-500/10 rounded-xl p-4 flex items-start gap-3">
+                      <Clock className="w-4 h-4 text-green-600 mt-0.5" />
+                      <p className="text-[10px] font-medium text-green-800 dark:text-green-300">
+                        O ticket será encerrado automaticamente em 48h caso não haja resposta.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-2 block">Status</label>
-                  <Select value={ticket.status} onValueChange={handleStatusChange} disabled={!canManageTickets}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Aberto</SelectItem>
-                      <SelectItem value="in-progress">Em Andamento</SelectItem>
-                      <SelectItem value="awaiting-customer">Aguardando Cliente</SelectItem>
-                      <SelectItem value="awaiting-third-party">Aguardando Terceiro</SelectItem>
-                      <SelectItem value="resolved">Resolvido</SelectItem>
-                      <SelectItem value="closed">Fechado</SelectItem>
-                      <SelectItem value="reopened">Reaberto</SelectItem>
-                      <SelectItem value="cancelled">Cancelado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-2 block">Técnico Responsável</label>
-                  <Select value={ticket.assigned_to || ''} onValueChange={handleAssignmentChange} disabled={!canManageTickets || techniciansLoading}>
-                    <SelectTrigger><SelectValue placeholder={techniciansLoading ? "Carregando..." : "Selecione um técnico"} /></SelectTrigger>
-                    <SelectContent>
-                      {technicians.map(tech => (
-                        <SelectItem key={tech.id} value={tech.full_name || ''}>{tech.full_name || 'Sem nome'}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-2 block">Prioridade</label>
-                  <Select
-                    value={ticket.priority}
-                    onValueChange={async (newPriority) => {
-                      if (!canManageTickets) return;
-                      
-                      // Validar prioridade com Zod antes de enviar
-                      const validated = ticketPrioritySchema.safeParse(newPriority);
-                      if (!validated.success) {
-                        toast({ 
-                          title: 'Erro de validação', 
-                          description: validated.error.errors[0].message, 
-                          variant: 'destructive' 
-                        });
-                        return;
-                      }
-                      
-                      const { error } = await supabase.from('tickets').update({ priority: validated.data }).eq('id', ticket.id);
-                      if (error) {
-                        toast({ 
-                          title: 'Erro', 
-                          description: 'Não foi possível alterar a prioridade.', 
-                          variant: 'destructive' 
-                        });
-                        return;
-                      }
-                      
-                      await addUpdate.mutateAsync({ 
-                        ticket_id: ticket.id, 
-                        content: `Prioridade alterada para: ${newPriority}`, 
-                        type: 'priority_change' 
-                      });
-                      
-                      toast({ title: 'Prioridade atualizada', description: `A prioridade foi alterada para ${newPriority}.` });
-                    }}
-                    disabled={!canManageTickets}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="urgent">Urgente</SelectItem>
-                      <SelectItem value="high">Alta</SelectItem>
-                      <SelectItem value="medium">Média</SelectItem>
-                      <SelectItem value="low">Baixa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Separator />
-
-                {canReopenTicket && (
-                  <Button variant="secondary" className="w-full gap-2" onClick={handleReopenTicket} disabled={updateStatus.isPending}>
-                    <AlertCircle className="w-4 h-4" />Reabrir Chamado
-                  </Button>
-                )}
-
-                {ticket.status === 'resolved' && (
-                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="w-3 h-3" />Fechamento automático em 48h sem resposta.
-                    </p>
-                  </div>
-                )}
-              </div>
             </Card>
 
-            {/* SLA */}
+            {/* SLA Info */}
             {ticket.sla_due_date && (
-              <Card className="p-6">
-                <h3 className="font-semibold text-foreground mb-3">SLA</h3>
-                <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Prazo: {new Date(ticket.sla_due_date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                </p>
-                {ticket.first_response_at && (
-                  <p className="text-xs text-muted-foreground mt-1">1ª resposta: {formatTimeAgo(ticket.first_response_at)}</p>
-                )}
+              <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Acordo de SLA</h3>
+                  <SLABadge slaStatus={ticket.sla_status as any} slaDueDate={ticket.sla_due_date} />
+                </div>
+                <div className="space-y-3">
+                   <div className="flex justify-between items-center text-xs">
+                     <span className="text-muted-foreground">Vencimento</span>
+                     <span className="font-bold">{new Date(ticket.sla_due_date).toLocaleString('pt-BR')}</span>
+                   </div>
+                   {ticket.first_response_at && (
+                     <div className="flex justify-between items-center text-xs">
+                       <span className="text-muted-foreground">Primeira Resposta</span>
+                       <span className="text-green-600 font-medium">{formatTimeAgo(ticket.first_response_at)}</span>
+                     </div>
+                   )}
+                </div>
               </Card>
             )}
 
-            {/* Tempo Registrado */}
-            <Card className="p-6">
-              <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                <Timer className="w-4 h-4" />Tempo Registrado
-              </h3>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total</span>
-                  <span className="font-medium text-foreground">{totalMinutes > 0 ? formatMinutes(totalMinutes) : '—'}</span>
+            {/* Cronógrafo */}
+            <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
+              <div className="flex items-center gap-2 mb-4">
+                <Timer className="w-4 h-4 text-primary" />
+                <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Cronógrafo</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-muted/30 rounded-xl p-3">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Total</p>
+                  <p className="text-lg font-bold">{totalMinutes > 0 ? formatMinutes(totalMinutes) : '—'}</p>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Faturável</span>
-                  <span className="font-medium text-foreground">{billableMinutes > 0 ? formatMinutes(billableMinutes) : '—'}</span>
+                <div className="bg-muted/30 rounded-xl p-3">
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Faturável</p>
+                  <p className="text-lg font-bold text-primary">{billableMinutes > 0 ? formatMinutes(billableMinutes) : '—'}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{timeEntries.length} registros</p>
               </div>
             </Card>
 
-            {/* Informações */}
-            <Card className="p-6">
-              <h3 className="font-semibold text-foreground mb-4">Informações</h3>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">Solicitante</p>
-                  <p className="text-sm font-medium text-foreground">{ticket.requester_name}</p>
-                </div>
-                <Separator />
-                <div>
-                  <p className="text-xs text-muted-foreground">Categoria</p>
-                  <p className="text-sm font-medium text-foreground">{ticket.category}</p>
-                </div>
-                <Separator />
-                <div>
-                  <p className="text-xs text-muted-foreground">Departamento</p>
-                  <p className="text-sm font-medium text-foreground">{ticket.department || 'N/A'}</p>
-                </div>
-                <Separator />
-                <div>
-                  <p className="text-xs text-muted-foreground">Criado</p>
-                  <p className="text-sm font-medium text-foreground">{formatTimeAgo(ticket.created_at)}</p>
-                </div>
-                <Separator />
-                <div>
-                  <p className="text-xs text-muted-foreground">ID</p>
-                  <p className="text-sm font-mono font-medium text-foreground">#{ticket.ticket_number}</p>
-                </div>
-              </div>
+            {/* Atributos Básicos */}
+            <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
+               <h3 className="font-bold text-foreground text-xs uppercase tracking-widest mb-6">Atributos Básicos</h3>
+               <div className="space-y-4">
+                 <AttributeItem label="Solicitante" value={ticket.requester_name} />
+                 <AttributeItem label="Categoria" value={ticket.category} />
+                 <AttributeItem label="Setor/Depto" value={ticket.department || 'Dpto. Geral'} />
+                 <AttributeItem label="Data de Abertura" value={formatTimeAgo(ticket.created_at)} />
+                 <AttributeItem label="Número Interno" value={`#${ticket.ticket_number}`} isMono />
+               </div>
             </Card>
 
             {/* Acesso Remoto */}
             {canManageTickets && (ticket.remote_id || ticket.remote_password) && (
-              <Card className="p-6 border-primary/20 bg-primary/5">
-                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Monitor className="w-4 h-4" />Acesso Remoto
-                </h3>
-                <div className="space-y-3">
-                  {ticket.remote_id && (
-                    <div className="flex items-center justify-between gap-2 bg-background rounded-lg p-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-muted-foreground mb-1">ID</p>
-                        <p className="font-mono text-sm font-medium text-foreground truncate">{ticket.remote_id}</p>
-                      </div>
-                      <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => copyToClipboard(ticket.remote_id!, 'remote_id')}>
-                        {copiedField === 'remote_id' ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                  )}
-                  {ticket.remote_password && (
-                    <div className="flex items-center justify-between gap-2 bg-background rounded-lg p-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-muted-foreground mb-1">Senha</p>
-                        <p className="font-mono text-sm font-medium text-foreground truncate">{ticket.remote_password}</p>
-                      </div>
-                      <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => copyToClipboard(ticket.remote_password!, 'remote_password')}>
-                        {copiedField === 'remote_password' ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                  )}
+              <Card className="p-6 border-none shadow-sm bg-indigo-500/5 border border-indigo-500/20">
+                <div className="flex items-center gap-2 mb-4 text-indigo-600 dark:text-indigo-400">
+                  <Monitor className="w-4 h-4" />
+                  <h3 className="font-bold text-xs uppercase tracking-widest">Acesso Remoto</h3>
                 </div>
-                <p className="text-xs text-muted-foreground mt-3">⚠️ Credenciais temporárias para esta sessão.</p>
+                <div className="space-y-3">
+                  <RemoteField label="ID da Máquina" value={ticket.remote_id} onCopy={() => copyToClipboard(ticket.remote_id!, 'ID')} />
+                  <RemoteField label="Senha de Sessão" value={ticket.remote_password} onCopy={() => copyToClipboard(ticket.remote_password!, 'PASS')} />
+                </div>
               </Card>
             )}
 
             {/* Anexos */}
-            <Card className="p-6">
-              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Paperclip className="w-4 h-4" />Anexos ({attachments.length})
-              </h3>
+            <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Arquivos ({attachments.length})</h3>
+                <Paperclip className="w-4 h-4 text-muted-foreground/40" />
+              </div>
               <AttachmentList attachments={attachments} ticketId={id || ''} canDelete={canManageTickets} isLoading={attachmentsLoading} />
             </Card>
           </div>
         </div>
       </main>
 
-      {/* Resolution Dialog */}
       <ResolutionDialog
         open={resolveDialogOpen}
         onOpenChange={setResolveDialogOpen}
         onConfirm={handleResolveConfirm}
         isPending={updateStatus.isPending}
       />
+    </div>
+  );
+};
+
+// ── Shared Support Components ──────────────────────────────
+const AttributeItem = ({ label, value, isMono }: { label: string; value: string; isMono?: boolean }) => (
+  <div className="flex flex-col gap-1">
+    <span className="text-[10px] font-bold text-muted-foreground uppercase">{label}</span>
+    <span className={cn("text-sm font-semibold text-foreground", isMono && "font-mono")}>{value}</span>
+  </div>
+);
+
+const RemoteField = ({ label, value, onCopy }: { label: string; value?: string; onCopy: () => void }) => {
+  if (!value) return null;
+  return (
+    <div className="flex items-center justify-between gap-2 bg-background/50 border border-border/30 rounded-lg p-2.5 transition-all hover:border-indigo-500/30">
+      <div className="min-w-0 flex-1">
+        <p className="text-[9px] font-bold text-muted-foreground uppercase leading-none mb-1">{label}</p>
+        <p className="font-mono text-xs font-bold truncate">{value}</p>
+      </div>
+      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-indigo-600" onClick={onCopy}>
+        <Copy className="w-3.5 h-3.5" />
+      </Button>
     </div>
   );
 };

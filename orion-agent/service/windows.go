@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os/exec"
 	"time"
 
 	"github.com/kardianos/service"
@@ -14,9 +16,10 @@ import (
 
 // Svc implements service.Interface for kardianos/service.
 type Svc struct {
-	cfg    *config.Config
-	logger *log.Logger
-	cancel context.CancelFunc
+	cfg       *config.Config
+	logger    *log.Logger
+	cancel    context.CancelFunc
+	machineID string
 }
 
 // New creates a new Svc.
@@ -48,6 +51,9 @@ func (s *Svc) run(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(s.cfg.IntervalSeconds) * time.Second)
 	defer ticker.Stop()
 
+	commandTicker := time.NewTicker(30 * time.Second) // Poll commands every 30s
+	defer commandTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -55,6 +61,8 @@ func (s *Svc) run(ctx context.Context) {
 			return
 		case <-ticker.C:
 			s.tick()
+		case <-commandTicker.C:
+			s.pollAndExecuteCommands()
 		}
 	}
 }
@@ -66,18 +74,53 @@ func (s *Svc) tick() {
 		return
 	}
 
-	if err := sender.Send(s.cfg, payload); err != nil {
+	mID, err := sender.Send(s.cfg, payload)
+	if err != nil {
 		s.logger.Printf("[ERRO] heartbeat: %v", err)
 		return
 	}
+	s.machineID = mID
 
-	s.logger.Printf("[OK] heartbeat enviado — %s (%s) CPU=%.1f%% RAM=%dMB/%dMB",
+	s.logger.Printf("[OK] heartbeat enviado — %s (%s) ID=%s CPU=%.1f%% RAM=%dMB/%dMB",
 		payload.Hostname,
 		payload.IP,
+		s.machineID,
 		payload.CPUUsage,
 		payload.RAMUsed/1024/1024,
 		payload.RAMTotal/1024/1024,
 	)
+}
+
+func (s *Svc) pollAndExecuteCommands() {
+	if s.machineID == "" {
+		return
+	}
+
+	cmds, err := sender.PollCommands(s.cfg, s.machineID)
+	if err != nil {
+		s.logger.Printf("[ERRO] poll de comandos: %v", err)
+		return
+	}
+
+	for _, c := range cmds {
+		s.logger.Printf("[CMD] Executando: %s", c.Command)
+		output, err := executeCommand(c.Command)
+		status := "completed"
+		if err != nil {
+			status = "failed"
+			output = fmt.Sprintf("Erro: %v\nOutput: %s", err, output)
+		}
+
+		if err := sender.RespondToCommand(s.cfg, c.ID, status, output); err != nil {
+			s.logger.Printf("[ERRO] resposta de comando: %v", err)
+		}
+	}
+}
+
+func executeCommand(command string) (string, error) {
+	cmd := exec.Command("cmd", "/C", command)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }
 
 // ServiceConfig returns the kardianos service.Config.

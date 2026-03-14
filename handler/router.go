@@ -55,6 +55,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 // buildRouter wires all routes.
 func buildRouter() http.Handler {
 	r := chi.NewRouter()
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(corsMiddleware)
 
@@ -74,13 +76,16 @@ func buildRouter() http.Handler {
 	r.Get("/api/monitoring/machines/{id}", monitoringMachineDetail)
 	r.Get("/api/monitoring/machines/{id}/metrics", monitoringMachineMetrics)
 	r.Get("/api/monitoring/machines/{id}/alerts", monitoringMachineAlerts)
+	r.Post("/api/monitoring/machines/{id}/commands", monitoringCreateCommand)
+	r.Get("/api/monitoring/machines/{id}/commands", monitoringGetMachineCommands)
+	r.Get("/api/monitoring/commands/poll", monitoringPollCommands)
+	r.Post("/api/monitoring/commands/respond", monitoringCommandResponse)
 	r.Get("/api/monitoring/cron/mark-offline", cronMarkOffline)
 
 	return r
 }
 
-// corsMiddleware adds permissive CORS headers (same-domain Vercel deployment).
-// Adjust allowed origins as needed.
+// corsMiddleware adds permissive CORS headers.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
@@ -90,6 +95,8 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Agent-Key")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
