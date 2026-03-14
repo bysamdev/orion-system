@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   PlayCircle, CheckCircle2, AlertTriangle, Clock, Loader2,
   HandHelping, User, Search, ChevronDown, ChevronUp, 
@@ -137,6 +138,11 @@ export const TechnicianDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [kpiFilter, setKpiFilter] = useState<string | null>(null);
   const [closedOpen, setClosedOpen] = useState(false);
+  
+  // Advanced filters state
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   useRealtimeTickets();
 
@@ -145,6 +151,14 @@ export const TechnicianDashboard: React.FC = () => {
     if (kpiFilter === 'in-progress') result = result.filter(t => t.status === 'in-progress');
     else if (kpiFilter === 'sla') result = result.filter(t => t.sla_status === 'attention' || t.sla_status === 'breached');
     else if (kpiFilter === 'pending') result = result.filter(t => ['open', 'reopened', 'awaiting-customer'].includes(t.status));
+
+    if (priorityFilter !== 'all') {
+      result = result.filter(t => t.priority === priorityFilter);
+    }
+    
+    if (categoryFilter !== 'all') {
+      result = result.filter(t => t.category === categoryFilter);
+    }
 
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
@@ -227,11 +241,51 @@ export const TechnicianDashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="rounded-xl border-border/40 font-bold text-xs gap-2">
+              <Button 
+                variant={advancedFiltersOpen ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => setAdvancedFiltersOpen(!advancedFiltersOpen)}
+                className="rounded-xl border-border/40 font-bold text-xs gap-2 transition-colors"
+              >
                 <Filter className="w-3.5 h-3.5" /> Filtros Avançados
               </Button>
             </div>
           </div>
+
+          {advancedFiltersOpen && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/20 rounded-2xl border border-border/40 animate-in fade-in slide-in-from-top-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Prioridade</label>
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="h-10 bg-background border-border/40 rounded-xl">
+                    <SelectValue placeholder="Todas as Prioridades" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as Prioridades</SelectItem>
+                    <SelectItem value="urgent" className="text-red-500 font-bold">Urgente</SelectItem>
+                    <SelectItem value="high">Alta</SelectItem>
+                    <SelectItem value="medium">Média</SelectItem>
+                    <SelectItem value="low">Baixa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Categoria (Módulo)</label>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="h-10 bg-background border-border/40 rounded-xl">
+                    <SelectValue placeholder="Todas as Categorias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as Categorias</SelectItem>
+                    <SelectItem value="Sistema">Sistemas Corporativos</SelectItem>
+                    <SelectItem value="Hardware">Hardware / Equipamentos</SelectItem>
+                    <SelectItem value="Acesso">Acessos e Contas</SelectItem>
+                    <SelectItem value="Dúvida">Dúvidas Técnicas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
 
           <Tabs defaultValue="my-tickets" className="space-y-6">
             <div className="flex items-center justify-between">

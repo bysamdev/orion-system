@@ -1,4 +1,4 @@
-import { BarChart3, Ticket, Archive, Server, Briefcase, Cloud, Shield, PieChart, Monitor, Book } from 'lucide-react';
+import { BarChart3, Ticket, Archive, Server, Briefcase, Cloud, Shield, PieChart, Monitor, Book, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -13,6 +13,7 @@ interface NavItem {
 const navigationItems: NavItem[] = [
   { icon: BarChart3, label: 'Dashboard', path: '/' },
   { icon: Ticket, label: 'Novo Ticket', path: '/novo-ticket' },
+  { icon: History, label: 'Histórico', path: '/historico' },
   { icon: Book, label: 'Base de Conhecimento', path: '/knowledge' },
   { icon: PieChart, label: 'Relatórios', path: '/relatorios', roles: ['admin', 'developer'] },
   { icon: Monitor, label: 'Monitoramento', path: '/monitoring', roles: ['admin', 'developer', 'technician'] },

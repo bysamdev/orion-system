@@ -14,7 +14,8 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Loader2, ArrowLeft, BarChart3, Clock, CheckCircle2, AlertTriangle, TrendingUp, ShieldAlert } from 'lucide-react';
+import { Loader2, ArrowLeft, BarChart3, Clock, CheckCircle2, AlertTriangle, TrendingUp, ShieldAlert, Download, Printer } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -116,6 +117,77 @@ const Reports: React.FC = () => {
     return { open, resolved, closed, total: tickets.length, avgResolutionHours, slaOk, slaAttention, slaBreached };
   }, [tickets]);
 
+  // Transformar dados para os gráficos
+  const chartData = useMemo(() => {
+    // 1. Status Distribution
+    const statusData = [
+      { name: 'Aberto', value: metrics.open, color: 'hsl(var(--primary))' },
+      { name: 'Resolvido/Fechado', value: metrics.resolved + metrics.closed, color: 'hsl(var(--success))' }
+    ].filter(d => d.value > 0);
+
+    // 2. SLA Distribution
+    const slaData = [
+      { name: 'No Prazo', value: metrics.slaOk, color: '#22c55e' },
+      { name: 'Atenção', value: metrics.slaAttention, color: '#eab308' },
+      { name: 'Estourado', value: metrics.slaBreached, color: '#ef4444' }
+    ].filter(d => d.value > 0);
+
+    // 3. Tickets por dia
+    const ticketsPerDay = tickets.reduce((acc: any, t) => {
+      const date = t.created_at.split('T')[0];
+      if (!acc[date]) acc[date] = 0;
+      acc[date]++;
+      return acc;
+    }, {});
+    const trendData = Object.entries(ticketsPerDay)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // 4. Tickets por Categoria ou Prioridade
+    const priorityData = tickets.reduce((acc: any, t) => {
+      acc[t.priority] = (acc[t.priority] || 0) + 1;
+      return acc;
+    }, {});
+    const priorityChartData = [
+      { name: 'Urgente', value: priorityData.urgent || 0, fill: '#ef4444' },
+      { name: 'Alta', value: priorityData.high || 0, fill: '#f97316' },
+      { name: 'Média', value: priorityData.medium || 0, fill: '#3b82f6' },
+      { name: 'Baixa', value: priorityData.low || 0, fill: '#94a3b8' },
+    ];
+
+    return { statusData, slaData, trendData, priorityChartData };
+  }, [tickets, metrics]);
+
+  const exportToCSV = () => {
+    if (tickets.length === 0) return;
+    const headers = ['ID', 'Título', 'Empresa', 'Solicitante', 'Prioridade', 'Status', 'SLA', 'Técnico', 'Criado Em', 'Resolvido Em'];
+    const rows = tickets.map(t => [
+      t.ticket_number,
+      `"${t.title.replace(/"/g, '""')}"`,
+      `"${t.company_name}"`,
+      `"${t.requester_name}"`,
+      t.priority,
+      t.status,
+      t.sla_status || 'N/A',
+      `"${t.assigned_to || ''}"`,
+      t.created_at,
+      t.resolved_at || ''
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `relatorio_chamados_${dateFrom}_${dateTo}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const printReport = () => {
+    window.print();
+  };
+
   // Loading state
   if (roleLoading) {
     return (
@@ -151,17 +223,33 @@ const Reports: React.FC = () => {
       <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
         <TopBar />
         
-        <div className="mb-6">
-          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar ao Dashboard
-          </Button>
-          <h1 className="text-3xl font-bold text-foreground">Relatórios</h1>
-          <p className="text-muted-foreground mt-1">Métricas e análise de desempenho por período</p>
+        <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+          <div>
+            <Button variant="ghost" onClick={() => navigate('/')} className="mb-4">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar ao Dashboard
+            </Button>
+            <h1 className="text-3xl font-bold text-foreground">Relatórios Gerenciais</h1>
+            <p className="text-muted-foreground mt-1">Métricas, análise de desempenho e exportação de dados</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={exportToCSV} className="bg-background" disabled={tickets.length === 0}>
+              <Download className="w-4 h-4 mr-2" /> Exportar Planilha
+            </Button>
+            <Button onClick={printReport} disabled={tickets.length === 0}>
+              <Printer className="w-4 h-4 mr-2" /> Salvar PDF / Imprimir
+            </Button>
+          </div>
+        </div>
+
+        {/* Cabeçalho exclusivo para impressão */}
+        <div className="hidden print:block mb-8 border-b pb-4">
+          <h1 className="text-2xl font-bold">Relatório Gerencial de Chamados</h1>
+          <p className="text-sm text-gray-500">Período: {dateFrom} a {dateTo}</p>
         </div>
 
         {/* Filtros */}
-        <Card className="mb-6">
+        <Card className="mb-6 print:hidden">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
@@ -269,8 +357,64 @@ const Reports: React.FC = () => {
           </Card>
         </div>
 
+        {/* Gráficos / Charts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 print:break-inside-avoid">
+          <Card className="col-span-1 lg:col-span-2 shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Evolução do Volume</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px] w-full">
+                {chartData.trendData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData.trendData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(val) => val.substring(5).replace('-', '/')} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
+                      <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Sem dados para exibir</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Distribuição de Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px] w-full">
+                {chartData.statusData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={chartData.statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                        {chartData.statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Sem dados para exibir</div>
+                )}
+              </div>
+              <div className="flex justify-center gap-4 mt-2">
+                 {chartData.statusData.map(d => (
+                   <div key={d.name} className="flex items-center gap-1.5 align-middle text-xs font-bold">
+                     <span className="w-2.5 h-2.5 rounded-full block" style={{ backgroundColor: d.color }}></span>
+                     {d.name}
+                   </div>
+                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* SLA Summary */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-6 print:break-inside-avoid">
           <Card className="border-l-4 border-l-green-500">
             <CardContent className="pt-4 pb-4 flex items-center justify-between">
               <div>

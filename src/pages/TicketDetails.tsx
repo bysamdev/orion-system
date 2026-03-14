@@ -13,6 +13,7 @@ import { SLABadge } from '@/components/dashboard/SLABadge';
 import { TicketHeroHeader } from '@/components/ticket/TicketHeroHeader';
 import { UnifiedTimeline } from '@/components/ticket/UnifiedTimeline';
 import { ResolutionDialog } from '@/components/ticket/ResolutionDialog';
+import { EscalateDialog } from '@/components/ticket/EscalateDialog';
 import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2 } from 'lucide-react';
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
@@ -130,6 +131,7 @@ const TicketDetails: React.FC = () => {
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
+  const [escalateDialogOpen, setEscalateDialogOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const copyToClipboard = async (text: string, field: string) => {
@@ -191,6 +193,32 @@ const TicketDetails: React.FC = () => {
     if (!ticket || !canManageTickets) return;
     await updateAssignment.mutateAsync({ id: ticket.id, assigned_to: technicianName });
     await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Chamado atribuído para: ${technicianName}`, type: 'assignment' });
+  };
+
+  const handleEscalateConfirm = async (technicianName: string, newPriority: string, reason: string) => {
+    if (!ticket) return;
+    
+    // Atualizar atribuição e prioridade
+    const { error: prioError } = await supabase.from('tickets').update({ priority: newPriority }).eq('id', ticket.id);
+    if (!prioError && newPriority !== ticket.priority) {
+       await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Prioridade escalada para: ${newPriority}`, type: 'priority_change' });
+    }
+    
+    if (technicianName !== ticket.assigned_to) {
+       await updateAssignment.mutateAsync({ id: ticket.id, assigned_to: technicianName === 'unassigned' ? null : technicianName });
+       await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Chamado escalado para: ${technicianName === 'unassigned' ? 'Fila Geral' : technicianName}`, type: 'assignment' });
+    }
+
+    // Adicionar comentário de escalação como nota interna
+    await addUpdate.mutateAsync({ 
+      ticket_id: ticket.id, 
+      content: `[ESCALAÇÃO] Motivo: ${reason}`, 
+      type: 'comment', 
+      is_internal: true 
+    });
+
+    setEscalateDialogOpen(false);
+    toast({ title: 'Chamado Escalado', description: 'O chamado foi escalado com sucesso e todos foram notificados.' });
   };
 
   const handleResolveConfirm = async (notes: string, _sendSurvey: boolean) => {
@@ -265,10 +293,7 @@ const TicketDetails: React.FC = () => {
             ticket={ticket}
             canManageTickets={canManageTickets}
             onResolve={() => setResolveDialogOpen(true)}
-            onEscalate={() => {
-              const el = document.getElementById('technician-select');
-              el?.click();
-            }}
+            onEscalate={() => setEscalateDialogOpen(true)}
             onAttach={() => fileInputRef.current?.click()}
           />
         </div>
@@ -609,6 +634,16 @@ const TicketDetails: React.FC = () => {
         onOpenChange={setResolveDialogOpen}
         onConfirm={handleResolveConfirm}
         isPending={updateStatus.isPending}
+      />
+
+      <EscalateDialog
+        open={escalateDialogOpen}
+        onOpenChange={setEscalateDialogOpen}
+        onConfirm={handleEscalateConfirm}
+        isPending={updateAssignment.isPending || addUpdate.isPending}
+        technicians={technicians}
+        currentPriority={ticket.priority}
+        currentAssignee={ticket.assigned_to}
       />
     </div>
   );
