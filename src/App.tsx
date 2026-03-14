@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import DebugTools from "./pages/DebugTools";
 import Reports from "./pages/Reports";
 import Monitoring from "./pages/Monitoring";
+import KnowledgeBase from "./pages/KnowledgeBase";
 
 const queryClient = new QueryClient();
 

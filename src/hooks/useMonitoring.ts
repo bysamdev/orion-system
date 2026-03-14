@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 // Falls back to empty string → relative URL /api/monitoring/... (same Vercel domain)
@@ -12,6 +12,24 @@ async function apiGet<T>(path: string): Promise<T> {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || res.statusText);
+  }
+  return res.json();
+}
+
+async function apiPost<T>(path: string, body: any): Promise<T> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -77,10 +95,21 @@ export interface HardwareRow {
   id: string;
   machine_id: string;
   cpu_model: string | null;
-  ram_slots: unknown;
-  disks: unknown;
+  ram_slots: any;
+  disks: any;
+  network_interfaces: any;
   gpu: string | null;
   updated_at: string;
+}
+
+export interface CommandRow {
+  ID: string;
+  MachineID: string;
+  Command: string;
+  Status: 'pending' | 'sent' | 'completed' | 'failed';
+  Output: string | null;
+  CreatedAt: string;
+  UpdatedAt: string;
 }
 
 export interface MachineDetail {
@@ -145,6 +174,32 @@ export function useMachineAlerts(machineId: string | null) {
     queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/alerts`),
     enabled: !!machineId,
     refetchInterval: 30_000,
+  });
+}
+
+export function useCreateCommand() {
+  return useMutation({
+    mutationFn: ({ machineId, command }: { machineId: string; command: string }) => 
+      apiPost<{ id: string }>(`/api/monitoring/machines/${machineId}/commands`, { command }),
+  });
+}
+
+export function useMachineCommands(machineId: string | null) {
+  return useQuery<CommandRow[]>({
+    queryKey: ['monitoring', 'commands', machineId],
+    queryFn: async () => {
+      // We'll reuse the alerts endpoint logic or add a new one if needed
+      // Actually, let's assume we need a new endpoint GET /api/monitoring/machines/{id}/commands
+      return apiGet<CommandRow[]>(`/api/monitoring/machines/${machineId}/commands`);
+    },
+    enabled: !!machineId,
+    refetchInterval: (query) => {
+      const commands = query.state.data;
+      if (commands?.some(c => c.Status === 'pending' || c.Status === 'sent')) {
+        return 3000; // Poll every 3s if there's a pending command
+      }
+      return 10000;
+    },
   });
 }
 
