@@ -19,10 +19,12 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { useNavigate, Navigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useToast } from '@/hooks/use-toast';
 
 const Reports: React.FC = () => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Filtros
   const [dateFrom, setDateFrom] = useState(() => {
@@ -224,6 +226,12 @@ const Reports: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    toast({
+      title: "Exportação concluída",
+      description: "O relatório foi baixado com sucesso.",
+      variant: "default",
+    });
   };
 
   const printReport = () => {
@@ -623,7 +631,7 @@ const Reports: React.FC = () => {
                           <TableCell className="text-muted-foreground max-w-[120px] truncate">
                             {ticket.assigned_to || '—'}
                           </TableCell>
-                          <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                          <TableCell className="whitespace-nowrap text-xs text-muted-foreground capitalize-first">
                             {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true, locale: ptBR })}
                           </TableCell>
                         </TableRow>

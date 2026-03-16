@@ -60,13 +60,19 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ ticketId }) => {
   };
 
   const handleManualAdd = async () => {
-    if (!user || !manualMinutes) return;
+    const mins = parseInt(manualMinutes);
+    if (isNaN(mins) || mins < 1) {
+      toast({ title: 'Duração inválida', description: 'O tempo mínimo de lançamento é 1 minuto.', variant: 'destructive' });
+      setIsAddingManual(false);
+      return;
+    }
+
     setIsAddingManual(true);
     try {
       const { error } = await supabase.from('time_entries').insert({
         ticket_id: ticketId,
         user_id: user.id,
-        duration_minutes: parseInt(manualMinutes),
+        duration_minutes: mins,
         description: manualDescription,
         start_time: new Date().toISOString(),
         end_time: new Date().toISOString(),

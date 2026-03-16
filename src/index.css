@@ -109,3 +109,8 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+@layer utilities {
+  .capitalize-first::first-letter {
+    text-transform: uppercase;
+  }
+}

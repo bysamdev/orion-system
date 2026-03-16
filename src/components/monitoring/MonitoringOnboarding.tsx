@@ -7,9 +7,34 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useUserProfile } from '@/hooks/useUserRole';
+
 export const MonitoringOnboarding: React.FC = () => {
+  const { data: profile } = useUserProfile();
   const [copied, setCopied] = useState(false);
-  const command = 'curl -sSL https://get.orion-system.io/install.sh | bash -s -- --key YOUR_API_KEY';
+
+  const { data: apiKey } = useQuery({
+    queryKey: ['my-api-key', profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return null;
+      const { data, error } = await (supabase
+        .from('api_keys' as any) as any)
+        .select('key_value')
+        .eq('company_id', profile.company_id)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return (data as any)?.key_value || null;
+    },
+    enabled: !!profile?.company_id
+  });
+
+  const displayKey = apiKey || 'SUA_CHAVE_API_AQUI';
+  const command = `curl -sSL https://get.orion-system.io/install.sh | bash -s -- --key ${displayKey}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(command);
