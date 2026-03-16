@@ -2,6 +2,7 @@ package lib
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -252,12 +253,16 @@ func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, com
 
 func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, companyID string) (string, error) {
 	var id string
+	
+	// Identificação formatada: hostname - usuário - IP
+	formattedName := fmt.Sprintf("%s - %s - %s", hostname, currentUser, ip)
+	
 	err := d.pool.QueryRow(ctx, `
-INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, current_user, company_id)
+INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", company_id)
 VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10)
 ON CONFLICT (machine_token) DO UPDATE
-  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, current_user=$9, company_id=$10
-RETURNING id::text`, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, NilIfEmpty(companyID)).Scan(&id)
+  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, company_id=$10
+RETURNING id::text`, groupID, formattedName, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, NilIfEmpty(companyID)).Scan(&id)
 	return id, err
 }
 
