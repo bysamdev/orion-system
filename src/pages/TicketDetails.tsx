@@ -356,32 +356,33 @@ const TicketDetails: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <main className="p-4 md:p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-        <TopBar />
-
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate('/')} 
-          className="mb-8 text-muted-foreground hover:text-foreground hover:bg-muted/50 -ml-2"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Painel de Chamados
-        </Button>
-
-        {/* Status Stepper */}
-        <TicketStatusStepper currentStatus={ticket.status} />
-
-        {/* Hero Header */}
-        <div className="mb-6">
-          <TicketHeroHeader
-            ticket={ticket}
+    <div className="min-h-screen bg-background selection:bg-primary/10">
+      <TopBar />
+      
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate('/')}
+            className="mb-4 gap-2 text-muted-foreground hover:text-foreground group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Voltar ao Dashboard
+          </Button>
+          
+          <TicketHeroHeader 
+            ticket={ticket} 
+            totalTimeMinutes={totalMinutes}
             canManageTickets={canManageTickets}
             onResolve={() => setResolveDialogOpen(true)}
             onEscalate={() => setEscalateDialogOpen(true)}
             onAttach={() => fileInputRef.current?.click()}
+            onStatusChange={handleStatusChange}
           />
         </div>
+
+        <TicketStatusStepper currentStatus={ticket.status} />
 
         {ticket.sla_paused_at && (
           <div className="mb-6 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2">
@@ -400,7 +401,7 @@ const TicketDetails: React.FC = () => {
           {/* Main Content (Left Column) */}
           <div className="xl:col-span-2 space-y-8">
             
-            {(ticket.status === 'resolved' || ticket.status === 'closed') && !canManageTickets && (
+            {canReopenTicket && !canManageTickets && (
               <SatisfactionSurvey ticketId={ticket.id} />
             )}
 
@@ -427,13 +428,19 @@ const TicketDetails: React.FC = () => {
               </div>
               <UnifiedTimeline
                 updates={updates}
-                statusHistory={statusHistory}
-                timeEntries={timeEntries}
+                statusHistory={statusHistory.map(sh => ({
+                  ...sh,
+                  changed_by: technicians.find(t => t.id === sh.changed_by)?.full_name || sh.changed_by
+                }))}
+                timeEntries={timeEntries.map(te => ({
+                  ...te,
+                  user_id: technicians.find(t => t.id === te.user_id)?.full_name || te.user_id
+                }))}
               />
             </Card>
 
             {/* Campo de Resposta / Nova Interação */}
-            {!canReopenTicket ? (
+            {ticket && !canReopenTicket ? (
               <Card className="p-8 border-none shadow-sm bg-muted/10 border-t-2 border-primary/20">
                 <ImagePasteHandler
                   onImagePaste={(file) => { if (id) uploadAttachment.mutate({ ticketId: id, file }); }}
