@@ -38,7 +38,7 @@ export const TopBar: React.FC = () => {
       setShowResults(true);
 
       try {
-        const cleanQuery = searchQuery.replace('#', '').trim();
+        const cleanQuery = searchQuery.replace(/#/g, '').trim();
         const isNumeric = /^\d+$/.test(cleanQuery);
         
         let query = supabase
@@ -46,7 +46,8 @@ export const TopBar: React.FC = () => {
           .select('id, ticket_number, title, status');
           
         if (isNumeric) {
-          query = query.or(`title.ilike.%${cleanQuery}%,ticket_number.eq.${parseInt(cleanQuery)}`);
+          const num = parseInt(cleanQuery, 10);
+          query = query.or(`title.ilike.%${cleanQuery}%,ticket_number.eq.${num}`);
         } else {
           query = query.ilike('title', `%${cleanQuery}%`);
         }
@@ -103,7 +104,8 @@ export const TopBar: React.FC = () => {
                 {searchResults.map((ticket) => (
                   <button
                     key={ticket.id}
-                    onClick={() => {
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent blur before navigation
                       navigate(`/ticket/${ticket.id}`);
                       setShowResults(false);
                       setSearchQuery('');

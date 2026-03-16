@@ -25,6 +25,7 @@ import { MachineCard, MachineCardSkeleton } from '@/components/monitoring/Machin
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 import { useQueryClient } from '@tanstack/react-query';
 import { MonitoringOnboarding } from '@/components/monitoring/MonitoringOnboarding';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 type StatusFilter = 'all' | 'online' | 'offline' | 'alert';
 
@@ -406,4 +407,10 @@ const Monitoring: React.FC = () => {
   );
 };
 
-export default Monitoring;
+const MonitoringWrapper: React.FC = () => (
+  <ErrorBoundary>
+    <Monitoring />
+  </ErrorBoundary>
+);
+
+export default MonitoringWrapper;
