@@ -37,6 +37,7 @@ interface StatCardProps {
   icon: React.ElementType;
   variant?: 'default' | 'warning' | 'success' | 'danger';
   description?: string;
+  department?: string;
   active?: boolean;
   onClick?: () => void;
 }
@@ -152,6 +153,7 @@ export const TechnicianDashboard: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [kpiFilter, setKpiFilter] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('my-tickets');
   const [closedOpen, setClosedOpen] = useState(false);
   
   // Advanced filters state
@@ -221,6 +223,7 @@ export const TechnicianDashboard: React.FC = () => {
           active={kpiFilter === 'in-progress'}
           onClick={() => {
             setKpiFilter(f => f === 'in-progress' ? null : 'in-progress');
+            setActiveTab('my-tickets');
             document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
           }}
         />
@@ -232,6 +235,7 @@ export const TechnicianDashboard: React.FC = () => {
           active={kpiFilter === 'sla'}
           onClick={() => {
             setKpiFilter(f => f === 'sla' ? null : 'sla');
+            setActiveTab('my-tickets');
             document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
           }}
         />
@@ -243,6 +247,7 @@ export const TechnicianDashboard: React.FC = () => {
           active={kpiFilter === 'pending'}
           onClick={() => {
             setKpiFilter(f => f === 'pending' ? null : 'pending');
+            setActiveTab('my-tickets');
             document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
           }}
         />
@@ -251,8 +256,11 @@ export const TechnicianDashboard: React.FC = () => {
           value={stats?.resolvedToday || 0}
           icon={CheckCircle2}
           variant="success"
+          active={closedOpen}
           onClick={() => {
             setClosedOpen(true);
+            setKpiFilter(null);
+            setActiveTab('my-tickets');
             setTimeout(() => document.getElementById('closed-tickets-section')?.scrollIntoView({ behavior: 'smooth' }), 100);
           }}
         />
@@ -438,7 +446,7 @@ export const TechnicianDashboard: React.FC = () => {
           )}
           
           <div id="tickets-section" className="scroll-mt-6" />
-          <Tabs defaultValue="my-tickets" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="flex items-center justify-between">
               <TabsList className="bg-muted/10 p-1 rounded-2xl border border-border/40">
                 <TabsTrigger value="my-tickets" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
@@ -607,7 +615,12 @@ export const TechnicianDashboard: React.FC = () => {
                 </button>
               ))}
               {recentClosed.length > 3 && (
-                <Button variant="ghost" size="sm" className="w-full text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-primary rounded-xl">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => navigate('/historico')}
+                  className="w-full text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-primary rounded-xl"
+                >
                   Ver histórico completo
                 </Button>
               )}

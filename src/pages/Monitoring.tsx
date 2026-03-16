@@ -194,8 +194,19 @@ const Monitoring: React.FC = () => {
     );
   }
 
-  const { data: dashboard } = useMonitoringDashboard();
-  const { data: groups, isLoading: groupsLoading } = useMonitoringGroups();
+  const { data: dashboard, isError: dashboardError } = useMonitoringDashboard();
+  const { data: groups, isLoading: groupsLoading, isError: groupsError } = useMonitoringGroups();
+
+  if (dashboardError || groupsError) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="p-8 lg:p-12 max-w-[1600px] mx-auto w-full">
+          <TopBar />
+          <MonitoringOnboarding />
+        </main>
+      </div>
+    );
+  }
 
   const selectedGroup = groups?.find((g) => g.id === selectedGroupId);
 

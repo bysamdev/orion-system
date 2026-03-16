@@ -150,19 +150,12 @@ const NewTicket = () => {
         remote_id: remoteId.trim() || null,
         remote_password: remotePassword.trim() || null,
         contract_id: selectedContractId || null,
+        asset_id: selectedAssetId || null,
         assigned_to_user_id: assignedToId,
         assigned_to: assignedToName,
       }).select().single();
 
       if (ticketError) throw ticketError;
-
-      // Link Asset if selected
-      if (selectedAssetId) {
-        await supabase.from('ticket_assets').insert({
-          ticket_id: ticket.id,
-          asset_id: selectedAssetId
-        });
-      }
 
       // Attachments logic
       if (pendingFiles.length > 0) {
