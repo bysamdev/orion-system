@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { SLABadge } from '@/components/dashboard/SLABadge';
@@ -67,18 +68,25 @@ const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
 
           return (
             <React.Fragment key={step.key}>
-              <div className="flex flex-col items-center gap-2 relative z-10">
-                <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-500",
-                  isActive ? "bg-primary border-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.3)]" :
-                  isPast ? "bg-green-500 border-green-500 text-white" :
-                  "bg-background border-muted-foreground/20 text-muted-foreground"
-                )}>
-                  {isPast ? <Check className="w-5 h-5" /> : <Icon className={cn("w-5 h-5", isActive ? "animate-pulse" : "opacity-60")} />}
-                </div>
+              <div key={step.key} className="flex flex-col items-center gap-2 relative z-10">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={cn(
+                      "w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-500 cursor-help",
+                      isActive ? "bg-primary border-primary text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-110" :
+                      isPast ? "bg-green-500 border-green-500 text-white" :
+                      "bg-background border-muted-foreground/20 text-muted-foreground hover:border-primary/30"
+                    )}>
+                      {isPast ? <Check className="w-6 h-6" /> : <Icon className={cn("w-6 h-6", isActive ? "animate-pulse" : "opacity-40")} />}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-[10px] font-bold uppercase tracking-widest bg-background border-border">
+                    Status: {step.label}
+                  </TooltipContent>
+                </Tooltip>
                 <span className={cn(
-                  "text-[10px] font-bold uppercase tracking-tight whitespace-nowrap",
-                  isActive ? "text-primary" : isPast ? "text-green-600" : "text-muted-foreground opacity-60"
+                  "text-[10px] font-black uppercase tracking-widest",
+                  isActive ? "text-primary" : isPast ? "text-green-600" : "text-muted-foreground opacity-40"
                 )}>
                   {step.label}
                 </span>

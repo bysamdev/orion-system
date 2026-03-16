@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -54,7 +55,23 @@ const NewTicket = () => {
   const [remoteId, setRemoteId] = useState('');
   const [remotePassword, setRemotePassword] = useState('');
   const [selectedContractId, setSelectedContractId] = useState<string>('');
+  const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [userInfo, setUserInfo] = useState({ name: '', email: '', company: '' });
+
+  const { data: companyAssets } = useQuery({
+    queryKey: ['company-assets', profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return [];
+      const { data, error } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('company_id', profile.company_id)
+        .eq('status', 'active');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.company_id
+  });
 
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -88,27 +105,36 @@ const NewTicket = () => {
         return;
       }
 
-      // ─── Lógica de Atribuição Automática (Round-Robin / Carga de Trabalho) ───
+      // ─── Lógica de Atribuição Automática (Strict Round-Robin por data de última atribuição) ───
       const { data: techs } = await supabase
         .from('profiles')
         .select(`
           id, 
           full_name,
-          tickets!assigned_to_user_id(id)
+          last_assigned_at
         `)
-        .filter('tickets.status', 'in', '("open","in-progress","reopened")');
+        .filter('role', 'in', '("technician","admin","developer")');
 
       let assignedToId = null;
       let assignedToName = null;
 
       if (techs && techs.length > 0) {
-        // Ordenar por quem tem menos tickets abertos
-        const sortedTechs = [...techs].sort((a, b) => 
-          (a.tickets?.length || 0) - (b.tickets?.length || 0)
-        );
+        // Ordenar por quem foi atribuído há mais tempo ou nunca foi (null)
+        const sortedTechs = [...techs].sort((a, b) => {
+          if (!a.last_assigned_at) return -1;
+          if (!b.last_assigned_at) return 1;
+          return new Date(a.last_assigned_at).getTime() - new Date(b.last_assigned_at).getTime();
+        });
+        
         const bestTech = sortedTechs[0];
         assignedToId = bestTech.id;
         assignedToName = bestTech.full_name;
+
+        // Atualizar timestamp de última atribuição para o round-robin
+        await supabase
+          .from('profiles')
+          .update({ last_assigned_at: new Date().toISOString() })
+          .eq('id', assignedToId);
       }
 
       const { data: ticket, error: ticketError } = await supabase.from('tickets').insert({
@@ -129,6 +155,14 @@ const NewTicket = () => {
       }).select().single();
 
       if (ticketError) throw ticketError;
+
+      // Link Asset if selected
+      if (selectedAssetId) {
+        await supabase.from('ticket_assets').insert({
+          ticket_id: ticket.id,
+          asset_id: selectedAssetId
+        });
+      }
 
       // Attachments logic
       if (pendingFiles.length > 0) {
@@ -370,6 +404,24 @@ const NewTicket = () => {
                           <SelectContent>
                             {activeContracts.map((c) => (
                               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </section>
+                    )}
+
+                    {companyAssets && companyAssets.length > 0 && (
+                      <section className="space-y-4">
+                        <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Vincular Ativo (CMDB)</Label>
+                        <Select value={selectedAssetId} onValueChange={setSelectedAssetId}>
+                          <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
+                            <SelectValue placeholder="Selecione um ativo (Equipamento/Software)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {companyAssets.map((a) => (
+                              <SelectItem key={a.id} value={a.id}>
+                                {a.name} {a.serial_number ? `(SN: ${a.serial_number})` : ''}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

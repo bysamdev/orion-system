@@ -38,11 +38,20 @@ export const TopBar: React.FC = () => {
       setShowResults(true);
 
       try {
-        const { data, error } = await supabase
+        const cleanQuery = searchQuery.replace('#', '').trim();
+        const isNumeric = /^\d+$/.test(cleanQuery);
+        
+        let query = supabase
           .from('tickets')
-          .select('id, ticket_number, title, status')
-          .or(`title.ilike.%${searchQuery}%,ticket_number.text.ilike.%${searchQuery}%`)
-          .limit(5);
+          .select('id, ticket_number, title, status');
+          
+        if (isNumeric) {
+          query = query.or(`title.ilike.%${cleanQuery}%,ticket_number.eq.${parseInt(cleanQuery)}`);
+        } else {
+          query = query.ilike('title', `%${cleanQuery}%`);
+        }
+
+        const { data, error } = await query.limit(5);
 
         if (error) throw error;
         setSearchResults(data || []);
@@ -176,8 +185,19 @@ export const TopBar: React.FC = () => {
         <Separator orientation="vertical" className="h-8 mx-2" />
         
         <div className="flex items-center gap-2">
-          <NotificationsPopover />
-          <ThemeToggle />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div><NotificationsPopover /></div>
+            </TooltipTrigger>
+            <TooltipContent>Notificações</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div><ThemeToggle /></div>
+            </TooltipTrigger>
+            <TooltipContent>Alternar Tema</TooltipContent>
+          </Tooltip>
           
           <Tooltip>
             <TooltipTrigger asChild>

@@ -435,7 +435,7 @@ export const TechnicianDashboard: React.FC = () => {
                         </TableRow>
                       ) : (
                         unassigned.map(t => (
-                          <TableRow key={t.id} className="group relative border-b border-border/40 hover:bg-muted/30 transition-all">
+                          <TableRow key={t.id} className="group relative border-b border-border/40 hover:bg-muted/30 transition-all cursor-pointer" onClick={() => navigate(`/ticket/${t.id}`)}>
                             <TableCell className="py-4 font-mono text-[11px] font-bold text-muted-foreground/60">
                               #{t.ticket_number}
                             </TableCell>
@@ -460,8 +460,8 @@ export const TechnicianDashboard: React.FC = () => {
                             <TableCell className="py-4 text-right">
                               <Button 
                                 size="sm" 
-                                onClick={() => handleAssumeTicket(t.id)} 
-                                className="h-8 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => { e.stopPropagation(); handleAssumeTicket(t.id); }} 
+                                className="h-8 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider relative z-20 shadow-lg shadow-primary/20"
                               >
                                 Assumir <HandHelping className="ml-2 w-3.5 h-3.5" />
                               </Button>

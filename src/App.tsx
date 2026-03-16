@@ -19,6 +19,8 @@ import Monitoring from "./pages/Monitoring";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import TicketHistory from "./pages/TicketHistory";
 import Avaliacao from "./pages/Avaliacao";
+import Assets from "./pages/Assets";
+import ClientPortal from "./pages/ClientPortal";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +42,9 @@ const App = () => (
             <Route path="/monitoring" element={<ProtectedRoute><Monitoring /></ProtectedRoute>} />
             <Route path="/ticket/:id" element={<ProtectedRoute><TicketDetails /></ProtectedRoute>} />
             <Route path="/historico" element={<ProtectedRoute><TicketHistory /></ProtectedRoute>} />
+            <Route path="/knowledge" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
+            <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
+            <Route path="/portal" element={<ProtectedRoute><ClientPortal /></ProtectedRoute>} />
             <Route path="/debug-tools" element={<ProtectedRoute><DebugTools /></ProtectedRoute>} />
             <Route path="/avaliacao/:id" element={<Avaliacao />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
