@@ -15,15 +15,17 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Loader2, Trash2, Pencil, FileText } from 'lucide-react';
+import { Plus, Loader2, Trash2, Pencil, FileText, AlertTriangle } from 'lucide-react';
 import { useContracts, useCreateContract, useUpdateContract, useDeleteContract } from '@/hooks/useContracts';
+import { cn } from '@/lib/utils';
 
 interface ContractForm {
   company_id: string;
   name: string;
   start_date: string;
   end_date: string;
-  monthly_hours: string;
+  tickets_limit: string;
+  tickets_used: number;
   notes: string;
   is_active: boolean;
 }
@@ -33,7 +35,8 @@ const emptyForm: ContractForm = {
   name: '',
   start_date: new Date().toISOString().split('T')[0],
   end_date: '',
-  monthly_hours: '',
+  tickets_limit: '',
+  tickets_used: 0,
   notes: '',
   is_active: true,
 };
@@ -71,7 +74,8 @@ export const ContractManagement = () => {
       name: contract.name,
       start_date: contract.start_date,
       end_date: contract.end_date || '',
-      monthly_hours: contract.monthly_hours?.toString() || '',
+      tickets_limit: contract.tickets_limit?.toString() || '',
+      tickets_used: contract.tickets_used || 0,
       notes: contract.notes || '',
       is_active: contract.is_active,
     });
@@ -85,7 +89,8 @@ export const ContractManagement = () => {
       name: formData.name.trim(),
       start_date: formData.start_date,
       end_date: formData.end_date || null,
-      monthly_hours: formData.monthly_hours ? parseFloat(formData.monthly_hours) : null,
+      tickets_limit: formData.tickets_limit ? parseInt(formData.tickets_limit) : null,
+      tickets_used: formData.tickets_used,
       notes: formData.notes.trim() || null,
       is_active: formData.is_active,
     };
@@ -139,7 +144,7 @@ export const ContractManagement = () => {
                 <TableHead>Empresa</TableHead>
                 <TableHead>Início</TableHead>
                 <TableHead>Término</TableHead>
-                <TableHead>Horas/Mês</TableHead>
+                <TableHead>Consumo Mensal (Tickets)</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -164,8 +169,34 @@ export const ContractManagement = () => {
                       ? new Date(contract.end_date + 'T00:00:00').toLocaleDateString('pt-BR')
                       : 'Indeterminado'}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {contract.monthly_hours ? `${contract.monthly_hours}h` : '—'}
+                   <TableCell>
+                    {contract.tickets_limit ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <span>{contract.tickets_used || 0} / {contract.tickets_limit}</span>
+                            {((contract.tickets_used || 0) / contract.tickets_limit) >= 1 ? (
+                              <AlertTriangle className="w-3 h-3 text-destructive animate-pulse" />
+                            ) : ((contract.tickets_used || 0) / contract.tickets_limit) >= 0.8 ? (
+                              <AlertTriangle className="w-3 h-3 text-warning" />
+                            ) : null}
+                          </div>
+                          <span>{Math.round(((contract.tickets_used || 0) / (contract.tickets_limit || 1)) * 100)}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-muted rounded-full overflow-hidden border border-border/40">
+                          <div 
+                            className={cn(
+                              "h-full transition-all duration-500",
+                              ((contract.tickets_used || 0) / contract.tickets_limit) >= 1 ? "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
+                              ((contract.tickets_used || 0) / contract.tickets_limit) >= 0.8 ? "bg-warning shadow-[0_0_8px_rgba(245,158,11,0.5)]" : "bg-primary shadow-[0_0_8px_rgba(59,130,246,0.3)]"
+                            )}
+                            style={{ width: `${Math.min(100, ((contract.tickets_used || 0) / contract.tickets_limit) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={contract.is_active ? 'default' : 'secondary'}>
@@ -246,12 +277,12 @@ export const ContractManagement = () => {
               </div>
             </div>
             <div>
-              <Label>Horas Mensais Contratadas</Label>
+              <Label>Limite Mensal de Chamados</Label>
               <Input
                 type="number"
-                value={formData.monthly_hours}
-                onChange={(e) => setFormData(p => ({ ...p, monthly_hours: e.target.value }))}
-                placeholder="Ex: 40"
+                value={formData.tickets_limit}
+                onChange={(e) => setFormData(p => ({ ...p, tickets_limit: e.target.value }))}
+                placeholder="Ex: 30"
                 min="0"
               />
             </div>

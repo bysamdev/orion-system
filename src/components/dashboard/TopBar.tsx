@@ -39,14 +39,14 @@ export const TopBar: React.FC = () => {
 
       try {
         const cleanQuery = searchQuery.replace(/#/g, '').trim();
-        const isNumeric = /^\d+$/.test(cleanQuery);
+        const numberMatch = searchQuery.match(/\b\d+\b/);
         
         let query = supabase
           .from('tickets')
           .select('id, ticket_number, title, status');
           
-        if (isNumeric) {
-          const num = parseInt(cleanQuery, 10);
+        if (numberMatch) {
+          const num = parseInt(numberMatch[0], 10);
           query = query.or(`title.ilike.%${cleanQuery}%,ticket_number.eq.${num}`);
         } else {
           query = query.ilike('title', `%${cleanQuery}%`);

@@ -9,6 +9,8 @@ export interface Contract {
   name: string;
   sla_config_id: string | null;
   monthly_hours: number | null;
+  tickets_limit: number | null;
+  tickets_used: number | null;
   start_date: string;
   end_date: string | null;
   is_active: boolean;
@@ -64,6 +66,8 @@ export const useCreateContract = () => {
       start_date: string;
       end_date?: string | null;
       monthly_hours?: number | null;
+      tickets_limit?: number | null;
+      tickets_used?: number | null;
       sla_config_id?: string | null;
       notes?: string | null;
     }) => {

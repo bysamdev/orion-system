@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { TopBar } from '@/components/dashboard/TopBar';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { 
   Plus, Search, Laptop, Smartphone, Server as ServerIcon, 
   Key, Filter, MoreHorizontal, Loader2, ArrowRightLeft, 
-  History, Calendar, ShieldCheck, AlertCircle, Archive
+  History, Calendar, ShieldCheck, AlertCircle, Archive,
+  HardDrive, Globe, Activity, Pencil, Trash2
 } from 'lucide-react';
+import { 
+  Dialog, DialogContent, DialogDescription, DialogFooter, 
+  DialogHeader, DialogTitle, DialogTrigger 
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { 
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -31,6 +40,10 @@ interface Asset {
   company_name?: string;
   purchased_at: string | null;
   warranty_until: string | null;
+  os: string | null;
+  internal_ip: string | null;
+  last_check: string | null;
+  hostname: string | null;
 }
 
 const typeIcons: Record<string, any> = {
@@ -42,11 +55,37 @@ const typeIcons: Record<string, any> = {
 };
 
 const Assets = () => {
+  const navigate = useNavigate();
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [historyAsset, setHistoryAsset] = useState<Asset | null>(null);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    hostname: '',
+    company_id: '',
+    type: 'Hardware',
+    os: '',
+    internal_ip: '',
+    status: 'online',
+    serial_number: '',
+    brand: '',
+    model: ''
+  });
+
+  const { data: companies } = useQuery({
+    queryKey: ['companies'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('companies').select('id, name').order('name');
+      if (error) throw error;
+      return data;
+    }
+  });
 
   const { data: assets, isLoading: assetsLoading } = useQuery({
     queryKey: ['assets'],
@@ -66,6 +105,102 @@ const Assets = () => {
       })) as Asset[];
     }
   });
+
+  const { data: assetTickets, isLoading: assetTicketsLoading } = useQuery({
+    queryKey: ['asset-tickets', historyAsset?.id],
+    queryFn: async () => {
+      if (!historyAsset?.id) return [];
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('asset_id', historyAsset.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!historyAsset?.id
+  });
+
+  const createAsset = useMutation({
+    mutationFn: async (newAsset: any) => {
+      const { data, error } = await supabase.from('assets').insert([newAsset]).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      toast({ title: 'Sucesso', description: 'Ativo cadastrado com sucesso.' });
+      setIsDialogOpen(false);
+      resetForm();
+    }
+  });
+
+  const updateAsset = useMutation({
+    mutationFn: async ({ id, ...updates }: any) => {
+      const { data, error } = await supabase.from('assets').update(updates).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      toast({ title: 'Sucesso', description: 'Ativo atualizado com sucesso.' });
+      setIsDialogOpen(false);
+      resetForm();
+    }
+  });
+
+  const deleteAsset = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('assets').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      toast({ title: 'Removido', description: 'Ativo removido do sistema.' });
+    }
+  });
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      hostname: '',
+      company_id: '',
+      type: 'Hardware',
+      os: '',
+      internal_ip: '',
+      status: 'online',
+      serial_number: '',
+      brand: '',
+      model: ''
+    });
+    setEditingAsset(null);
+  };
+
+  const handleOpenEdit = (asset: Asset) => {
+    setEditingAsset(asset);
+    setFormData({
+      name: asset.name,
+      hostname: asset.hostname || '',
+      company_id: asset.company_id,
+      type: asset.type,
+      os: asset.os || '',
+      internal_ip: asset.internal_ip || '',
+      status: asset.status,
+      serial_number: asset.serial_number || '',
+      brand: asset.brand || '',
+      model: asset.model || ''
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingAsset) {
+      updateAsset.mutate({ id: editingAsset.id, ...formData });
+    } else {
+      createAsset.mutate(formData);
+    }
+  };
 
   const filteredAssets = assets?.filter(a => {
     const matchesSearch = a.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -107,9 +242,145 @@ const Assets = () => {
             <p className="text-muted-foreground font-medium">Controle total sobre o inventário de hardware e software dos clientes.</p>
           </div>
           
-          <Button className="h-12 px-6 rounded-xl font-bold gap-2 shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95">
-            <Plus className="w-5 h-5" /> Novo Ativo
-          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button className="h-12 px-6 rounded-xl font-bold gap-2 shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95">
+                <Plus className="w-5 h-5" /> Novo Ativo
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingAsset ? 'Editar Ativo' : 'Novo Ativo/Máquina'}</DialogTitle>
+                <DialogDescription>
+                  Preencha os dados técnicos da máquina ou ativo.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-6 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome Amigável</Label>
+                    <Input 
+                      id="name" 
+                      placeholder="Ex: Servidor-DB-01" 
+                      value={formData.name}
+                      onChange={e => setFormData({...formData, name: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="hostname">Hostname/FQD</Label>
+                    <Input 
+                      id="hostname" 
+                      placeholder="db01.cliente.local" 
+                      value={formData.hostname}
+                      onChange={e => setFormData({...formData, hostname: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Empresa (Cliente)</Label>
+                    <Select 
+                      value={formData.company_id} 
+                      onValueChange={v => setFormData({...formData, company_id: v})}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o cliente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies?.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Ativo</Label>
+                    <Select 
+                      value={formData.type} 
+                      onValueChange={v => setFormData({...formData, type: v})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Hardware">Hardware / Máquina</SelectItem>
+                        <SelectItem value="Software">Software</SelectItem>
+                        <SelectItem value="License">Licença</SelectItem>
+                        <SelectItem value="Network">Rede</SelectItem>
+                        <SelectItem value="Mobile">Mobile</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {formData.type === 'Hardware' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-xl border border-border/50">
+                      <div className="space-y-2">
+                        <Label htmlFor="os">Sistema Operacional</Label>
+                        <Input 
+                          id="os" 
+                          placeholder="Windows Server 2022" 
+                          value={formData.os}
+                          onChange={e => setFormData({...formData, os: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="internal_ip">IP Interno</Label>
+                        <Input 
+                          id="internal_ip" 
+                          placeholder="192.168.1.50" 
+                          value={formData.internal_ip}
+                          onChange={e => setFormData({...formData, internal_ip: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="serial">Série / Tag</Label>
+                    <Input 
+                      id="serial" 
+                      value={formData.serial_number}
+                      onChange={e => setFormData({...formData, serial_number: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="brand">Marca</Label>
+                    <Input 
+                      id="brand" 
+                      value={formData.brand}
+                      onChange={e => setFormData({...formData, brand: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="model">Modelo</Label>
+                    <Input 
+                      id="model" 
+                      value={formData.model}
+                      onChange={e => setFormData({...formData, model: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter className="pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+                  <Button type="submit" disabled={createAsset.isPending || updateAsset.isPending}>
+                    {(createAsset.isPending || updateAsset.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {editingAsset ? 'Salvar Alterações' : 'Cadastrar Ativo'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -223,22 +494,60 @@ const Assets = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-right pr-8">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
+                            onClick={() => setHistoryAsset(asset)}
+                            title="Histórico de Incidentes"
+                          >
+                            <History className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
+                            onClick={() => handleOpenEdit(asset)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            onClick={() => {
+                              if (confirm('Tem certeza que deseja remover este ativo?')) {
+                                deleteAsset.mutate(asset.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
                 })}
                 {filteredAssets?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-64 text-center">
-                      <div className="flex flex-col items-center justify-center space-y-3 opacity-40">
-                        <Archive className="w-12 h-12" />
-                        <div className="space-y-1">
-                          <p className="text-lg font-black">Nenhum ativo encontrado</p>
-                          <p className="text-sm">Tente mudar os filtros ou adicione um novo ativo.</p>
+                    <TableCell colSpan={6} className="h-[400px] text-center">
+                      <div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-500">
+                        <div className="p-6 bg-primary/5 rounded-full ring-8 ring-primary/5">
+                          <HardDrive className="w-16 h-16 text-primary opacity-40" />
                         </div>
+                        <div className="space-y-2 max-w-sm mx-auto">
+                          <h3 className="text-2xl font-black text-foreground">Nenhuma máquina cadastrada</h3>
+                          <p className="text-muted-foreground font-medium">
+                            Comece adicionando a primeira máquina monitorada do seu cliente para gerenciar incidentes e inventário.
+                          </p>
+                        </div>
+                        <Button 
+                          onClick={() => setIsDialogOpen(true)}
+                          className="h-12 px-8 rounded-xl font-bold gap-2 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                        >
+                          <Plus className="w-5 h-5" /> Adicionar Máquina
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -247,6 +556,72 @@ const Assets = () => {
             </Table>
           </CardContent>
         </Card>
+
+        {/* Dialog de Histórico */}
+        <Dialog open={!!historyAsset} onOpenChange={(open) => !open && setHistoryAsset(null)}>
+          <DialogContent className="sm:max-w-[700px] max-h-[80vh] flex flex-col p-0 overflow-hidden">
+            <DialogHeader className="p-6 border-b border-border/40">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <History className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-bold">Histórico: {historyAsset?.name}</DialogTitle>
+                  <DialogDescription>
+                    Todos os chamados vinculados a este ativo.
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {assetTicketsLoading ? (
+                <div className="flex items-center justify-center h-48">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary/20" />
+                </div>
+              ) : assetTickets && assetTickets.length > 0 ? (
+                <div className="space-y-4">
+                  {assetTickets.map((ticket: any) => (
+                    <div 
+                      key={ticket.id} 
+                      className="group flex items-start gap-4 p-4 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/30 transition-all cursor-pointer"
+                      onClick={() => navigate(`/tickets/${ticket.id}`)}
+                    >
+                      <div className={cn(
+                        "mt-1 w-2 h-2 rounded-full",
+                        ticket.status === 'open' ? "bg-blue-500" :
+                        ticket.status === 'resolved' ? "bg-green-500" : "bg-muted-foreground"
+                      )} />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-bold text-foreground">#{ticket.ticket_number} — {ticket.title}</span>
+                          <span className="text-[10px] text-muted-foreground font-medium">{format(new Date(ticket.created_at), "dd/MM/yy HH:mm")}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-[9px] uppercase font-black tracking-tighter px-1.5 h-4">{ticket.status}</Badge>
+                          <Badge variant="outline" className="text-[9px] uppercase font-black tracking-tighter px-1.5 h-4 opacity-70">{ticket.category}</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-64 text-center space-y-3 opacity-40">
+                  <Activity className="w-12 h-12" />
+                  <div className="space-y-1">
+                    <p className="text-lg font-black">Nenhum chamado vinculado</p>
+                    <p className="text-sm">Este ativo ainda não possui histórico de incidentes.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <DialogFooter className="p-6 border-t border-border/40">
+              <Button variant="outline" onClick={() => setHistoryAsset(null)}>Fechar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
