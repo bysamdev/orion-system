@@ -10,9 +10,24 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Search, History, Filter, X, ArrowRight, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabaseRead } from '@/integrations/supabase/read-client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom'; // Added Navigate import
+import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+// Define types for tickets to avoid 'unknown' property errors
+interface Ticket {
+  id: string;
+  ticket_number: number;
+  title: string;
+  requester_name: string;
+  company_id: string;
+  user_id: string;
+  status: 'resolved' | 'closed' | 'cancelled' | string;
+  priority: 'urgent' | 'high' | 'medium' | 'low' | string;
+  updated_at: string;
+  company_name?: string; // Added for the joined data
+}
 
 export default function TicketHistory() {
   const navigate = useNavigate();
@@ -21,38 +36,61 @@ export default function TicketHistory() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
+  const { data: role, isLoading: roleLoading } = useUserRole(); // Added isLoading for role
+  const { data: profile } = useUserProfile();
+
   // Fetch historic tickets
-  const { data: historicTickets = [], isLoading } = useQuery({
-    queryKey: ['historic-tickets'],
+  const { data: historicTickets = [], isLoading } = useQuery<Ticket[]>({ // Explicitly type historicTickets
+    queryKey: ['historic-tickets', profile?.company_id, role],
     queryFn: async () => {
-      const { data, error } = await supabaseRead
+      let query = supabaseRead
         .from('tickets')
         .select('*')
         .in('status', ['resolved', 'closed', 'cancelled'])
         .order('updated_at', { ascending: false })
         .limit(200);
 
+      // Se for cliente, filtrar apenas pela empresa dele
+      if (role === 'customer' && profile?.company_id) {
+        query = query.eq('company_id', profile.company_id);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
       
+      interface ProfileItem {
+        id: string;
+        company_id: string;
+      }
+      interface CompanyItem {
+        id: string;
+        name: string;
+      }
+
       const userIds = [...new Set(data.map(t => t.user_id))];
-      const { data: profiles } = await supabaseRead
+      const { data: profilesData } = await supabaseRead
         .from('profiles')
         .select('id, company_id')
         .in('id', userIds);
+      
+      const profiles = (profilesData || []) as ProfileItem[];
 
-      const companyIds = [...new Set(profiles?.map(p => p.company_id) || [])];
-      const { data: companies } = await supabaseRead
+      const companyIds = [...new Set(profiles.map(p => p.company_id))];
+      const { data: companiesData } = await supabaseRead
         .from('companies')
         .select('id, name')
         .in('id', companyIds);
+      
+      const companies = (companiesData || []) as CompanyItem[];
 
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      const companyMap = new Map(companies?.map(c => [c.id, c]) || []);
+      const profileMap = new Map<string, ProfileItem>(profiles.map(p => [p.id, p]));
+      const companyMap = new Map<string, CompanyItem>(companies.map(c => [c.id, c]));
 
-      return data.map((ticket: any) => {
+      return data.map((ticket: any) => { // Cast ticket to any for initial map, then return as Ticket
         const profile = profileMap.get(ticket.user_id);
         const company = profile ? companyMap.get(profile.company_id) : null;
-        return { ...ticket, company_name: company?.name || null };
+        return { ...ticket, company_name: company?.name || null } as Ticket;
       });
     }
   });

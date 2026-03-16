@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { TopBar } from '@/components/dashboard/TopBar';
+import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
+import { Navigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -40,12 +42,13 @@ const typeIcons: Record<string, any> = {
 };
 
 const Assets = () => {
+  const { data: role, isLoading: roleLoading } = useUserRole();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
 
-  const { data: assets, isLoading } = useQuery({
+  const { data: assets, isLoading: assetsLoading } = useQuery({
     queryKey: ['assets'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -71,7 +74,7 @@ const Assets = () => {
     return matchesSearch && matchesType;
   });
 
-  if (isLoading) {
+  if (roleLoading || assetsLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <TopBar />
@@ -80,6 +83,11 @@ const Assets = () => {
         </div>
       </div>
     );
+  }
+
+  // Clientes não têm acesso direto ao CMDB completo por enquanto
+  if (role === 'customer') {
+    return <Navigate to="/" replace />;
   }
 
   return (
