@@ -118,9 +118,33 @@ export const RoutingRulesManagement = () => {
     setIsDialogOpen(true);
   };
 
+  const { data: technicians = [] } = useQuery({
+    queryKey: ['technicians', profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return [];
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('company_id', profile.company_id)
+        .in('role', ['technician', 'admin', 'developer']);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!profile?.company_id,
+  });
+
+  const { data: companies = [] } = useQuery({
+    queryKey: ['admin-companies'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('companies').select('id, name');
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !conditionValue.trim() || !actionTarget.trim()) {
+    if (!name.trim() || !conditionValue.trim() || (actionType !== 'notify_all' && !actionTarget.trim())) {
       toast({ title: 'Atenção', description: 'Preencha todos os campos obrigatórios.', variant: 'destructive' });
       return;
     }
@@ -181,7 +205,7 @@ export const RoutingRulesManagement = () => {
                     <SelectContent>
                       <SelectItem value="category">Categoria</SelectItem>
                       <SelectItem value="priority">Prioridade</SelectItem>
-                      <SelectItem value="company_id">Cliente (ID)</SelectItem>
+                      <SelectItem value="company_id">Cliente (Empresa)</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={conditionOperator} onValueChange={setConditionOperator}>
@@ -191,7 +215,28 @@ export const RoutingRulesManagement = () => {
                       <SelectItem value="contains">Contiver</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Input placeholder="Valor..." value={conditionValue} onChange={(e) => setConditionValue(e.target.value)} required />
+                  {conditionField === 'company_id' ? (
+                    <Select value={conditionValue} onValueChange={setConditionValue}>
+                      <SelectTrigger><SelectValue placeholder="Selecione empresa..." /></SelectTrigger>
+                      <SelectContent>
+                        {companies.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : conditionField === 'priority' ? (
+                    <Select value={conditionValue} onValueChange={setConditionValue}>
+                      <SelectTrigger><SelectValue placeholder="Selecione prioridade..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="urgent">Urgente</SelectItem>
+                        <SelectItem value="high">Alta</SelectItem>
+                        <SelectItem value="medium">Média</SelectItem>
+                        <SelectItem value="low">Baixa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input placeholder="Valor..." value={conditionValue} onChange={(e) => setConditionValue(e.target.value)} required />
+                  )}
                 </div>
               </div>
 
@@ -202,11 +247,28 @@ export const RoutingRulesManagement = () => {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="assign_to_user">Atribuir a Agente</SelectItem>
-                      <SelectItem value="notify_user">Notificar Agente</SelectItem>
-                      <SelectItem value="set_priority">Alterar Prioridade</SelectItem>
+                      <SelectItem value="round_robin">Round-Robin (Equipe)</SelectItem>
+                      <SelectItem value="notify_all">Notificar Todos os Técnicos</SelectItem>
+                      <SelectItem value="escalate_manager">Escalar para Gestor</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Input placeholder={actionType === 'assign_to_user' ? 'Nome do Técnico ou ID' : 'Valor da ação...'} value={actionTarget} onChange={(e) => setActionTarget(e.target.value)} required />
+                  
+                  {actionType === 'assign_to_user' ? (
+                    <Select value={actionTarget} onValueChange={setActionTarget}>
+                      <SelectTrigger><SelectValue placeholder="Selecione técnico..." /></SelectTrigger>
+                      <SelectContent>
+                        {technicians.map((t: any) => (
+                          <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : actionType === 'notify_all' ? (
+                    <div className="flex items-center text-xs font-bold text-muted-foreground bg-background px-3 rounded-lg border border-border/40">
+                      Toda a equipe será alertada
+                    </div>
+                  ) : (
+                    <Input placeholder="Alvo da ação..." value={actionTarget} onChange={(e) => setActionTarget(e.target.value)} />
+                  )}
                 </div>
               </div>
 
