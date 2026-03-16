@@ -8,15 +8,24 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Plus, Ticket, Book, History, Search, 
   ChevronRight, MessageSquare, LifeBuoy, 
-  ExternalLink, ArrowRight
+  ExternalLink, ArrowRight, Loader2
 } from 'lucide-react';
 import { useUserProfile } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 const ClientPortal = () => {
   const navigate = useNavigate();
-  const { data: profile } = useUserProfile();
+  const { data: profile, isLoading: profileLoading } = useUserProfile();
   const [search, setSearch] = useState('');
+
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const { data: recentTickets } = useQuery({
     queryKey: ['client-recent-tickets', profile?.company_id],
