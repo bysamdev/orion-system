@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { 
   PlayCircle, CheckCircle2, AlertTriangle, Clock, Loader2,
   HandHelping, User, Search, ChevronDown, ChevronUp, 
-  ExternalLink, MousePointer2, ArrowRight, Filter
+  ExternalLink, MousePointer2, ArrowRight, Filter, Info
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTechnicianStats, useTechnicianWorkload } from '@/hooks/useTechnicianStats';
@@ -67,7 +67,18 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant =
             <h3 className="text-3xl font-black tracking-tighter">{value}</h3>
             {active && <ArrowRight className="w-4 h-4 text-primary animate-pulse" />}
           </div>
-          {description && <p className="text-[10px] font-medium text-muted-foreground">{description}</p>}
+          
+          <div className="overflow-hidden">
+            <div className="transition-all duration-300 transform group-hover:-translate-y-full">
+               {description && <p className="text-[10px] font-medium text-muted-foreground h-4">{description}</p>}
+               {!description && <div className="h-4" />}
+            </div>
+            <div className="transition-all duration-300 transform translate-y-0 group-hover:-translate-y-full">
+               <p className="text-[10px] font-bold text-primary h-4 flex items-center gap-1">
+                 <Info className="w-3 h-3" /> Ver detalhes da categoria
+               </p>
+            </div>
+          </div>
         </div>
         <div className={cn("p-3 rounded-2xl transition-all group-hover:rotate-12", styles[variant])}>
           <Icon className="w-6 h-6" />
@@ -143,6 +154,10 @@ export const TechnicianDashboard: React.FC = () => {
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [technicianFilter, setTechnicianFilter] = useState<string>('all');
+  const [companyFilter, setCompanyFilter] = useState<string>('all');
+  const [slaFilter, setSlaFilter] = useState<string>('all');
 
   useRealtimeTickets();
 
@@ -152,20 +167,20 @@ export const TechnicianDashboard: React.FC = () => {
     else if (kpiFilter === 'sla') result = result.filter(t => t.sla_status === 'attention' || t.sla_status === 'breached');
     else if (kpiFilter === 'pending') result = result.filter(t => ['open', 'reopened', 'awaiting-customer'].includes(t.status));
 
-    if (priorityFilter !== 'all') {
-      result = result.filter(t => t.priority === priorityFilter);
-    }
-    
-    if (categoryFilter !== 'all') {
-      result = result.filter(t => t.category === categoryFilter);
-    }
+    if (priorityFilter !== 'all') result = result.filter(t => t.priority === priorityFilter);
+    if (categoryFilter !== 'all') result = result.filter(t => t.category === categoryFilter);
+    if (statusFilter !== 'all') result = result.filter(t => t.status === statusFilter);
+    if (technicianFilter !== 'all') result = result.filter(t => t.assigned_to === technicianFilter);
+    if (companyFilter !== 'all') result = result.filter(t => t.company_name?.toLowerCase().includes(companyFilter.toLowerCase()));
+    if (slaFilter !== 'all') result = result.filter(t => t.sla_status === slaFilter);
 
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       result = result.filter(t =>
         t.title.toLowerCase().includes(lower) ||
         t.ticket_number.toString().includes(lower) ||
-        t.requester_name.toLowerCase().includes(lower)
+        t.requester_name.toLowerCase().includes(lower) ||
+        t.company_name?.toLowerCase().includes(lower)
       );
     }
     return result;
@@ -238,6 +253,13 @@ export const TechnicianDashboard: React.FC = () => {
                 onChange={e => setSearchTerm(e.target.value)}
                 className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-2xl transition-all"
               />
+              {searchTerm && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-tighter text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                    {filteredMyTickets.length} resultados
+                  </span>
+                </div>
+              )}
             </div>
             
             <div className="flex items-center gap-2">
@@ -253,11 +275,11 @@ export const TechnicianDashboard: React.FC = () => {
           </div>
 
           {advancedFiltersOpen && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/20 rounded-2xl border border-border/40 animate-in fade-in slide-in-from-top-2">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Prioridade</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-muted/10 rounded-2xl border border-border/40 animate-in fade-in slide-in-from-top-2">
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Prioridade</label>
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                  <SelectTrigger className="h-10 bg-background border-border/40 rounded-xl">
+                  <SelectTrigger className="h-10 bg-background/50 border-border/40 rounded-xl">
                     <SelectValue placeholder="Todas as Prioridades" />
                   </SelectTrigger>
                   <SelectContent>
@@ -269,10 +291,28 @@ export const TechnicianDashboard: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Categoria (Módulo)</label>
+
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Status</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-10 bg-background/50 border-border/40 rounded-xl">
+                    <SelectValue placeholder="Todos os Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Status</SelectItem>
+                    <SelectItem value="open">Aberto</SelectItem>
+                    <SelectItem value="in-progress">Em Atendimento</SelectItem>
+                    <SelectItem value="awaiting-customer">Aguardando Cliente</SelectItem>
+                    <SelectItem value="resolved">Resolvido</SelectItem>
+                    <SelectItem value="closed">Concluído</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Categoria</label>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="h-10 bg-background border-border/40 rounded-xl">
+                  <SelectTrigger className="h-10 bg-background/50 border-border/40 rounded-xl">
                     <SelectValue placeholder="Todas as Categorias" />
                   </SelectTrigger>
                   <SelectContent>
@@ -283,6 +323,50 @@ export const TechnicianDashboard: React.FC = () => {
                     <SelectItem value="Dúvida">Dúvidas Técnicas</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Status SLA</label>
+                <Select value={slaFilter} onValueChange={setSlaFilter}>
+                  <SelectTrigger className="h-10 bg-background/50 border-border/40 rounded-xl">
+                    <SelectValue placeholder="Todos os SLAs" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os SLAs</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="attention" className="text-amber-600">Em Atenção</SelectItem>
+                    <SelectItem value="breached" className="text-rose-600 font-bold">Vencido</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5 text-left lg:col-span-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Empresa / Cliente</label>
+                <div className="relative">
+                  <Input 
+                    placeholder="Filtrar por nome da empresa..." 
+                    value={companyFilter === 'all' ? '' : companyFilter}
+                    onChange={(e) => setCompanyFilter(e.target.value || 'all')}
+                    className="h-10 bg-background/50 border-border/40 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+              
+              <div className="lg:col-span-3 flex justify-end pt-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setPriorityFilter('all');
+                    setCategoryFilter('all');
+                    setStatusFilter('all');
+                    setCompanyFilter('all');
+                    setSlaFilter('all');
+                  }}
+                  className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary"
+                >
+                  Limpar Filtros
+                </Button>
               </div>
             </div>
           )}
@@ -330,25 +414,55 @@ export const TechnicianDashboard: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="unassigned" className="mt-0">
-              <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden">
+              <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
                 <CardContent className="p-0">
                   <Table>
+                    <TableHeader className="bg-muted/5">
+                      <TableRow className="hover:bg-transparent border-b border-border/40">
+                        <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Descrição</TableHead>
+                        <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-12">Prioridade</TableHead>
+                        <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest h-12">Prazo SLA</TableHead>
+                        <TableHead className="w-[150px] h-12 text-right"></TableHead>
+                      </TableRow>
+                    </TableHeader>
                     <TableBody>
                       {unassigned.length === 0 ? (
-                        <TableRow><TableCell className="h-48 text-center text-xs text-muted-foreground">Fila limpa! Ótimo trabalho.</TableCell></TableRow>
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-48 text-center text-muted-foreground italic text-xs">
+                            Fila limpa! Ótimo trabalho.
+                          </TableCell>
+                        </TableRow>
                       ) : (
                         unassigned.map(t => (
-                          <TableRow key={t.id} className="group hover:bg-muted/30 border-b border-border/40">
-                            <TableCell className="font-mono text-[11px] font-bold text-muted-foreground/60">#{t.ticket_number}</TableCell>
-                            <TableCell>
-                              <p className="text-sm font-bold text-foreground">{t.title}</p>
-                              <p className="text-[10px] text-muted-foreground font-medium">{t.requester_name} · {t.company_name}</p>
+                          <TableRow key={t.id} className="group relative border-b border-border/40 hover:bg-muted/30 transition-all">
+                            <TableCell className="py-4 font-mono text-[11px] font-bold text-muted-foreground/60">
+                              #{t.ticket_number}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="py-4">
+                              <div className="space-y-0.5">
+                                <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
+                                  {t.title}
+                                </p>
+                                <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
+                                  <span className="text-primary/70">{t.requester_name}</span>
+                                  <span>·</span>
+                                  <span className="truncate max-w-[120px]">{t.company_name || 'N/A'}</span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <PriorityBadge priority={t.priority} size="sm" />
+                            </TableCell>
+                            <TableCell className="py-4 text-center">
                               <SLABadge slaStatus={t.sla_status} slaDueDate={t.sla_due_date} variant="compact" />
                             </TableCell>
-                            <TableCell className="text-right">
-                              <Button size="sm" onClick={() => handleAssumeTicket(t.id)} className="h-8 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                            <TableCell className="py-4 text-right">
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleAssumeTicket(t.id)} 
+                                className="h-8 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
                                 Assumir <HandHelping className="ml-2 w-3.5 h-3.5" />
                               </Button>
                             </TableCell>
