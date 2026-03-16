@@ -43,6 +43,10 @@ func NewDB(databaseURL string) (*DB, error) {
 	cfg.MaxConnIdleTime = 5 * time.Minute
 	cfg.HealthCheckPeriod = 30 * time.Second
 
+	// PgBouncer em modo 'Transaction' não suporta Prepared Statements (protocolo estendido).
+	// Forçamos o 'Simple Protocol' para evitar o erro "prepared statement already exists".
+	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+
 	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
 		return nil, err
