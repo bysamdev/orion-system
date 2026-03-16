@@ -17,20 +17,29 @@ type DB struct {
 
 // NewDB creates a new database connection pool.
 func NewDB(databaseURL string) (*DB, error) {
+	if databaseURL == "" {
+		return nil, errors.New("DATABASE_URL está vazia")
+	}
+
 	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	// Forçar IPv4 para evitar erro "cannot assign requested address" na Vercel
+	// Dialer customizado para lidar com IPv4/IPv6 de forma resiliente na Vercel
 	dialer := &net.Dialer{
 		KeepAlive: 5 * time.Minute,
 	}
 	cfg.ConnConfig.DialFunc = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		// Se o endereço for um IPv6 literal (ex: [2600:...]:5432), usamos tcp padrão (que resolve IPv6)
+		// Caso contrário, tentamos forçar tcp4 para evitar erros comuns de resolução na Vercel
+		if len(addr) > 0 && addr[0] == '[' {
+			return dialer.DialContext(ctx, "tcp", addr)
+		}
 		return dialer.DialContext(ctx, "tcp4", addr)
 	}
+	
 	cfg.MaxConns = 10
-	cfg.MinConns = 2
 	cfg.MaxConnIdleTime = 5 * time.Minute
 	cfg.HealthCheckPeriod = 30 * time.Second
 
