@@ -215,7 +215,10 @@ export const TechnicianDashboard: React.FC = () => {
           value={stats?.inProgress || 0}
           icon={PlayCircle}
           active={kpiFilter === 'in-progress'}
-          onClick={() => setKpiFilter(f => f === 'in-progress' ? null : 'in-progress')}
+          onClick={() => {
+            setKpiFilter(f => f === 'in-progress' ? null : 'in-progress');
+            document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
+          }}
         />
         <StatCard
           title="SLA Crítico"
@@ -223,7 +226,10 @@ export const TechnicianDashboard: React.FC = () => {
           icon={AlertTriangle}
           variant={(stats?.slaAtRisk || 0) > 0 ? 'danger' : 'default'}
           active={kpiFilter === 'sla'}
-          onClick={() => setKpiFilter(f => f === 'sla' ? null : 'sla')}
+          onClick={() => {
+            setKpiFilter(f => f === 'sla' ? null : 'sla');
+            document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
+          }}
         />
         <StatCard
           title="Minha Fila"
@@ -231,13 +237,20 @@ export const TechnicianDashboard: React.FC = () => {
           icon={Clock}
           variant="warning"
           active={kpiFilter === 'pending'}
-          onClick={() => setKpiFilter(f => f === 'pending' ? null : 'pending')}
+          onClick={() => {
+            setKpiFilter(f => f === 'pending' ? null : 'pending');
+            document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
+          }}
         />
         <StatCard
           title="Resolvidos Hoje"
           value={stats?.resolvedToday || 0}
           icon={CheckCircle2}
           variant="success"
+          onClick={() => {
+            setClosedOpen(true);
+            setTimeout(() => document.getElementById('closed-tickets-section')?.scrollIntoView({ behavior: 'smooth' }), 100);
+          }}
         />
       </div>
 
@@ -370,7 +383,8 @@ export const TechnicianDashboard: React.FC = () => {
               </div>
             </div>
           )}
-
+          
+          <div id="tickets-section" className="scroll-mt-6" />
           <Tabs defaultValue="my-tickets" className="space-y-6">
             <div className="flex items-center justify-between">
               <TabsList className="bg-muted/10 p-1 rounded-2xl border border-border/40">
