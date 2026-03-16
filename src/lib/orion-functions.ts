@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 type InvokeResult<T> = {
   data: T | null;
-  error: { message: string } | null;
+  error: { message: string; context?: any } | null;
 };
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ?? '';

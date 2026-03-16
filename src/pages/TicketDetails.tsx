@@ -256,30 +256,9 @@ const TicketDetails: React.FC = () => {
   const handleStatusChange = async (newStatus: string) => {
     if (!ticket || !canManageTickets) return;
 
-    let sla_paused_at = ticket.sla_paused_at;
-    let sla_accumulated_pause_minutes = ticket.sla_accumulated_pause_minutes || 0;
-
-    if (newStatus === 'awaiting-customer' && ticket.status !== 'awaiting-customer') {
-      sla_paused_at = new Date().toISOString();
-    }
-    
-    if (ticket.status === 'awaiting-customer' && newStatus !== 'awaiting-customer') {
-      if (ticket.sla_paused_at) {
-        const pauseStart = new Date(ticket.sla_paused_at);
-        const now = new Date();
-        const diffMinutes = differenceInMinutes(now, pauseStart);
-        if (diffMinutes > 0) {
-          sla_accumulated_pause_minutes += diffMinutes;
-        }
-      }
-      sla_paused_at = null;
-    }
-
     await updateStatus.mutateAsync({ 
       id: ticket.id, 
-      status: newStatus,
-      sla_paused_at,
-      sla_accumulated_pause_minutes
+      status: newStatus
     });
     await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Status alterado para: ${statusLabels[newStatus] || newStatus}`, type: 'status_change' });
   };
@@ -414,15 +393,13 @@ const TicketDetails: React.FC = () => {
 
         <TicketStatusStepper currentStatus={ticket.status} />
 
-        {ticket.sla_paused_at && (
+        {(ticket.status === 'awaiting-customer' || ticket.status === 'awaiting-third-party') && (
           <div className="mb-6 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2">
             <AlertCircle className="w-5 h-5" />
             <p className="text-sm font-bold">
-              SLA pausado há {
-                differenceInHours(new Date(), new Date(ticket.sla_paused_at)) > 0 
-                  ? `${differenceInHours(new Date(), new Date(ticket.sla_paused_at))} hora(s)` 
-                  : `${differenceInMinutes(new Date(), new Date(ticket.sla_paused_at))} minuto(s)`
-              } (Aguardando Cliente)
+              SLA pausado - {statusLabels[ticket.status]} {
+                ticket.sla_paused_at ? `(desde ${formatTimeAgo(ticket.sla_paused_at)})` : ''
+              }
             </p>
           </div>
         )}
