@@ -17,8 +17,8 @@ type Config struct {
 }
 
 const defaultYAML = `# Orion Agent Configuration
-# api_url: endpoint de heartbeat do backend Go (NÃO é a URL do frontend)
-api_url: http://localhost:8080/api/monitoring/machines/heartbeat
+# api_url: URL base do seu sistema (ex: https://orion.bysam.dev)
+api_url: http://localhost:8080
 agent_key: COLOQUE_SUA_CHAVE_AQUI
 interval_seconds: 60
 log_file: agent.log

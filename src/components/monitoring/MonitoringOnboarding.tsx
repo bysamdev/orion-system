@@ -3,8 +3,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   Terminal, ShieldCheck, Zap, Download, 
-  Copy, Check, Info, Server, Plus 
+  Copy, Check, Info, Server, Plus
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
@@ -74,27 +75,46 @@ export const MonitoringOnboarding: React.FC = () => {
       </div>
 
       <div className="bg-card border border-border/40 rounded-3xl overflow-hidden shadow-xl">
-        <div className="p-6 border-b border-border/40 bg-muted/20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-3 h-3 rounded-full bg-rose-500" />
-            <div className="w-3 h-3 rounded-full bg-amber-500" />
-            <div className="w-3 h-3 rounded-full bg-emerald-500" />
-            <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Terminal de Instalação (Linux)</span>
+        <Tabs defaultValue="linux" className="w-full">
+          <div className="p-6 border-b border-border/40 bg-muted/20 flex items-center justify-between">
+            <TabsList className="bg-transparent gap-4">
+              <TabsTrigger value="linux" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-xl font-bold uppercase tracking-widest text-[10px]">Linux (Bash)</TabsTrigger>
+              <TabsTrigger value="windows" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-xl font-bold uppercase tracking-widest text-[10px]">Windows / GPO</TabsTrigger>
+            </TabsList>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleCopy}
+              className="rounded-xl gap-2 font-bold text-[10px] uppercase tracking-wider"
+            >
+              {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+              {copied ? 'Copiado!' : 'Copiar'}
+            </Button>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleCopy}
-            className="rounded-xl gap-2 font-bold text-[10px] uppercase tracking-wider"
-          >
-            {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-            {copied ? 'Copiado!' : 'Copiar'}
-          </Button>
-        </div>
-        <div className="p-8 bg-slate-950 font-mono text-sm text-emerald-400 overflow-x-auto">
-          <p className="opacity-50 mb-2"># Execute este comando como root para configurar o agente</p>
-          <code>{command}</code>
-        </div>
+
+          <TabsContent value="linux" className="mt-0">
+            <div className="p-8 bg-slate-950 font-mono text-sm text-emerald-400 overflow-x-auto">
+              <p className="opacity-50 mb-2"># Execute este comando como root para configurar o agente</p>
+              <code>{command}</code>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="windows" className="mt-0">
+            <div className="p-8 bg-slate-950 font-mono text-xs space-y-4">
+              <div className="text-emerald-400">
+                <p className="opacity-50 mb-2"># Instalação Manual (PowerShell Admin):</p>
+                <code className="block">./orion-agent.exe install</code>
+                <code className="block mt-1">Start-Service OrionAgent</code>
+              </div>
+              <div className="pt-4 border-t border-white/10 text-emerald-400">
+                <p className="opacity-50 mb-2"># Implantação via GPO (Active Directory):</p>
+                <p className="text-muted-foreground mb-2">1. Coloque o executável e o agent.yaml em um share da rede.</p>
+                <p className="text-muted-foreground mb-2">2. Use o script PowerShell em: <code className="text-emerald-500 underline">orion-agent/deploy/gpo_install.ps1</code></p>
+                <p className="text-muted-foreground">3. Adicione-o como Script de Inicialização (Startup Script) na GPO.</p>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
