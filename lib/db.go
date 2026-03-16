@@ -154,5 +154,22 @@ func (d *DB) EnsureProfileRowExists(ctx context.Context, userID string) error {
 	return nil
 }
 
+// ValidateAPIKey checks if a key is valid and active, updating its last_used_at timestamp.
+func (d *DB) ValidateAPIKey(ctx context.Context, keyValue string) (companyID string, err error) {
+	err = d.pool.QueryRow(ctx, `
+		UPDATE public.api_keys 
+		SET last_used_at = now() 
+		WHERE key_value = $1 AND is_active = true 
+		RETURNING company_id::text`, keyValue).Scan(&companyID)
+	return companyID, err
+}
+
+// CompanyByDomain retrieves a company ID by its registered domain.
+func (d *DB) CompanyByDomain(ctx context.Context, domain string) (string, error) {
+	var id string
+	err := d.pool.QueryRow(ctx, `SELECT id::text FROM public.companies WHERE domain = $1`, domain).Scan(&id)
+	return id, err
+}
+
 // ErrNoRows is a sentinel for pgx.ErrNoRows so callers don't need to import pgx.
 var ErrNoRows = pgx.ErrNoRows
