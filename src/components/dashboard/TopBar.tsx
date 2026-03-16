@@ -255,14 +255,14 @@ const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, tooltip, isActive,
         variant="ghost" 
         onClick={onClick}
         className={cn(
-          "flex flex-col items-center justify-center gap-1 h-14 w-16 rounded-xl transition-all duration-300",
+          "flex flex-col items-center justify-center gap-1 h-14 min-w-[72px] px-3 rounded-xl transition-all duration-300",
           isActive 
             ? "text-primary bg-primary/10 shadow-inner" 
             : "text-muted-foreground hover:text-foreground hover:bg-muted"
         )}
       >
         <Icon className={cn("w-5 h-5 transition-transform duration-300", isActive && "scale-110")} />
-        <span className="text-[10px] font-black uppercase tracking-tighter opacity-80">{label}</span>
+        <span className="text-[10px] font-black uppercase tracking-tight opacity-80 whitespace-nowrap">{label}</span>
       </Button>
     </TooltipTrigger>
     <TooltipContent side="bottom" className="text-[10px] font-bold uppercase tracking-widest">

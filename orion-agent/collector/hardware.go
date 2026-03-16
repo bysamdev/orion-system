@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"net"
 	"os"
@@ -32,21 +33,24 @@ type DiskInfo struct {
 
 // Payload is the heartbeat body sent to the backend.
 type Payload struct {
-	Hostname   string             `json:"hostname"`
-	IP         string             `json:"ip"`
-	OS         string             `json:"os"`
-	OSVersion  string             `json:"os_version"`
-	CPUUsage   float64            `json:"cpu_usage"`
-	RAMTotal   uint64             `json:"ram_total"`
-	RAMUsed    uint64             `json:"ram_used"`
-	DiskTotal  uint64             `json:"disk_total"`
-	DiskUsed   uint64             `json:"disk_used"`
-	Uptime     uint64             `json:"uptime"`
-	CPUModel   string             `json:"cpu_model"`
-	GPU        string             `json:"gpu"`
-	Disks      []DiskInfo         `json:"disks"`
-	Interfaces []NetworkInterface `json:"interfaces"`
-	Domain     string             `json:"domain"`
+	MachineToken string             `json:"machine_token"`
+	MachineUUID  string             `json:"machine_uuid"`
+	Hostname     string             `json:"hostname"`
+	IP           string             `json:"ip"`
+	OS           string             `json:"os"`
+	OSVersion    string             `json:"os_version"`
+	CPUUsage     float64            `json:"cpu_usage"`
+	RAMTotal     uint64             `json:"ram_total"`
+	RAMUsed      uint64             `json:"ram_used"`
+	DiskTotal    uint64             `json:"disk_total"`
+	DiskUsed     uint64             `json:"disk_used"`
+	Uptime       uint64             `json:"uptime"`
+	CPUModel     string             `json:"cpu_model"`
+	GPU          string             `json:"gpu"`
+	Disks        []DiskInfo         `json:"disks"`
+	Interfaces   []NetworkInterface `json:"interfaces"`
+	Domain       string             `json:"domain"`
+	CurrentUser  string             `json:"current_user"`
 }
 
 // diskRoot returns the primary disk root path for the current OS.
@@ -175,7 +179,13 @@ func Collect() (*Payload, error) {
 		domain = "WORKGROUP"
 	}
 
+	currentUser := os.Getenv("USERNAME")
+	if currentUser == "" {
+		currentUser = os.Getenv("USER")
+	}
+
 	return &Payload{
+		MachineUUID: hi.HostID,
 		Hostname:   hostname,
 		IP:         primaryIP(),
 		OS:         osName,
@@ -191,5 +201,20 @@ func Collect() (*Payload, error) {
 		Disks:      disks,
 		Interfaces: interfaces,
 		Domain:     domain,
+		CurrentUser: currentUser,
 	}, nil
+}
+
+// GenerateToken creates a stable unique identifier for the machine.
+func (p *Payload) GenerateToken() string {
+	var macs []string
+	for _, iface := range p.Interfaces {
+		if iface.MAC != "" {
+			macs = append(macs, iface.MAC)
+		}
+	}
+	
+	raw := fmt.Sprintf("%s|%s|%s", p.MachineUUID, p.Hostname, strings.Join(macs, ","))
+	hash := sha256.Sum256([]byte(raw))
+	return fmt.Sprintf("%x", hash)
 }

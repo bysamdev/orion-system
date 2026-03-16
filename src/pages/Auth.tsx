@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +24,31 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { handleError } = useErrorHandler();
+  const [machineToken, setMachineToken] = useState<string | null>(null);
+  const [isDetectingAgent, setIsDetectingAgent] = useState(false);
+
+  useEffect(() => {
+    const detectAgent = async () => {
+      setIsDetectingAgent(true);
+      try {
+        const response = await fetch('http://127.0.0.1:8081/token');
+        if (response.ok) {
+          const data = await response.json();
+          setMachineToken(data.machine_token);
+          toast({
+            title: "Agente Orion Detectado",
+            description: "Identificação automática de máquina ativada.",
+          });
+        }
+      } catch (err) {
+        console.log("Agent not found locally");
+      } finally {
+        setIsDetectingAgent(false);
+      }
+    };
+
+    detectAgent();
+  }, [toast]);
 
   const signInForm = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -41,6 +67,9 @@ const Auth = () => {
     if (error) {
       handleError(error, 'Auth.handleLogin', 'Credenciais inválidas. Verifique seu email e senha.');
     } else {
+      if (machineToken) {
+        localStorage.setItem('orion_machine_token', machineToken);
+      }
       navigate('/');
     }
   };
