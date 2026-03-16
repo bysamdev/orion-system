@@ -14,7 +14,7 @@ import { TicketHeroHeader } from '@/components/ticket/TicketHeroHeader';
 import { UnifiedTimeline } from '@/components/ticket/UnifiedTimeline';
 import { ResolutionDialog } from '@/components/ticket/ResolutionDialog';
 import { EscalateDialog } from '@/components/ticket/EscalateDialog';
-import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2 } from 'lucide-react';
+import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2 } from 'lucide-react';
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
 import { ImagePasteHandler } from '@/components/ticket/ImagePasteHandler';
@@ -41,10 +41,10 @@ const ticketUpdateSchema = z.object({
 // ── Ticket Status Stepper ─────────────────────────────────
 const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
   const steps = [
-    { key: 'open', label: 'Aberto' },
-    { key: 'in-progress', label: 'Em Atendimento' },
-    { key: 'resolved', label: 'Resolvido' },
-    { key: 'closed', label: 'Concluído' },
+    { key: 'open', label: 'Aberto', icon: CircleDot },
+    { key: 'in-progress', label: 'Em Atendimento', icon: Clock },
+    { key: 'resolved', label: 'Resolvido', icon: CheckCircle2 },
+    { key: 'closed', label: 'Concluído', icon: Lock },
   ];
 
   const getStatusIndex = (status: string) => {
@@ -63,17 +63,18 @@ const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
           const isActive = idx === currentIndex;
           const isPast = idx < currentIndex;
           const isLast = idx === steps.length - 1;
+          const Icon = step.icon;
 
           return (
             <React.Fragment key={step.key}>
               <div className="flex flex-col items-center gap-2 relative z-10">
                 <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500",
+                  "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-500",
                   isActive ? "bg-primary border-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.3)]" :
                   isPast ? "bg-green-500 border-green-500 text-white" :
                   "bg-background border-muted-foreground/20 text-muted-foreground"
                 )}>
-                  {isPast ? <Check className="w-4 h-4" /> : <span className="text-xs font-bold">{idx + 1}</span>}
+                  {isPast ? <Check className="w-5 h-5" /> : <Icon className={cn("w-5 h-5", isActive ? "animate-pulse" : "opacity-60")} />}
                 </div>
                 <span className={cn(
                   "text-[10px] font-bold uppercase tracking-tight whitespace-nowrap",
@@ -83,7 +84,7 @@ const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
                 </span>
               </div>
               {!isLast && (
-                <div className="flex-1 h-[2px] mx-2 bg-muted-foreground/10 relative -translate-y-3.5">
+                <div className="flex-1 h-[2px] mx-2 bg-muted-foreground/10 relative -translate-y-4">
                   <div className={cn(
                     "absolute top-0 left-0 h-full transition-all duration-1000",
                     isPast ? "w-full bg-green-500" : "w-0 bg-primary"

@@ -8,7 +8,8 @@ import { ContractManagement } from '@/components/admin/ContractManagement';
 import { CannedResponsesManagement } from '@/components/admin/CannedResponsesManagement';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Settings2, Users, Building, FileText, MessageSquare } from 'lucide-react';
+import { SLAConfiguration } from '@/components/admin/SLAConfiguration';
 
 export default function Admin() {
   const { data: role, isLoading } = useUserRole();
@@ -43,17 +44,18 @@ export default function Admin() {
           </p>
           
           <Tabs defaultValue={isTechnician ? 'responses' : 'users'} className="w-full">
-            <TabsList>
+            <TabsList className="bg-muted/50 p-1 rounded-xl">
               {/* Abas exclusivas para admin/developer */}
               {!isTechnician && (
                 <>
-                  <TabsTrigger value="users">Usuários</TabsTrigger>
-                  <TabsTrigger value="companies">Empresas</TabsTrigger>
-                  <TabsTrigger value="contracts">Contratos</TabsTrigger>
+                  <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Usuários</TabsTrigger>
+                  <TabsTrigger value="companies" className="gap-2"><Building className="w-4 h-4" /> Empresas</TabsTrigger>
+                  <TabsTrigger value="contracts" className="gap-2"><FileText className="w-4 h-4" /> Contratos</TabsTrigger>
+                  <TabsTrigger value="config" className="gap-2"><Settings2 className="w-4 h-4" /> Configurações</TabsTrigger>
                 </>
               )}
               {/* Aba disponível para todos (admin, technician, developer) */}
-              <TabsTrigger value="responses">Respostas Prontas</TabsTrigger>
+              <TabsTrigger value="responses" className="gap-2"><MessageSquare className="w-4 h-4" /> Respostas Prontas</TabsTrigger>
             </TabsList>
             
             {!isTechnician && (
@@ -66,8 +68,8 @@ export default function Admin() {
                   <CompanyManagement />
                 </TabsContent>
                 
-                <TabsContent value="contracts" className="mt-6">
-                  <ContractManagement />
+                <TabsContent value="config" className="mt-6">
+                  <SLAConfiguration />
                 </TabsContent>
               </>
             )}
