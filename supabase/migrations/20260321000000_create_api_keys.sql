@@ -15,13 +15,15 @@ ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view their own company API keys" 
     ON public.api_keys FOR SELECT 
-    USING (company_id IN (SELECT company_id FROM public.profiles WHERE id = auth.uid()));
+    USING (
+        company_id IN (SELECT company_id FROM public.profiles WHERE id = auth.uid())
+        OR (SELECT role FROM public.user_roles WHERE user_id = auth.uid()) IN ('admin', 'developer')
+    );
 
-CREATE POLICY "Admins can manage company API keys" 
+CREATE POLICY "Admins can manage all company API keys" 
     ON public.api_keys FOR ALL 
     USING (
-        company_id IN (SELECT company_id FROM public.profiles WHERE id = auth.uid()) 
-        AND (SELECT role FROM public.user_roles WHERE user_id = auth.uid()) IN ('admin', 'developer')
+        (SELECT role FROM public.user_roles WHERE user_id = auth.uid()) IN ('admin', 'developer')
     );
 
 -- Function to generate a random API key string
