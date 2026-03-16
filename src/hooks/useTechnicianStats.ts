@@ -151,3 +151,24 @@ export const useUnassignedTickets = () => {
     refetchInterval: 30000,
   });
 };
+
+/**
+ * Hook to fetch team workload (for admins/managers)
+ */
+export const useTeamWorkload = (companyId: string | undefined) => {
+  return useQuery({
+    queryKey: ['team-workload', companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      
+      const { data, error } = await supabase.rpc('get_technician_workload', {
+        p_company_id: companyId
+      });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+    refetchInterval: 30000,
+  });
+};

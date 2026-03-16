@@ -6,15 +6,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { 
   PlayCircle, CheckCircle2, AlertTriangle, Clock, Loader2,
   HandHelping, User, Search, ChevronDown, ChevronUp, 
   ExternalLink, MousePointer2, ArrowRight, Filter, Info
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTechnicianStats, useTechnicianWorkload } from '@/hooks/useTechnicianStats';
+import { useTechnicianStats, useTechnicianWorkload, useTeamWorkload } from '@/hooks/useTechnicianStats';
 import { useMyActiveTickets, useSLAAtRiskTickets, useUnassignedTicketsEnhanced, useMyRecentClosedTickets } from '@/hooks/useMyTickets';
-import { useUserProfile } from '@/hooks/useUserRole';
+import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -137,6 +138,7 @@ export const TechnicianDashboard: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { data: role } = useUserRole();
   const { data: profile } = useUserProfile();
 
   const { data: stats, isLoading: statsLoading } = useTechnicianStats(user?.id);
@@ -145,6 +147,8 @@ export const TechnicianDashboard: React.FC = () => {
   const { data: slaTickets = [], isLoading: slaLoading } = useSLAAtRiskTickets();
   const { data: unassigned = [], isLoading: unassignedLoading } = useUnassignedTicketsEnhanced();
   const { data: recentClosed = [], isLoading: closedLoading } = useMyRecentClosedTickets(user?.id);
+
+  const { data: teamWorkload, isLoading: teamWorkloadLoading } = useTeamWorkload(profile?.company_id);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [kpiFilter, setKpiFilter] = useState<string | null>(null);
@@ -253,6 +257,55 @@ export const TechnicianDashboard: React.FC = () => {
           }}
         />
       </div>
+
+      {/* Team Workload Widget (Only for Gestores/Admins) */}
+      {(role === 'admin' || role === 'developer' || role === 'gestor') && teamWorkload && teamWorkload.length > 0 && (
+        <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
+          <CardHeader className="p-6 border-b border-border/40 bg-muted/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <User className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-black uppercase tracking-widest text-foreground">Carga de Trabalho da Equipe</CardTitle>
+                <CardDescription className="text-xs font-medium">Capacidade e pendências em tempo real</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader className="bg-muted/5">
+                <TableRow className="hover:bg-transparent border-b border-border/40">
+                  <TableHead className="w-[300px] text-[10px] font-black uppercase tracking-widest h-12 pl-6">Técnico</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest h-12 text-center">Em Aberto</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest h-12 text-center">SLA em Risco</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest h-12 text-center">Resolvidos Hoje</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {teamWorkload.map(tech => (
+                  <TableRow key={tech.technician_id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="pl-6 py-4 font-bold text-sm truncate">{tech.technician_name}</TableCell>
+                    <TableCell className="text-center py-4">
+                      <Badge variant="outline" className="font-bold">{tech.open_tickets}</Badge>
+                    </TableCell>
+                    <TableCell className="text-center py-4">
+                      {tech.sla_at_risk_tickets > 0 ? (
+                        <Badge variant="destructive" className="font-bold">{tech.sla_at_risk_tickets}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground font-medium text-xs">0</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center py-4">
+                      <span className="text-emerald-500 font-bold">{tech.resolved_today}</span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Main Content Area */}

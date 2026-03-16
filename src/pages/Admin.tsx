@@ -6,9 +6,11 @@ import { UserManagement } from '@/components/admin/UserManagement';
 import { CompanyManagement } from '@/components/admin/CompanyManagement';
 import { ContractManagement } from '@/components/admin/ContractManagement';
 import { CannedResponsesManagement } from '@/components/admin/CannedResponsesManagement';
+import { RoutingRulesManagement } from '@/components/admin/RoutingRulesManagement';
+import { ResolutionChecklistManagement } from '@/components/admin/ResolutionChecklistManagement';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
-import { Loader2, Settings2, Users, Building, FileText, MessageSquare } from 'lucide-react';
+import { Loader2, Settings2, Users, Building, FileText, MessageSquare, ListChecks, GitBranch } from 'lucide-react';
 import { SLAConfiguration } from '@/components/admin/SLAConfiguration';
 
 export default function Admin() {
@@ -56,6 +58,12 @@ export default function Admin() {
               )}
               {/* Aba disponível para todos (admin, technician, developer) */}
               <TabsTrigger value="responses" className="gap-2"><MessageSquare className="w-4 h-4" /> Respostas Prontas</TabsTrigger>
+              {!isTechnician && (
+                <>
+                  <TabsTrigger value="routing" className="gap-2"><GitBranch className="w-4 h-4" /> Roteamento</TabsTrigger>
+                  <TabsTrigger value="checklists" className="gap-2"><ListChecks className="w-4 h-4" /> Checklists</TabsTrigger>
+                </>
+              )}
             </TabsList>
             
             {!isTechnician && (
@@ -77,6 +85,17 @@ export default function Admin() {
             <TabsContent value="responses" className="mt-6">
               <CannedResponsesManagement />
             </TabsContent>
+
+            {!isTechnician && (
+              <>
+                <TabsContent value="routing" className="mt-6">
+                  <RoutingRulesManagement />
+                </TabsContent>
+                <TabsContent value="checklists" className="mt-6">
+                  <ResolutionChecklistManagement />
+                </TabsContent>
+              </>
+            )}
           </Tabs>
         </div>
       </main>

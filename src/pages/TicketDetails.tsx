@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { SLABadge } from '@/components/dashboard/SLABadge';
 import { TicketHeroHeader } from '@/components/ticket/TicketHeroHeader';
 import { UnifiedTimeline } from '@/components/ticket/UnifiedTimeline';
@@ -24,16 +25,17 @@ import { SatisfactionSurvey } from '@/components/ticket/SatisfactionSurvey';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useAddTicketUpdate } from '@/hooks/useTickets';
-import { useUserRole } from '@/hooks/useUserRole';
+import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useTicketAttachments, useUploadAttachment } from '@/hooks/useTicketAttachments';
 import { useTicketTimeEntries } from '@/hooks/useTimeEntries';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseRead } from '@/integrations/supabase/read-client';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, differenceInHours, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { z } from 'zod';
 import { ticketPrioritySchema } from '@/lib/validation';
 import { useRealtimeTicket } from '@/hooks/useRealtimeTickets';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ticketUpdateSchema = z.object({
   content: z.string().trim().min(1, 'O comentário não pode estar vazio').max(5000, 'O comentário não pode ter mais de 5000 caracteres')
@@ -112,10 +114,12 @@ const TicketDetails: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
 
   const { data: ticket, isLoading: ticketLoading } = useTicket(id || '');
   const { data: updates = [], isLoading: updatesLoading } = useTicketUpdates(id || '');
   const { data: userRole } = useUserRole();
+  const { data: userProfile } = useUserProfile();
   const updateStatus = useUpdateTicketStatus();
   const updateAssignment = useUpdateTicketAssignment();
   const addUpdate = useAddTicketUpdate();
@@ -137,11 +141,38 @@ const TicketDetails: React.FC = () => {
   });
 
   const [newUpdateText, setNewUpdateText] = useState('');
-  const [isInternalNote, setIsInternalNote] = useState(false);
+  const [isInternalNote, setIsInternalNote] = useState(false); // Renamed from isNoteInternal to match original
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [escalateDialogOpen, setEscalateDialogOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const [checklistCompleted, setChecklistCompleted] = useState<string[]>([]);
+  const [resolutionNotes, setResolutionNotes] = useState('');
+
+
+  // Fetch checklist for this ticket's category
+  const { data: resolutionChecklist } = useQuery({
+    queryKey: ['resolution-checklists', userProfile?.company_id, ticket?.category],
+    queryFn: async () => {
+      if (!ticket || !user) return null;
+      
+      const companyId = userProfile?.company_id;
+
+      if (!companyId) return null;
+
+      const { data, error } = await supabaseRead
+        .from('resolution_checklists')
+        .select('*')
+        .eq('company_id', companyId)
+        .eq('category', ticket.category)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      return data || null;
+    },
+    enabled: !!ticket && !!user,
+  });
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -194,7 +225,32 @@ const TicketDetails: React.FC = () => {
 
   const handleStatusChange = async (newStatus: string) => {
     if (!ticket || !canManageTickets) return;
-    await updateStatus.mutateAsync({ id: ticket.id, status: newStatus });
+
+    let sla_paused_at = ticket.sla_paused_at;
+    let sla_accumulated_pause_minutes = ticket.sla_accumulated_pause_minutes || 0;
+
+    if (newStatus === 'awaiting-customer' && ticket.status !== 'awaiting-customer') {
+      sla_paused_at = new Date().toISOString();
+    }
+    
+    if (ticket.status === 'awaiting-customer' && newStatus !== 'awaiting-customer') {
+      if (ticket.sla_paused_at) {
+        const pauseStart = new Date(ticket.sla_paused_at);
+        const now = new Date();
+        const diffMinutes = differenceInMinutes(now, pauseStart);
+        if (diffMinutes > 0) {
+          sla_accumulated_pause_minutes += diffMinutes;
+        }
+      }
+      sla_paused_at = null;
+    }
+
+    await updateStatus.mutateAsync({ 
+      id: ticket.id, 
+      status: newStatus,
+      sla_paused_at,
+      sla_accumulated_pause_minutes
+    });
     await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Status alterado para: ${statusLabels[newStatus] || newStatus}`, type: 'status_change' });
   };
 
@@ -232,10 +288,30 @@ const TicketDetails: React.FC = () => {
 
   const handleResolveConfirm = async (notes: string, _sendSurvey: boolean) => {
     if (!ticket) return;
+
+    const isChecklistValid = !resolutionChecklist || (resolutionChecklist && resolutionChecklist.items && checklistCompleted.length === resolutionChecklist.items.length);
+
+    if (!notes.trim() || !isChecklistValid) {
+      toast({
+        title: 'Atenção',
+        description: 'Preencha a solução e marque todos os itens do checklist (se houver).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     await supabase.from('tickets').update({ resolution_notes: notes }).eq('id', ticket.id);
     await handleStatusChange('resolved');
-    await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Resolução: ${notes}`, type: 'comment' });
+    
+    let resolutionContent = `Resolução: ${notes}`;
+    if (resolutionChecklist && resolutionChecklist.items && resolutionChecklist.items.length > 0) {
+      resolutionContent += `\n\nChecklist de Resolução:\n${resolutionChecklist.items.map(item => `- [x] ${item}`).join('\n')}`;
+    }
+
+    await addUpdate.mutateAsync({ ticket_id: ticket.id, content: resolutionContent, type: 'comment' });
     setResolveDialogOpen(false);
+    setResolutionNotes('');
+    setChecklistCompleted([]);
   };
 
   const handleReopenTicket = async () => {
@@ -297,7 +373,7 @@ const TicketDetails: React.FC = () => {
         <TicketStatusStepper currentStatus={ticket.status} />
 
         {/* Hero Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <TicketHeroHeader
             ticket={ticket}
             canManageTickets={canManageTickets}
@@ -306,6 +382,19 @@ const TicketDetails: React.FC = () => {
             onAttach={() => fileInputRef.current?.click()}
           />
         </div>
+
+        {ticket.sla_paused_at && (
+          <div className="mb-6 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2">
+            <AlertCircle className="w-5 h-5" />
+            <p className="text-sm font-bold">
+              SLA pausado há {
+                differenceInHours(new Date(), new Date(ticket.sla_paused_at)) > 0 
+                  ? `${differenceInHours(new Date(), new Date(ticket.sla_paused_at))} hora(s)` 
+                  : `${differenceInMinutes(new Date(), new Date(ticket.sla_paused_at))} minuto(s)`
+              } (Aguardando Cliente)
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Main Content (Left Column) */}
