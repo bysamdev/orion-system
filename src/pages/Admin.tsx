@@ -77,6 +77,10 @@ export default function Admin() {
                 <TabsContent value="companies" className="mt-6">
                   <CompanyManagement />
                 </TabsContent>
+
+                <TabsContent value="contracts" className="mt-6">
+                  <ContractManagement />
+                </TabsContent>
                 
                 <TabsContent value="config" className="mt-6">
                   <SLAConfiguration />

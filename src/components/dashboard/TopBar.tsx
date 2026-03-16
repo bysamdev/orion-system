@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Plus, Settings, Shield, Search, User, LogOut, 
-  LayoutDashboard, PieChart, Monitor, ArrowRight, BookOpen, FileText
+  LayoutDashboard, PieChart, Monitor, ArrowRight, BookOpen, FileText, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -82,7 +82,11 @@ export const TopBar: React.FC = () => {
       {/* Área de Busca */}
       <div className="flex items-center gap-4 flex-1 max-w-md relative">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          {isSearching ? (
+            <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
+          ) : (
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          )}
           <input 
             placeholder="Buscar por #número ou título..." 
             value={searchQuery}
@@ -127,7 +131,7 @@ export const TopBar: React.FC = () => {
         )}
       </div>
       
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 justify-end lg:flex-initial lg:overflow-visible">
         <div className="flex items-center gap-1 px-2">
           <NavItem 
             icon={LayoutDashboard} 
@@ -169,17 +173,17 @@ export const TopBar: React.FC = () => {
 
           <NavItem 
             icon={Settings} 
-            label="Minha Conta" 
+            label="Conta" 
             tooltip="Perfil e Preferências" 
             isActive={isActive('/ajustes')} 
             onClick={() => navigate('/ajustes')} 
           />
 
-          <Separator orientation="vertical" className="h-8 mx-2" />
+          <Separator orientation="vertical" className="h-8 mx-1 hidden md:block" />
 
           <NavItem 
             icon={BookOpen} 
-            label="Base KB" 
+            label="KB" 
             tooltip="Base de Conhecimento" 
             isActive={isActive('/knowledge')} 
             onClick={() => navigate('/knowledge')} 
@@ -187,26 +191,26 @@ export const TopBar: React.FC = () => {
 
           <NavItem 
             icon={FileText} 
-            label="Manual" 
+            label="Guia" 
             tooltip="Documentação Orion Agent" 
             isActive={isActive('/documentacao')} 
             onClick={() => navigate('/documentacao')} 
           />
         </div>
         
-        <Separator orientation="vertical" className="h-8 mx-2" />
+        <Separator orientation="vertical" className="h-8 mx-1 shrink-0" />
         
         <Button 
           onClick={() => navigate('/novo-ticket')}
-          className="rounded-full px-5 h-10 gap-2 shadow-md hover:shadow-lg transition-all bg-primary text-primary-foreground hover:bg-primary/90"
+          className="rounded-full px-4 h-9 gap-2 shadow-md hover:shadow-lg transition-all bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span className="text-xs font-black uppercase tracking-widest hidden sm:inline">Novo Ticket</span>
+          <span className="text-[10px] font-black uppercase tracking-widest hidden xl:inline">Novo Ticket</span>
         </Button>
         
-        <Separator orientation="vertical" className="h-8 mx-2" />
+        <Separator orientation="vertical" className="h-8 mx-1 shrink-0" />
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <div><NotificationsPopover /></div>
