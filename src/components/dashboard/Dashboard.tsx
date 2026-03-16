@@ -7,6 +7,7 @@ import { TechnicianDashboard } from './TechnicianDashboard';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { Loader2 } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
 
 export const Dashboard: React.FC = () => {
   const { data: role, isLoading: roleLoading } = useUserRole();
@@ -28,33 +29,17 @@ export const Dashboard: React.FC = () => {
   // Admin e técnico agora veem a mesma interface de gerenciamento de chamados
   const hasManagementAccess = role === 'technician' || role === 'admin' || role === 'developer';
 
+  if (isCustomer) {
+    return <Navigate to="/portal" replace />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
         <TopBar />
         <DashboardHeader userName={userName} />
         
-        {isCustomer ? (
-          // Portal do Usuário: Interface simplificada de autoatendimento
-          <div className="space-y-6">
-            {/* Card de Acesso Rápido */}
-            <QuickAccessCard />
-            
-            {/* Chamados em Aberto */}
-            <CustomerTicketsTable 
-              filter="open" 
-              title="Meus Chamados em Aberto"
-              emptyMessage="Você não possui chamados em aberto no momento."
-            />
-            
-            {/* Chamados Finalizados */}
-            <CustomerTicketsTable 
-              filter="closed" 
-              title="Histórico de Chamados"
-              emptyMessage="Você ainda não possui chamados finalizados."
-            />
-          </div>
-        ) : hasManagementAccess ? (
+        {hasManagementAccess ? (
           // Técnico e Admin: Cockpit Operacional com lista de chamados
           <TechnicianDashboard />
         ) : (
