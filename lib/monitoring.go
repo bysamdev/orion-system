@@ -28,6 +28,9 @@ type MachineRow struct {
 	LastSeen     *time.Time
 	AgentVersion *string
 	CreatedAt    time.Time
+	MachineToken *string
+	MachineUUID  *string
+	CurrentUser  *string
 }
 
 type MachineWithMetric struct {
@@ -234,14 +237,14 @@ RETURNING id::text`, domainName).Scan(&id)
 	return id, err
 }
 
-func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion string) (string, error) {
+func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser string) (string, error) {
 	var id string
 	err := d.pool.QueryRow(ctx, `
-INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version)
-VALUES ($1, $2, $3, $4, $5, 'online', now(), $6)
-ON CONFLICT (hostname) DO UPDATE
-  SET group_id=$1, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6
-RETURNING id::text`, groupID, hostname, ip, osName, osVersion, agentVersion).Scan(&id)
+INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, current_user)
+VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9)
+ON CONFLICT (machine_token) DO UPDATE
+  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, current_user=$9
+RETURNING id::text`, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser).Scan(&id)
 	return id, err
 }
 

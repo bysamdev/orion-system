@@ -15,9 +15,17 @@ export default function Documentation() {
       id: 'get-started',
       icon: Zap,
       title: 'Início Rápido',
-      description: 'Como instalar e configurar o Orion Agent em menos de 5 minutos.',
+      description: 'Como instalar, configurar e auto-registrar o Orion Agent via GPO.',
       color: 'text-amber-500',
       bg: 'bg-amber-500/10'
+    },
+    {
+      id: 'identification',
+      icon: Shield,
+      title: 'Identidade Digital',
+      description: 'Geração de machine token único baseado em hardware e auto-login.',
+      color: 'text-emerald-500',
+      bg: 'bg-emerald-500/10'
     },
     {
       id: 'monitoring',
@@ -28,18 +36,10 @@ export default function Documentation() {
       bg: 'bg-blue-500/10'
     },
     {
-      id: 'security',
-      icon: Shield,
-      title: 'Segurança & RLS',
-      description: 'Como protegemos seus dados e isolamos as informações dos clientes.',
-      color: 'text-emerald-500',
-      bg: 'bg-emerald-500/10'
-    },
-    {
       id: 'api',
       icon: Code,
       title: 'API & Integrações',
-      description: 'Documentação técnica dos endpoints e webhooks do sistema.',
+      description: 'Endpoints de heartbeat, poll de comandos e integração de tickets.',
       color: 'text-purple-500',
       bg: 'bg-purple-500/10'
     }

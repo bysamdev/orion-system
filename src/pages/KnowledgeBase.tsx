@@ -29,13 +29,13 @@ export default function KnowledgeBase() {
     queryKey: ['knowledge-articles'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('knowledge_articles')
+        .from('knowledge_articles' as any)
         .select('*')
         .eq('is_published', true)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as Article[];
+      return data as unknown as Article[];
     }
   });
 
