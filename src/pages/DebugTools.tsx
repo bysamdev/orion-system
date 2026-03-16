@@ -214,7 +214,7 @@ const DebugTools = () => {
     try {
       for (let i = 1; i <= 15; i++) {
         try {
-          const response = await invokeOrionFunction('check-rate-limit');
+          const response = await invokeOrionFunction<{ allowed: boolean; message: string }>('check-rate-limit');
 
           console.log(`Attempt ${i}:`, response);
 
@@ -224,17 +224,17 @@ const DebugTools = () => {
           
           if (response.error) {
             // Parse error details
-            errorDetails = response.error.message || JSON.stringify(response.error);
+            errorDetails = response.error.message;
             // Try to extract status from error context
             if (response.error.context?.status) {
               httpStatus = response.error.context.status;
-            } else if (errorDetails.includes('404')) {
+            } else if (errorDetails?.includes('404')) {
               httpStatus = 404;
-            } else if (errorDetails.includes('500')) {
+            } else if (errorDetails?.includes('500')) {
               httpStatus = 500;
-            } else if (errorDetails.includes('401')) {
+            } else if (errorDetails?.includes('401')) {
               httpStatus = 401;
-            } else if (errorDetails.includes('non-2')) {
+            } else if (errorDetails?.includes('non-2')) {
               // Edge function returned error status
               httpStatus = 500;
             }
