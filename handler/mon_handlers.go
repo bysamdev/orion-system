@@ -170,9 +170,25 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if key == "" {
 		key = req.AgentKey
 	}
-	if err := lib.RequireAgentKey(&http.Request{Header: http.Header{"X-Agent-Key": {key}}}, cfg.AgentKey); err != nil {
+	
+	companyIDFromKey, err := lib.ValidateAgentKey(&http.Request{Header: http.Header{"X-Agent-Key": {key}}}, cfg.AgentKey, db)
+	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
+	}
+
+	ctx := r.Context()
+
+	// Final company assignment logic
+	var targetCompanyID string
+	if companyIDFromKey != "" && companyIDFromKey != "global" {
+		targetCompanyID = companyIDFromKey
+	} else if req.Domain != "" {
+		// Try lookup by domain if global key is used
+		cid, err := db.CompanyByDomain(ctx, req.Domain)
+		if err == nil {
+			targetCompanyID = cid
+		}
 	}
 
 	if req.Hostname == "" {
@@ -180,19 +196,22 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
-
 	// Tratamento do Domínio via GetOrCreateMachineGroup
 	domain := req.Domain
 	if domain == "" {
 		domain = "WORKGROUP"
 	}
+	
+	// TODO: Update GetOrCreateMachineGroup to accept companyID to avoid collision between tenants with same group name
 	groupID, err := db.GetOrCreateMachineGroup(ctx, domain)
 	if err != nil {
 		fmt.Println("Erro GetOrCreateMachineGroup:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar grupo de máquina: %v", err)})
 		return
 	}
+
+	// We can add a log or update to associate machine group with company if targetCompanyID is set
+	_ = targetCompanyID
 
 	machineID, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser)
 	if err != nil {
@@ -282,7 +301,8 @@ func monitoringGetMachineCommands(w http.ResponseWriter, r *http.Request) {
 
 func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 	// Require Agent Key
-	if err := lib.RequireAgentKey(r, cfg.AgentKey); err != nil {
+	_, err := lib.ValidateAgentKey(r, cfg.AgentKey, db)
+	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}
@@ -314,7 +334,8 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 
 func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
 	// Require Agent Key
-	if err := lib.RequireAgentKey(r, cfg.AgentKey); err != nil {
+	_, err := lib.ValidateAgentKey(r, cfg.AgentKey, db)
+	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}
@@ -329,7 +350,7 @@ func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := db.UpdateCommandStatus(r.Context(), req.ID, req.Status, req.Output)
+	err = db.UpdateCommandStatus(r.Context(), req.ID, req.Status, req.Output)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return

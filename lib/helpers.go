@@ -58,7 +58,35 @@ func RequireAuth(r *http.Request, sb *SupabaseClient) (*AuthUser, error) {
 	return u, nil
 }
 
+// ValidateAgentKey validates the X-Agent-Key header against the configured key
+// OR against the api_keys table in the database.
+func ValidateAgentKey(r *http.Request, globalKey string, db *DB) (string, error) {
+	got := r.Header.Get("X-Agent-Key")
+	if got == "" {
+		got = r.Header.Get("x-agent-key")
+	}
+	if got == "" {
+		return "", errors.New("chave de agente ausente")
+	}
+
+	// 1. Check global/static key (backward compatibility / admin)
+	if globalKey != "" && got == globalKey {
+		return "global", nil
+	}
+
+	// 2. Check dynamic keys in DB
+	if db != nil {
+		companyID, err := db.ValidateAPIKey(r.Context(), got)
+		if err == nil {
+			return companyID, nil
+		}
+	}
+
+	return "", errors.New("chave de agente inválida")
+}
+
 // RequireAgentKey validates the X-Agent-Key header against the configured key.
+// Deprecated: Use ValidateAgentKey if DB support is needed.
 func RequireAgentKey(r *http.Request, key string) error {
 	if key == "" {
 		return errors.New("servidor sem AGENT_KEY configurado")
