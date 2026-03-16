@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Plus, Settings, Shield, Search, User, LogOut, 
-  LayoutDashboard, PieChart, Monitor, ArrowRight 
+  LayoutDashboard, PieChart, Monitor, ArrowRight, BookOpen, FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -173,6 +173,24 @@ export const TopBar: React.FC = () => {
             tooltip="Perfil e Preferências" 
             isActive={isActive('/ajustes')} 
             onClick={() => navigate('/ajustes')} 
+          />
+
+          <Separator orientation="vertical" className="h-8 mx-2" />
+
+          <NavItem 
+            icon={BookOpen} 
+            label="Base KB" 
+            tooltip="Base de Conhecimento" 
+            isActive={isActive('/knowledge')} 
+            onClick={() => navigate('/knowledge')} 
+          />
+
+          <NavItem 
+            icon={FileText} 
+            label="Manual" 
+            tooltip="Documentação Orion Agent" 
+            isActive={isActive('/documentacao')} 
+            onClick={() => navigate('/documentacao')} 
           />
         </div>
         
