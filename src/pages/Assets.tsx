@@ -539,7 +539,7 @@ const Assets = () => {
                         <div className="space-y-2 max-w-sm mx-auto">
                           <h3 className="text-2xl font-black text-foreground">Nenhuma máquina cadastrada</h3>
                           <p className="text-muted-foreground font-medium">
-                            Comece adicionando a primeira máquina monitorada do seu cliente para gerenciar incidentes e inventário.
+                            Adicione a primeira máquina monitorada do seu cliente para gerenciar incidentes e inventário.
                           </p>
                         </div>
                         <Button 

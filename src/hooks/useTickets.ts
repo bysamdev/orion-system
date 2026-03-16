@@ -30,6 +30,8 @@ export interface Ticket {
   remote_password: string | null;
   sla_paused_at: string | null;
   sla_accumulated_pause_minutes: number | null;
+  contract_id: string | null;
+  asset_id: string | null;
 }
 
 export interface TicketUpdate {

@@ -16,7 +16,8 @@ import { TicketHeroHeader } from '@/components/ticket/TicketHeroHeader';
 import { UnifiedTimeline } from '@/components/ticket/UnifiedTimeline';
 import { ResolutionDialog } from '@/components/ticket/ResolutionDialog';
 import { EscalateDialog } from '@/components/ticket/EscalateDialog';
-import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2, Sparkles, ExternalLink, FileText } from 'lucide-react';
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
 import { ImagePasteHandler } from '@/components/ticket/ImagePasteHandler';
@@ -143,6 +144,35 @@ const TicketDetails: React.FC = () => {
   const [newUpdateText, setNewUpdateText] = useState('');
   const [isInternalNote, setIsInternalNote] = useState(false); // Renamed from isNoteInternal to match original
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  // Fetch suggested KB articles
+  const { data: suggestedArticles, isLoading: kbLoading } = useQuery({
+    queryKey: ['kb-suggestions', ticket?.category, ticket?.title],
+    queryFn: async () => {
+      if (!ticket) return [];
+      const { data, error } = await (supabase as any)
+        .from('knowledge_articles')
+        .select('id, title, slug, category')
+        .or(`category.eq."${ticket.category}",title.ilike.%${ticket.title.split(' ')[0]}%`)
+        .eq('is_published', true)
+        .limit(3);
+      if (error) return [];
+      return data;
+    },
+    enabled: !!ticket
+  });
+
+  // Fetch contract details
+  const { data: contract } = useQuery({
+    queryKey: ['ticket-contract', ticket?.contract_id],
+    queryFn: async () => {
+      if (!ticket?.contract_id) return null;
+      const { data, error } = await supabase.from('contracts').select('*').eq('id', ticket.contract_id).single();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!ticket?.contract_id
+  });
+
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [escalateDialogOpen, setEscalateDialogOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -663,6 +693,80 @@ const TicketDetails: React.FC = () => {
                        <span className="text-green-600 font-medium">{formatTimeAgo(ticket.first_response_at)}</span>
                      </div>
                    )}
+                </div>
+              </Card>
+            )}
+
+            {/* Artigos Sugeridos KB */}
+            {suggestedArticles && suggestedArticles.length > 0 && (
+              <Card className="p-6 border-none shadow-sm bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Artigos Sugeridos</h3>
+                </div>
+                <div className="space-y-3">
+                  {suggestedArticles.map((article: any) => (
+                    <button
+                      key={article.id}
+                      onClick={() => navigate('/knowledge')} // Idealmente abriria o modal ou artigo específico, mas por agora vai pra lista
+                      className="w-full text-left p-3 rounded-xl bg-background border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2">{article.title}</span>
+                        <ExternalLink className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-0.5" />
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 mt-1 block">{article.category}</span>
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Consumo de Contrato */}
+            {contract && (
+              <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Contrato / Plano</h3>
+                  </div>
+                  {contract.tickets_limit && (
+                    <Badge variant={((contract.tickets_used || 0) / contract.tickets_limit) >= 1 ? 'destructive' : 'secondary'}>
+                      {Math.round(((contract.tickets_used || 0) / contract.tickets_limit) * 100)}%
+                    </Badge>
+                  )}
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Nome do Plano</p>
+                    <p className="text-sm font-bold text-foreground">{contract.name}</p>
+                  </div>
+
+                  {contract.tickets_limit ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
+                        <span>{contract.tickets_used || 0} de {contract.tickets_limit} chamados</span>
+                        {((contract.tickets_used || 0) / contract.tickets_limit) >= 0.8 && (
+                          <span className="text-destructive animate-pulse">ALERTA DE LIMITE</span>
+                        )}
+                      </div>
+                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden border border-border/40">
+                        <div 
+                          className={cn(
+                            "h-full transition-all duration-500",
+                            ((contract.tickets_used || 0) / contract.tickets_limit) >= 1 ? "bg-destructive" :
+                            ((contract.tickets_used || 0) / contract.tickets_limit) >= 0.8 ? "bg-amber-500" : "bg-primary"
+                          )}
+                          style={{ width: `${Math.min(100, ((contract.tickets_used || 0) / contract.tickets_limit) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-muted/30 rounded-lg p-3">
+                      <p className="text-[10px] font-medium text-muted-foreground text-center">Chamados Ilimitados</p>
+                    </div>
+                  )}
                 </div>
               </Card>
             )}
