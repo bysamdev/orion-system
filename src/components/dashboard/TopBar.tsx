@@ -1,7 +1,9 @@
 import React from 'react';
-import { Plus, Settings, Shield, Search, User, LogOut, LayoutDashboard, PieChart, Monitor } from 'lucide-react';
+import { 
+  Plus, Settings, Shield, Search, User, LogOut, 
+  LayoutDashboard, PieChart, Monitor, ArrowRight 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -10,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
 import { NotificationsPopover } from './NotificationsPopover';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { cn } from '@/lib/utils';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
@@ -17,6 +20,42 @@ export const TopBar: React.FC = () => {
   const { toast } = useToast();
   const { data: profile } = useUserProfile();
   const { data: role } = useUserRole();
+
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchResults, setSearchResults] = React.useState<any[]>([]);
+  const [isSearching, setIsSearching] = React.useState(false);
+  const [showResults, setShowResults] = React.useState(false);
+
+  React.useEffect(() => {
+    const searchTickets = async () => {
+      if (searchQuery.length < 2) {
+        setSearchResults([]);
+        setShowResults(false);
+        return;
+      }
+
+      setIsSearching(true);
+      setShowResults(true);
+
+      try {
+        const { data, error } = await supabase
+          .from('tickets')
+          .select('id, ticket_number, title, status')
+          .or(`title.ilike.%${searchQuery}%,ticket_number.text.ilike.%${searchQuery}%`)
+          .limit(5);
+
+        if (error) throw error;
+        setSearchResults(data || []);
+      } catch (err) {
+        console.error('Search error:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const timer = setTimeout(searchTickets, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -27,161 +66,165 @@ export const TopBar: React.FC = () => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="flex items-center justify-between mb-8 pb-4">
+    <div className="flex items-center justify-between mb-8 pb-4 border-b border-border/40">
       {/* Área de Busca */}
-      <div className="flex items-center gap-4 flex-1 max-w-md">
+      <div className="flex items-center gap-4 flex-1 max-w-md relative">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Buscar tickets..." 
-            className="pl-10 bg-background border border-border rounded-lg"
+          <input 
+            placeholder="Buscar por #número ou título..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => searchQuery.length >= 2 && setShowResults(true)}
+            className="w-full flex h-11 rounded-xl border border-border/40 bg-muted/20 px-10 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
-      </div>
-      
-      <div className="flex items-center gap-2">
-        {/* Separador vertical */}
-        <Separator orientation="vertical" className="h-8 mx-2" />
-        
-        {/* Botão Destaque: Novo Ticket */}
-        <Button 
-          onClick={() => navigate('/novo-ticket')}
-          className="rounded-full px-5 gap-2 shadow-md hover:shadow-lg transition-all bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Ticket
-        </Button>
-        
-        {/* Separador */}
-        <Separator orientation="vertical" className="h-8 mx-2" />
-        
-        {/* Links de Navegação - Apenas Ícones com Tooltip */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => navigate('/')}
-              className={`transition-colors ${
-                isActive('/') 
-                  ? 'text-primary bg-primary/10' 
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-            >
-              <LayoutDashboard className="w-5 h-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Dashboard</TooltipContent>
-        </Tooltip>
-        
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => navigate('/ajustes')}
-              className={`transition-colors ${
-                isActive('/ajustes') 
-                  ? 'text-primary bg-primary/10' 
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-            >
-              <Settings className="w-5 h-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Ajustes</TooltipContent>
-        </Tooltip>
 
-        {(role === 'admin' || role === 'developer') && (
+        {showResults && (
           <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={() => navigate('/relatorios')}
-                  className={`transition-colors ${
-                    isActive('/relatorios') 
-                      ? 'text-primary bg-primary/10' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                >
-                  <PieChart className="w-5 h-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Relatórios</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={() => navigate('/admin')}
-                  className={`transition-colors ${
-                    isActive('/admin') 
-                      ? 'text-primary bg-primary/10' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                >
-                  <Shield className="w-5 h-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Admin</TooltipContent>
-            </Tooltip>
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => setShowResults(false)}
+            />
+            <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border shadow-2xl rounded-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 overflow-hidden">
+              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                {isSearching ? 'Buscando...' : searchResults.length > 0 ? 'Resultados da busca' : 'Nenhum ticket encontrado'}
+              </div>
+              <div className="space-y-1">
+                {searchResults.map((ticket) => (
+                  <button
+                    key={ticket.id}
+                    onClick={() => {
+                      navigate(`/ticket/${ticket.id}`);
+                      setShowResults(false);
+                      setSearchQuery('');
+                    }}
+                    className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-colors text-left group"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-mono font-bold text-primary">#{ticket.ticket_number}</p>
+                      <p className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors">{ticket.title}</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-all" />
+                  </button>
+                ))}
+              </div>
+            </div>
           </>
         )}
+      </div>
+      
+      <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 px-2">
+          <NavItem 
+            icon={LayoutDashboard} 
+            label="Home" 
+            tooltip="Dashboard" 
+            isActive={isActive('/')} 
+            onClick={() => navigate('/')} 
+          />
+          
+          {(role === 'admin' || role === 'developer') && (
+            <NavItem 
+              icon={PieChart} 
+              label="Relatórios" 
+              tooltip="Analytics e Stats" 
+              isActive={isActive('/relatorios')} 
+              onClick={() => navigate('/relatorios')} 
+            />
+          )}
 
-        {(role === 'admin' || role === 'developer' || role === 'technician') && (
+          {(role === 'admin' || role === 'developer') && (
+            <NavItem 
+              icon={Shield} 
+              label="Admin" 
+              tooltip="Configurações do Sistema" 
+              isActive={isActive('/admin')} 
+              onClick={() => navigate('/admin')} 
+            />
+          )}
+
+          {(role === 'admin' || role === 'developer' || role === 'technician') && (
+            <NavItem 
+              icon={Monitor} 
+              label="Máquinas" 
+              tooltip="Monitoramento em Tempo Real" 
+              isActive={isActive('/monitoring')} 
+              onClick={() => navigate('/monitoring')} 
+            />
+          )}
+
+          <NavItem 
+            icon={Settings} 
+            label="Minha Conta" 
+            tooltip="Perfil e Preferências" 
+            isActive={isActive('/ajustes')} 
+            onClick={() => navigate('/ajustes')} 
+          />
+        </div>
+        
+        <Separator orientation="vertical" className="h-8 mx-2" />
+        
+        <Button 
+          onClick={() => navigate('/novo-ticket')}
+          className="rounded-full px-5 h-10 gap-2 shadow-md hover:shadow-lg transition-all bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          <Plus className="w-4 h-4" />
+          <span className="text-xs font-black uppercase tracking-widest hidden sm:inline">Novo Ticket</span>
+        </Button>
+        
+        <Separator orientation="vertical" className="h-8 mx-2" />
+        
+        <div className="flex items-center gap-2">
+          <NotificationsPopover />
+          <ThemeToggle />
+          
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="icon"
-                onClick={() => navigate('/monitoring')}
-                className={`transition-colors ${
-                  isActive('/monitoring') 
-                    ? 'text-primary bg-primary/10' 
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                }`}
+                size="icon" 
+                onClick={handleSignOut}
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl"
               >
-                <Monitor className="w-5 h-5" />
+                <LogOut className="w-5 h-5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Monitoramento</TooltipContent>
+            <TooltipContent>Sair da Conta</TooltipContent>
           </Tooltip>
-        )}
-        
-        {/* Separador */}
-        <Separator orientation="vertical" className="h-8 mx-2" />
-        
-        {/* Ações do Usuário */}
-        <NotificationsPopover />
-        
-        <ThemeToggle />
-        
-        <Button 
-          variant="ghost"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted"
-        >
-          <User className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-foreground">{profile?.full_name || 'Usuário'}</span>
-        </Button>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleSignOut}
-              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            >
-              <LogOut className="w-5 h-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Sair</TooltipContent>
-        </Tooltip>
+        </div>
       </div>
     </div>
   );
 };
+
+interface NavItemProps {
+  icon: any;
+  label: string;
+  tooltip: string;
+  isActive: boolean;
+  onClick: () => void;
+}
+
+const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, tooltip, isActive, onClick }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button 
+        variant="ghost" 
+        onClick={onClick}
+        className={cn(
+          "flex flex-col items-center justify-center gap-1 h-14 w-16 rounded-xl transition-all duration-300",
+          isActive 
+            ? "text-primary bg-primary/10 shadow-inner" 
+            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+        )}
+      >
+        <Icon className={cn("w-5 h-5 transition-transform duration-300", isActive && "scale-110")} />
+        <span className="text-[10px] font-black uppercase tracking-tighter opacity-80">{label}</span>
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent side="bottom" className="text-[10px] font-bold uppercase tracking-widest">
+      {tooltip}
+    </TooltipContent>
+  </Tooltip>
+);

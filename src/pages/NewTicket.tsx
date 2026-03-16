@@ -88,6 +88,29 @@ const NewTicket = () => {
         return;
       }
 
+      // ─── Lógica de Atribuição Automática (Round-Robin / Carga de Trabalho) ───
+      const { data: techs } = await supabase
+        .from('profiles')
+        .select(`
+          id, 
+          full_name,
+          tickets!assigned_to_user_id(id)
+        `)
+        .filter('tickets.status', 'in', '("open","in-progress","reopened")');
+
+      let assignedToId = null;
+      let assignedToName = null;
+
+      if (techs && techs.length > 0) {
+        // Ordenar por quem tem menos tickets abertos
+        const sortedTechs = [...techs].sort((a, b) => 
+          (a.tickets?.length || 0) - (b.tickets?.length || 0)
+        );
+        const bestTech = sortedTechs[0];
+        assignedToId = bestTech.id;
+        assignedToName = bestTech.full_name;
+      }
+
       const { data: ticket, error: ticketError } = await supabase.from('tickets').insert({
         title: data.title,
         category: data.category,
@@ -101,6 +124,8 @@ const NewTicket = () => {
         remote_id: remoteId.trim() || null,
         remote_password: remotePassword.trim() || null,
         contract_id: selectedContractId || null,
+        assigned_to_user_id: assignedToId,
+        assigned_to: assignedToName,
       }).select().single();
 
       if (ticketError) throw ticketError;

@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Loader2, RefreshCw, ChevronRight, ChevronDown, Monitor, Wifi, WifiOff, AlertTriangle, Search, Server } from 'lucide-react';
+import { Loader2, RefreshCw, ChevronRight, ChevronDown, Monitor, Wifi, WifiOff, AlertTriangle, Search, Server, Plus } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import {
   useMonitoringDashboard,
@@ -24,6 +24,7 @@ import type { MachineGroup, MachineWithMetric } from '@/hooks/useMonitoring';
 import { MachineCard, MachineCardSkeleton } from '@/components/monitoring/MachineCard';
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 import { useQueryClient } from '@tanstack/react-query';
+import { MonitoringOnboarding } from '@/components/monitoring/MonitoringOnboarding';
 
 type StatusFilter = 'all' | 'online' | 'offline' | 'alert';
 
@@ -121,17 +122,7 @@ function MachinesGrid({
   }, [machines, statusFilter, search]);
 
   if (!groupId) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-muted-foreground gap-4 border-2 border-dashed rounded-2xl opacity-50">
-        <div className="p-4 bg-muted rounded-full">
-          <Server className="h-10 w-10 text-muted-foreground/40" />
-        </div>
-        <div className="text-center">
-          <p className="text-base font-medium">Nenhum Grupo Selecionado</p>
-          <p className="text-xs">Escolha um cliente ou grupo na lateral para gerenciar as máquinas.</p>
-        </div>
-      </div>
-    );
+    return <MonitoringOnboarding />;
   }
 
   if (isLoading) {
@@ -237,12 +228,12 @@ const Monitoring: React.FC = () => {
                 </Badge>
                 <Badge variant="outline" className="gap-1.5 text-red-600 border-red-500/30 bg-red-500/10">
                   <WifiOff className="w-3 h-3" />
-                  {dashboard.offline} offline
+                  <span>{dashboard.offline} offline</span>
                 </Badge>
                 {dashboard.active_alerts > 0 && (
                   <Badge variant="outline" className="gap-1.5 text-yellow-600 border-yellow-500/30 bg-yellow-500/10">
                     <AlertTriangle className="w-3 h-3" />
-                    {dashboard.active_alerts} alertas
+                    <span>{dashboard.active_alerts} alertas</span>
                   </Badge>
                 )}
               </div>
@@ -252,11 +243,19 @@ const Monitoring: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              className="gap-2"
+              className="gap-2 rounded-xl transition-all"
               disabled={refreshing}
             >
               <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
               Atualizar
+            </Button>
+
+            <Button
+              size="sm"
+              className="gap-2 rounded-xl bg-primary shadow-lg shadow-primary/20 transition-all font-bold"
+            >
+              <Plus className="w-4 h-4" />
+              Adicionar Máquina
             </Button>
           </div>
         </div>

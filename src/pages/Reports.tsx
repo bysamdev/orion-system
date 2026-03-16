@@ -64,7 +64,7 @@ const Reports: React.FC = () => {
     queryFn: async () => {
       let query = supabaseRead
         .from('tickets')
-        .select('id, ticket_number, title, status, priority, sla_status, sla_due_date, created_at, resolved_at, first_response_at, assigned_to, assigned_to_user_id, company_id, requester_name')
+        .select('id, ticket_number, title, status, priority, sla_status, sla_due_date, created_at, resolved_at, first_response_at, assigned_to, assigned_to_user_id, company_id, requester_name, category')
         .gte('created_at', `${dateFrom}T00:00:00`)
         .lte('created_at', `${dateTo}T23:59:59`)
         .order('created_at', { ascending: false });
@@ -114,7 +114,32 @@ const Reports: React.FC = () => {
     const slaAttention = withSla.filter(t => t.sla_status === 'attention').length;
     const slaBreached = withSla.filter(t => t.sla_status === 'breached').length;
 
-    return { open, resolved, closed, total: tickets.length, avgResolutionHours, slaOk, slaAttention, slaBreached };
+    // Rankings
+    const techRanking = tickets.reduce((acc: any, t) => {
+      if (t.assigned_to) {
+        acc[t.assigned_to] = (acc[t.assigned_to] || 0) + 1;
+      }
+      return acc;
+    }, {});
+
+    const companyRanking = tickets.reduce((acc: any, t) => {
+      if (t.company_name) {
+        acc[t.company_name] = (acc[t.company_name] || 0) + 1;
+      }
+      return acc;
+    }, {});
+
+    const categoryRanking = tickets.reduce((acc: any, t) => {
+      const cat = (t as any).category || 'Sem Categoria';
+      acc[cat] = (acc[cat] || 0) + 1;
+      return acc;
+    }, {});
+
+    return { 
+      open, resolved, closed, total: tickets.length, 
+      avgResolutionHours, slaOk, slaAttention, slaBreached,
+      techRanking, companyRanking, categoryRanking
+    };
   }, [tickets]);
 
   // Transformar dados para os gráficos
@@ -143,19 +168,36 @@ const Reports: React.FC = () => {
       .map(([date, count]) => ({ date, count }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // 4. Tickets por Categoria ou Prioridade
+    // 5. Técnico Ranking (Top 5)
+    const technicianData = Object.entries(metrics.techRanking)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a: any, b: any) => b.count - a.count)
+      .slice(0, 5);
+
+    // 6. Empresa Ranking (Top 5)
+    const companyData = Object.entries(metrics.companyRanking)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a: any, b: any) => b.count - a.count)
+      .slice(0, 5);
+
+    // 7. Categoria Ranking
+    const categoryData = Object.entries(metrics.categoryRanking)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a: any, b: any) => b.count - a.count)
+      .slice(0, 8);
+
+    // 4. Priority Distribution
     const priorityData = tickets.reduce((acc: any, t) => {
       acc[t.priority] = (acc[t.priority] || 0) + 1;
       return acc;
     }, {});
-    const priorityChartData = [
-      { name: 'Urgente', value: priorityData.urgent || 0, fill: '#ef4444' },
-      { name: 'Alta', value: priorityData.high || 0, fill: '#f97316' },
-      { name: 'Média', value: priorityData.medium || 0, fill: '#3b82f6' },
-      { name: 'Baixa', value: priorityData.low || 0, fill: '#94a3b8' },
-    ];
+    const priorityChartData = Object.entries(priorityData).map(([name, value]) => ({
+      name: name === 'urgent' ? 'Urgente' : name === 'high' ? 'Alta' : name === 'medium' ? 'Média' : 'Baixa',
+      value,
+      color: name === 'urgent' ? '#ef4444' : name === 'high' ? '#f97316' : name === 'medium' ? '#eab308' : '#22c55e'
+    })).filter(d => (d as any).value > 0);
 
-    return { statusData, slaData, trendData, priorityChartData };
+    return { statusData, slaData, trendData, priorityChartData, technicianData, companyData, categoryData };
   }, [tickets, metrics]);
 
   const exportToCSV = () => {
@@ -408,6 +450,78 @@ const Reports: React.FC = () => {
                      {d.name}
                    </div>
                  ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Rankings */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 print:break-inside-avoid">
+          <Card className="shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Desempenho por Técnico</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px] w-full">
+                {chartData.technicianData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData.technicianData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} />
+                      <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
+                      <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={20} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm text-center">Nenhum dado atribuído</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Volume por Empresa</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px] w-full">
+                {chartData.companyData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData.companyData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} />
+                      <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
+                      <Bar dataKey="count" fill="hsl(var(--warning))" radius={[0, 4, 4, 0]} barSize={20} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm text-center">Sem dados de empresas</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="col-span-full shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Chamados por Categoria</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[280px] w-full">
+                {chartData.categoryData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData.categoryData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
+                      <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={40} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Nenhum dado de categorias</div>
+                )}
               </div>
             </CardContent>
           </Card>

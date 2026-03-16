@@ -39,7 +39,9 @@ export const profileUpdateSchema = z.object({
   department: z.string()
     .trim()
     .max(50, 'Departamento deve ter no máximo 50 caracteres')
-    .optional()
+    .optional(),
+  email_notifications: z.boolean().optional(),
+  push_notifications: z.boolean().optional(),
 });
 
 export const ticketUpdateSchema = z.object({

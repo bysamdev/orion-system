@@ -32,6 +32,10 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Estados para notificações
+  const [emailNotifications, setEmailNotifications] = useState(profile?.email_notifications ?? true);
+  const [pushNotifications, setPushNotifications] = useState(profile?.push_notifications ?? true);
+
   // Fetch user's company only (not all companies for security)
   const { data: userCompany } = useQuery({
     queryKey: ['user-company', profile?.company_id],
@@ -54,6 +58,8 @@ export default function Settings() {
     if (profile) {
       setFullName(profile.full_name || '');
       setDepartment(profile.department || '');
+      setEmailNotifications(profile.email_notifications ?? true);
+      setPushNotifications(profile.push_notifications ?? true);
     }
   }, [profile]);
 
@@ -61,7 +67,9 @@ export default function Settings() {
     mutationFn: async () => {
       const validationResult = profileUpdateSchema.safeParse({
         full_name: fullName,
-        department: department || undefined
+        department: department || undefined,
+        email_notifications: emailNotifications,
+        push_notifications: pushNotifications
       });
       
       if (!validationResult.success) {
@@ -341,44 +349,36 @@ export default function Settings() {
                   <CardDescription>Configure suas preferências de notificação</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex items-center justify-between p-4 rounded-lg border border-border">
+                  <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card/50 transition-all hover:border-primary/30">
                     <div className="space-y-0.5">
-                      <Label className="flex items-center gap-2">
+                      <Label className="flex items-center gap-2 text-sm font-bold">
                         Notificações de E-mail
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge variant="outline" className="text-xs font-normal text-muted-foreground cursor-help">
-                              Em breve
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Esta funcionalidade será disponibilizada em breve</p>
-                          </TooltipContent>
-                        </Tooltip>
                       </Label>
-                      <p className="text-sm text-muted-foreground">Receba atualizações por e-mail</p>
+                      <p className="text-xs text-muted-foreground">Receba atualizações de tickets por e-mail</p>
                     </div>
-                    <Switch disabled />
+                    <Switch 
+                      checked={emailNotifications}
+                      onCheckedChange={(val) => {
+                        setEmailNotifications(val);
+                        updateProfileMutation.mutate();
+                      }}
+                    />
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 rounded-lg border border-border">
+                  <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card/50 transition-all hover:border-primary/30">
                     <div className="space-y-0.5">
-                      <Label className="flex items-center gap-2">
+                      <Label className="flex items-center gap-2 text-sm font-bold">
                         Notificações Push
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge variant="outline" className="text-xs font-normal text-muted-foreground cursor-help">
-                              Em breve
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Esta funcionalidade será disponibilizada em breve</p>
-                          </TooltipContent>
-                        </Tooltip>
                       </Label>
-                      <p className="text-sm text-muted-foreground">Receba notificações no navegador</p>
+                      <p className="text-xs text-muted-foreground">Receba alertas em tempo real no seu navegador</p>
                     </div>
-                    <Switch disabled />
+                    <Switch 
+                      checked={pushNotifications}
+                      onCheckedChange={(val) => {
+                        setPushNotifications(val);
+                        updateProfileMutation.mutate();
+                      }}
+                    />
                   </div>
                 </CardContent>
               </Card>
