@@ -61,6 +61,10 @@ export type Database = {
           type: string
           updated_at: string
           warranty_until: string | null
+          os: string | null
+          internal_ip: string | null
+          last_check: string | null
+          hostname: string | null
         }
         Insert: {
           brand?: string | null
@@ -75,6 +79,10 @@ export type Database = {
           type: string
           updated_at?: string
           warranty_until?: string | null
+          os?: string | null
+          internal_ip?: string | null
+          last_check?: string | null
+          hostname?: string | null
         }
         Update: {
           brand?: string | null
@@ -89,6 +97,10 @@ export type Database = {
           type?: string
           updated_at?: string
           warranty_until?: string | null
+          os?: string | null
+          internal_ip?: string | null
+          last_check?: string | null
+          hostname?: string | null
         }
         Relationships: [
           {
@@ -259,6 +271,8 @@ export type Database = {
           sla_config_id: string | null
           start_date: string
           updated_at: string
+          tickets_limit: number | null
+          tickets_used: number | null
         }
         Insert: {
           company_id: string
@@ -272,6 +286,8 @@ export type Database = {
           sla_config_id?: string | null
           start_date: string
           updated_at?: string
+          tickets_limit?: number | null
+          tickets_used?: number | null
         }
         Update: {
           company_id?: string
@@ -285,6 +301,8 @@ export type Database = {
           sla_config_id?: string | null
           start_date?: string
           updated_at?: string
+          tickets_limit?: number | null
+          tickets_used?: number | null
         }
         Relationships: [
           {
@@ -591,6 +609,7 @@ export type Database = {
           full_name: string
           id: string
           updated_at: string
+          last_assigned_at: string | null
         }
         Insert: {
           company_id: string
@@ -600,6 +619,7 @@ export type Database = {
           full_name: string
           id: string
           updated_at?: string
+          last_assigned_at?: string | null
         }
         Update: {
           company_id?: string
@@ -609,6 +629,7 @@ export type Database = {
           full_name?: string
           id?: string
           updated_at?: string
+          last_assigned_at?: string | null
         }
         Relationships: [
           {
@@ -1037,6 +1058,7 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          asset_id: string | null
         }
         Insert: {
           assigned_to?: string | null
@@ -1073,6 +1095,7 @@ export type Database = {
           title: string
           updated_at?: string
           user_id: string
+          asset_id?: string | null
         }
         Update: {
           assigned_to?: string | null
@@ -1109,6 +1132,7 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+          asset_id?: string | null
         }
         Relationships: [
           {
@@ -1151,6 +1175,13 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
             referencedColumns: ["id"]
           },
         ]
