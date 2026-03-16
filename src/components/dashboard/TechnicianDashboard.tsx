@@ -598,32 +598,33 @@ export const TechnicianDashboard: React.FC = () => {
               Fechados Recentemente
               <Clock className="w-3.5 h-3.5" />
             </h4>
-            <div className="space-y-2">
-              {recentClosed.slice(0, 3).map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => navigate(`/ticket/${t.id}`)}
-                  className="w-full group p-4 rounded-2xl border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/20 transition-all text-left flex items-center gap-4"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-background border border-border/40 flex items-center justify-center group-hover:scale-90 transition-transform">
-                    <span className="text-[10px] font-mono font-bold">#{t.ticket_number}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{t.title}</p>
-                    <p className="text-[9px] font-medium text-muted-foreground uppercase">Técnico designado</p>
-                  </div>
-                </button>
-              ))}
-              {recentClosed.length > 3 && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => navigate('/historico')}
-                  className="w-full text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-primary rounded-xl"
-                >
-                  Ver histórico completo
-                </Button>
-              )}
+            <div className="flex flex-col gap-2 h-full">
+              <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
+                {recentClosed.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => navigate(`/ticket/${t.id}`)}
+                    className="w-full group p-4 rounded-2xl border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/20 transition-all text-left flex items-center gap-4"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-background border border-border/40 flex items-center justify-center group-hover:scale-90 transition-transform">
+                      <span className="text-[10px] font-mono font-bold">#{t.ticket_number}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{t.title}</p>
+                      <p className="text-[9px] font-medium text-muted-foreground uppercase">{t.requester_name}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate('/historico')}
+                className="w-full text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-primary rounded-xl mt-2"
+              >
+                Ver histórico completo
+              </Button>
             </div>
           </section>
         </div>

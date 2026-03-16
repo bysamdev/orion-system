@@ -165,6 +165,10 @@ const Monitoring: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(true);
 
+  // Hooks must be called at the top, before any early returns
+  const { data: dashboard, isError: dashboardError } = useMonitoringDashboard();
+  const { data: groups, isLoading: groupsLoading, isError: groupsError } = useMonitoringGroups();
+
   // RBAC — same pattern as Reports.tsx
   if (roleLoading) {
     return (
@@ -193,9 +197,6 @@ const Monitoring: React.FC = () => {
       </div>
     );
   }
-
-  const { data: dashboard, isError: dashboardError } = useMonitoringDashboard();
-  const { data: groups, isLoading: groupsLoading, isError: groupsError } = useMonitoringGroups();
 
   if (dashboardError || groupsError) {
     return (

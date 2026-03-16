@@ -155,14 +155,28 @@ export const useTicketUpdates = (ticketId: string) => {
     queryKey: ['ticket-updates', ticketId],
     queryFn: async () => {
       // Use read client for queries
-      const { data, error } = await supabaseRead
+      const { data: updates, error } = await supabaseRead
         .from('ticket_updates')
         .select('*')
         .eq('ticket_id', ticketId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data as TicketUpdate[];
+      if (!updates || updates.length === 0) return [];
+
+      // Fetch author profiles
+      const authorIds = [...new Set(updates.map(u => u.author_id))];
+      const { data: profiles } = await supabaseRead
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', authorIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+
+      return updates.map(u => ({
+        ...u,
+        author: profileMap.get(u.author_id) || u.author || 'Sistema'
+      })) as TicketUpdate[];
     },
     enabled: !!ticketId,
   });

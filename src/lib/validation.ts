@@ -74,7 +74,7 @@ export const ticketCreationSchema = z.object({
     .trim()
     .min(1, 'Selecione um departamento')
     .max(50, 'Departamento deve ter no máximo 50 caracteres')
-    .regex(safeTextRegex, 'O departamento contém caracteres inválidos')
+    .regex(/^[a-zA-Z0-9\s\-_.áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ!?,;:()\[\]{}@#$%&*+='"\/\\]*$/, 'O departamento contém caracteres inválidos')
 });
 
 export type TicketStatus = z.infer<typeof ticketStatusSchema>;

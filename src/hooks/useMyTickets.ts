@@ -145,7 +145,7 @@ export const useMyRecentClosedTickets = (userId: string | undefined) => {
 
       const { data, error } = await supabaseRead
         .from('tickets')
-        .select('id, ticket_number, title, status, category, assigned_to, updated_at, resolved_at')
+        .select('id, ticket_number, title, status, category, assigned_to, updated_at, resolved_at, requester_name')
         .eq('assigned_to_user_id', userId)
         .in('status', ['resolved', 'closed'])
         .order('updated_at', { ascending: false })

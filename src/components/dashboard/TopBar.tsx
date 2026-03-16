@@ -39,7 +39,7 @@ export const TopBar: React.FC = () => {
 
       try {
         const cleanQuery = searchQuery.replace(/#/g, '').trim();
-        const numberMatch = searchQuery.match(/\b\d+\b/);
+        const numberMatch = searchQuery.match(/^\d+$/); // Exact number match for ticket_number
         
         let query = supabase
           .from('tickets')
@@ -47,8 +47,10 @@ export const TopBar: React.FC = () => {
           
         if (numberMatch) {
           const num = parseInt(numberMatch[0], 10);
-          query = query.or(`title.ilike.%${cleanQuery}%,ticket_number.eq.${num}`);
+          // If it's an exact number, prioritize searching by ticket_number
+          query = query.eq('ticket_number', num);
         } else {
+          // Otherwise, search by title
           query = query.ilike('title', `%${cleanQuery}%`);
         }
 
