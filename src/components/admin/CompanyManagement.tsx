@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Trash2, Pencil, Building2 } from 'lucide-react';
+import { Plus, Loader2, Trash2, Pencil, Building2, Zap } from 'lucide-react';
 import { companyNameSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
 import {
@@ -27,9 +27,10 @@ interface CompanyForm {
   cnpj: string;
   phone: string;
   address: string;
+  domain: string;
 }
 
-const emptyForm: CompanyForm = { name: '', cnpj: '', phone: '', address: '' };
+const emptyForm: CompanyForm = { name: '', cnpj: '', phone: '', address: '', domain: '' };
 
 export const CompanyManagement = () => {
   const { toast } = useToast();
@@ -38,6 +39,7 @@ export const CompanyManagement = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [deleteCompanyId, setDeleteCompanyId] = useState<string | null>(null);
+  const [tokenCompanyId, setTokenCompanyId] = useState<string | null>(null);
 
   const { data: companies, isLoading } = useQuery({
     queryKey: ['companies'],
@@ -48,6 +50,60 @@ export const CompanyManagement = () => {
         .order('name');
       if (error) throw error;
       return data;
+    }
+  });
+
+  const { data: companyTokens, refetch: refetchTokens } = useQuery({
+    queryKey: ['company-tokens', tokenCompanyId],
+    queryFn: async () => {
+      if (!tokenCompanyId) return [];
+      const { data, error } = await supabase
+        .from('api_keys' as any)
+        .select('*')
+        .eq('company_id', tokenCompanyId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!tokenCompanyId
+  });
+
+  const generateTokenMutation = useMutation({
+    mutationFn: async (companyId: string) => {
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let result = 'orion_';
+      for (let i = 0; i < 32; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error('Não autenticado');
+
+      const { error } = await supabase.from('api_keys' as any).insert({
+        company_id: companyId,
+        user_id: userData.user.id,
+        key_value: result,
+        label: `Gerada manualmente em ${new Date().toLocaleDateString()}`
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchTokens();
+      toast({ title: 'Sucesso', description: 'Token gerado com sucesso.' });
+    },
+    onError: (error) => {
+      toast({ title: 'Erro', description: mapDatabaseError(error), variant: 'destructive' });
+    }
+  });
+
+  const deleteTokenMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('api_keys' as any).delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchTokens();
+      toast({ title: 'Sucesso', description: 'Token removido.' });
     }
   });
 
@@ -63,6 +119,7 @@ export const CompanyManagement = () => {
         cnpj: data.cnpj.trim() || null,
         phone: data.phone.trim() || null,
         address: data.address.trim() || null,
+        domain: (data as any).domain?.trim().toLowerCase() || null,
       };
 
       if (data.id) {
@@ -114,6 +171,7 @@ export const CompanyManagement = () => {
       cnpj: company.cnpj || '',
       phone: company.phone || '',
       address: company.address || '',
+      domain: company.domain || '',
     });
     setEditingId(company.id);
     setShowDialog(true);
@@ -149,9 +207,9 @@ export const CompanyManagement = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead>Domínio</TableHead>
                 <TableHead>CNPJ</TableHead>
                 <TableHead>Telefone</TableHead>
-                <TableHead>Endereço</TableHead>
                 <TableHead>Criação</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -165,20 +223,28 @@ export const CompanyManagement = () => {
                       <span className="truncate">{company.name}</span>
                     </div>
                   </TableCell>
+                  <TableCell className="text-primary font-mono text-xs">
+                    {(company as any).domain ? `@${(company as any).domain}` : '—'}
+                  </TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {company.cnpj || '—'}
                   </TableCell>
-                  <TableCell className="text-muted-foreground whitespace-nowrap">
+                  <TableCell className="text-muted-foreground whitespace-nowrap text-xs">
                     {company.phone || '—'}
                   </TableCell>
-                  <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                    {company.address || '—'}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                  <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
                     {new Date(company.created_at).toLocaleDateString('pt-BR')}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setTokenCompanyId(company.id)}
+                        className="gap-2 text-[10px] uppercase font-black"
+                      >
+                        <Zap className="h-3 w-3" /> Tokens
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => openEdit(company)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -201,6 +267,71 @@ export const CompanyManagement = () => {
         </CardContent>
       </Card>
 
+      {/* Dialog de Tokens */}
+      <Dialog open={!!tokenCompanyId} onOpenChange={() => setTokenCompanyId(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Tokens de Monitoramento</DialogTitle>
+            <DialogDescription>
+              Gerencie chaves de API para instalação do Orion Agent nesta empresa.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <Button 
+              onClick={() => tokenCompanyId && generateTokenMutation.mutate(tokenCompanyId)}
+              className="w-full gap-2 font-black uppercase tracking-widest text-[10px]"
+              disabled={generateTokenMutation.isPending}
+            >
+              <Plus className="h-4 w-4" /> Gerar Novo Token
+            </Button>
+
+            <div className="rounded-xl border border-border/40 overflow-hidden">
+              <Table>
+                <TableHeader className="bg-muted/30 text-[10px] uppercase font-black">
+                  <TableRow>
+                    <TableHead>Token / Label</TableHead>
+                    <TableHead>Último Uso</TableHead>
+                    <TableHead className="text-right">Ação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {companyTokens?.map((tk: any) => (
+                    <TableRow key={tk.id} className="text-xs">
+                      <TableCell>
+                        <div className="space-y-1">
+                          <code className="bg-muted px-1.5 py-0.5 rounded text-emerald-600 font-bold">{tk.key_value}</code>
+                          <p className="text-[10px] text-muted-foreground">{tk.label}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {tk.last_used_at ? new Date(tk.last_used_at).toLocaleString('pt-BR') : 'Nunca usado'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => deleteTokenMutation.mutate(tk.id)}
+                        >
+                          <Trash2 className="h-3 w-3 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(!companyTokens || companyTokens.length === 0) && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center py-4 text-muted-foreground italic">
+                        Nenhum token ativo.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog de criação/edição */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
@@ -211,15 +342,27 @@ export const CompanyManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Nome da Empresa *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData(p => ({ ...p, name: e.target.value }))}
-                placeholder="Ex: Empresa XPTO Ltda"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome da Empresa *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Ex: Contoso Ltda"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="domain">Domínio de Rede (DNS)</Label>
+                <Input
+                  id="domain"
+                  value={formData.domain}
+                  onChange={(e) => setFormData(p => ({ ...p, domain: e.target.value }))}
+                  placeholder="Ex: contoso.com"
+                />
+              </div>
             </div>
+            
             <div>
               <Label htmlFor="cnpj">CNPJ</Label>
               <Input
@@ -257,7 +400,7 @@ export const CompanyManagement = () => {
               disabled={saveMutation.isPending}
             >
               {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {editingId ? 'Salvar' : 'Criar'}
+              {editingId ? 'Salvar Alterações' : 'Cadastrar Empresa'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -276,8 +419,9 @@ export const CompanyManagement = () => {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteCompanyId && deleteCompanyMutation.mutate(deleteCompanyId)}
+              className="bg-destructive hover:bg-destructive/90"
             >
-              Confirmar
+              Confirmar Exclusão
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
