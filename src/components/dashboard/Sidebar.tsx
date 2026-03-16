@@ -15,6 +15,7 @@ const navigationItems: NavItem[] = [
   { icon: Ticket, label: 'Novo Ticket', path: '/novo-ticket' },
   { icon: History, label: 'Histórico', path: '/historico' },
   { icon: Book, label: 'Base de Conhecimento', path: '/knowledge' },
+  { icon: Briefcase, label: 'Ativos (CMDB)', path: '/assets', roles: ['admin', 'technician', 'developer'] },
   { icon: PieChart, label: 'Relatórios', path: '/relatorios', roles: ['admin', 'developer'] },
   { icon: Monitor, label: 'Monitoramento', path: '/monitoring', roles: ['admin', 'developer', 'technician'] },
   { icon: Archive, label: 'Arquivo', path: '/arquivo' },
