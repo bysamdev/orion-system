@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -42,6 +42,7 @@ const categories = [
 
 const NewTicket = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
   const { data: profile } = useUserProfile();
@@ -178,6 +179,11 @@ const NewTicket = () => {
       }
 
       toast({ title: 'Chamado criado!', description: `Número: #${ticket.ticket_number}` });
+      
+      // Invalida estatísticas para atualizar o dashboard imediatamente
+      queryClient.invalidateQueries({ queryKey: ['technician-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
+      queryClient.invalidateQueries({ queryKey: ['team-workload'] });
       navigate('/');
     } catch (error: any) {
       handleError(error, 'NewTicket.onSubmit');
