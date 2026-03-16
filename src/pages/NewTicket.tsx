@@ -427,13 +427,57 @@ const NewTicket = () => {
                       </section>
                     )}
 
-                    <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 flex items-start gap-4">
-                      <div className="p-2 bg-primary/10 rounded-full">
-                        <AlertCircle className="w-4 h-4 text-primary" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 flex flex-col gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-primary/10 rounded-full">
+                            <AlertCircle className="w-4 h-4 text-primary" />
+                          </div>
+                          <div className="space-y-1">
+                            <h4 className="text-sm font-bold text-primary">Resumo do Chamado</h4>
+                            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Confira os dados antes de enviar</p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground font-bold uppercase tracking-tighter">Categoria:</span>
+                            <span className="font-bold text-foreground bg-background px-2 py-0.5 rounded-md border border-border/40">
+                              {categories.find(c => c.id === form.getValues('category'))?.name || 'Não selecionada'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground font-bold uppercase tracking-tighter">Prioridade:</span>
+                            <span className={cn(
+                              "font-bold px-2 py-0.5 rounded-md border",
+                              form.getValues('priority') === 'urgent' ? "text-rose-600 bg-rose-500/10 border-rose-500/20" :
+                              form.getValues('priority') === 'high' ? "text-orange-600 bg-orange-500/10 border-orange-500/20" :
+                              form.getValues('priority') === 'medium' ? "text-amber-600 bg-amber-500/10 border-amber-500/20" :
+                              "text-emerald-600 bg-emerald-500/10 border-emerald-500/20"
+                            )}>
+                              {form.getValues('priority') === 'urgent' ? 'Urgente' :
+                               form.getValues('priority') === 'high' ? 'Alta' :
+                               form.getValues('priority') === 'medium' ? 'Média' : 'Baixa'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground font-bold uppercase tracking-tighter">Depto:</span>
+                            <span className="font-bold text-foreground">{form.getValues('department') || '---'}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <h4 className="text-sm font-bold text-primary">Confira seus dados e finalize</h4>
-                        <p className="text-xs text-muted-foreground leading-relaxed">Seu chamado será atribuído automaticamente a um técnico disponível. Você receberá atualizações em tempo real.</p>
+
+                      <div className="bg-muted/10 border border-border/40 rounded-2xl p-6 flex items-start gap-4">
+                        <div className="p-2 bg-muted/20 rounded-full">
+                          <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-bold text-foreground">Título do Chamado</h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2 italic">"{form.getValues('title') || 'Sem título'}"</p>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed mt-2">
+                            Seu chamado será analisado pela nossa equipe técnica em breve.
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -450,13 +494,21 @@ const NewTicket = () => {
                   
                   <div className="flex items-center gap-3">
                     {step < 3 ? (
-                      <Button type="button" onClick={nextStep} className="h-12 px-8 rounded-xl font-bold gap-2 shadow-lg shadow-primary/20 tracking-tight">
+                      <Button 
+                        type="button" 
+                        onClick={nextStep} 
+                        className="h-12 px-8 rounded-xl font-bold gap-2 shadow-lg shadow-primary/20 tracking-tight"
+                      >
                         Próximo <ChevronRight className="w-4 h-4" />
                       </Button>
                     ) : (
-                      <Button type="submit" disabled={isSubmitting} className="h-12 px-10 rounded-xl font-bold gap-2 shadow-xl shadow-primary/25 tracking-tight">
+                      <Button 
+                        type="submit" 
+                        disabled={isSubmitting} 
+                        className="h-12 px-10 rounded-xl font-bold gap-2 shadow-xl shadow-primary/25 tracking-tight"
+                      >
                         {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                        {isSubmitting ? "Enviando..." : "Abrir Chamado"}
+                        {isSubmitting ? "Confirmar e Abrir Chamado" : "Abrir Chamado"}
                       </Button>
                     )}
                   </div>

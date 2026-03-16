@@ -124,11 +124,11 @@ export const RoutingRulesManagement = () => {
       if (!profile?.company_id) return [];
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name')
+        .select('id, full_name, user_roles!inner(role)')
         .eq('company_id', profile.company_id)
-        .in('role', ['technician', 'admin', 'developer']);
+        .in('user_roles.role', ['technician', 'admin', 'developer']);
       if (error) throw error;
-      return data || [];
+      return (data as any[]) || [];
     },
     enabled: !!profile?.company_id,
   });
@@ -301,13 +301,17 @@ export const RoutingRulesManagement = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isLoading && profile?.company_id ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary opacity-50" /></TableCell>
               </TableRow>
+            ) : !profile?.company_id ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground italic">Perfil ou Empresa não identificada. Verifique suas permissões.</TableCell>
+              </TableRow>
             ) : rules.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground italic">Nenhuma regra de roteamento.</TableCell>
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground italic">Nenhuma regra de roteamento configurada.</TableCell>
               </TableRow>
             ) : (
               rules.map((rule: any) => (

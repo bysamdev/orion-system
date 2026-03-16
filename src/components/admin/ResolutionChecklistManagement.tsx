@@ -203,9 +203,13 @@ export const ResolutionChecklistManagement = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isLoading && profile?.company_id ? (
               <TableRow>
                 <TableCell colSpan={4} className="h-24 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary opacity-50" /></TableCell>
+              </TableRow>
+            ) : !profile?.company_id ? (
+              <TableRow>
+                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground italic">Perfil ou Empresa não identificada. Verifique suas permissões.</TableCell>
               </TableRow>
             ) : checklists.length === 0 ? (
               <TableRow>

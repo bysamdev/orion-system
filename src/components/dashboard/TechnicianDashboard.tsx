@@ -190,7 +190,7 @@ export const TechnicianDashboard: React.FC = () => {
       );
     }
     return result;
-  }, [myTickets, searchTerm, kpiFilter]);
+  }, [myTickets, searchTerm, kpiFilter, priorityFilter, categoryFilter, statusFilter, technicianFilter, companyFilter, slaFilter]);
 
   const handleAssumeTicket = async (ticketId: string) => {
     if (!profile?.full_name) return;

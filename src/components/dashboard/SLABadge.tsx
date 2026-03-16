@@ -84,7 +84,7 @@ export const SLABadge: React.FC<SLABadgeProps> = ({
       <Icon className={cn("h-3.5 w-3.5", config.iconColor)} />
       <span className="font-medium">{config.label}</span>
       {slaStatus !== 'breached' && (
-        <span className="text-xs opacity-75">
+        <span className="text-xs opacity-75 capitalize-first">
           ({timeRemaining})
         </span>
       )}
