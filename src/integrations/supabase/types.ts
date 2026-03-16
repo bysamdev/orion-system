@@ -885,7 +885,9 @@ export type Database = {
           scheduled_date: string | null
           search_vector: unknown
           service_id: string | null
+          sla_accumulated_pause_minutes: number | null
           sla_due_date: string | null
+          sla_paused_at: string | null
           sla_status: string | null
           status: string
           ticket_number: number
@@ -919,7 +921,9 @@ export type Database = {
           scheduled_date?: string | null
           search_vector?: unknown
           service_id?: string | null
+          sla_accumulated_pause_minutes?: number | null
           sla_due_date?: string | null
+          sla_paused_at?: string | null
           sla_status?: string | null
           status?: string
           ticket_number?: number
@@ -953,7 +957,9 @@ export type Database = {
           scheduled_date?: string | null
           search_vector?: unknown
           service_id?: string | null
+          sla_accumulated_pause_minutes?: number | null
           sla_due_date?: string | null
+          sla_paused_at?: string | null
           sla_status?: string | null
           status?: string
           ticket_number?: number
