@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"orion-agent/config"
@@ -29,7 +30,11 @@ func Send(cfg *config.Config, payload *collector.Payload) (string, error) {
 
 	var lastErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		machineID, err := doPost(cfg.APIURL, cfg.AgentKey, body)
+		url := cfg.APIURL
+		if !strings.HasSuffix(url, "/api/monitoring/machines/heartbeat") {
+			url = strings.TrimSuffix(url, "/") + "/api/monitoring/machines/heartbeat"
+		}
+		machineID, err := doPost(url, cfg.AgentKey, body)
 		if err == nil {
 			return machineID, nil
 		}
@@ -84,7 +89,9 @@ func PollCommands(cfg *config.Config, machineID string) ([]Command, error) {
 	if machineID == "" {
 		return nil, nil
 	}
-	url := fmt.Sprintf("%s/api/monitoring/commands/poll?machine_id=%s", cfg.APIURL, machineID)
+	baseURL := strings.TrimSuffix(cfg.APIURL, "/api/monitoring/machines/heartbeat")
+	baseURL = strings.TrimSuffix(baseURL, "/")
+	url := fmt.Sprintf("%s/api/monitoring/commands/poll?machine_id=%s", baseURL, machineID)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	req.Header.Set("X-Agent-Key", cfg.AgentKey)
 
@@ -113,7 +120,9 @@ func RespondToCommand(cfg *config.Config, commandID, status, output string) erro
 		"output": output,
 	}
 	body, _ := json.Marshal(payload)
-	url := fmt.Sprintf("%s/api/monitoring/commands/respond", cfg.APIURL)
+	baseURL := strings.TrimSuffix(cfg.APIURL, "/api/monitoring/machines/heartbeat")
+	baseURL = strings.TrimSuffix(baseURL, "/")
+	url := fmt.Sprintf("%s/api/monitoring/commands/respond", baseURL)
 	_, err := doPost(url, cfg.AgentKey, body)
 	return err
 }

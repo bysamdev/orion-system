@@ -1,34 +1,38 @@
 # Orion Agent 2.0 — GPO Deployment Script
-# This script installs the Orion Agent as a Windows Service silently.
+# -------------------------------------------------------------
+# Instructions:
+# 1. Place 'orion-agent.exe' and 'agent.yaml' in a network share (e.g. \\Server\Deploy\Orion)
+# 2. Update the $SourcePath variable below.
+# 3. Apply this script as a Computer Startup Script in GPO.
 
 $InstallPath = "C:\Program Files\OrionAgent"
-$SourcePath = "\\YOUR_DOMAIN_CONTROLLER\DeploymentShare\OrionAgent" # Update this
-$Executable = "orion-agent.exe"
-$Config = "agent.yaml"
+$SourcePath  = "\\SEU_SERVIDOR\caminho\do\agente" # <--- ALTERE AQUI PARA SEU SERVIDOR
+$Executable  = "orion-agent.exe"
+$Config      = "agent.yaml"
 
-# 1. Create directory
+# Create directory if it doesn't exist
 if (!(Test-Path $InstallPath)) {
     New-Item -Path $InstallPath -ItemType Directory -Force
 }
 
-# 2. Copy files if they are newer or don't exist
-Copy-Item -Path "$SourcePath\$Executable" -Destination "$InstallPath\$Executable" -Force
-Copy-Item -Path "$SourcePath\$Config" -Destination "$InstallPath\$Config" -Force
+# Copy files from network share
+try {
+    Copy-Item -Path "$SourcePath\$Executable" -Destination "$InstallPath\$Executable" -Force -ErrorAction Stop
+    Copy-Item -Path "$SourcePath\$Config" -Destination "$InstallPath\$Config" -Force -ErrorAction Stop
+} catch {
+    Write-Warning "Falha ao copiar arquivos do storage: $_"
+}
 
-# 3. Check if service exists
+# Check if service is installed
 $Service = Get-Service -Name "OrionAgent" -ErrorAction SilentlyContinue
 
-if ($Service -eq $null) {
-    # Install service
+if ($null -eq $Service) {
     Write-Host "Installing OrionAgent Service..."
     Start-Process -FilePath "$InstallPath\$Executable" -ArgumentList "install" -Wait -WindowStyle Hidden
 }
 
-# 4. Ensure service is running
+# Ensure service is running
 $Service = Get-Service -Name "OrionAgent" -ErrorAction SilentlyContinue
 if ($Service.Status -ne 'Running') {
-    Write-Host "Starting OrionAgent Service..."
     Start-Service -Name "OrionAgent"
 }
-
-Write-Host "Orion Agent installed and running successfully."

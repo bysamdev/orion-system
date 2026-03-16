@@ -203,7 +203,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// TODO: Update GetOrCreateMachineGroup to accept companyID to avoid collision between tenants with same group name
-	groupID, err := db.GetOrCreateMachineGroup(ctx, domain)
+	groupID, err := db.GetOrCreateMachineGroup(ctx, domain, targetCompanyID)
 	if err != nil {
 		fmt.Println("Erro GetOrCreateMachineGroup:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar grupo de máquina: %v", err)})
@@ -213,7 +213,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	// We can add a log or update to associate machine group with company if targetCompanyID is set
 	_ = targetCompanyID
 
-	machineID, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser)
+	machineID, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser, targetCompanyID)
 	if err != nil {
 		fmt.Println("Erro UpsertMachine:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar máquina: %v", err)})

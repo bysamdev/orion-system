@@ -214,37 +214,50 @@ FROM public.machine_alerts WHERE machine_id = $1 AND resolved = false ORDER BY c
 	return out, rows.Err()
 }
 
-// GetOrCreateMachineGroup returns the group ID for the given domain.
+// GetOrCreateMachineGroup returns the group ID for the given domain and company.
 // If the group doesn't exist, it creates it.
-func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string) (string, error) {
+func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, companyID string) (string, error) {
 	var id string
-	// Tenta buscar primeiro
-	err := d.pool.QueryRow(ctx, `SELECT id::text FROM public.machine_groups WHERE name = $1`, domainName).Scan(&id)
+	// Tenta buscar primeiro restringindo por empresa caso exista
+	var query string
+	var args []any
+	if companyID != "" {
+		query = `SELECT id::text FROM public.machine_groups WHERE name = $1 AND company_id = $2`
+		args = []any{domainName, companyID}
+	} else {
+		query = `SELECT id::text FROM public.machine_groups WHERE name = $1 AND company_id IS NULL`
+		args = []any{domainName}
+	}
+
+	err := d.pool.QueryRow(ctx, query, args...).Scan(&id)
 	if err == nil {
 		return id, nil
 	}
 
-	// Se não achar, cria (usando ON CONFLICT caso o banco já tenha a constraint UNIQUE)
-	err = d.pool.QueryRow(ctx, `
-INSERT INTO public.machine_groups (name, description)
-VALUES ($1, 'Grupo gerado automaticamente a partir do domínio')
-ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
-RETURNING id::text`, domainName).Scan(&id)
+	// Se não achar, cria
+	if companyID != "" {
+		err = d.pool.QueryRow(ctx, `
+			INSERT INTO public.machine_groups (name, company_id, description)
+			VALUES ($1, $2, 'Grupo gerado automaticamente')
+			RETURNING id::text`, domainName, companyID).Scan(&id)
+	} else {
+		err = d.pool.QueryRow(ctx, `
+			INSERT INTO public.machine_groups (name, description)
+			VALUES ($1, 'Grupo gerado automaticamente')
+			RETURNING id::text`, domainName).Scan(&id)
+	}
 	
-	// Caso ON CONFLICT não funcione por falta da constraint durante o INSERT, 
-	// o fallback seria capturar o erro e tentar o SELECT de novo, 
-	// mas a instrução SQL já foi passada para o usuário corrigir o banco.
 	return id, err
 }
 
-func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser string) (string, error) {
+func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, companyID string) (string, error) {
 	var id string
 	err := d.pool.QueryRow(ctx, `
-INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, current_user)
-VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9)
+INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, current_user, company_id)
+VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10)
 ON CONFLICT (machine_token) DO UPDATE
-  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, current_user=$9
-RETURNING id::text`, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser).Scan(&id)
+  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, current_user=$9, company_id=$10
+RETURNING id::text`, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, NilIfEmpty(companyID)).Scan(&id)
 	return id, err
 }
 
