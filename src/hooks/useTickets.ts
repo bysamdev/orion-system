@@ -28,6 +28,8 @@ export interface Ticket {
   // Campos de Acesso Remoto
   remote_id: string | null;
   remote_password: string | null;
+  sla_paused_at: string | null;
+  sla_accumulated_pause_minutes: number | null;
 }
 
 export interface TicketUpdate {
@@ -174,12 +176,16 @@ export const useUpdateTicketStatus = () => {
       id, 
       status, 
       assigned_to, 
-      assigned_to_user_id 
+      assigned_to_user_id,
+      sla_paused_at,
+      sla_accumulated_pause_minutes
     }: { 
       id: string; 
       status: string;
       assigned_to?: string;
       assigned_to_user_id?: string;
+      sla_paused_at?: string | null;
+      sla_accumulated_pause_minutes?: number | null;
     }) => {
       // Validate status before sending to database
       const validationResult = ticketStatusSchema.safeParse(status);
@@ -197,6 +203,12 @@ export const useUpdateTicketStatus = () => {
       }
       if (assigned_to_user_id !== undefined) {
         updateData.assigned_to_user_id = assigned_to_user_id;
+      }
+      if (sla_paused_at !== undefined) {
+        updateData.sla_paused_at = sla_paused_at;
+      }
+      if (sla_accumulated_pause_minutes !== undefined) {
+        updateData.sla_accumulated_pause_minutes = sla_accumulated_pause_minutes;
       }
 
       const { data, error } = await supabase

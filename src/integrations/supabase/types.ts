@@ -47,6 +47,59 @@ export type Database = {
         }
         Relationships: []
       }
+      assets: {
+        Row: {
+          brand: string | null
+          company_id: string
+          created_at: string
+          id: string
+          model: string | null
+          name: string
+          purchased_at: string | null
+          serial_number: string | null
+          status: string
+          type: string
+          updated_at: string
+          warranty_until: string | null
+        }
+        Insert: {
+          brand?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          name: string
+          purchased_at?: string | null
+          serial_number?: string | null
+          status?: string
+          type: string
+          updated_at?: string
+          warranty_until?: string | null
+        }
+        Update: {
+          brand?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          name?: string
+          purchased_at?: string | null
+          serial_number?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          warranty_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       canned_responses: {
         Row: {
           company_id: string
@@ -795,6 +848,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "ticket_status_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ticket_status_history_ticket_id_fkey"
             columns: ["ticket_id"]
             isOneToOne: false
@@ -803,6 +863,89 @@ export type Database = {
           },
         ]
       }
+      resolution_checklists: {
+        Row: {
+          category: string
+          company_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          items: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          company_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          items?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          items?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resolution_checklists_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      routing_rules: {
+        Row: {
+          actions: Json
+          company_id: string
+          conditions: Json
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          priority: number | null
+        }
+        Insert: {
+          actions: Json
+          company_id: string
+          conditions: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          priority?: number | null
+        }
+        Update: {
+          actions?: Json
+          company_id?: string
+          conditions?: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          priority?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routing_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
       ticket_updates: {
         Row: {
           author: string
@@ -1124,6 +1267,16 @@ export type Database = {
       cleanup_expired_invite_tokens: { Args: never; Returns: number }
       get_company_plan_usage: { Args: never; Returns: Json }
       get_dashboard_stats: { Args: never; Returns: Json }
+      get_technician_workload: {
+        Args: { p_company_id: string }
+        Returns: {
+          technician_id: string
+          technician_name: string
+          open_tickets: number
+          sla_at_risk_tickets: number
+          resolved_today: number
+        }[]
+      }
       get_ticket_company_id: { Args: { _ticket_id: string }; Returns: string }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
@@ -1154,7 +1307,7 @@ export type Database = {
       update_all_tickets_sla_status: { Args: never; Returns: number }
     }
     Enums: {
-      app_role: "customer" | "technician" | "admin" | "developer"
+      app_role: "customer" | "technician" | "admin" | "developer" | "gestor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1282,7 +1435,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["customer", "technician", "admin", "developer"],
+      app_role: ["customer", "technician", "admin", "developer", "gestor"],
     },
   },
 } as const
