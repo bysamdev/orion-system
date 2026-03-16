@@ -100,3 +100,11 @@ func RequireAgentKey(r *http.Request, key string) error {
 	}
 	return nil
 }
+// NilIfEmpty returns nil if s is an empty string, otherwise returns the string.
+// Useful for optional UUID columns in database queries.
+func NilIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
