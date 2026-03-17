@@ -1,5 +1,5 @@
 import { 
-  LayoutDashboard, 
+  Home, 
   Ticket, 
   History, 
   BookOpen, 
@@ -25,7 +25,7 @@ interface NavItem {
 }
 
 const navigationItems: NavItem[] = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+  { icon: Home, label: 'Início', path: '/' },
   { icon: Ticket, label: 'Novo Ticket', path: '/novo-ticket' },
   { icon: History, label: 'Histórico', path: '/historico' },
   { icon: BookOpen, label: 'Base de Conhecimento', path: '/knowledge' },
