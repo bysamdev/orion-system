@@ -276,7 +276,7 @@ const Monitoring: React.FC = () => {
         name: group.name,
         description: group.description || '',
         client_contact: group.client_contact || '',
-        company_id: (group as any).company_id || '',
+        company_id: group.company_id || '',
       });
     } else {
       setEditingGroup(null);
