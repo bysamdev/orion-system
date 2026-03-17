@@ -10,11 +10,13 @@ import (
 	"github.com/pkg/browser"
 )
 
+// TrayManager organiza as ações e o estado da bandeja do sistema vinculadas ao agente.
 type TrayManager struct {
 	OnOpenPortal func()
 	OnExit       func()
 }
 
+// New constrói o gerenciador com as funções de callback para abertura de portal e encerramento.
 func New(onOpen func(), onExit func()) *TrayManager {
 	return &TrayManager{
 		OnOpenPortal: onOpen,
@@ -22,32 +24,39 @@ func New(onOpen func(), onExit func()) *TrayManager {
 	}
 }
 
+// Run inicia o loop principal da bandeja do sistema (bloqueante).
 func (tm *TrayManager) Run() {
 	systray.Run(tm.onReady, tm.onExitInternal)
 }
 
+// onReady configura os itens de menu, ícone e tooltip assim que a bandeja está pronta.
 func (tm *TrayManager) onReady() {
-	systray.SetIcon(DataIcon)
+	systray.SetIcon(DataIcon) // Ícone embutido no arquivo icon_data.go
 	systray.SetTitle("Orion Agent")
 	systray.SetTooltip("Orion System - Suporte Ativo")
 
-	mOpen := systray.AddMenuItem("Abrir Portal de Suporte", "Acessar o portal de chamados")
+	// Itens do menu de contexto (clique direito no ícone)
+	mOpen := systray.AddMenuItem("Abrir Portal de Suporte", "Acessar o portal de chamados e suporte")
 	systray.AddSeparator()
-	mQuit := systray.AddMenuItem("Sair", "Encerrar o Orion Agent")
+	mQuit := systray.AddMenuItem("Sair", "Encerrar o Orion Agent completamente")
 
-	// Monitor signals for cleanup
+	// Monitoramos sinais do sistema (Ctrl+C, etc) para garantir um desligamento limpo.
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
+	// Iniciamos uma goroutine para reagir às interações do usuário sem travar a interface.
 	go func() {
 		for {
 			select {
 			case <-mOpen.ClickedCh:
+				// Quando clica em abrir, executamos a função passada no New().
 				tm.OnOpenPortal()
 			case <-mQuit.ClickedCh:
+				// Finalizamos o systray, o que chamará o tm.onExitInternal.
 				systray.Quit()
 				return
 			case <-sigChan:
+				// Caso o Windows peça para encerrar o processo.
 				systray.Quit()
 				return
 			}
@@ -55,6 +64,7 @@ func (tm *TrayManager) onReady() {
 	}()
 }
 
+// onExitInternal é executado quando o systray finaliza, garantindo que o agente limpe seus recursos.
 func (tm *TrayManager) onExitInternal() {
 	if tm.OnExit != nil {
 		tm.OnExit()
