@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Plus, Settings, Shield, Search, User, LogOut, 
-  LayoutDashboard, PieChart, Monitor, ArrowRight, BookOpen, FileText, Loader2, BarChart2
+  Home, PieChart, Monitor, ArrowRight, BookOpen, FileText, Loader2, BarChart2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -140,7 +140,7 @@ export const TopBar: React.FC = () => {
       <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 justify-end lg:flex-initial lg:overflow-visible">
         <div className="flex items-center gap-1 px-2">
           <NavItem 
-            icon={LayoutDashboard} 
+            icon={Home} 
             label="Início" 
             tooltip="Painel Principal" 
             isActive={isActive('/')} 
