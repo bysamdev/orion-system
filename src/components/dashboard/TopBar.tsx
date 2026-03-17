@@ -195,12 +195,22 @@ export const TopBar: React.FC = () => {
             onClick={() => navigate('/knowledge')} 
           />
 
+          {(role === 'admin' || role === 'developer' || role === 'technician') && (
+            <NavItem 
+              icon={Shield} 
+              label="Docs" 
+              tooltip="Manuais do Agente" 
+              isActive={isActive('/documentacao')} 
+              onClick={() => navigate('/documentacao')} 
+            />
+          )}
+
           <NavItem 
             icon={FileText} 
-            label="Docs" 
-            tooltip="Manuais do Agente" 
-            isActive={isActive('/documentacao')} 
-            onClick={() => navigate('/documentacao')} 
+            label="Manual" 
+            tooltip="Guia de Uso do Sistema" 
+            isActive={isActive('/tutorial')} 
+            onClick={() => navigate('/tutorial')} 
           />
         </div>
         

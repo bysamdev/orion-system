@@ -8,8 +8,18 @@ import {
   Settings, ArrowRight, Sparkles, Code, Monitor
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useUserRole } from '@/hooks/useUserRole';
+import { Navigate, useNavigate } from 'react-router-dom';
 
 export default function Documentation() {
+  const navigate = useNavigate();
+  const { data: role, isLoading } = useUserRole();
+
+  if (isLoading) return null;
+  if (role === 'customer') {
+    return <Navigate to="/tutorial" replace />;
+  }
+
   const sections = [
     {
       id: 'get-started',
