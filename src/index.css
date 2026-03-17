@@ -113,4 +113,28 @@ All colors MUST be HSL.
   .capitalize-first::first-letter {
     text-transform: uppercase;
   }
+
+  .glass-card {
+    @apply bg-white/70 dark:bg-black/40 backdrop-blur-lg border border-white/20 dark:border-white/10 shadow-xl;
+  }
+
+  .glow-green {
+    box-shadow: 0 0 15px hsla(142, 76%, 36%, 0.3);
+  }
+
+  .glow-yellow {
+    box-shadow: 0 0 15px hsla(38, 92%, 50%, 0.3);
+  }
+
+  .glow-red {
+    box-shadow: 0 0 15px hsla(0, 84%, 60%, 0.3);
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 15px hsla(263, 70%, 50%, 0.3);
+  }
+
+  .neon-border {
+    @apply border-primary/50 shadow-[0_0_15px_hsla(263,70%,50%,0.2)];
+  }
 }

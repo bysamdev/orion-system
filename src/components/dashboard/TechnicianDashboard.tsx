@@ -44,23 +44,30 @@ interface StatCardProps {
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant = 'default', description, active, onClick }) => {
   const styles = {
-    default: 'hover:border-primary/50 text-primary bg-primary/5',
-    warning: 'hover:border-amber-500/50 text-amber-500 bg-amber-500/5',
-    success: 'hover:border-emerald-500/50 text-emerald-500 bg-emerald-500/5',
-    danger: 'hover:border-rose-500/50 text-rose-500 bg-rose-500/5',
+    default: 'text-primary bg-primary/10 border-primary/20',
+    warning: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
+    success: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
+    danger: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
+  };
+
+  const glows = {
+    default: 'shadow-[0_0_20px_hsla(var(--primary),0.2)]',
+    warning: 'shadow-[0_0_20px_rgba(245,158,11,0.2)]',
+    success: 'shadow-[0_0_20px_rgba(16,185,129,0.2)]',
+    danger: 'shadow-[0_0_20px_rgba(244,63,94,0.3)]',
   };
 
   return (
     <button 
       onClick={onClick}
       className={cn(
-        "relative group text-left p-6 rounded-3xl border transition-all duration-300 overflow-hidden",
+        "relative group text-left p-6 rounded-3xl transition-all duration-300 overflow-hidden glass-card",
         active 
-          ? "border-primary bg-primary/10 shadow-xl shadow-primary/5 ring-1 ring-primary/20 scale-[1.02]" 
-          : "border-border/40 bg-card/50 hover:bg-card hover:shadow-lg"
+          ? cn("ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02]", glows[variant])
+          : "hover:scale-[1.01] hover:border-primary/30"
       )}
     >
-      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-125 duration-700" />
       
       <div className="relative flex items-start justify-between">
         <div className="space-y-1">
