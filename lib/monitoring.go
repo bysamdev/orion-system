@@ -425,27 +425,41 @@ func (d *DB) DebugMonitoringStats(ctx context.Context) (map[string]any, error) {
 	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machines WHERE group_id IS NOT NULL").Scan(&mWithGroup)
 	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machines WHERE company_id IS NOT NULL").Scan(&mWithCompany)
 	
-	// Teste de RLS: se as políticas estiverem bloqueando, os nomes serão ocultados ou linhas não virão
-	var mSampleNames []string
-	rows, _ := d.pool.Query(ctx, "SELECT hostname FROM public.machines LIMIT 5")
+	var gTotal int
+	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machine_groups").Scan(&gTotal)
+	
+	// Listar nomes das máquinas
+	var mList []string
+	rows, _ := d.pool.Query(ctx, "SELECT hostname FROM public.machines LIMIT 10")
 	if rows != nil {
 		for rows.Next() {
 			var n string
 			if err := rows.Scan(&n); err == nil {
-				mSampleNames = append(mSampleNames, n)
+				mList = append(mList, n)
 			}
 		}
 		rows.Close()
 	}
 
-	var gTotal int
-	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machine_groups").Scan(&gTotal)
-	
+	// Listar nomes dos grupos
+	var gList []string
+	gRows, _ := d.pool.Query(ctx, "SELECT name FROM public.machine_groups LIMIT 10")
+	if gRows != nil {
+		for gRows.Next() {
+			var n string
+			if err := gRows.Scan(&n); err == nil {
+				gList = append(gList, n)
+			}
+		}
+		gRows.Close()
+	}
+
 	stats["machines_total"] = mTotal
-	stats["machines_sample"] = mSampleNames
+	stats["machines_list"] = mList
 	stats["machines_with_group"] = mWithGroup
 	stats["machines_with_company"] = mWithCompany
 	stats["groups_total"] = gTotal
+	stats["groups_list"] = gList
 	
 	return stats, nil
 }
