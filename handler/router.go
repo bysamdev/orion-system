@@ -80,9 +80,24 @@ func buildRouter() http.Handler {
 	r.Get("/api/monitoring/machines/{id}/commands", monitoringGetMachineCommands)
 	r.Get("/api/monitoring/commands/poll", monitoringPollCommands)
 	r.Post("/api/monitoring/commands/respond", monitoringCommandResponse)
+	r.Get("/api/monitoring/debug", monitoringDebug)
 	r.Get("/api/monitoring/cron/mark-offline", cronMarkOffline)
 
 	return r
+}
+
+func monitoringDebug(w http.ResponseWriter, r *http.Request) {
+	if db == nil {
+		lib.WriteJSON(w, http.StatusOK, map[string]any{"status": "error", "message": "DB is nil"})
+		return
+	}
+	count, _ := db.MachineCount(r.Context())
+	lib.WriteJSON(w, http.StatusOK, map[string]any{
+		"status": "ok", 
+		"database_reachable": true,
+		"machines_count": count,
+		"vercel_env": os.Getenv("VERCEL_ENV"),
+	})
 }
 
 // corsMiddleware adds permissive CORS headers.

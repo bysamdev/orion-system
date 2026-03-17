@@ -3,10 +3,12 @@ package handler
 // mon_handlers.go — handlers for /api/monitoring/* endpoints.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -18,7 +20,9 @@ func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}
-	s, err := db.DashboardSummaryData(r.Context())
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	s, err := db.DashboardSummaryData(ctx)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar dashboard"})
 		return
@@ -33,7 +37,9 @@ func monitoringListGroups(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}
-	groups, err := db.ListMachineGroups(r.Context())
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	groups, err := db.ListMachineGroups(ctx)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar grupos"})
 		return
@@ -162,9 +168,13 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if db == nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Conexão com o banco de dados não inicializada no Vercel (verifique as credenciais no .env / Vercel)"})
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Conexão com o banco de dados não inicializada (verifique DATABASE_URL)"})
 		return
 	}
+
+	// Timeout de 5s para operações de banco
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
 
 	key := agentKeyHeader
 	if key == "" {
@@ -177,7 +187,9 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
+	// targetCompanyID is already determined above
+	
+	// Utilizando o contexto com timeout criado acima
 
 	// Final company assignment logic
 	var targetCompanyID string

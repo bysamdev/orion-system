@@ -405,3 +405,9 @@ WHERE status='online' AND last_seen < now() - INTERVAL '5 minutes'`)
 	}
 	return cmd.RowsAffected(), nil
 }
+
+func (d *DB) MachineCount(ctx context.Context) (int, error) {
+	var count int
+	err := d.pool.QueryRow(ctx, `SELECT count(*) FROM public.machines`).Scan(&count)
+	return count, err
+}
