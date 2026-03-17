@@ -192,5 +192,20 @@ func (d *DB) FirstCompanyID(ctx context.Context) (string, error) {
 	return id, err
 }
 
+// MachineByToken retrieves machine details by its unique token.
+func (d *DB) MachineByToken(ctx context.Context, token string) (*MachineRow, string, error) {
+	var m MachineRow
+	var companyID string
+	err := d.pool.QueryRow(ctx, `
+		SELECT id::text, group_id::text, hostname, ip_address, os, os_version, status, last_seen, agent_version, created_at, company_id::text
+		FROM public.machines WHERE machine_token = $1 LIMIT 1`, token).Scan(
+		&m.ID, &m.GroupID, &m.Hostname, &m.IPAddress, &m.OS, &m.OSVersion, &m.Status, &m.LastSeen, &m.AgentVersion, &m.CreatedAt, &companyID,
+	)
+	if err != nil {
+		return nil, "", err
+	}
+	return &m, companyID, nil
+}
+
 // ErrNoRows is a sentinel for pgx.ErrNoRows so callers don't need to import pgx.
 var ErrNoRows = pgx.ErrNoRows

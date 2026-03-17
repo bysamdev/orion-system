@@ -14,6 +14,7 @@ import (
 	"orion-agent/collector"
 	"orion-agent/config"
 	"orion-agent/sender"
+	"orion-agent/shortcut"
 	"orion-agent/token"
 )
 
@@ -120,6 +121,11 @@ func (s *Svc) tick() {
 		s.machineToken = t
 	}
 	payload.MachineToken = s.machineToken
+	
+	// Garantir atalho no desktop
+	if err := shortcut.CreatePortalShortcut(s.cfg.APIURL, s.machineToken); err != nil {
+		s.logger.Printf("[AVISO] não foi possível criar atalho: %v", err)
+	}
 
 	mID, err := sender.Send(s.cfg, payload)
 	if err != nil {

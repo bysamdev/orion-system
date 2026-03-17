@@ -1,9 +1,11 @@
 package lib
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"html/template"
+	"math/big"
 	"net/http"
 	"strings"
 )
@@ -107,4 +109,14 @@ func NilIfEmpty(s string) any {
 		return nil
 	}
 	return s
+}
+// GenerateRandomPassword creates a secure random string of given length.
+func GenerateRandomPassword(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+	ret := make([]byte, length)
+	for i := 0; i < length; i++ {
+		num, _ := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		ret[i] = charset[num.Int64()]
+	}
+	return string(ret)
 }
