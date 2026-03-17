@@ -49,6 +49,7 @@ export interface MachineGroup {
   name: string;
   description: string | null;
   client_contact: string | null;
+  company_id: string | null;
   total_machines: number;
   online_machines: number;
 }
@@ -56,6 +57,7 @@ export interface MachineGroup {
 export interface MachineWithMetric {
   id: string;
   group_id: string | null;
+  company_id: string | null;
   hostname: string;
   ip_address: string | null;
   os: string | null;

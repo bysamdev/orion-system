@@ -453,7 +453,12 @@ func monitoringUpdateMachine(w http.ResponseWriter, r *http.Request) {
 	refinedUpdates := make(map[string]any)
 	for k, v := range updates {
 		if allowed[k] {
-			refinedUpdates[k] = v
+			// Convert empty string to nil for UUID columns to avoid syntax error
+			if s, ok := v.(string); ok && s == "" && (k == "group_id" || k == "company_id") {
+				refinedUpdates[k] = nil
+			} else {
+				refinedUpdates[k] = v
+			}
 		}
 	}
 
@@ -526,7 +531,12 @@ func monitoringUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	refined := make(map[string]any)
 	for k, v := range updates {
 		if allowed[k] {
-			refined[k] = v
+			// Convert empty string to nil for UUID columns to avoid syntax error
+			if s, ok := v.(string); ok && s == "" && k == "company_id" {
+				refined[k] = nil
+			} else {
+				refined[k] = v
+			}
 		}
 	}
 
