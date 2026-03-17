@@ -69,6 +69,9 @@ func buildRouter() http.Handler {
 	r.Post("/api/functions/check-rate-limit", checkRateLimit)
 	r.Post("/api/functions/send-password-changed-alert", sendPasswordChangedAlert)
 	r.Post("/api/functions/reset-password-with-token", resetPasswordWithToken)
+	
+	// ── /api/auth/* ───────────────────────────────────────────────────────────
+	r.Get("/api/auth/machine-login", machineLogin)
 
 	// ── /api/monitoring/* ─────────────────────────────────────────────────────
 	r.Get("/api/monitoring/dashboard", monitoringDashboard)
