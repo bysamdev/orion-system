@@ -8,90 +8,90 @@ import (
 // ─── Structs ─────────────────────────────────────────────────────────────────
 
 type MachineGroupRow struct {
-	ID             string
-	Name           string
-	Description    *string
-	ClientContact  *string
-	CreatedAt      time.Time
-	TotalMachines  int
-	OnlineMachines int
+	ID             string  `json:"id"`
+	Name           string  `json:"name"`
+	Description    *string `json:"description"`
+	ClientContact  *string `json:"client_contact"`
+	CreatedAt      time.Time `json:"created_at"`
+	TotalMachines  int     `json:"total_machines"`
+	OnlineMachines int     `json:"online_machines"`
 }
 
 type MachineRow struct {
-	ID           string
-	GroupID      *string
-	Hostname     string
-	IPAddress    *string
-	OS           *string
-	OSVersion    *string
-	Status       string
-	LastSeen     *time.Time
-	AgentVersion *string
-	CreatedAt    time.Time
-	MachineToken *string
-	MachineUUID  *string
-	CurrentUser  *string
+	ID           string     `json:"id"`
+	GroupID      *string    `json:"group_id"`
+	Hostname     string     `json:"hostname"`
+	IPAddress    *string    `json:"ip_address"`
+	OS           *string    `json:"os"`
+	OSVersion    *string    `json:"os_version"`
+	Status       string     `json:"status"`
+	LastSeen     *time.Time `json:"last_seen"`
+	AgentVersion *string    `json:"agent_version"`
+	CreatedAt    time.Time  `json:"created_at"`
+	MachineToken *string    `json:"machine_token"`
+	MachineUUID  *string    `json:"machine_uuid"`
+	CurrentUser  *string    `json:"current_user"`
 }
 
 type MachineWithMetric struct {
 	MachineRow
-	CPUUsage    *float64
-	RAMTotal    *int64
-	RAMUsed     *int64
-	DiskTotal   *int64
-	DiskUsed    *int64
-	Uptime      *int64
-	CollectedAt *time.Time
+	CPUUsage    *float64   `json:"cpu_usage"`
+	RAMTotal    *int64     `json:"ram_total"`
+	RAMUsed     *int64     `json:"ram_used"`
+	DiskTotal   *int64     `json:"disk_total"`
+	DiskUsed    *int64     `json:"disk_used"`
+	Uptime      *int64     `json:"uptime"`
+	CollectedAt *time.Time `json:"collected_at"`
 }
 
 type MetricRow struct {
-	ID          string
-	MachineID   string
-	CPUUsage    *float64
-	RAMTotal    *int64
-	RAMUsed     *int64
-	DiskTotal   *int64
-	DiskUsed    *int64
-	Uptime      *int64
-	CollectedAt time.Time
+	ID          string    `json:"id"`
+	MachineID   string    `json:"machine_id"`
+	CPUUsage    *float64  `json:"cpu_usage"`
+	RAMTotal    *int64    `json:"ram_total"`
+	RAMUsed     *int64    `json:"ram_used"`
+	DiskTotal   *int64    `json:"disk_total"`
+	DiskUsed    *int64    `json:"disk_used"`
+	Uptime      *int64    `json:"uptime"`
+	CollectedAt time.Time `json:"collected_at"`
 }
 
 type HardwareRow struct {
-	ID                string
-	MachineID         string
-	CPUModel          *string
-	RAMSlots          []byte
-	Disks             []byte
-	NetworkInterfaces []byte
-	GPU               *string
-	UpdatedAt         time.Time
+	ID                string    `json:"id"`
+	MachineID         string    `json:"machine_id"`
+	CPUModel          *string   `json:"cpu_model"`
+	RAMSlots          []byte    `json:"ram_slots"`
+	Disks             []byte    `json:"disks"`
+	NetworkInterfaces []byte    `json:"network_interfaces"`
+	GPU               *string   `json:"gpu"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 type AlertRow struct {
-	ID        string
-	MachineID string
-	Type      string
-	Severity  string
-	Message   string
-	Resolved  bool
-	CreatedAt time.Time
+	ID        string    `json:"id"`
+	MachineID string    `json:"machine_id"`
+	Type      string    `json:"type"`
+	Severity  string    `json:"severity"`
+	Message   string    `json:"message"`
+	Resolved  bool      `json:"resolved"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type CommandRow struct {
-	ID        string
-	MachineID string
-	Command   string
-	Status    string
-	Output    *string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        string    `json:"id"`
+	MachineID string    `json:"machine_id"`
+	Command   string    `json:"command"`
+	Status    string    `json:"status"`
+	Output    *string   `json:"output"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type DashboardSummary struct {
-	Total        int
-	Online       int
-	Offline      int
-	ActiveAlerts int
+	Total        int `json:"total"`
+	Online       int `json:"online"`
+	Offline      int `json:"offline"`
+	ActiveAlerts int `json:"active_alerts"`
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
