@@ -425,10 +425,24 @@ func (d *DB) DebugMonitoringStats(ctx context.Context) (map[string]any, error) {
 	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machines WHERE group_id IS NOT NULL").Scan(&mWithGroup)
 	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machines WHERE company_id IS NOT NULL").Scan(&mWithCompany)
 	
+	// Teste de RLS: se as políticas estiverem bloqueando, os nomes serão ocultados ou linhas não virão
+	var mSampleNames []string
+	rows, _ := d.pool.Query(ctx, "SELECT hostname FROM public.machines LIMIT 5")
+	if rows != nil {
+		for rows.Next() {
+			var n string
+			if err := rows.Scan(&n); err == nil {
+				mSampleNames = append(mSampleNames, n)
+			}
+		}
+		rows.Close()
+	}
+
 	var gTotal int
 	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machine_groups").Scan(&gTotal)
 	
 	stats["machines_total"] = mTotal
+	stats["machines_sample"] = mSampleNames
 	stats["machines_with_group"] = mWithGroup
 	stats["machines_with_company"] = mWithCompany
 	stats["groups_total"] = gTotal

@@ -16,12 +16,17 @@ import (
 )
 
 func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
-	if _, err := requireAuth(r); err != nil {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		fmt.Printf("[DEBUG] mon_handlers dashboard auth error: %v\n", err)
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
+	
+	_ = user // keeping for future use
 	s, err := db.DashboardSummaryData(ctx)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar dashboard"})
@@ -33,12 +38,17 @@ func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func monitoringListGroups(w http.ResponseWriter, r *http.Request) {
-	if _, err := requireAuth(r); err != nil {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		fmt.Printf("[DEBUG] mon_handlers groups auth error: %v\n", err)
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
+
+	_ = user
 	groups, err := db.ListMachineGroups(ctx)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar grupos"})
@@ -61,12 +71,19 @@ func monitoringListGroups(w http.ResponseWriter, r *http.Request) {
 }
 
 func monitoringGroupMachines(w http.ResponseWriter, r *http.Request) {
-	if _, err := requireAuth(r); err != nil {
-		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		fmt.Printf("[DEBUG] mon_handlers group machines auth error: %v\n", err)
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
+
+	_ = user
 	groupID := chi.URLParam(r, "id")
-	machines, err := db.MachinesByGroupID(r.Context(), groupID)
+	machines, err := db.MachinesByGroupID(ctx, groupID)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar máquinas"})
 		return
@@ -78,25 +95,39 @@ func monitoringGroupMachines(w http.ResponseWriter, r *http.Request) {
 }
 
 func monitoringMachineDetail(w http.ResponseWriter, r *http.Request) {
-	if _, err := requireAuth(r); err != nil {
-		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		fmt.Printf("[DEBUG] mon_handlers machine detail auth error: %v\n", err)
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
+
+	_ = user
 	id := chi.URLParam(r, "id")
-	machine, err := db.MachineByID(r.Context(), id)
+	machine, err := db.MachineByID(ctx, id)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Máquina não encontrada"})
 		return
 	}
-	hw, _ := db.MachineHardwareByMachineID(r.Context(), id)
+	hw, _ := db.MachineHardwareByMachineID(ctx, id)
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"machine": machine, "hardware": hw})
 }
 
 func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
-	if _, err := requireAuth(r); err != nil {
-		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		fmt.Printf("[DEBUG] mon_handlers metrics auth error: %v\n", err)
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
+
+	_ = user
 	id := chi.URLParam(r, "id")
 	limit := 100
 	if ls := r.URL.Query().Get("limit"); ls != "" {
@@ -104,7 +135,7 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 			limit = l
 		}
 	}
-	metrics, err := db.MetricsByMachineID(r.Context(), id, limit)
+	metrics, err := db.MetricsByMachineID(ctx, id, limit)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar métricas"})
 		return
@@ -116,12 +147,19 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 }
 
 func monitoringMachineAlerts(w http.ResponseWriter, r *http.Request) {
-	if _, err := requireAuth(r); err != nil {
-		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		fmt.Printf("[DEBUG] mon_handlers alerts auth error: %v\n", err)
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
+
+	_ = user
 	id := chi.URLParam(r, "id")
-	alerts, err := db.AlertsByMachineID(r.Context(), id)
+	alerts, err := db.AlertsByMachineID(ctx, id)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar alertas"})
 		return
@@ -270,10 +308,17 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 // ─── Remote Commands ──────────────────────────────────────────────────────────
 
 func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
-	if _, err := requireAuth(r); err != nil {
-		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		fmt.Printf("[DEBUG] mon_handlers create cmd auth error: %v\n", err)
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
+
+	_ = user
 	machineID := chi.URLParam(r, "id")
 	var req struct {
 		Command string `json:"command"`
@@ -283,7 +328,7 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := db.CreateCommand(r.Context(), lib.InsertCommandInput{
+	id, err := db.CreateCommand(ctx, lib.InsertCommandInput{
 		MachineID: machineID,
 		Command:   req.Command,
 	})
@@ -295,12 +340,19 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 }
 
 func monitoringGetMachineCommands(w http.ResponseWriter, r *http.Request) {
-	if _, err := requireAuth(r); err != nil {
-		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		fmt.Printf("[DEBUG] mon_handlers list cmds auth error: %v\n", err)
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
+
+	_ = user
 	machineID := chi.URLParam(r, "id")
-	cmds, err := db.ListCommandsByMachineID(r.Context(), machineID, 50)
+	cmds, err := db.ListCommandsByMachineID(ctx, machineID, 50)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro ao buscar comandos"})
 		return
@@ -312,8 +364,11 @@ func monitoringGetMachineCommands(w http.ResponseWriter, r *http.Request) {
 }
 
 func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
 	// Require Agent Key
-	_, err := lib.ValidateAgentKey(r, cfg.AgentKey, db)
+	_, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
@@ -325,7 +380,7 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cmds, err := db.GetPendingCommands(r.Context(), machineID)
+	cmds, err := db.GetPendingCommands(ctx, machineID)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
@@ -338,15 +393,18 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 
 	// For simplicity, once polled, we mark them as 'sent'
 	for _, c := range cmds {
-		_ = db.UpdateCommandStatus(r.Context(), c.ID, "sent", "")
+		_ = db.UpdateCommandStatus(ctx, c.ID, "sent", "")
 	}
 
 	lib.WriteJSON(w, http.StatusOK, cmds)
 }
 
 func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
 	// Require Agent Key
-	_, err := lib.ValidateAgentKey(r, cfg.AgentKey, db)
+	_, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
@@ -362,7 +420,7 @@ func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.UpdateCommandStatus(r.Context(), req.ID, req.Status, req.Output)
+	err = db.UpdateCommandStatus(ctx, req.ID, req.Status, req.Output)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
