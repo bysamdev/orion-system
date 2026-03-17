@@ -1,67 +1,56 @@
-# Orion System      
+# Orion System 🚀
 
-Plataforma de helpdesk e gerenciamento de tickets desenvolvida para equipes modernas. O Orion System simplifica fluxos de suporte, gerenciamento de chamados e colaboração entre times numa interface limpa e responsiva.
+Plataforma de helpdesk e monitoramento inteligente projetada para equipes de TI modernas. O Orion System combina um sistema de chamados robusto com monitoramento de ativos em tempo real através de um agente nativo.
 
-## Tecnologias
+## ✨ Diferenciais Visual & UX
+- **Interface Premium**: Design baseado em *glassmorphism* com efeitos de profundidade e transparência.
+- **Feedback Visual**: Indicadores de status com brilho radiante (*glow*) para rápida identificação de problemas.
+- **Navegação Inteligente**: Sidebar compacta e intuitiva com micro-animações de alta fidelidade.
 
-- **Frontend:** React + TypeScript + Vite
-- **Estilização:** Tailwind CSS + shadcn/ui
-- **Backend (Dados/Auth):** Supabase (PostgreSQL + Auth + Storage)
-- **Backend (API):** Go (opcional, para regras de negócio/escala)
-- **Deploy:** Vercel
+## 🛠️ Tecnologias
+- **Frontend:** React + TypeScript + Vite + Tailwind CSS (Design System Customizado).
+- **Backend Unificado:** Go (Chi) rodando em Serverless (Vercel) para máxima performance e baixa latência.
+- **Banco de Dados:** Supabase (PostgreSQL + Auth + Real-time).
+- **Agente de Monitoramento:** Orion Agent (Go) - Binário nativo para Windows que coleta métricas e executa comandos remotos.
 
-## Funcionalidades
+## 📦 Funcionalidades Principais
+- **Helpdesk ITSM**: Gestão de tickets com Wizard de abertura, SLA progressivo e automações.
+- **Monitoramento em Tempo Real**: Coleta de CPU, RAM e Disco via agente.
+- **Comandos Remotos**: Execução de comandos no terminal das máquinas diretamente pelo portal.
+- **Acesso Sem Senha**: Login no portal de chamados via atalho seguro gerado pelo agente.
+- **RBAC**: Controle de acesso por funções (Admin, Técnico, Gestor, Cliente).
 
-- Criação e gerenciamento de tickets
-- Controle de acesso por função (RBAC)
-- Atualizações em tempo real
-- Dashboard com métricas
-- Design responsivo
-
-## Como rodar localmente
+## 🚀 Como Rodar Localmente
 
 ### Pré-requisitos
-
-- Node.js 18+
-- npm ou bun
-- Go 1.22+ (para o backend em Go)
+- Node.js 20+
+- Go 1.22+
+- Chaves de API do Supabase
 
 ### Instalação
-
 ```sh
-git clone https://github.com/bysamdev/orion-system-main-alpha.git
-cd orion-system-main-alpha
+# Clone o repositório
+git clone https://github.com/bysamdev/orion-system.git
+cd orion-system
+
+# Instale as dependências
 npm install
+
+# Rode em modo dev
 npm run dev
 ```
 
-### Variáveis de ambiente
-
-Crie um arquivo `.env` na raiz do projeto com as credenciais do Supabase:
-
+### Variáveis de Ambiente (.env)
 ```env
-VITE_SUPABASE_URL=sua_url_do_supabase
+VITE_SUPABASE_URL=seu_url_supabase
 VITE_SUPABASE_ANON_KEY=sua_chave_anonima
-
-# Opcional: habilita o backend em Go (com fallback para Supabase Edge Functions se não estiver definido)
-VITE_API_URL=http://localhost:8080
+VITE_API_URL=seu_url_api_go (Vercel ou Local)
 ```
 
-### Backend em Go (opcional, recomendado)
-
-O frontend já está preparado para usar a API em Go com fallback automático.
-
-1) Configure o arquivo `backend-go/.env` (veja `backend-go/.env.example`).
-
-2) Rode a API:
-
-```sh
-cd backend-go
-go mod tidy
-go run ./cmd/api
-```
-
-3) Com `VITE_API_URL` configurado, o frontend passa a chamar `POST /functions/*` na API Go.
+## 🤖 Orion Agent
+O agente de monitoramento é um componente crítico para o inventário e acesso remoto.
+Para instruções detalhadas de como compilar e instalar o agente nas máquinas dos clientes, consulte o guia dedicado:
+👉 **[Guia do Orion Agent](file:///c:/Users/suporte.ti/Documents/orion-system/orion-system/AGENT_GUIDE.md)**
 
 ---
-*Deploy Update: Triggering new Vercel build.*
+*Orion System - Desenvolvido para simplificar a TI.*
