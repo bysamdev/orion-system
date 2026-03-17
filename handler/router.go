@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -91,13 +92,36 @@ func monitoringDebug(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusOK, map[string]any{"status": "error", "message": "DB is nil"})
 		return
 	}
-	count, _ := db.MachineCount(r.Context())
-	lib.WriteJSON(w, http.StatusOK, map[string]any{
-		"status": "ok", 
-		"database_reachable": true,
-		"machines_count": count,
-		"vercel_env": os.Getenv("VERCEL_ENV"),
-	})
+	
+	ctx := r.Context()
+	stats, err := db.DebugMonitoringStats(ctx)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusOK, map[string]any{"status": "error", "message": err.Error()})
+		return
+	}
+
+	stats["status"] = "ok"
+	stats["database_reachable"] = true
+	stats["supabase_url_found"] = cfg.SupabaseURL != ""
+	stats["supabase_key_found"] = cfg.SupabaseAnonKey != ""
+	
+	// Teste de conectividade com Supabase Auth
+	if cfg.SupabaseURL != "" {
+		start := time.Now()
+		resp, err := http.Get(cfg.SupabaseURL + "/auth/v1/health")
+		if err == nil {
+			stats["supabase_auth_reachable"] = true
+			stats["supabase_auth_health_status"] = resp.StatusCode
+			resp.Body.Close()
+		} else {
+			stats["supabase_auth_reachable"] = false
+			stats["supabase_auth_error"] = err.Error()
+		}
+		stats["supabase_auth_latency_ms"] = time.Since(start).Milliseconds()
+	}
+
+	stats["vercel_env"] = os.Getenv("VERCEL_ENV")
+	lib.WriteJSON(w, http.StatusOK, stats)
 }
 
 // corsMiddleware adds permissive CORS headers.
