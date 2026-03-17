@@ -432,6 +432,11 @@ func (d *DB) DebugMonitoringStats(ctx context.Context) (map[string]any, error) {
 	
 	var gTotal int
 	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machine_groups").Scan(&gTotal)
+
+	var cTotal int
+	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.companies").Scan(&cTotal)
+
+	stats["companies_total"] = cTotal
 	
 	// Listar nomes das máquinas
 	var mList []string

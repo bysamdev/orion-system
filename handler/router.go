@@ -7,6 +7,7 @@ package handler
 import (
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -104,7 +105,16 @@ func monitoringDebug(w http.ResponseWriter, r *http.Request) {
 	stats["database_reachable"] = true
 	stats["supabase_url_found"] = cfg.SupabaseURL != ""
 	stats["supabase_key_found"] = cfg.SupabaseAnonKey != ""
+	stats["vercel_env"] = os.Getenv("VERCEL_ENV")
 	
+	// Audit de chaves de ambiente (apenas nomes, para segurança)
+	var envKeys []string
+	for _, env := range os.Environ() {
+		key := strings.Split(env, "=")[0]
+		envKeys = append(envKeys, key)
+	}
+	stats["env_keys"] = envKeys
+
 	// Teste de conectividade com Supabase Auth
 	if cfg.SupabaseURL != "" {
 		start := time.Now()
