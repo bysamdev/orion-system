@@ -43,26 +43,29 @@ function GroupItem({
     <button
       onClick={onClick}
       className={cn(
-        'w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between gap-2 transition-all',
+        'w-full text-left px-3 py-3 rounded-xl flex items-center justify-between gap-3 transition-all transform hover:scale-[1.02] active:scale-95 group relative mb-2',
         selected
-          ? 'bg-primary text-primary-foreground font-medium'
-          : 'hover:bg-muted text-foreground'
+          ? 'bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/20'
+          : 'hover:bg-muted/80 text-foreground border border-transparent hover:border-border/50'
       )}
     >
       <div className="min-w-0">
-        <p className="text-sm truncate">{group.name}</p>
+        <p className="text-sm truncate leading-tight">{group.name}</p>
         {group.client_contact && (
-          <p className={cn('text-[11px] truncate', selected ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
+          <p className={cn('text-[10px] truncate mt-0.5 opacity-60')}>
             {group.client_contact}
           </p>
         )}
       </div>
       <div className="flex items-center gap-1.5 flex-shrink-0">
-        <span className="flex items-center gap-0.5 text-xs">
-          <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
+        <span className="flex items-center gap-1 text-[10px] font-bold">
+          <span className={cn(
+            "h-1.5 w-1.5 rounded-full animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.8)]",
+            selected ? "bg-white" : "bg-green-500"
+          )} />
           <span className={selected ? 'text-primary-foreground' : 'text-green-600'}>{group.online_machines}</span>
         </span>
-        <span className={cn('text-xs', selected ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
+        <span className={cn('text-[10px] font-medium opacity-40')}>
           /{group.total_machines}
         </span>
       </div>
@@ -71,29 +74,38 @@ function GroupItem({
 }
 
 // ── Components Internos Profissionais ─────────────────────
-function MetricSection({ label, value, subtext, icon: Icon, colorClass }: {
+function MetricSection({ label, value, subtext, icon: Icon, colorClass, gradient }: {
   label: string;
   value: string | number;
   subtext?: string;
   icon: any;
   colorClass?: string;
+  gradient?: string;
 }) {
   return (
-    <Card className="flex-1 min-w-[200px] border-none shadow-none bg-muted/30">
-      <CardContent className="p-4 flex items-center gap-4">
-        <div className={cn("p-2.5 rounded-xl bg-background border flex-shrink-0", colorClass)}>
-          <Icon className="w-5 h-5" />
+    <Card className={cn(
+      "flex-1 min-w-[200px] border-none shadow-xl overflow-hidden group transition-all duration-300 hover:-translate-y-1 relative",
+      gradient ? gradient : "bg-card"
+    )}>
+      <CardContent className="p-5 flex items-center gap-4 relative z-10">
+        <div className={cn(
+          "p-3 rounded-2xl flex-shrink-0 shadow-lg text-white", 
+          colorClass ? colorClass : "bg-primary"
+        )}>
+          <Icon className="w-6 h-6 transform group-hover:scale-110 transition-transform" />
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground leading-none mb-1.5">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">
             {label}
           </p>
-          <div className="flex items-baseline gap-1.5">
-            <h4 className="text-xl font-bold text-foreground leading-none">{value}</h4>
-            {subtext && <span className="text-[10px] text-muted-foreground truncate">{subtext}</span>}
+          <div className="flex items-baseline gap-2">
+            <h4 className="text-2xl font-black text-foreground group-hover:text-primary transition-colors">{value}</h4>
+            {subtext && <span className="text-[10px] font-bold opacity-50 truncate">{subtext}</span>}
           </div>
         </div>
       </CardContent>
+      {/* Decorative background circle */}
+      <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/5 dark:bg-black/5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
     </Card>
   );
 }
@@ -271,33 +283,37 @@ const Monitoring: React.FC = () => {
 
         {/* ── Summary Cards ── */}
         {dashboard && (
-          <div className="flex flex-wrap gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
             <MetricSection 
               label="Total de Dispositivos" 
               value={dashboard.total} 
               icon={Server} 
-              colorClass="bg-blue-500/10 text-blue-500 border-blue-500/20"
+              colorClass="bg-blue-600"
+              gradient="bg-blue-50/50 dark:bg-blue-950/10"
             />
             <MetricSection 
               label="Máquinas Online" 
               value={dashboard.online} 
-              subtext={`${pct(dashboard.online, dashboard.total)}% do total`}
+              subtext={`${pct(dashboard.online, dashboard.total)}%`}
               icon={Wifi} 
-              colorClass="bg-green-500/10 text-green-500 border-green-500/20"
+              colorClass="bg-green-600"
+              gradient="bg-green-50/50 dark:bg-green-950/10"
             />
             <MetricSection 
               label="Máquinas Offline" 
               value={dashboard.offline} 
-              subtext={`${pct(dashboard.offline, dashboard.total)}% do total`}
+              subtext={`${pct(dashboard.offline, dashboard.total)}%`}
               icon={WifiOff} 
-              colorClass="bg-red-500/10 text-red-500 border-red-500/20"
+              colorClass="bg-red-600"
+              gradient="bg-red-50/50 dark:bg-red-950/10"
             />
             <MetricSection 
               label="Alertas Ativos" 
               value={dashboard.active_alerts} 
-              subtext="Problemas pendentes"
               icon={AlertTriangle} 
-              colorClass="bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+              colorClass="bg-yellow-600"
+              gradient="bg-yellow-50/50 dark:bg-yellow-950/10"
+              subtext="pendentes"
             />
           </div>
         )}

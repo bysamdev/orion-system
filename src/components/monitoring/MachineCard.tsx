@@ -19,16 +19,16 @@ function StatusDot({ status, hasAlert }: { status: string; hasAlert: boolean }) 
   if (hasAlert) return (
     <span className="relative flex h-3 w-3">
       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-      <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500" />
+      <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.8)]" />
     </span>
   );
   if (status === 'online') return (
     <span className="relative flex h-3 w-3">
       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]" />
     </span>
   );
-  return <span className="inline-flex rounded-full h-3 w-3 bg-red-500" />;
+  return <span className="inline-flex rounded-full h-3 w-3 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />;
 }
 
 function MetricBar({
@@ -41,20 +41,20 @@ function MetricBar({
   colorClass?: string;
 }) {
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs text-muted-foreground">
+    <div className="space-y-1.5 group/bar">
+      <div className="flex justify-between text-[10px] font-bold uppercase tracking-tight text-muted-foreground/70 group-hover/bar:text-foreground transition-colors">
         <span>{label}</span>
-        <span className={cn('font-medium', colorClass ?? '')}>{value}%</span>
+        <span className={cn('font-black', colorClass ?? '')}>{value}%</span>
       </div>
       <Progress
         value={value}
         className={cn(
-          'h-1.5',
+          'h-1.5 transition-all duration-500',
           value > 90
-            ? '[&>div]:bg-red-500'
+            ? '[&>div]:bg-red-500 [&>div]:shadow-[0_0_8px_rgba(239,68,68,0.4)]'
             : value > 75
-            ? '[&>div]:bg-yellow-500'
-            : '[&>div]:bg-green-500'
+            ? '[&>div]:bg-yellow-500 [&>div]:shadow-[0_0_8px_rgba(234,179,8,0.4)]'
+            : '[&>div]:bg-green-500 [&>div]:shadow-[0_0_8px_rgba(34,197,94,0.4)]'
         )}
       />
     </div>
@@ -77,15 +77,19 @@ export const MachineCard: React.FC<MachineCardProps> = ({ machine, onClick }) =>
     <Card
       onClick={onClick}
       className={cn(
-        'cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border',
+        'cursor-pointer transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-1 relative overflow-hidden',
+        'glass-card group',
         alerting
-          ? 'border-yellow-500/40 bg-yellow-500/5'
+          ? 'border-yellow-500/40'
           : isOnline
           ? 'border-green-500/20 hover:border-green-500/40'
           : 'border-red-500/20 opacity-80 hover:border-red-500/40'
       )}
     >
-      <CardContent className="pt-4 pb-4 space-y-3">
+      {/* Glossy overlay effect */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+      
+      <CardContent className="pt-5 pb-5 space-y-4 relative z-10">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
