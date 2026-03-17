@@ -390,14 +390,12 @@ WHERE id = $1`, id, status, output)
 func (d *DB) DashboardSummaryData(ctx context.Context) (DashboardSummary, error) {
 	var s DashboardSummary
 	err := d.pool.QueryRow(ctx, `
-SELECT COUNT(*), COUNT(*) FILTER (WHERE status='online'),
-       COUNT(*) FILTER (WHERE status<>'online') FROM public.machines`).
-		Scan(&s.Total, &s.Online, &s.Offline)
-	if err != nil {
-		return s, err
-	}
-	err = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM public.machine_alerts WHERE resolved=false`).
-		Scan(&s.ActiveAlerts)
+SELECT 
+  (SELECT COUNT(*) FROM public.machines) AS total,
+  (SELECT COUNT(*) FROM public.machines WHERE status = 'online') AS online,
+  (SELECT COUNT(*) FROM public.machines WHERE status <> 'online') AS offline,
+  (SELECT COUNT(*) FROM public.machine_alerts WHERE resolved = false) AS active_alerts
+`).Scan(&s.Total, &s.Online, &s.Offline, &s.ActiveAlerts)
 	return s, err
 }
 
@@ -417,59 +415,3 @@ func (d *DB) MachineCount(ctx context.Context) (int, error) {
 	return count, err
 }
 
-func (d *DB) DebugMonitoringStats(ctx context.Context) (map[string]any, error) {
-	stats := make(map[string]any)
-	
-	var currentUser, dbName string
-	_ = d.pool.QueryRow(ctx, "SELECT current_user, current_database()").Scan(&currentUser, &dbName)
-	stats["db_user"] = currentUser
-	stats["db_name"] = dbName
-
-	var mTotal, mWithGroup, mWithCompany int
-	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machines").Scan(&mTotal)
-	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machines WHERE group_id IS NOT NULL").Scan(&mWithGroup)
-	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machines WHERE company_id IS NOT NULL").Scan(&mWithCompany)
-	
-	var gTotal int
-	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machine_groups").Scan(&gTotal)
-
-	var cTotal int
-	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.companies").Scan(&cTotal)
-
-	stats["companies_total"] = cTotal
-	
-	// Listar nomes das máquinas
-	var mList []string
-	rows, _ := d.pool.Query(ctx, "SELECT hostname FROM public.machines LIMIT 10")
-	if rows != nil {
-		for rows.Next() {
-			var n string
-			if err := rows.Scan(&n); err == nil {
-				mList = append(mList, n)
-			}
-		}
-		rows.Close()
-	}
-
-	// Listar nomes dos grupos
-	var gList []string
-	gRows, _ := d.pool.Query(ctx, "SELECT name FROM public.machine_groups LIMIT 10")
-	if gRows != nil {
-		for gRows.Next() {
-			var n string
-			if err := gRows.Scan(&n); err == nil {
-				gList = append(gList, n)
-			}
-		}
-		gRows.Close()
-	}
-
-	stats["machines_total"] = mTotal
-	stats["machines_list"] = mList
-	stats["machines_with_group"] = mWithGroup
-	stats["machines_with_company"] = mWithCompany
-	stats["groups_total"] = gTotal
-	stats["groups_list"] = gList
-	
-	return stats, nil
-}
