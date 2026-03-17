@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 
 const ClientPortal = () => {
   const navigate = useNavigate();
+  // Buscamos o perfil detalhado para saudar o usuário pelo nome.
   const { data: profile, isLoading: profileLoading } = useUserProfile();
   const [search, setSearch] = useState('');
 
@@ -27,6 +28,7 @@ const ClientPortal = () => {
     );
   }
 
+  // Hook para buscar os 3 chamados mais recentes da empresa deste usuário.
   const { data: recentTickets } = useQuery({
     queryKey: ['client-recent-tickets', profile?.company_id],
     queryFn: async () => {
@@ -48,7 +50,8 @@ const ClientPortal = () => {
       <TopBar />
       
       <main className="flex-1 p-8 lg:p-12 max-w-[1200px] mx-auto w-full space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        {/* Welcome Section */}
+        
+        {/* Sessão de Boas-vindas: Foco em ação rápida de abertura de chamado */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="space-y-2">
             <h1 className="text-4xl font-black tracking-tight text-foreground">Olá, {profile?.full_name?.split(' ')[0]}!</h1>
@@ -62,7 +65,7 @@ const ClientPortal = () => {
           </Button>
         </div>
 
-        {/* Quick Actions */}
+        {/* Atalhos Rápidos: Acesso ao histórico, Wiki e Suporte Humano */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" onClick={() => navigate('/historico')}>
             <CardContent className="p-8 flex items-center gap-6">
@@ -102,7 +105,8 @@ const ClientPortal = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {/* Recent Activity */}
+          
+          {/* Listagem de Atividade Recente: Facilita o retorno a chamados em aberto */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-black tracking-tight">Atividade Recente</h2>
@@ -140,7 +144,7 @@ const ClientPortal = () => {
             </div>
           </div>
 
-          {/* Help Center Highlights */}
+          {/* Destaques da Central de Ajuda: Promoção de conteúdos de autoatendimento */}
           <div className="space-y-6">
             <h2 className="text-2xl font-black tracking-tight">Destaques da Ajuda</h2>
             <div className="space-y-4">

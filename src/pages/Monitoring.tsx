@@ -110,6 +110,9 @@ function MetricSection({ label, value, subtext, icon: Icon, colorClass, gradient
   );
 }
 
+// ── Grid Principal de Máquinas ──────────────────────────
+// Este componente gerencia a lista de máquinas do grupo selecionado,
+// aplicando os filtros de busca e status (online/offline/alerta).
 function MachinesGrid({
   groupId,
   statusFilter,
@@ -123,21 +126,24 @@ function MachinesGrid({
 }) {
   const { data: machines, isLoading } = useGroupMachines(groupId);
 
+  // Memoização para evitar re-filtros pesados em cada renderização.
   const filtered = useMemo(() => {
     if (!machines) return [];
     return machines.filter((m) => {
       if (statusFilter === 'online' && m.status !== 'online') return false;
       if (statusFilter === 'offline' && m.status !== 'offline') return false;
-      if (statusFilter === 'alert' && !hasDiskAlert(m)) return false;
+      if (statusFilter === 'alert' && !hasDiskAlert(m)) return false; // Filtra por problemas de disco/espaço
       if (search && !m.hostname.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
   }, [machines, statusFilter, search]);
 
+  // Se nenhum grupo estiver selecionado, mostramos uma tela de boas-vindas/instruções.
   if (!groupId) {
     return <MonitoringOnboarding />;
   }
 
+  // Estado de carregamento com esqueletos (Skeletons) para evitar layout shift.
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -146,13 +152,14 @@ function MachinesGrid({
     );
   }
 
+  // Caso o filtro resulte em uma lista vazia.
   if (filtered.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-2xl opacity-50">
           <div className="p-4 bg-muted rounded-full">
             <Monitor className="h-10 w-10 text-muted-foreground/40" />
           </div>
-          <p className="text-sm font-medium">Nenhuma máquina encontrada filtros ativos.</p>
+          <p className="text-sm font-medium">Nenhuma máquina encontrada com os filtros ativos.</p>
       </div>
     );
   }
@@ -166,7 +173,7 @@ function MachinesGrid({
   );
 }
 
-// ── Página principal ──────────────────────────────────────
+// ── Página Principal de Monitoramento (NOC View) ──────────
 const Monitoring: React.FC = () => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const queryClient = useQueryClient();
