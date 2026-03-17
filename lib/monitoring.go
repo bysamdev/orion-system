@@ -420,6 +420,11 @@ func (d *DB) MachineCount(ctx context.Context) (int, error) {
 func (d *DB) DebugMonitoringStats(ctx context.Context) (map[string]any, error) {
 	stats := make(map[string]any)
 	
+	var currentUser, dbName string
+	_ = d.pool.QueryRow(ctx, "SELECT current_user, current_database()").Scan(&currentUser, &dbName)
+	stats["db_user"] = currentUser
+	stats["db_name"] = dbName
+
 	var mTotal, mWithGroup, mWithCompany int
 	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machines").Scan(&mTotal)
 	_ = d.pool.QueryRow(ctx, "SELECT count(*) FROM public.machines WHERE group_id IS NOT NULL").Scan(&mWithGroup)
