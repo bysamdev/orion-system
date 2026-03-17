@@ -16,11 +16,16 @@ type Config struct {
 }
 
 func LoadConfig() Config {
+	// Try common Supabase/Vercel naming conventions
+	supabaseURL := envOr("SUPABASE_URL", envOr("NEXT_PUBLIC_SUPABASE_URL", ""))
+	supabaseAnonKey := envOr("SUPABASE_ANON_KEY", envOr("NEXT_PUBLIC_SUPABASE_ANON_KEY", ""))
+	supabaseServiceKey := envOr("SUPABASE_SERVICE_ROLE_KEY", envOr("SUPABASE_SERVICE_KEY", ""))
+
 	return Config{
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
-		SupabaseURL:        envOr("SUPABASE_URL", ""),
-		SupabaseAnonKey:    os.Getenv("SUPABASE_ANON_KEY"),
-		SupabaseServiceKey: os.Getenv("SUPABASE_SERVICE_ROLE_KEY"),
+		SupabaseURL:        supabaseURL,
+		SupabaseAnonKey:    supabaseAnonKey,
+		SupabaseServiceKey: supabaseServiceKey,
 		AgentKey:           os.Getenv("AGENT_KEY"),
 		ResendAPIKey:       os.Getenv("RESEND_API_KEY"),
 		ResendFrom:         envOr("RESEND_FROM", "Orion System <no-reply@orion.local>"),

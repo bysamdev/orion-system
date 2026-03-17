@@ -241,6 +241,16 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// FALLBACK: Se ainda não tiver empresa (ex: instalação nova/geral), 
+	// vamos vincular à primeira empresa do banco para que não fique órfã
+	if targetCompanyID == "" {
+		firstCID, _ := db.FirstCompanyID(ctx)
+		if firstCID != "" {
+			targetCompanyID = firstCID
+			fmt.Printf("[DEBUG] Heartbeat fallback: vinculando %s à empresa %s\n", req.Hostname, targetCompanyID)
+		}
+	}
+
 	if req.Hostname == "" {
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "hostname é obrigatório"})
 		return
