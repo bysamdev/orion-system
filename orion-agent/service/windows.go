@@ -46,6 +46,15 @@ func (s *Svc) Stop(svc service.Service) error {
 	return nil
 }
 
+// GetPortalURL returns the authenticated URL for the support portal.
+func (s *Svc) GetPortalURL() string {
+	if s.machineToken == "" {
+		return ""
+	}
+	// Redireciona para o login automático via token de máquina
+	return fmt.Sprintf("%s/api/auth/machine-login?token=%s", s.cfg.APIURL, s.machineToken)
+}
+
 // run is the main loop: collect → send, every cfg.IntervalSeconds.
 func (s *Svc) run(ctx context.Context) {
 	s.logger.Println("orion-agent iniciado")

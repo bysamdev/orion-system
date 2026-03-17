@@ -69,7 +69,7 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 	loginLink, err := sb.AdminGenerateLink(r.Context(), lib.GenerateLinkInput{
 		Type:       "magiclink",
 		Email:      machineEmail,
-		RedirectTo: "/tickets", 
+		RedirectTo: "/", 
 	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Erro ao gerar link de acesso: %v", err), http.StatusInternalServerError)
