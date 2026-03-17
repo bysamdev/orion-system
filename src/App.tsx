@@ -25,6 +25,7 @@ const Avaliacao = lazy(() => import("./pages/Avaliacao"));
 const Assets = lazy(() => import("./pages/Assets"));
 const ClientPortal = lazy(() => import("./pages/ClientPortal"));
 const Documentation = lazy(() => import("./pages/Documentation"));
+const UserGuide = lazy(() => import("./pages/UserGuide"));
 
 const queryClient = new QueryClient();
 
@@ -60,7 +61,8 @@ const App = () => (
               <Route path="/debug-tools" element={<ProtectedRoute><DebugTools /></ProtectedRoute>} />
               <Route path="/avaliacao/:id" element={<Avaliacao />} />
               <Route path="/documentacao" element={<ProtectedRoute><Documentation /></ProtectedRoute>} />
-              <Route path="/manual" element={<Navigate to="/documentacao" replace />} />
+              <Route path="/tutorial" element={<ProtectedRoute><UserGuide /></ProtectedRoute>} />
+              <Route path="/manual" element={<Navigate to="/tutorial" replace />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
