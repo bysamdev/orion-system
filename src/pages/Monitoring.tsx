@@ -165,9 +165,16 @@ const Monitoring: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(true);
 
-  // Hooks must be called at the top, before any early returns
-  const { data: dashboard, isError: dashboardError } = useMonitoringDashboard();
-  const { data: groups, isLoading: groupsLoading, isError: groupsError } = useMonitoringGroups();
+  // Hooks must be called at the top level, unconditionally
+  const { data: dashboard } = useMonitoringDashboard();
+  const { data: groups, isLoading: groupsLoading } = useMonitoringGroups();
+
+  // Auto-select first group if none selected
+  React.useEffect(() => {
+    if (!selectedGroupId && groups && groups.length > 0) {
+      setSelectedGroupId(groups[0].id);
+    }
+  }, [groups, selectedGroupId]);
 
   // RBAC — same pattern as Reports.tsx
   if (roleLoading) {
@@ -193,17 +200,6 @@ const Monitoring: React.FC = () => {
               <p className="text-sm text-muted-foreground">Você não tem permissão para acessar o monitoramento.</p>
             </div>
           </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (dashboardError || groupsError) {
-    return (
-      <div className="min-h-screen bg-background">
-        <main className="p-8 lg:p-12 max-w-[1600px] mx-auto w-full">
-          <TopBar />
-          <MonitoringOnboarding />
         </main>
       </div>
     );
@@ -399,12 +395,18 @@ const Monitoring: React.FC = () => {
               </div>
             )}
 
-            <MachinesGrid
-              groupId={selectedGroupId}
-              statusFilter={statusFilter}
-              search={search}
-              onSelect={setSelectedMachine}
-            />
+            {groupsLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+                {Array.from({ length: 6 }).map((_, i) => <MachineCardSkeleton key={i} />)}
+              </div>
+            ) : (
+              <MachinesGrid
+                groupId={selectedGroupId}
+                statusFilter={statusFilter}
+                search={search}
+                onSelect={setSelectedMachine}
+              />
+            )}
           </div>
         </div>
       </main>
