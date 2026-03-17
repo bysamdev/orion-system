@@ -57,11 +57,17 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		userID = out.User.ID
 
-		// Garantir perfil e empresa
+		// Garantir perfil e empresa (sempre atualiza para garantir consistência)
 		_ = db.UpdateProfile(r.Context(), userID, lib.ProfileUpdate{
 			FullName:   &machineName,
 			Email:      &machineEmail,
 			CompanyID:  &companyID,
+		})
+	} else {
+		// Se já existe, garante que a empresa e nome estão certos
+		_ = db.UpdateProfile(r.Context(), userID, lib.ProfileUpdate{
+			FullName:  &machineName,
+			CompanyID: &companyID,
 		})
 	}
 

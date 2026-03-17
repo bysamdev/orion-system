@@ -106,38 +106,6 @@ const NewTicket = () => {
         return;
       }
 
-      // ─── Lógica de Atribuição Automática (Strict Round-Robin por data de última atribuição) ───
-      const { data: techs } = await supabase
-        .from('profiles')
-        .select(`
-          id, 
-          full_name,
-          last_assigned_at
-        `)
-        .filter('role', 'in', '("technician","admin","developer")');
-
-      let assignedToId = null;
-      let assignedToName = null;
-
-      if (techs && techs.length > 0) {
-        // Ordenar por quem foi atribuído há mais tempo ou nunca foi (null)
-        const sortedTechs = [...techs].sort((a, b) => {
-          if (!a.last_assigned_at) return -1;
-          if (!b.last_assigned_at) return 1;
-          return new Date(a.last_assigned_at).getTime() - new Date(b.last_assigned_at).getTime();
-        });
-        
-        const bestTech = sortedTechs[0];
-        assignedToId = bestTech.id;
-        assignedToName = bestTech.full_name;
-
-        // Atualizar timestamp de última atribuição para o round-robin
-        await supabase
-          .from('profiles')
-          .update({ last_assigned_at: new Date().toISOString() })
-          .eq('id', assignedToId);
-      }
-
       const { data: ticket, error: ticketError } = await supabase.from('tickets').insert({
         title: data.title,
         category: data.category,
@@ -152,8 +120,6 @@ const NewTicket = () => {
         remote_password: remotePassword.trim() || null,
         contract_id: selectedContractId || null,
         asset_id: selectedAssetId || null,
-        assigned_to_user_id: assignedToId,
-        assigned_to: assignedToName,
       }).select().single();
 
       if (ticketError) throw ticketError;
