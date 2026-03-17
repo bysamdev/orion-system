@@ -11,6 +11,7 @@ import (
 
 	"orion-agent/config"
 	agentsvc "orion-agent/service"
+	"orion-agent/tray"
 )
 
 func main() {
@@ -61,12 +62,38 @@ func main() {
 		fmt.Println("Serviço OrionAgent removido com sucesso.")
 
 	default:
-		// Run (foreground or as Windows service)
-		logger.Printf("Iniciando orion-agent — backend: %s | intervalo: %ds",
-			cfg.APIURL, cfg.IntervalSeconds)
-		if err := s.Run(); err != nil {
-			logger.Fatalf("[ERRO] run: %v", err)
+		// Se não estiver rodando como serviço (interativo), iniciamos o Tray
+		if !service.Interactive() {
+			// Se rodar como serviço puro, apenas executa o logic
+			if err := s.Run(); err != nil {
+				logger.Fatalf("[ERRO] run service: %v", err)
+			}
+			return
 		}
+
+		// Roda o loop de monitoramento em uma goroutine
+		go func() {
+			logger.Printf("Iniciando background agent — backend: %s", cfg.APIURL)
+			if err := s.Run(); err != nil {
+				logger.Printf("[ERRO] background run: %v", err)
+			}
+		}()
+
+		// Inicia o System Tray (bloqueia a thread principal)
+		t := tray.New(
+			func() {
+				url := svc.GetPortalURL()
+				if url != "" {
+					tray.OpenURL(url)
+					logger.Printf("[TRAY] Abrindo portal: %s", url)
+				}
+			},
+			func() {
+				logger.Println("[TRAY] Sair clicado. Encerrando...")
+				os.Exit(0)
+			},
+		)
+		t.Run()
 	}
 }
 
