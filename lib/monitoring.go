@@ -267,7 +267,7 @@ INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, sta
 VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10)
 ON CONFLICT (machine_token) DO UPDATE
   SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, company_id=$10
-RETURNING id::text`, groupID, prettyHostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, NilIfEmpty(companyID)).Scan(&id)
+RETURNING id::text`, groupID, prettyHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(companyID)).Scan(&id)
 	return id, err
 }
 

@@ -117,6 +117,24 @@ func (c *SupabaseClient) AdminDeleteUserByID(ctx context.Context, userID string)
 	return nil
 }
 
+type GenerateLinkInput struct {
+	Type          string `json:"type"`
+	Email         string `json:"email"`
+	RedirectTo    string `json:"redirect_to,omitempty"`
+}
+
+type GenerateLinkOutput struct {
+	ActionLink string `json:"action_link"`
+}
+
+func (c *SupabaseClient) AdminGenerateLink(ctx context.Context, in GenerateLinkInput) (string, error) {
+	out, err := sbPost[GenerateLinkOutput](ctx, c, "/auth/v1/admin/generate_link", in)
+	if err != nil {
+		return "", err
+	}
+	return out.ActionLink, nil
+}
+
 // sbPost is a helper for POST calls to the Supabase Admin API.
 func sbPost[T any](ctx context.Context, c *SupabaseClient, path string, in any) (*T, error) {
 	body, err := json.Marshal(in)
