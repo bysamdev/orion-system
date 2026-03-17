@@ -85,6 +85,12 @@ func buildRouter() http.Handler {
 	r.Post("/api/monitoring/commands/respond", monitoringCommandResponse)
 	r.Get("/api/monitoring/cron/mark-offline", cronMarkOffline)
 
+	// Management
+	r.Post("/api/monitoring/machines/{id}/update", monitoringUpdateMachine)
+	r.Post("/api/monitoring/groups", monitoringCreateGroup)
+	r.Post("/api/monitoring/groups/{id}/update", monitoringUpdateGroup)
+	r.Delete("/api/monitoring/groups/{id}", monitoringDeleteGroup)
+
 	return r
 }
 

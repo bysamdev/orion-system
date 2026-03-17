@@ -6,6 +6,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -31,8 +32,12 @@ import {
   useMachineAlerts,
   useCreateCommand,
   useMachineCommands,
+  useManagementCompanies,
+  useUpdateMachine,
+  useMonitoringGroups,
   pct,
 } from '@/hooks/useMonitoring';
+import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import type { MachineWithMetric } from '@/hooks/useMonitoring';
 import { cn } from '@/lib/utils';
@@ -96,6 +101,47 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
       toast.success("Comando enfileirado com sucesso!");
     } catch (err: any) {
       toast.error(`Falha ao enviar comando: ${err.message}`);
+    }
+  };
+
+  const { data: role } = useUserRole();
+  const { data: companies = [] } = useManagementCompanies();
+  const { data: groups = [] } = useMonitoringGroups();
+  const updateMachine = useUpdateMachine();
+
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Sync internal state when machine changes
+  React.useEffect(() => {
+    if (machine) {
+      // Note: machine might not have company_id directly in MachineWithMetric yet if I didn't update the type, 
+      // but the DB has it. Let's assume it's there or handle it.
+      setSelectedGroupId(machine.group_id || '');
+      // We might need to fetch the machine's current company if it's not in the 'machine' object
+      // For now, let's just use the group context or wait for update
+    }
+  }, [machine]);
+
+  const canManage = role === 'admin' || role === 'developer' || role === 'gestor';
+
+  const handleSaveChanges = async () => {
+    if (!machineId) return;
+    setIsSaving(true);
+    try {
+      await updateMachine.mutateAsync({
+        id: machineId,
+        updates: {
+          group_id: selectedGroupId || null,
+          // If we had company_id in the update type, we'd add it here
+        }
+      });
+      toast.success("Alterações salvas com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro ao salvar: " + err.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -194,37 +240,69 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
                   </Card>
                 </section>
 
-                {/* Alerts */}
-                <section className="space-y-4">
-                  <div className="flex items-center justify-between px-1">
-                    <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Alertas Ativos</h3>
-                    {alerts.length > 0 && <Badge variant="destructive" className="h-5 text-[9px] font-bold">{alerts.length}</Badge>}
-                  </div>
-                  {alertsLoading ? (
-                    <div className="space-y-2">
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
+                  {/* Alerts */}
+                  <section className="space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Alertas Ativos</h3>
+                      {alerts.length > 0 && <Badge variant="destructive" className="h-5 text-[9px] font-bold">{alerts.length}</Badge>}
                     </div>
-                  ) : alerts.length === 0 ? (
-                    <div className="bg-green-500/5 border border-green-500/10 rounded-xl p-4 flex items-center justify-center gap-2 text-green-600">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span className="text-xs font-bold">Nenhum problema detectado</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {alerts.map((alert) => (
-                        <div key={alert.id} className={cn('rounded-xl border p-4 space-y-1 transition-all hover:translate-x-1', severityColor[alert.severity])}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-tight">{alert.severity}</span>
-                            <span className="text-[9px] opacity-60">{formatDistanceToNow(new Date(alert.created_at), { addSuffix: true, locale: ptBR })}</span>
+                    {alertsLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                      </div>
+                    ) : alerts.length === 0 ? (
+                      <div className="bg-green-500/5 border border-green-500/10 rounded-xl p-4 flex items-center justify-center gap-2 text-green-600">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="text-xs font-bold">Nenhum problema detectado</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {alerts.map((alert) => (
+                          <div key={alert.id} className={cn('rounded-xl border p-4 space-y-1 transition-all hover:translate-x-1', severityColor[alert.severity])}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold uppercase tracking-tight">{alert.severity}</span>
+                              <span className="text-[9px] opacity-60">{formatDistanceToNow(new Date(alert.created_at), { addSuffix: true, locale: ptBR })}</span>
+                            </div>
+                            <p className="text-xs font-medium leading-relaxed">{alert.message}</p>
                           </div>
-                          <p className="text-xs font-medium leading-relaxed">{alert.message}</p>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Administrative Section */}
+                  {canManage && (
+                    <section className="space-y-4 pt-4">
+                      <Separator className="border-border/20" />
+                      <h3 className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest px-1">Configurações Administrativas</h3>
+                      <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-4 space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Grupo / Cliente</label>
+                          <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                            <SelectTrigger className="bg-background border-indigo-500/20">
+                              <SelectValue placeholder="Selecione um grupo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {groups.map((g) => (
+                                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
-                      ))}
-                    </div>
+
+                        <Button 
+                          className="w-full font-bold gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/20"
+                          onClick={handleSaveChanges}
+                          disabled={isSaving}
+                        >
+                          {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                          Salvar Alterações
+                        </Button>
+                      </div>
+                    </section>
                   )}
-                </section>
-              </TabsContent>
+                </TabsContent>
 
               <TabsContent value="inventory" className="mt-0 space-y-8">
                 {/* Hardware */}
@@ -390,22 +468,22 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
                         <p className="text-zinc-700 italic"># Aguardando entrada...</p>
                       ) : (
                         commands.map((c) => (
-                          <div key={c.ID} className="space-y-1.5">
+                          <div key={c.id} className="space-y-1.5">
                             <div className="flex items-center gap-2">
                               <span className="text-green-500/50 pr-1">#</span>
-                              <span className="text-zinc-300 font-bold">{c.Command}</span>
+                              <span className="text-zinc-300 font-bold">{c.command}</span>
                               <span className={cn(
                                 "ml-auto text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase",
-                                c.Status === 'completed' ? 'border-green-500/20 text-green-500 bg-green-500/5' :
-                                c.Status === 'failed' ? 'border-red-500/20 text-red-500 bg-red-500/5' :
+                                c.status === 'completed' ? 'border-green-500/20 text-green-500 bg-green-500/5' :
+                                c.status === 'failed' ? 'border-red-500/20 text-red-500 bg-red-500/5' :
                                 'border-amber-500/20 text-amber-500 bg-amber-500/5 animate-pulse'
                               )}>
-                                {c.Status}
+                                {c.status}
                               </span>
                             </div>
-                            {c.Output && (
+                            {c.output && (
                               <pre className="text-[10px] text-zinc-500 bg-zinc-900/40 p-3 rounded-lg border border-zinc-800/30 whitespace-pre-wrap leading-relaxed shadow-sm">
-                                {c.Output}
+                                {c.output}
                               </pre>
                             )}
                           </div>

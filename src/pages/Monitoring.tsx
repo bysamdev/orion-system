@@ -5,13 +5,27 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { useUserRole } from '@/hooks/useUserRole';
-import { Loader2, RefreshCw, ChevronRight, ChevronDown, Monitor, Wifi, WifiOff, AlertTriangle, Search, Server, Plus } from 'lucide-react';
+import {
+  Loader2,
+  RefreshCw,
+  ChevronRight,
+  ChevronDown,
+  Monitor,
+  Wifi,
+  WifiOff,
+  AlertTriangle,
+  Search,
+  Server,
+  Plus,
+  Edit2,
+  Trash2,
+  Lock,
+} from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import {
   useMonitoringDashboard,
@@ -19,13 +33,28 @@ import {
   useGroupMachines,
   hasDiskAlert,
   pct,
+  useCreateGroup,
+  useUpdateGroup,
+  useDeleteGroup,
+  useManagementCompanies,
 } from '@/hooks/useMonitoring';
 import type { MachineGroup, MachineWithMetric } from '@/hooks/useMonitoring';
 import { MachineCard, MachineCardSkeleton } from '@/components/monitoring/MachineCard';
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 import { useQueryClient } from '@tanstack/react-query';
 import { MonitoringOnboarding } from '@/components/monitoring/MonitoringOnboarding';
-import { ErrorBoundary } from '@/components/ui/error-boundary';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { useUserRole } from '@/hooks/useUserRole';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
+import { Textarea } from '@/components/ui/textarea';
 
 type StatusFilter = 'all' | 'online' | 'offline' | 'alert';
 
@@ -34,42 +63,71 @@ function GroupItem({
   group,
   selected,
   onClick,
+  onEdit,
+  onDelete,
+  canManage,
 }: {
   group: MachineGroup;
   selected: boolean;
   onClick: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  canManage?: boolean;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'w-full text-left px-3 py-3 rounded-xl flex items-center justify-between gap-3 transition-all transform hover:scale-[1.02] active:scale-95 group relative mb-2',
-        selected
-          ? 'bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/20'
-          : 'hover:bg-muted/80 text-foreground border border-transparent hover:border-border/50'
-      )}
-    >
-      <div className="min-w-0">
-        <p className="text-sm truncate leading-tight">{group.name}</p>
-        {group.client_contact && (
-          <p className={cn('text-[10px] truncate mt-0.5 opacity-60')}>
-            {group.client_contact}
-          </p>
+    <div className="relative group/item flex items-center mb-2">
+      <button
+        onClick={onClick}
+        className={cn(
+          'flex-1 text-left px-3 py-3 rounded-xl flex items-center justify-between gap-3 transition-all transform hover:scale-[1.01] active:scale-95 group relative',
+          selected
+            ? 'bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/20'
+            : 'hover:bg-muted/80 text-foreground border border-transparent hover:border-border/50'
         )}
-      </div>
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        <span className="flex items-center gap-1 text-[10px] font-bold">
-          <span className={cn(
-            "h-1.5 w-1.5 rounded-full animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.8)]",
-            selected ? "bg-white" : "bg-green-500"
-          )} />
-          <span className={selected ? 'text-primary-foreground' : 'text-green-600'}>{group.online_machines}</span>
-        </span>
-        <span className={cn('text-[10px] font-medium opacity-40')}>
-          /{group.total_machines}
-        </span>
-      </div>
-    </button>
+      >
+        <div className="min-w-0 pr-6">
+          <p className="text-sm truncate leading-tight font-bold">{group.name}</p>
+          {group.client_contact && (
+            <p className={cn('text-[10px] truncate mt-0.5 opacity-60')}>
+              {group.client_contact}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="flex items-center gap-1 text-[10px] font-bold">
+            <span className={cn(
+              "h-1.5 w-1.5 rounded-full animate-pulse",
+              selected ? "bg-white" : "bg-green-500"
+            )} />
+            <span className={selected ? 'text-primary-foreground' : 'text-green-600'}>{group.online_machines}</span>
+          </span>
+          <span className={cn('text-[10px] font-medium opacity-40')}>
+            /{group.total_machines}
+          </span>
+        </div>
+      </button>
+      
+      {canManage && (
+        <div className="absolute right-2 opacity-0 group-hover/item:opacity-100 flex gap-1 transition-opacity">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className={cn("h-7 w-7 rounded-full", selected ? "hover:bg-white/20 text-white" : "hover:bg-primary/10 text-primary")}
+            onClick={(e) => { e.stopPropagation(); onEdit?.(); }}
+          >
+            <Edit2 className="w-3 h-3" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-7 w-7 rounded-full text-red-500 hover:bg-red-500/10"
+            onClick={(e) => { e.stopPropagation(); onDelete?.(); }}
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -111,8 +169,6 @@ function MetricSection({ label, value, subtext, icon: Icon, colorClass, gradient
 }
 
 // ── Grid Principal de Máquinas ──────────────────────────
-// Este componente gerencia a lista de máquinas do grupo selecionado,
-// aplicando os filtros de busca e status (online/offline/alerta).
 function MachinesGrid({
   groupId,
   statusFilter,
@@ -126,24 +182,21 @@ function MachinesGrid({
 }) {
   const { data: machines, isLoading } = useGroupMachines(groupId);
 
-  // Memoização para evitar re-filtros pesados em cada renderização.
   const filtered = useMemo(() => {
     if (!machines) return [];
     return machines.filter((m) => {
       if (statusFilter === 'online' && m.status !== 'online') return false;
       if (statusFilter === 'offline' && m.status !== 'offline') return false;
-      if (statusFilter === 'alert' && !hasDiskAlert(m)) return false; // Filtra por problemas de disco/espaço
+      if (statusFilter === 'alert' && !hasDiskAlert(m)) return false;
       if (search && !m.hostname.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
   }, [machines, statusFilter, search]);
 
-  // Se nenhum grupo estiver selecionado, mostramos uma tela de boas-vindas/instruções.
   if (!groupId) {
     return <MonitoringOnboarding />;
   }
 
-  // Estado de carregamento com esqueletos (Skeletons) para evitar layout shift.
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -152,7 +205,6 @@ function MachinesGrid({
     );
   }
 
-  // Caso o filtro resulte em uma lista vazia.
   if (filtered.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-2xl opacity-50">
@@ -184,9 +236,25 @@ const Monitoring: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(true);
 
-  // Hooks must be called at the top level, unconditionally
+  // Group Management State
+  const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<MachineGroup | null>(null);
+  const [groupFormData, setGroupFormData] = useState({
+    name: '',
+    description: '',
+    client_contact: '',
+    company_id: '',
+  });
+
   const { data: dashboard } = useMonitoringDashboard();
   const { data: groups, isLoading: groupsLoading } = useMonitoringGroups();
+  const { data: companies = [] } = useManagementCompanies();
+  
+  const createGroup = useCreateGroup();
+  const updateGroup = useUpdateGroup();
+  const deleteGroup = useDeleteGroup();
+
+  const isAdminOrGestor = role === 'admin' || role === 'developer' || role === 'gestor';
 
   // Auto-select first group if none selected
   React.useEffect(() => {
@@ -195,7 +263,59 @@ const Monitoring: React.FC = () => {
     }
   }, [groups, selectedGroupId]);
 
-  // RBAC — same pattern as Reports.tsx
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ['monitoring'] });
+    setTimeout(() => setRefreshing(false), 800);
+  };
+
+  const handleOpenGroupDialog = (group?: MachineGroup) => {
+    if (group) {
+      setEditingGroup(group);
+      setGroupFormData({
+        name: group.name,
+        description: group.description || '',
+        client_contact: group.client_contact || '',
+        company_id: (group as any).company_id || '',
+      });
+    } else {
+      setEditingGroup(null);
+      setGroupFormData({
+        name: '',
+        description: '',
+        client_contact: '',
+        company_id: '',
+      });
+    }
+    setIsGroupDialogOpen(true);
+  };
+
+  const handleSaveGroup = async () => {
+    try {
+      if (editingGroup) {
+        await updateGroup.mutateAsync({ id: editingGroup.id, updates: groupFormData });
+        toast.success("Grupo atualizado com sucesso");
+      } else {
+        await createGroup.mutateAsync(groupFormData);
+        toast.success("Grupo criado com sucesso");
+      }
+      setIsGroupDialogOpen(false);
+    } catch (err: any) {
+      toast.error("Erro ao salvar grupo: " + err.message);
+    }
+  };
+
+  const handleDeleteGroup = async (id: string, name: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o grupo "${name}"?`)) return;
+    try {
+      await deleteGroup.mutateAsync(id);
+      toast.success("Grupo removido");
+      if (selectedGroupId === id) setSelectedGroupId(null);
+    } catch (err: any) {
+      toast.error("Erro ao remover: " + err.message);
+    }
+  };
+
   if (roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -205,32 +325,24 @@ const Monitoring: React.FC = () => {
   }
 
   if (role === 'customer') {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/tutorial" replace />;
   }
 
-  if (role !== 'admin' && role !== 'developer' && role !== 'technician') {
+  if (role && !['admin', 'developer', 'technician', 'gestor'].includes(role)) {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-          <TopBar />
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center space-y-2">
-              <p className="text-lg font-semibold text-foreground">Acesso Restrito</p>
-              <p className="text-sm text-muted-foreground">Você não tem permissão para acessar o monitoramento.</p>
-            </div>
-          </div>
-        </main>
+      <div className="flex flex-col items-center justify-center h-[70vh] p-8 space-y-4 animate-in fade-in zoom-in duration-500">
+        <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+          <Lock className="w-10 h-10 text-red-600" />
+        </div>
+        <h2 className="text-2xl font-bold">Acesso Restrito</h2>
+        <p className="text-muted-foreground text-center max-w-md">
+          Você não tem permissão para acessar esta área técnica.
+        </p>
       </div>
     );
   }
 
   const selectedGroup = groups?.find((g) => g.id === selectedGroupId);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await queryClient.invalidateQueries({ queryKey: ['monitoring'] });
-    setTimeout(() => setRefreshing(false), 800);
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -239,15 +351,19 @@ const Monitoring: React.FC = () => {
 
         {/* ── Page Header ── */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Monitoramento de Máquinas</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">
-              Acompanhe o status e métricas em tempo real
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Input
+                placeholder="Buscar por hostname..."
+                className="pl-10 w-full sm:w-[300px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            {/* Status badges */}
             {dashboard && (
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="gap-1.5 text-green-600 border-green-500/30 bg-green-500/10">
@@ -258,12 +374,6 @@ const Monitoring: React.FC = () => {
                   <WifiOff className="w-3 h-3" />
                   <span>{dashboard.offline} offline</span>
                 </Badge>
-                {dashboard.active_alerts > 0 && (
-                  <Badge variant="outline" className="gap-1.5 text-yellow-600 border-yellow-500/30 bg-yellow-500/10">
-                    <AlertTriangle className="w-3 h-3" />
-                    <span>{dashboard.active_alerts} alertas</span>
-                  </Badge>
-                )}
               </div>
             )}
 
@@ -276,14 +386,6 @@ const Monitoring: React.FC = () => {
             >
               <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
               Atualizar
-            </Button>
-
-            <Button
-              size="sm"
-              className="gap-2 rounded-xl bg-primary shadow-lg shadow-primary/20 transition-all font-bold"
-            >
-              <Plus className="w-4 h-4" />
-              Adicionar Máquina
             </Button>
           </div>
         </div>
@@ -372,14 +474,28 @@ const Monitoring: React.FC = () => {
 
               <Separator className="my-6 opacity-50" />
 
-              <Collapsible open={groupsOpen} onOpenChange={setGroupsOpen}>
-                <CollapsibleTrigger asChild>
-                  <button className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider px-3 hover:text-foreground transition-colors w-full mb-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-3 w-full">
+                  <button 
+                    className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+                    onClick={() => setGroupsOpen(!groupsOpen)}
+                  >
                     {groupsOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                     Grupos / Clientes
                   </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
+                  {isAdminOrGestor && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 rounded-full hover:bg-primary/10 text-primary"
+                      onClick={() => handleOpenGroupDialog()}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+                
+                {groupsOpen && (
                   <ScrollArea className="h-[calc(100vh-500px)]">
                     <div className="space-y-1 pr-3 pl-1">
                       {groupsLoading ? (
@@ -397,13 +513,16 @@ const Monitoring: React.FC = () => {
                             group={g}
                             selected={selectedGroupId === g.id}
                             onClick={() => setSelectedGroupId(g.id)}
+                            canManage={isAdminOrGestor}
+                            onEdit={() => handleOpenGroupDialog(g)}
+                            onDelete={() => handleDeleteGroup(g.id, g.name)}
                           />
                         ))
                       )}
                     </div>
                   </ScrollArea>
-                </CollapsibleContent>
-              </Collapsible>
+                )}
+              </div>
             </div>
           </aside>
 
@@ -433,6 +552,72 @@ const Monitoring: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Group Dialog */}
+      <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              {editingGroup ? 'Editar Grupo' : 'Novo Grupo / Cliente'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Nome do Grupo</Label>
+              <Input 
+                id="name" 
+                placeholder="Ex: Matriz - São Paulo" 
+                value={groupFormData.name}
+                onChange={e => setGroupFormData(prev => ({ ...prev, name: e.target.value }))}
+                className="rounded-xl border-border/40"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contact" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Contato / Responsável</Label>
+              <Input 
+                id="contact" 
+                placeholder="Ex: João da Silva (joao@cliente.com)" 
+                value={groupFormData.client_contact}
+                onChange={e => setGroupFormData(prev => ({ ...prev, client_contact: e.target.value }))}
+                className="rounded-xl border-border/40"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="company" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Vincular à Empresa</Label>
+              <Select 
+                value={groupFormData.company_id || "none"} 
+                onValueChange={v => setGroupFormData(prev => ({ ...prev, company_id: v === "none" ? "" : v }))}
+              >
+                <SelectTrigger id="company" className="rounded-xl border-border/40">
+                  <SelectValue placeholder="Selecione uma empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma (Global)</SelectItem>
+                  {companies.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="desc" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Descrição</Label>
+              <Textarea 
+                id="desc" 
+                placeholder="Breve descrição sobre o grupo..." 
+                value={groupFormData.description}
+                onChange={e => setGroupFormData(prev => ({ ...prev, description: e.target.value }))}
+                className="rounded-xl border-border/40 resize-none h-24"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setIsGroupDialogOpen(false)} className="rounded-xl font-bold">Cancelar</Button>
+            <Button onClick={handleSaveGroup} disabled={!groupFormData.name || createGroup.isPending || updateGroup.isPending} className="rounded-xl font-bold">
+              {editingGroup ? 'Salvar Alterações' : 'Criar Grupo'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Drawer */}
       <MachineDrawer

@@ -38,6 +38,11 @@ async function apiPost<T>(path: string, body: any): Promise<T> {
   return res.json();
 }
 
+export interface Company {
+  id: string;
+  name: string;
+}
+
 // ─── Types ───────────────────────────────────────────────
 export interface MachineGroup {
   id: string;
@@ -184,21 +189,88 @@ export function useCreateCommand() {
   });
 }
 
-export function useMachineCommands(machineId: string | null) {
+export function useMachineCommands(machine_id: string | null) {
   return useQuery<CommandRow[]>({
-    queryKey: ['monitoring', 'commands', machineId],
+    queryKey: ['monitoring', 'commands', machine_id],
     queryFn: async () => {
-      // We'll reuse the alerts endpoint logic or add a new one if needed
-      // Actually, let's assume we need a new endpoint GET /api/monitoring/machines/{id}/commands
-      return apiGet<CommandRow[]>(`/api/monitoring/machines/${machineId}/commands`);
+      return apiGet<CommandRow[]>(`/api/monitoring/machines/${machine_id}/commands`);
     },
-    enabled: !!machineId,
+    enabled: !!machine_id,
     refetchInterval: (query) => {
       const commands = query.state.data;
       if (commands?.some(c => c.status === 'pending' || c.status === 'sent')) {
-        return 3000; // Poll every 3s if there's a pending command
+        return 3000;
       }
       return 10000;
+    },
+  });
+}
+
+export function useManagementCompanies() {
+  return useQuery<Company[]>({
+    queryKey: ['management', 'companies'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useUpdateMachine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<MachineWithMetric> }) => {
+      return apiPost(`/api/monitoring/machines/${id}/update`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring'] });
+    },
+  });
+}
+
+export function useCreateGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (group: Partial<MachineGroup> & { company_id?: string }) => {
+      return apiPost(`/api/monitoring/groups`, group);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'groups'] });
+    },
+  });
+}
+
+export function useUpdateGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<MachineGroup> }) => {
+      return apiPost(`/api/monitoring/groups/${id}/update`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'groups'] });
+    },
+  });
+}
+
+export function useDeleteGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/monitoring/groups/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
+      });
+      if (!response.ok) throw new Error('Erro ao deletar grupo');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'groups'] });
     },
   });
 }

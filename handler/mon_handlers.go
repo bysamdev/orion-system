@@ -420,3 +420,143 @@ func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
 }
+
+// ─── Management ─────────────────────────────────────────────────────────────
+
+func monitoringUpdateMachine(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
+		return
+	}
+
+	// Check management roles
+	role, _ := requireAdminOrDeveloper(r, user.ID)
+	// If it's "gestor", it's also allowed (gestor is allowed for monitoring)
+	if role != "admin" && role != "developer" && role != "gestor" {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	var updates map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "JSON inválido"})
+		return
+	}
+
+	// Allowed fields to update
+	allowed := map[string]bool{"group_id": true, "company_id": true, "hostname": true}
+	refinedUpdates := make(map[string]any)
+	for k, v := range updates {
+		if allowed[k] {
+			refinedUpdates[k] = v
+		}
+	}
+
+	if err := db.UpdateMachine(ctx, id, refinedUpdates); err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
+func monitoringCreateGroup(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
+		return
+	}
+
+	role, _ := requireAdminOrDeveloper(r, user.ID)
+	if role != "admin" && role != "developer" && role != "gestor" {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
+		return
+	}
+
+	var req struct {
+		Name          string `json:"name"`
+		Description   string `json:"description"`
+		ClientContact string `json:"client_contact"`
+		CompanyID     string `json:"company_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "JSON inválido"})
+		return
+	}
+
+	id, err := db.CreateMachineGroup(ctx, req.Name, req.Description, req.ClientContact, req.CompanyID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"id": id})
+}
+
+func monitoringUpdateGroup(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
+		return
+	}
+
+	role, _ := requireAdminOrDeveloper(r, user.ID)
+	if role != "admin" && role != "developer" && role != "gestor" {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	var updates map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "JSON inválido"})
+		return
+	}
+
+	allowed := map[string]bool{"name": true, "description": true, "client_contact": true, "company_id": true}
+	refined := make(map[string]any)
+	for k, v := range updates {
+		if allowed[k] {
+			refined[k] = v
+		}
+	}
+
+	if err := db.UpdateMachineGroup(ctx, id, refined); err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
+func monitoringDeleteGroup(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
+		return
+	}
+
+	role, _ := requireAdminOrDeveloper(r, user.ID)
+	if role != "admin" && role != "developer" && role != "gestor" {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if err := db.DeleteMachineGroup(ctx, id); err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
+}

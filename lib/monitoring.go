@@ -2,6 +2,7 @@ package lib
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -413,5 +414,60 @@ func (d *DB) MachineCount(ctx context.Context) (int, error) {
 	var count int
 	err := d.pool.QueryRow(ctx, `SELECT count(*) FROM public.machines`).Scan(&count)
 	return count, err
+}
+
+func (d *DB) UpdateMachine(ctx context.Context, id string, updates map[string]any) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	query := "UPDATE public.machines SET "
+	var args []any
+	i := 1
+	for k, v := range updates {
+		if i > 1 {
+			query += ", "
+		}
+		query += fmt.Sprintf("%s = $%d", k, i)
+		args = append(args, v)
+		i++
+	}
+	query += fmt.Sprintf(" WHERE id = $%d", i)
+	args = append(args, id)
+	_, err := d.pool.Exec(ctx, query, args...)
+	return err
+}
+
+func (d *DB) CreateMachineGroup(ctx context.Context, name, description, contact, companyID string) (string, error) {
+	var id string
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO public.machine_groups (name, description, client_contact, company_id)
+		VALUES ($1, $2, $3, $4) RETURNING id::text`, name, NilIfEmpty(description), NilIfEmpty(contact), NilIfEmpty(companyID)).Scan(&id)
+	return id, err
+}
+
+func (d *DB) UpdateMachineGroup(ctx context.Context, id string, updates map[string]any) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	query := "UPDATE public.machine_groups SET "
+	var args []any
+	i := 1
+	for k, v := range updates {
+		if i > 1 {
+			query += ", "
+		}
+		query += fmt.Sprintf("%s = $%d", k, i)
+		args = append(args, v)
+		i++
+	}
+	query += fmt.Sprintf(" WHERE id = $%d", i)
+	args = append(args, id)
+	_, err := d.pool.Exec(ctx, query, args...)
+	return err
+}
+
+func (d *DB) DeleteMachineGroup(ctx context.Context, id string) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM public.machine_groups WHERE id = $1`, id)
+	return err
 }
 
