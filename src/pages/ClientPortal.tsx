@@ -144,18 +144,20 @@ const ClientPortal = () => {
           <div className="space-y-6">
             <h2 className="text-2xl font-black tracking-tight">Destaques da Ajuda</h2>
             <div className="space-y-4">
-              <Card className="group bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
+              <Card className="group bg-gradient-to-br from-primary/5 to-transparent border-primary/20 cursor-pointer" onClick={() => navigate('/tutorial')}>
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                      <Badge className="bg-primary text-primary-foreground font-black text-[9px] uppercase">Novo</Badge>
-                      <h4 className="text-lg font-bold">Manual do Orion Agent</h4>
+                      <Badge className="bg-primary text-primary-foreground font-black text-[9px] uppercase">Dica</Badge>
+                      <h4 className="text-lg font-bold">Guia de Uso Orion</h4>
                     </div>
-                    <ExternalLink className="w-5 h-5 text-primary opacity-40" />
+                    <ArrowRight className="w-5 h-5 text-primary opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                   </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">Aprenda a instalar o agente de monitoramento e aproveite os recursos de suporte proativo.</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Aprenda a abrir chamados eficientes e como utilizar o AnyDesk para suporte remoto.
+                  </p>
                   <Button variant="link" className="p-0 h-auto font-bold text-primary gap-2">
-                    Ler artigo completo <ChevronRight className="w-4 h-4" />
+                    Acessar Guia do Usuário <ChevronRight className="w-4 h-4" />
                   </Button>
                 </CardContent>
               </Card>
