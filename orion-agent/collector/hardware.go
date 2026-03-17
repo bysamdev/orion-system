@@ -15,14 +15,14 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-// NetworkInterface represents a network adapter.
+// NetworkInterface representa um adaptador de rede físico ou virtual.
 type NetworkInterface struct {
 	Name string   `json:"name"`
 	MAC  string   `json:"mac"`
 	IPs  []string `json:"ips"`
 }
 
-// DiskInfo represents a disk partition or drive.
+// DiskInfo detalha uma partição ou unidade de armazenamento detectada.
 type DiskInfo struct {
 	Device     string `json:"device"`
 	Mountpoint string `json:"mountpoint"`
@@ -31,7 +31,8 @@ type DiskInfo struct {
 	Used       uint64 `json:"used"`
 }
 
-// Payload is the heartbeat body sent to the backend.
+// Payload é o corpo principal do "Check-in" enviado ao servidor Orion.
+// Contém o estado atual completo da saúde do hardware.
 type Payload struct {
 	MachineToken string             `json:"machine_token"`
 	MachineUUID  string             `json:"machine_uuid"`
@@ -46,14 +47,14 @@ type Payload struct {
 	DiskUsed     uint64             `json:"disk_used"`
 	Uptime       uint64             `json:"uptime"`
 	CPUModel     string             `json:"cpu_model"`
-	GPU          string             `json:"gpu"`
+	GPU          string             `json:"gpu"` // Campo reservado para expansão futura
 	Disks        []DiskInfo         `json:"disks"`
 	Interfaces   []NetworkInterface `json:"interfaces"`
 	Domain       string             `json:"domain"`
 	CurrentUser  string             `json:"current_user"`
 }
 
-// diskRoot returns the primary disk root path for the current OS.
+// diskRoot define qual o caminho raiz para medição de disco principal (C: no Windows).
 func diskRoot() string {
 	if runtime.GOOS == "windows" {
 		return "C:\\"
@@ -61,7 +62,7 @@ func diskRoot() string {
 	return "/"
 }
 
-// primaryIP returns the first non-loopback IPv4 address.
+// primaryIP tenta identificar o IP principal da máquina (ignora loopback).
 func primaryIP() string {
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -91,43 +92,43 @@ func primaryIP() string {
 	return ""
 }
 
-// Collect gathers current hardware metrics and returns a Payload.
+// Collect faz uma varredura completa no sistema para extrair métricas de hardware atuais.
 func Collect() (*Payload, error) {
 	hostname, _ := os.Hostname()
 
-	// Host info (OS, version, uptime)
+	// 1. Dados Básicos do Host (Sistema Operacional, Versão e Tempo de Atividade)
 	hi, err := host.Info()
 	if err != nil {
-		return nil, fmt.Errorf("host.Info: %w", err)
+		return nil, fmt.Errorf("Erro ao ler informações do host: %w", err)
 	}
 
-	// CPU usage — sample over 1 second
+	// 2. Uso de CPU — Fazemos uma média rápida durante 1 segundo
 	cpuPcts, err := cpu.Percent(1*time.Second, false)
 	var cpuUsage float64
 	if err == nil && len(cpuPcts) > 0 {
 		cpuUsage = cpuPcts[0]
 	}
 
-	// CPU model
+	// 3. Modelo do Processador
 	var cpuModel string
 	cpuInfos, err := cpu.Info()
 	if err == nil && len(cpuInfos) > 0 {
 		cpuModel = strings.TrimSpace(cpuInfos[0].ModelName)
 	}
 
-	// RAM
+	// 4. Memória RAM (Total vs Usada)
 	vm, err := mem.VirtualMemory()
 	if err != nil {
-		return nil, fmt.Errorf("mem.VirtualMemory: %w", err)
+		return nil, fmt.Errorf("Erro ao ler memória RAM: %w", err)
 	}
 
-	// Primary Disk Usage
+	// 5. Uso do Disco Principal (Partição do Sistema)
 	du, err := disk.Usage(diskRoot())
 	if err != nil {
-		return nil, fmt.Errorf("disk.Usage: %w", err)
+		return nil, fmt.Errorf("Erro ao ler disco principal: %w", err)
 	}
 
-	// All Disks/Partitions
+	// 6. Lista Geral de Discos e Partições
 	var disks []DiskInfo
 	parts, err := disk.Partitions(false)
 	if err == nil {
@@ -145,7 +146,7 @@ func Collect() (*Payload, error) {
 		}
 	}
 
-	// Network Interfaces
+	// 7. Adaptadores de Rede e Endereços IP
 	var interfaces []NetworkInterface
 	ifaces, err := net.Interfaces()
 	if err == nil {
@@ -171,6 +172,7 @@ func Collect() (*Payload, error) {
 		osName = runtime.GOOS
 	}
 
+	// 8. Domínio ou Grupo de Trabalho
 	domain := os.Getenv("USERDOMAIN")
 	if domain == "" {
 		domain = os.Getenv("USERDNSDOMAIN")
@@ -179,11 +181,13 @@ func Collect() (*Payload, error) {
 		domain = "WORKGROUP"
 	}
 
+	// 9. Identificamos qual usuário está logado no momento da coleta
 	currentUser := os.Getenv("USERNAME")
 	if currentUser == "" {
 		currentUser = os.Getenv("USER")
 	}
 
+	// Montamos o relatório final (Payload)
 	return &Payload{
 		MachineUUID: hi.HostID,
 		Hostname:   hostname,
@@ -205,7 +209,8 @@ func Collect() (*Payload, error) {
 	}, nil
 }
 
-// GenerateToken creates a stable unique identifier for the machine.
+// GenerateToken cria uma "Digital" estável e única para a máquina baseada no ID do hardware e MAC addresses.
+// Isso evita que a máquina mude de identidade se formatar o Windows (usando o MachineUUID).
 func (p *Payload) GenerateToken() string {
 	var macs []string
 	for _, iface := range p.Interfaces {
