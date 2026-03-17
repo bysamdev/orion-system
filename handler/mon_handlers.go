@@ -54,20 +54,7 @@ func monitoringListGroups(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar grupos"})
 		return
 	}
-	type out struct {
-		ID             string  `json:"id"`
-		Name           string  `json:"name"`
-		Description    *string `json:"description"`
-		ClientContact  *string `json:"client_contact"`
-		TotalMachines  int     `json:"total_machines"`
-		OnlineMachines int     `json:"online_machines"`
-	}
-	res := make([]out, 0, len(groups))
-	for _, g := range groups {
-		res = append(res, out{ID: g.ID, Name: g.Name, Description: g.Description,
-			ClientContact: g.ClientContact, TotalMachines: g.TotalMachines, OnlineMachines: g.OnlineMachines})
-	}
-	lib.WriteJSON(w, http.StatusOK, res)
+	lib.WriteJSON(w, http.StatusOK, groups)
 }
 
 func monitoringGroupMachines(w http.ResponseWriter, r *http.Request) {
@@ -262,16 +249,12 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		domain = "WORKGROUP"
 	}
 	
-	// TODO: Update GetOrCreateMachineGroup to accept companyID to avoid collision between tenants with same group name
 	groupID, err := db.GetOrCreateMachineGroup(ctx, domain, targetCompanyID)
 	if err != nil {
 		fmt.Println("Erro GetOrCreateMachineGroup:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar grupo de máquina: %v", err)})
 		return
 	}
-
-	// We can add a log or update to associate machine group with company if targetCompanyID is set
-	_ = targetCompanyID
 
 	machineID, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser, targetCompanyID)
 	if err != nil {
