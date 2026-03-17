@@ -116,11 +116,8 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
   // Sync internal state when machine changes
   React.useEffect(() => {
     if (machine) {
-      // Note: machine might not have company_id directly in MachineWithMetric yet if I didn't update the type, 
-      // but the DB has it. Let's assume it's there or handle it.
       setSelectedGroupId(machine.group_id || '');
-      // We might need to fetch the machine's current company if it's not in the 'machine' object
-      // For now, let's just use the group context or wait for update
+      setSelectedCompanyId(machine.company_id || '');
     }
   }, [machine]);
 
@@ -133,8 +130,8 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
       await updateMachine.mutateAsync({
         id: machineId,
         updates: {
-          group_id: selectedGroupId || null,
-          // If we had company_id in the update type, we'd add it here
+          group_id: selectedGroupId || "",
+          company_id: selectedCompanyId || "",
         }
       });
       toast.success("Alterações salvas com sucesso!");
@@ -279,13 +276,29 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
                       <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-4 space-y-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Grupo / Cliente</label>
-                          <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                            <SelectTrigger className="bg-background border-indigo-500/20">
+                          <Select value={selectedGroupId || "none"} onValueChange={(v) => setSelectedGroupId(v === "none" ? "" : v)}>
+                            <SelectTrigger className="bg-background border-indigo-500/20 rounded-xl">
                               <SelectValue placeholder="Selecione um grupo" />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="none">Nenhum</SelectItem>
                               {groups.map((g) => (
                                 <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Empresa</label>
+                          <Select value={selectedCompanyId || "none"} onValueChange={(v) => setSelectedCompanyId(v === "none" ? "" : v)}>
+                            <SelectTrigger className="bg-background border-indigo-500/20 rounded-xl">
+                              <SelectValue placeholder="Selecione uma empresa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhuma</SelectItem>
+                              {companies.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
