@@ -80,8 +80,8 @@ func doPost(url, agentKey string, body []byte) (string, error) {
 
 // Command represents a remote command to be executed.
 type Command struct {
-	ID      string `json:"ID"`
-	Command string `json:"Command"`
+	ID      string `json:"id"`
+	Command string `json:"command"`
 }
 
 // PollCommands checks for pending commands from the backend.

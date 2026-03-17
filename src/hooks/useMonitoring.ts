@@ -103,13 +103,13 @@ export interface HardwareRow {
 }
 
 export interface CommandRow {
-  ID: string;
-  MachineID: string;
-  Command: string;
-  Status: 'pending' | 'sent' | 'completed' | 'failed';
-  Output: string | null;
-  CreatedAt: string;
-  UpdatedAt: string;
+  id: string;
+  machine_id: string;
+  command: string;
+  status: 'pending' | 'sent' | 'completed' | 'failed';
+  output: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface MachineDetail {
@@ -195,7 +195,7 @@ export function useMachineCommands(machineId: string | null) {
     enabled: !!machineId,
     refetchInterval: (query) => {
       const commands = query.state.data;
-      if (commands?.some(c => c.Status === 'pending' || c.Status === 'sent')) {
+      if (commands?.some(c => c.status === 'pending' || c.status === 'sent')) {
         return 3000; // Poll every 3s if there's a pending command
       }
       return 10000;

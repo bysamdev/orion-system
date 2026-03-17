@@ -87,21 +87,6 @@ func ValidateAgentKey(r *http.Request, globalKey string, db *DB) (string, error)
 	return "", errors.New("chave de agente inválida")
 }
 
-// RequireAgentKey validates the X-Agent-Key header against the configured key.
-// Deprecated: Use ValidateAgentKey if DB support is needed.
-func RequireAgentKey(r *http.Request, key string) error {
-	if key == "" {
-		return errors.New("servidor sem AGENT_KEY configurado")
-	}
-	got := r.Header.Get("X-Agent-Key")
-	if got == "" {
-		got = r.Header.Get("x-agent-key")
-	}
-	if got != key {
-		return errors.New("chave de agente inválida")
-	}
-	return nil
-}
 // NilIfEmpty returns nil if s is an empty string, otherwise returns the string.
 // Useful for optional UUID columns in database queries.
 func NilIfEmpty(s string) any {
