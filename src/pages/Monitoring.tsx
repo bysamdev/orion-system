@@ -43,7 +43,7 @@ import { MachineCard, MachineCardSkeleton } from '@/components/monitoring/Machin
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 import { useQueryClient } from '@tanstack/react-query';
 import { MonitoringOnboarding } from '@/components/monitoring/MonitoringOnboarding';
-import ErrorBoundary from '@/components/ErrorBoundary';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
   Dialog,
