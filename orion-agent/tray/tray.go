@@ -13,13 +13,15 @@ import (
 // TrayManager organiza as ações e o estado da bandeja do sistema vinculadas ao agente.
 type TrayManager struct {
 	OnOpenPortal func()
+	OnOpenTicket func()
 	OnExit       func()
 }
 
-// New constrói o gerenciador com as funções de callback para abertura de portal e encerramento.
-func New(onOpen func(), onExit func()) *TrayManager {
+// New constrói o gerenciador com as funções de callback para abertura de portal, abertura de chamado e encerramento.
+func New(onOpen func(), onTicket func(), onExit func()) *TrayManager {
 	return &TrayManager{
 		OnOpenPortal: onOpen,
+		OnOpenTicket: onTicket,
 		OnExit:       onExit,
 	}
 }
@@ -37,6 +39,7 @@ func (tm *TrayManager) onReady() {
 
 	// Itens do menu de contexto (clique direito no ícone)
 	mOpen := systray.AddMenuItem("Abrir Portal de Suporte", "Acessar o portal de chamados e suporte")
+	mTicket := systray.AddMenuItem("Abrir Chamado", "Criar um novo chamado de suporte técnico")
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Sair", "Encerrar o Orion Agent completamente")
 
@@ -51,6 +54,9 @@ func (tm *TrayManager) onReady() {
 			case <-mOpen.ClickedCh:
 				// Quando clica em abrir, executamos a função passada no New().
 				tm.OnOpenPortal()
+			case <-mTicket.ClickedCh:
+				// Abre o navegador direto na página de novo chamado.
+				tm.OnOpenTicket()
 			case <-mQuit.ClickedCh:
 				// Finalizamos o systray, o que chamará o tm.onExitInternal.
 				systray.Quit()

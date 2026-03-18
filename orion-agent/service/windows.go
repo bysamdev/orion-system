@@ -55,6 +55,14 @@ func (s *Svc) GetPortalURL() string {
 	return fmt.Sprintf("%s/api/auth/machine-login?token=%s", s.cfg.APIURL, s.machineToken)
 }
 
+// GetTicketURL gera a URL que leva direto à página de abertura de chamado, já autenticada.
+func (s *Svc) GetTicketURL() string {
+	if s.machineToken == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/api/auth/machine-login?token=%s&redirect_to=/novo-ticket", s.cfg.APIURL, s.machineToken)
+}
+
 // run é o loop principal do agente: coleta dados → envia para o servidor → aguarda o próximo intervalo.
 func (s *Svc) run(ctx context.Context) {
 	s.logger.Println("🚀 Orion Agent iniciado com sucesso")
