@@ -91,14 +91,14 @@ const ClientPortal = () => {
             </CardContent>
           </Card>
 
-          <Card className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden">
+          <Card className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" onClick={() => navigate('/novo-ticket')}>
             <CardContent className="p-8 flex items-center gap-6">
               <div className="p-4 bg-warning/10 rounded-2xl group-hover:scale-110 transition-transform">
                 <MessageSquare className="w-8 h-8 text-warning" />
               </div>
               <div className="space-y-1">
                 <h3 className="text-xl font-bold">Falar com Consultor</h3>
-                <p className="text-sm text-muted-foreground">Suporte via chat ou telefone direto.</p>
+                <p className="text-sm text-muted-foreground">Abra um chamado e fale com a equipe de suporte.</p>
               </div>
             </CardContent>
           </Card>
