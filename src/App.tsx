@@ -27,6 +27,7 @@ const ClientPortal = lazy(() => import("./pages/ClientPortal"));
 const Documentation = lazy(() => import("./pages/Documentation"));
 const UserGuide = lazy(() => import("./pages/UserGuide"));
 const AlertsDashboard = lazy(() => import("./pages/AlertsDashboard"));
+const Automacoes = lazy(() => import("./pages/Automacoes"));
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="/documentacao" element={<ProtectedRoute><Documentation /></ProtectedRoute>} />
               <Route path="/tutorial" element={<ProtectedRoute><UserGuide /></ProtectedRoute>} />
               <Route path="/alertas" element={<ProtectedRoute><AlertsDashboard /></ProtectedRoute>} />
+              <Route path="/automacoes" element={<ProtectedRoute><Automacoes /></ProtectedRoute>} />
               <Route path="/manual" element={<Navigate to="/tutorial" replace />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
