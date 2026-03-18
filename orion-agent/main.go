@@ -96,6 +96,14 @@ func main() {
 				}
 			},
 			func() {
+				// Ação de "Abrir Chamado" leva direto à criação de ticket.
+				url := svc.GetTicketURL()
+				if url != "" {
+					tray.OpenURL(url)
+					logger.Printf("[TRAY] Abrindo página de novo chamado: %s", url)
+				}
+			},
+			func() {
 				// Comando de saída finaliza o agente completamente.
 				logger.Println("[TRAY] Encerrando o agente Orion por solicitação do usuário.")
 				os.Exit(0)

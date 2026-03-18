@@ -287,3 +287,24 @@ export function pct(used: number | null, total: number | null): number {
 export function hasDiskAlert(m: MachineWithMetric): boolean {
   return pct(m.disk_used, m.disk_total) > 90;
 }
+
+// ─── Critical Alerts (Red Zone Dashboard) ────────────────
+export interface CriticalAlertItem {
+  machine_id: string;
+  hostname: string;
+  group_name: string | null;
+  status: string;
+  last_seen: string | null;
+  alert_type: 'offline' | 'disk' | 'cpu' | 'alert';
+  severity: 'critical' | 'warning' | string;
+  message: string;
+  metric_value: number | null;
+}
+
+export function useCriticalAlerts() {
+  return useQuery<CriticalAlertItem[]>({
+    queryKey: ['monitoring', 'alerts', 'critical'],
+    queryFn: () => apiGet('/api/monitoring/alerts/critical'),
+    refetchInterval: 30_000,
+  });
+}

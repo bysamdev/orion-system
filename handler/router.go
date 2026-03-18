@@ -84,6 +84,7 @@ func buildRouter() http.Handler {
 	r.Get("/api/monitoring/commands/poll", monitoringPollCommands)
 	r.Post("/api/monitoring/commands/respond", monitoringCommandResponse)
 	r.Get("/api/monitoring/cron/mark-offline", cronMarkOffline)
+	r.Get("/api/monitoring/alerts/critical", monitoringCriticalAlerts)
 
 	// Management
 	r.Post("/api/monitoring/machines/{id}/update", monitoringUpdateMachine)

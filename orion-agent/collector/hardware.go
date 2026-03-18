@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -128,22 +129,34 @@ func Collect() (*Payload, error) {
 		return nil, fmt.Errorf("Erro ao ler disco principal: %w", err)
 	}
 
-	// 6. Lista Geral de Discos e Partições
+	// 6. Lista Geral de Discos e Partições (paralelo)
 	var disks []DiskInfo
 	parts, err := disk.Partitions(false)
 	if err == nil {
+		var (
+			wg  sync.WaitGroup
+			mu  sync.Mutex
+		)
 		for _, p := range parts {
-			d, err := disk.Usage(p.Mountpoint)
-			if err == nil {
-				disks = append(disks, DiskInfo{
-					Device:     p.Device,
-					Mountpoint: p.Mountpoint,
-					FSType:     p.Fstype,
-					Total:      d.Total,
-					Used:       d.Used,
-				})
-			}
+			p := p // captura da variável de loop
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				d, err := disk.Usage(p.Mountpoint)
+				if err == nil {
+					mu.Lock()
+					disks = append(disks, DiskInfo{
+						Device:     p.Device,
+						Mountpoint: p.Mountpoint,
+						FSType:     p.Fstype,
+						Total:      d.Total,
+						Used:       d.Used,
+					})
+					mu.Unlock()
+				}
+			}()
 		}
+		wg.Wait()
 	}
 
 	// 7. Adaptadores de Rede e Endereços IP

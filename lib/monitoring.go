@@ -95,6 +95,19 @@ type DashboardSummary struct {
 	ActiveAlerts int `json:"active_alerts"`
 }
 
+// CriticalAlertItem representa uma situação que requer atenção imediata do técnico.
+type CriticalAlertItem struct {
+	MachineID   string     `json:"machine_id"`
+	Hostname    string     `json:"hostname"`
+	GroupName   *string    `json:"group_name"`
+	Status      string     `json:"status"`
+	LastSeen    *time.Time `json:"last_seen"`
+	AlertType   string     `json:"alert_type"`   // offline, disk, cpu, alert
+	Severity    string     `json:"severity"`     // critical, warning
+	Message     string     `json:"message"`
+	MetricValue *float64   `json:"metric_value"` // % value when applicable
+}
+
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
 func (d *DB) ListMachineGroups(ctx context.Context) ([]MachineGroupRow, error) {
@@ -398,6 +411,74 @@ SELECT
   (SELECT COUNT(*) FROM public.machine_alerts WHERE resolved = false) AS active_alerts
 `).Scan(&s.Total, &s.Online, &s.Offline, &s.ActiveAlerts)
 	return s, err
+}
+
+func (d *DB) CriticalAlerts(ctx context.Context) ([]CriticalAlertItem, error) {
+	rows, err := d.pool.Query(ctx, `
+-- Máquinas offline há mais de 10 minutos
+SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
+       'offline'::text AS alert_type, 'critical'::text AS severity,
+       'Máquina offline há mais de 10 minutos' AS message,
+       NULL::float8 AS metric_value
+FROM public.machines m
+LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
+WHERE m.status = 'offline' AND m.last_seen < now() - INTERVAL '10 minutes'
+
+UNION ALL
+
+-- Disco acima de 90%
+SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
+       'disk'::text, 'critical'::text,
+       'Uso de disco acima de 90%',
+       ROUND((lm.disk_used::float8 / NULLIF(lm.disk_total, 0)) * 100, 1)
+FROM public.machines m
+LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
+LEFT JOIN LATERAL (
+  SELECT disk_used, disk_total FROM public.machine_metrics
+  WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
+) lm ON true
+WHERE lm.disk_total > 0 AND (lm.disk_used::float8 / lm.disk_total) > 0.90
+
+UNION ALL
+
+-- CPU acima de 85%
+SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
+       'cpu'::text, 'warning'::text,
+       'Uso de CPU acima de 85%',
+       ROUND(lm.cpu_usage::float8, 1)
+FROM public.machines m
+LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
+LEFT JOIN LATERAL (
+  SELECT cpu_usage FROM public.machine_metrics
+  WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
+) lm ON true
+WHERE lm.cpu_usage > 85
+
+UNION ALL
+
+-- Alertas não resolvidos do sistema
+SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
+       'alert'::text, a.severity, a.message, NULL::float8
+FROM public.machine_alerts a
+JOIN public.machines m ON m.id = a.machine_id
+LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
+WHERE a.resolved = false
+ORDER BY severity DESC, alert_type
+`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CriticalAlertItem
+	for rows.Next() {
+		var r CriticalAlertItem
+		if err := rows.Scan(&r.MachineID, &r.Hostname, &r.GroupName, &r.Status, &r.LastSeen,
+			&r.AlertType, &r.Severity, &r.Message, &r.MetricValue); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 func (d *DB) MarkOfflineMachines(ctx context.Context) (int64, error) {
