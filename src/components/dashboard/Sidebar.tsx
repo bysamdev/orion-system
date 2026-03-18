@@ -6,11 +6,10 @@ import {
   Package, 
   BarChart2, 
   Monitor, 
-  FolderArchive, 
-  Server, 
-  ClipboardList, 
-  FileCode, 
-  ShieldCheck 
+  AlertTriangle,
+  GitBranch,
+  Settings, 
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -32,14 +31,13 @@ const navigationItems: NavItem[] = [
   { icon: Package, label: 'Ativos (CMDB)', path: '/assets', roles: ['admin', 'technician', 'developer'] },
   { icon: BarChart2, label: 'Relatórios', path: '/relatorios', roles: ['admin', 'developer'] },
   { icon: Monitor, label: 'Monitoramento', path: '/monitoring', roles: ['admin', 'developer', 'technician'] },
-  { icon: FolderArchive, label: 'Arquivo', path: '/arquivo' },
-  { icon: Server, label: 'Servidores', path: '/servidores' },
-  { icon: ClipboardList, label: 'Projetos', path: '/projetos' },
+  { icon: AlertTriangle, label: 'Alertas', path: '/alertas', roles: ['admin', 'developer', 'technician'] },
+  { icon: GitBranch, label: 'Automações', path: '/automacoes', roles: ['admin', 'developer'] },
 ];
 
 const bottomItems: NavItem[] = [
-  { icon: FileCode, label: 'API / Terminal', path: '/api' },
-  { icon: ShieldCheck, label: 'Segurança', path: '/seguranca' },
+  { icon: Settings, label: 'Ajustes', path: '/ajustes' },
+  { icon: Shield, label: 'Admin', path: '/admin', roles: ['admin', 'developer'] },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -105,7 +103,7 @@ export const Sidebar: React.FC = () => {
         
         {/* Bottom Navigation */}
         <div className="flex flex-col items-center gap-4 mt-auto w-full px-2 pb-6 pt-6 border-t border-sidebar-border/30">
-          {bottomItems.map((item, index) => {
+          {bottomItems.filter(item => !item.roles || (role && item.roles.includes(role))).map((item, index) => {
             const isActive = location.pathname === item.path;
             return (
               <Tooltip key={index}>

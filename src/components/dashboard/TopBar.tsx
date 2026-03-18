@@ -177,6 +177,26 @@ export const TopBar: React.FC = () => {
             />
           )}
 
+          {(role === 'admin' || role === 'developer' || role === 'technician') && (
+            <NavItem 
+              icon={Monitor} 
+              label="Alertas" 
+              tooltip="Central de Alertas" 
+              isActive={isActive('/alertas')} 
+              onClick={() => navigate('/alertas')} 
+            />
+          )}
+
+          {(role === 'admin' || role === 'developer') && (
+            <NavItem 
+              icon={Settings} 
+              label="Automação" 
+              tooltip="Regras e Workflows" 
+              isActive={isActive('/automacoes')} 
+              onClick={() => navigate('/automacoes')} 
+            />
+          )}
+
           <NavItem 
             icon={Settings} 
             label="Perfil" 
