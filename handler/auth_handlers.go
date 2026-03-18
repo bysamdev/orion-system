@@ -19,6 +19,13 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Lemos o destino desejado após o login (ex: /novo-ticket).
+	// Apenas caminhos relativos são permitidos para evitar redirecionamento aberto.
+	redirectTo := r.URL.Query().Get("redirect_to")
+	if redirectTo == "" || !strings.HasPrefix(redirectTo, "/") {
+		redirectTo = "/"
+	}
+
 	if db == nil {
 		http.Error(w, "O serviço de banco de dados está temporariamente indisponível.", http.StatusServiceUnavailable)
 		return
@@ -78,7 +85,7 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 	loginLink, err := sb.AdminGenerateLink(r.Context(), lib.GenerateLinkInput{
 		Type:       "magiclink",
 		Email:      machineEmail,
-		RedirectTo: "/", // Após logar, enviamos o usuário direto para a Home.
+		RedirectTo: redirectTo, // Redireciona para o destino solicitado (/ ou /novo-ticket)
 	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Falha ao gerar seu link de acesso rápido: %v", err), http.StatusInternalServerError)

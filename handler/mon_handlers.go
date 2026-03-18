@@ -570,3 +570,27 @@ func monitoringDeleteGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
 }
+
+// ─── Critical Alerts (Red Zone Dashboard) ─────────────────────────────────────
+
+func monitoringCriticalAlerts(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+
+	_ = user
+	alerts, err := db.CriticalAlerts(ctx)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar alertas críticos"})
+		return
+	}
+	if alerts == nil {
+		alerts = []lib.CriticalAlertItem{}
+	}
+	lib.WriteJSON(w, http.StatusOK, alerts)
+}
