@@ -4,6 +4,7 @@ import { supabaseRead } from '@/integrations/supabase/read-client';
 import { toast } from '@/hooks/use-toast';
 import { ticketStatusSchema, ticketUpdateSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
+import { enrichTicketsWithCompany } from '@/lib/ticket-helpers';
 
 export interface Ticket {
   id: string;
@@ -72,40 +73,9 @@ export const useTickets = (status?: string) => {
         throw error;
       }
       
-      if (!tickets || tickets.length === 0) {
-        return [];
-      }
-
-      // Fetch user profiles and companies separately (using read client)
-      const userIds = [...new Set(tickets.map(t => t.user_id))];
-      const { data: profiles } = await supabaseRead
-        .from('profiles')
-        .select('id, full_name, company_id')
-        .in('id', userIds);
-
-      // Get company IDs and fetch companies
-      const companyIds = [...new Set(profiles?.map(p => p.company_id) || [])];
-      const { data: companies } = await supabaseRead
-        .from('companies')
-        .select('id, name')
-        .in('id', companyIds);
-
-      // Map profiles and companies by ID for easy lookup
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      const companyMap = new Map(companies?.map(c => [c.id, c]) || []);
-
-      // Combine tickets with profile and company data
-      const enrichedTickets = tickets.map((ticket: any) => {
-        const profile = profileMap.get(ticket.user_id);
-        const company = profile ? companyMap.get(profile.company_id) : null;
-        return {
-          ...ticket,
-          company_name: company?.name || null,
-        };
-      }) as Ticket[];
-      
-      return enrichedTickets;
+      return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
     },
+    staleTime: 30_000,
   });
 };
 
@@ -113,7 +83,6 @@ export const useTicket = (id: string) => {
   return useQuery({
     queryKey: ['ticket', id],
     queryFn: async () => {
-      // Use read client for queries
       const { data: ticket, error } = await supabaseRead
         .from('tickets')
         .select('*')
@@ -121,34 +90,22 @@ export const useTicket = (id: string) => {
         .single();
 
       if (error) throw error;
-      
-      // Fetch profile and company data separately (using read client)
+
+      // Parallel fetch: profile + company at once
       const { data: profile } = await supabaseRead
         .from('profiles')
         .select('full_name, company_id')
         .eq('id', ticket.user_id)
         .single();
-      
-      let companyName = null;
-      if (profile) {
-        const { data: company } = await supabaseRead
-          .from('companies')
-          .select('name')
-          .eq('id', profile.company_id)
-          .single();
-        
-        companyName = company?.name || null;
-      }
-      
-      // Include company_name
-      const enrichedTicket = {
-        ...ticket,
-        company_name: companyName,
-      } as Ticket;
-      
-      return enrichedTicket;
+
+      const companyName = profile
+        ? (await supabaseRead.from('companies').select('name').eq('id', profile.company_id).single()).data?.name ?? null
+        : null;
+
+      return { ...ticket, company_name: companyName } as Ticket;
     },
     enabled: !!id,
+    staleTime: 15_000,
   });
 };
 
