@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { 
-  ArrowLeft, Send, Loader2, Paperclip, CheckCircle2, 
+  ArrowLeft, Send, Loader2, Paperclip, CheckCircle2, Sparkles,
   Cpu, Mail, HardDrive, Globe, MoreHorizontal, Layout,
   ChevronRight, ChevronLeft, ShieldCheck, AlertCircle
 } from 'lucide-react';
@@ -27,6 +27,7 @@ import { useErrorHandler } from '@/lib/useErrorHandler';
 import { useActiveContracts } from '@/hooks/useContracts';
 import { invokeOrionFunction } from '@/lib/orion-functions';
 import { cn } from '@/lib/utils';
+import { suggestCategory, CATEGORY_LABELS } from '@/lib/ticket-helpers';
 
 const ticketSchema = ticketCreationSchema;
 type TicketFormValues = z.infer<typeof ticketSchema>;
@@ -59,6 +60,20 @@ const NewTicket = () => {
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [userInfo, setUserInfo] = useState({ name: '', email: '', company: '' });
 
+  // ── Smart: VIP Client detection ─────────────────
+  const { data: companyInfo } = useQuery({
+    queryKey: ['company-info-vip', profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return null;
+      const { data } = await (supabase as any).from('companies').select('id, name, is_vip').eq('id', profile.company_id).single();
+      return data;
+    },
+    enabled: !!profile?.company_id,
+    staleTime: 60_000,
+  });
+
+  const isVIP = companyInfo?.is_vip === true;
+
   const { data: companyAssets } = useQuery({
     queryKey: ['company-assets', profile?.company_id],
     queryFn: async () => {
@@ -87,12 +102,33 @@ const NewTicket = () => {
     fetchUserInfo();
   }, [user, profile]);
 
+  // ── Smart: VIP clients default to high priority ─────────────
+  useEffect(() => {
+    if (isVIP && form.getValues('priority') === 'medium') {
+      form.setValue('priority', 'high');
+    }
+  }, [isVIP]);
+
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketSchema),
     defaultValues: { title: '', category: '', priority: 'medium', description: '', department: '' },
   });
 
   const currentCategory = form.watch('category');
+  const watchedTitle = form.watch('title');
+  const watchedDescription = form.watch('description');
+
+  // ── Smart: Auto-suggest category from title/description ─────
+  const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const text = `${watchedTitle} ${watchedDescription}`;
+      const suggestion = suggestCategory(text);
+      setSuggestedCategory(suggestion);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [watchedTitle, watchedDescription]);
 
   const onSubmit = async (data: TicketFormValues) => {
     if (!user || !profile) return;
@@ -232,6 +268,28 @@ const NewTicket = () => {
                           </button>
                         ))}
                       </div>
+
+                      {/* Smart: Category Suggestion */}
+                      {suggestedCategory && suggestedCategory !== currentCategory && (
+                        <button
+                          type="button"
+                          onClick={() => form.setValue('category', suggestedCategory)}
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all text-sm font-bold animate-in fade-in slide-in-from-top-2 duration-300"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          💡 Sugestão: <span className="underline">{CATEGORY_LABELS[suggestedCategory] || suggestedCategory}</span>
+                          <span className="text-xs opacity-70 ml-1">— clique para aplicar</span>
+                        </button>
+                      )}
+
+                      {/* Smart: VIP Badge */}
+                      {isVIP && (
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-sm font-bold animate-in fade-in duration-500">
+                          <ShieldCheck className="w-4 h-4" />
+                          👑 Cliente VIP — prioridade automática: <span className="uppercase">Alta</span>
+                        </div>
+                      )}
+
                       <FormField control={form.control} name="category" render={() => <FormMessage />} />
                     </section>
 
