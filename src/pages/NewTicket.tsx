@@ -158,7 +158,10 @@ const NewTicket = () => {
         asset_id: selectedAssetId || null,
       }).select().single();
 
-      if (ticketError) throw ticketError;
+      if (ticketError) {
+        console.error('[NewTicket] Error inserting ticket:', ticketError);
+        throw ticketError;
+      }
 
       // Attachments logic
       if (pendingFiles.length > 0) {
