@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseRead } from '@/integrations/supabase/read-client';
 import { Ticket } from './useTickets';
+import { enrichTicketsWithCompany } from '@/lib/ticket-helpers';
 
 /**
  * Hook para buscar tickets atribuídos ao técnico logado (ativos)
@@ -20,32 +21,11 @@ export const useMyActiveTickets = (userId: string | undefined) => {
         .order('sla_due_date', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
-      if (!tickets || tickets.length === 0) return [];
-
-      // Enriquecer com company_name
-      const userIds = [...new Set(tickets.map(t => t.user_id))];
-      const { data: profiles } = await supabaseRead
-        .from('profiles')
-        .select('id, company_id')
-        .in('id', userIds);
-
-      const companyIds = [...new Set(profiles?.map(p => p.company_id) || [])];
-      const { data: companies } = await supabaseRead
-        .from('companies')
-        .select('id, name')
-        .in('id', companyIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      const companyMap = new Map(companies?.map(c => [c.id, c]) || []);
-
-      return tickets.map((ticket: any) => {
-        const profile = profileMap.get(ticket.user_id);
-        const company = profile ? companyMap.get(profile.company_id) : null;
-        return { ...ticket, company_name: company?.name || null } as Ticket;
-      });
+      return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
     },
     enabled: !!userId,
     refetchInterval: 30000,
+    staleTime: 15_000,
   });
 };
 
@@ -64,30 +44,10 @@ export const useSLAAtRiskTickets = () => {
         .order('sla_due_date', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
-      if (!tickets || tickets.length === 0) return [];
-
-      const userIds = [...new Set(tickets.map(t => t.user_id))];
-      const { data: profiles } = await supabaseRead
-        .from('profiles')
-        .select('id, company_id')
-        .in('id', userIds);
-
-      const companyIds = [...new Set(profiles?.map(p => p.company_id) || [])];
-      const { data: companies } = await supabaseRead
-        .from('companies')
-        .select('id, name')
-        .in('id', companyIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      const companyMap = new Map(companies?.map(c => [c.id, c]) || []);
-
-      return tickets.map((ticket: any) => {
-        const profile = profileMap.get(ticket.user_id);
-        const company = profile ? companyMap.get(profile.company_id) : null;
-        return { ...ticket, company_name: company?.name || null } as Ticket;
-      });
+      return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
     },
     refetchInterval: 30000,
+    staleTime: 15_000,
   });
 };
 
@@ -107,30 +67,10 @@ export const useUnassignedTicketsEnhanced = () => {
         .limit(10);
 
       if (error) throw error;
-      if (!tickets || tickets.length === 0) return [];
-
-      const userIds = [...new Set(tickets.map(t => t.user_id))];
-      const { data: profiles } = await supabaseRead
-        .from('profiles')
-        .select('id, company_id')
-        .in('id', userIds);
-
-      const companyIds = [...new Set(profiles?.map(p => p.company_id) || [])];
-      const { data: companies } = await supabaseRead
-        .from('companies')
-        .select('id, name')
-        .in('id', companyIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      const companyMap = new Map(companies?.map(c => [c.id, c]) || []);
-
-      return tickets.map((ticket: any) => {
-        const profile = profileMap.get(ticket.user_id);
-        const company = profile ? companyMap.get(profile.company_id) : null;
-        return { ...ticket, company_name: company?.name || null } as Ticket;
-      });
+      return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
     },
     refetchInterval: 30000,
+    staleTime: 15_000,
   });
 };
 
