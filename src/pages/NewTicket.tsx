@@ -102,17 +102,17 @@ const NewTicket = () => {
     fetchUserInfo();
   }, [user, profile]);
 
+  const form = useForm<TicketFormValues>({
+    resolver: zodResolver(ticketSchema),
+    defaultValues: { title: '', category: '', priority: 'medium', description: '', department: '' },
+  });
+
   // ── Smart: VIP clients default to high priority ─────────────
   useEffect(() => {
     if (isVIP && form.getValues('priority') === 'medium') {
       form.setValue('priority', 'high');
     }
-  }, [isVIP]);
-
-  const form = useForm<TicketFormValues>({
-    resolver: zodResolver(ticketSchema),
-    defaultValues: { title: '', category: '', priority: 'medium', description: '', department: '' },
-  });
+  }, [isVIP, form]);
 
   const currentCategory = form.watch('category');
   const watchedTitle = form.watch('title');
