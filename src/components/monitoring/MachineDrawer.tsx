@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -23,12 +23,16 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { AlertTriangle, CheckCircle2, HardDrive, Cpu, Monitor, Network, Package, Terminal, Play, Info, Activity, RefreshCw } from 'lucide-react';
+import {
+  AlertTriangle, CheckCircle2, HardDrive, Cpu, Monitor, Network,
+  Terminal, Play, Info, Activity, RefreshCw, Copy, Trash2,
+  Wifi, WifiOff, Clock,
+} from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   useMachineDetail,
-  useMachineMetrics,
+  useMachineMetricsByPeriod,
   useMachineAlerts,
   useCreateCommand,
   useMachineCommands,
@@ -37,9 +41,11 @@ import {
   useMonitoringGroups,
   pct,
 } from '@/hooks/useMonitoring';
+import type { MetricPeriod } from '@/hooks/useMonitoring';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useUserProfile } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
-import type { MachineWithMetric } from '@/hooks/useMonitoring';
+import type { MachineWithMetric, CommandRow } from '@/hooks/useMonitoring';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,30 +84,127 @@ function InfoRow({ label, value, icon: Icon }: { label: React.ReactNode; value: 
   );
 }
 
+// ── Custom Tooltip for chart ──────────────────────────────
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-card border border-border rounded-xl px-3 py-2 shadow-xl text-[11px] space-y-1">
+      <p className="font-bold text-muted-foreground mb-1">{label}</p>
+      {payload.map((p: any) => (
+        <div key={p.dataKey} className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+          <span className="text-muted-foreground">{p.dataKey}:</span>
+          <span className="font-bold text-foreground">{p.value != null ? `${p.value}%` : '–'}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ── Terminal Command Row ──────────────────────────────────
+function CommandEntry({ cmd, onCopy }: { cmd: CommandRow; onCopy: (text: string) => void }) {
+  const hasPending = cmd.status === 'pending' || cmd.status === 'sent';
+  return (
+    <div className="space-y-1.5 group/cmd">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-green-500/70 pr-0.5">$</span>
+        <span className="text-zinc-200 font-bold font-mono flex-1 break-all">{cmd.command}</span>
+        <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+          <span className="text-[9px] text-zinc-600 flex items-center gap-1">
+            <Clock className="w-2.5 h-2.5" />
+            {format(new Date(cmd.created_at), 'HH:mm:ss')}
+          </span>
+          {cmd.executed_by_name && (
+            <span className="text-[9px] text-indigo-400/60 font-mono">{cmd.executed_by_name}</span>
+          )}
+          <span className={cn(
+            "text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase",
+            cmd.status === 'completed' ? 'border-green-500/30 text-green-400 bg-green-500/10' :
+            cmd.status === 'failed' ? 'border-red-500/30 text-red-400 bg-red-500/10' :
+            'border-amber-500/30 text-amber-400 bg-amber-500/10 animate-pulse'
+          )}>
+            {hasPending ? '⏳ aguardando' : cmd.status}
+          </span>
+        </div>
+      </div>
+      {cmd.output && (
+        <div className="relative">
+          <pre className="text-[10px] text-zinc-400 bg-zinc-900/60 p-3 rounded-lg border border-zinc-800/40 whitespace-pre-wrap leading-relaxed shadow-inner max-h-48 overflow-y-auto">
+            {cmd.output}
+          </pre>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-1.5 right-1.5 h-6 w-6 opacity-0 group-hover/cmd:opacity-100 transition-opacity hover:bg-zinc-700 text-zinc-400"
+            onClick={() => onCopy(cmd.output!)}
+          >
+            <Copy className="w-3 h-3" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onClose }) => {
   const machineId = machine?.id ?? null;
   const [activeTab, setActiveTab] = useState('overview');
   const [cmd, setCmd] = useState('');
+  const [period, setPeriod] = useState<MetricPeriod>('24h');
+  const [clearedBefore, setClearedBefore] = useState<string | null>(null);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
 
   const { data: detail, isLoading: detailLoading } = useMachineDetail(machineId);
-  const { data: metrics = [], isLoading: metricsLoading } = useMachineMetrics(machineId, 288);
+  const { data: metrics = [], isLoading: metricsLoading } = useMachineMetricsByPeriod(machineId, period);
   const { data: alerts = [], isLoading: alertsLoading } = useMachineAlerts(machineId);
-  const { data: commands = [], isLoading: commandsLoading } = useMachineCommands(machineId);
+  const { data: allCommands = [], isLoading: commandsLoading } = useMachineCommands(machineId);
+  const { data: profile } = useUserProfile();
   const createCommand = useCreateCommand();
 
+  // Filter cleared commands
+  const commands = clearedBefore
+    ? allCommands.filter(c => c.created_at > clearedBefore)
+    : allCommands;
+
+  const hasPending = commands.some(c => c.status === 'pending' || c.status === 'sent');
+
   const hw = detail?.hardware;
+
+  // Auto-scroll terminal when new commands arrive
+  useEffect(() => {
+    if (activeTab === 'actions') {
+      consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [commands.length, activeTab]);
 
   const handleRunCommand = async (customCmd?: string) => {
     const commandToRun = customCmd || cmd;
     if (!commandToRun.trim() || !machineId) return;
-
+    if (hasPending) {
+      toast.warning('Aguarde o comando anterior completar antes de enviar outro.');
+      return;
+    }
     try {
-      await createCommand.mutateAsync({ machineId, command: commandToRun });
+      await createCommand.mutateAsync({
+        machineId,
+        command: commandToRun,
+        executed_by_user_id: profile?.id,
+        executed_by_name: profile?.full_name ?? profile?.email ?? 'Técnico',
+      });
       setCmd('');
-      toast.success("Comando enfileirado com sucesso!");
+      toast.success('Comando enfileirado com sucesso!');
     } catch (err: any) {
       toast.error(`Falha ao enviar comando: ${err.message}`);
     }
+  };
+
+  const handleCopyOutput = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Output copiado!');
+  };
+
+  const handleClearConsole = () => {
+    setClearedBefore(new Date().toISOString());
   };
 
   const { data: role } = useUserRole();
@@ -113,11 +216,11 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Sync internal state when machine changes
   React.useEffect(() => {
     if (machine) {
       setSelectedGroupId(machine.group_id || '');
       setSelectedCompanyId(machine.company_id || '');
+      setClearedBefore(null);
     }
   }, [machine]);
 
@@ -130,13 +233,13 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
       await updateMachine.mutateAsync({
         id: machineId,
         updates: {
-          group_id: selectedGroupId || "",
-          company_id: selectedCompanyId || "",
+          group_id: selectedGroupId || '',
+          company_id: selectedCompanyId || '',
         }
       });
-      toast.success("Alterações salvas com sucesso!");
+      toast.success('Alterações salvas com sucesso!');
     } catch (err: any) {
-      toast.error("Erro ao salvar: " + err.message);
+      toast.error('Erro ao salvar: ' + err.message);
     } finally {
       setIsSaving(false);
     }
@@ -146,12 +249,16 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
     .slice()
     .reverse()
     .map((m) => ({
-      time: format(new Date(m.collected_at), 'HH:mm'),
+      time: format(new Date(m.collected_at), period === '7d' ? 'dd/MM HH:mm' : 'HH:mm'),
       CPU: m.cpu_usage != null ? Math.round(m.cpu_usage) : null,
       RAM: pct(m.ram_used, m.ram_total),
+      Disco: pct(m.disk_used, m.disk_total),
     }));
 
   const isOnline = machine?.status === 'online';
+
+  // Connection LED color
+  const ledColor = isOnline ? 'bg-green-400 shadow-green-400/60' : 'bg-red-400 shadow-red-400/60';
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -159,10 +266,11 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
         <SheetHeader className="px-6 py-6 border-b border-border/40 bg-muted/10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className={cn(
-                'h-3.5 w-3.5 rounded-full shadow-[0_0_8px_rgba(var(--status-color),0.5)]',
-                isOnline ? 'bg-green-500' : 'bg-red-500'
-              )} />
+              {/* Phase 2: Connection LED */}
+              <div className="relative">
+                <div className={cn('h-3.5 w-3.5 rounded-full shadow-lg', ledColor)} />
+                {isOnline && <div className={cn('absolute inset-0 rounded-full animate-ping opacity-30', ledColor)} />}
+              </div>
               <div>
                 <SheetTitle className="text-xl font-bold tracking-tight">{machine?.hostname ?? 'Máquina Desconhecida'}</SheetTitle>
                 <SheetDescription className="text-xs font-medium flex items-center gap-2 mt-0.5">
@@ -172,6 +280,14 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
                 </SheetDescription>
               </div>
             </div>
+            {/* Online/Offline badge */}
+            <Badge variant="outline" className={cn(
+              'text-[10px] font-bold gap-1.5',
+              isOnline ? 'text-green-600 border-green-500/30 bg-green-500/5' : 'text-red-500 border-red-500/30 bg-red-500/5'
+            )}>
+              {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+              {isOnline ? 'Online' : 'Offline'}
+            </Badge>
           </div>
         </SheetHeader>
 
@@ -180,23 +296,28 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
             <TabsList className="h-12 w-full justify-start bg-transparent p-0 gap-6">
               <TabsTrigger value="overview" className="h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-2 text-xs font-bold uppercase tracking-wider">Resumo</TabsTrigger>
               <TabsTrigger value="inventory" className="h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-2 text-xs font-bold uppercase tracking-wider">Inventário</TabsTrigger>
-              <TabsTrigger value="actions" className="h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-2 text-xs font-bold uppercase tracking-wider">Ações</TabsTrigger>
+              <TabsTrigger value="actions" className="h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-2 text-xs font-bold uppercase tracking-wider">Terminal</TabsTrigger>
             </TabsList>
           </div>
 
           <ScrollArea className="flex-1">
             <div className="p-6">
+              {/* ── Tab: Overview ── */}
               <TabsContent value="overview" className="mt-0 space-y-8">
-                {/* Status Section */}
+                {/* Status cards */}
                 <section className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     <Card className="p-4 bg-muted/20 border-border/40">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">CPU</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5">CPU</p>
                       <p className="text-2xl font-bold">{machine?.cpu_usage != null ? `${Math.round(machine.cpu_usage)}%` : '–'}</p>
                     </Card>
                     <Card className="p-4 bg-muted/20 border-border/40">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">RAM</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5">RAM</p>
                       <p className="text-2xl font-bold">{pct(machine?.ram_used ?? null, machine?.ram_total ?? null)}%</p>
+                    </Card>
+                    <Card className="p-4 bg-muted/20 border-border/40">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5">Disco</p>
+                      <p className="text-2xl font-bold">{pct(machine?.disk_used ?? null, machine?.disk_total ?? null)}%</p>
                     </Card>
                   </div>
 
@@ -207,29 +328,64 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
                   </div>
                 </section>
 
-                {/* Charts */}
-                <section className="space-y-4">
-                  <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Desempenho (24h)</h3>
-                  <Card className="p-6 border-border/40 bg-background shadow-sm">
+                {/* Phase 1: Performance Chart with period selector + disk line */}
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      Desempenho Histórico
+                    </h3>
+                    {/* Period selector */}
+                    <div className="flex gap-1">
+                      {(['1h', '6h', '24h', '7d'] as MetricPeriod[]).map(p => (
+                        <button
+                          key={p}
+                          onClick={() => setPeriod(p)}
+                          className={cn(
+                            'px-2 py-0.5 rounded text-[10px] font-bold transition-all border',
+                            period === p
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'border-border/40 text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                          )}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Card className="p-4 border-border/40 bg-background shadow-sm">
                     {metricsLoading ? (
-                      <Skeleton className="h-44 w-full" />
+                      <Skeleton className="h-52 w-full" />
                     ) : chartData.length === 0 ? (
-                      <div className="h-44 flex flex-col items-center justify-center text-muted-foreground gap-2">
+                      <div className="h-52 flex flex-col items-center justify-center text-muted-foreground gap-2">
                         <Info className="w-8 h-8 opacity-20" />
-                        <p className="text-xs">Sem dados históricos</p>
+                        <p className="text-xs">Sem dados históricos para o período selecionado</p>
                       </div>
                     ) : (
-                      <div className="h-44">
+                      <div className="h-52">
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={chartData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                            <XAxis dataKey="time" hide />
-                            <YAxis domain={[0, 100]} hide />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '10px' }}
+                          <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.5} />
+                            <XAxis
+                              dataKey="time"
+                              tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
+                              tickLine={false}
+                              interval="preserveStartEnd"
+                            />
+                            <YAxis
+                              domain={[0, 100]}
+                              tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
+                              tickLine={false}
+                              tickFormatter={(v) => `${v}%`}
+                            />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend
+                              wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                              formatter={(value) => <span style={{ color: 'hsl(var(--muted-foreground))', fontWeight: 700 }}>{value}</span>}
                             />
                             <Line type="monotone" dataKey="CPU" stroke="rgb(99, 102, 241)" strokeWidth={2} dot={false} isAnimationActive={false} />
                             <Line type="monotone" dataKey="RAM" stroke="rgb(16, 185, 129)" strokeWidth={2} dot={false} isAnimationActive={false} />
+                            <Line type="monotone" dataKey="Disco" stroke="rgb(245, 158, 11)" strokeWidth={2} dot={false} isAnimationActive={false} />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -237,88 +393,71 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
                   </Card>
                 </section>
 
-                  {/* Alerts */}
-                  <section className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                      <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Alertas Ativos</h3>
-                      {alerts.length > 0 && <Badge variant="destructive" className="h-5 text-[9px] font-bold">{alerts.length}</Badge>}
+                {/* Alerts */}
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Alertas Ativos</h3>
+                    {alerts.length > 0 && <Badge variant="destructive" className="h-5 text-[9px] font-bold">{alerts.length}</Badge>}
+                  </div>
+                  {alertsLoading ? (
+                    <div className="space-y-2"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>
+                  ) : alerts.length === 0 ? (
+                    <div className="bg-green-500/5 border border-green-500/10 rounded-xl p-4 flex items-center justify-center gap-2 text-green-600">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span className="text-xs font-bold">Nenhum problema detectado</span>
                     </div>
-                    {alertsLoading ? (
-                      <div className="space-y-2">
-                        <Skeleton className="h-12 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                      </div>
-                    ) : alerts.length === 0 ? (
-                      <div className="bg-green-500/5 border border-green-500/10 rounded-xl p-4 flex items-center justify-center gap-2 text-green-600">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span className="text-xs font-bold">Nenhum problema detectado</span>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {alerts.map((alert) => (
-                          <div key={alert.id} className={cn('rounded-xl border p-4 space-y-1 transition-all hover:translate-x-1', severityColor[alert.severity])}>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold uppercase tracking-tight">{alert.severity}</span>
-                              <span className="text-[9px] opacity-60">{formatDistanceToNow(new Date(alert.created_at), { addSuffix: true, locale: ptBR })}</span>
-                            </div>
-                            <p className="text-xs font-medium leading-relaxed">{alert.message}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {alerts.map((alert) => (
+                        <div key={alert.id} className={cn('rounded-xl border p-4 space-y-1 transition-all hover:translate-x-1', severityColor[alert.severity])}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-tight">{alert.severity}</span>
+                            <span className="text-[9px] opacity-60">{formatDistanceToNow(new Date(alert.created_at), { addSuffix: true, locale: ptBR })}</span>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-
-                  {/* Administrative Section */}
-                  {canManage && (
-                    <section className="space-y-4 pt-4">
-                      <Separator className="border-border/20" />
-                      <h3 className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest px-1">Configurações Administrativas</h3>
-                      <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-4 space-y-4">
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Grupo / Cliente</label>
-                          <Select value={selectedGroupId || "none"} onValueChange={(v) => setSelectedGroupId(v === "none" ? "" : v)}>
-                            <SelectTrigger className="bg-background border-indigo-500/20 rounded-xl">
-                              <SelectValue placeholder="Selecione um grupo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Nenhum</SelectItem>
-                              {groups.map((g) => (
-                                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <p className="text-xs font-medium leading-relaxed">{alert.message}</p>
                         </div>
-
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Empresa</label>
-                          <Select value={selectedCompanyId || "none"} onValueChange={(v) => setSelectedCompanyId(v === "none" ? "" : v)}>
-                            <SelectTrigger className="bg-background border-indigo-500/20 rounded-xl">
-                              <SelectValue placeholder="Selecione uma empresa" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Nenhuma</SelectItem>
-                              {companies.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <Button 
-                          className="w-full font-bold gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/20"
-                          onClick={handleSaveChanges}
-                          disabled={isSaving}
-                        >
-                          {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                          Salvar Alterações
-                        </Button>
-                      </div>
-                    </section>
+                      ))}
+                    </div>
                   )}
-                </TabsContent>
+                </section>
 
+                {/* Admin section */}
+                {canManage && (
+                  <section className="space-y-4 pt-4">
+                    <Separator className="border-border/20" />
+                    <h3 className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest px-1">Configurações Administrativas</h3>
+                    <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-4 space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Grupo / Cliente</label>
+                        <Select value={selectedGroupId || 'none'} onValueChange={(v) => setSelectedGroupId(v === 'none' ? '' : v)}>
+                          <SelectTrigger className="bg-background border-indigo-500/20 rounded-xl"><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nenhum</SelectItem>
+                            {groups.map((g) => (<SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Empresa</label>
+                        <Select value={selectedCompanyId || 'none'} onValueChange={(v) => setSelectedCompanyId(v === 'none' ? '' : v)}>
+                          <SelectTrigger className="bg-background border-indigo-500/20 rounded-xl"><SelectValue placeholder="Selecione uma empresa" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nenhuma</SelectItem>
+                            {companies.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button className="w-full font-bold gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/20" onClick={handleSaveChanges} disabled={isSaving}>
+                        {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        Salvar Alterações
+                      </Button>
+                    </div>
+                  </section>
+                )}
+              </TabsContent>
+
+              {/* ── Tab: Inventory ── */}
               <TabsContent value="inventory" className="mt-0 space-y-8">
-                {/* Hardware */}
                 <section className="space-y-4">
                   <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Hardware Base</h3>
                   <div className="bg-muted/10 border border-border/40 rounded-xl p-4 space-y-1">
@@ -328,7 +467,6 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
                   </div>
                 </section>
 
-                {/* Storage Partitions */}
                 <section className="space-y-4">
                   <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Armazenamento & Partições</h3>
                   <div className="space-y-3">
@@ -344,11 +482,14 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
                           </div>
                           <div className="space-y-2">
                             <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                              <div className="h-full bg-primary transition-all" style={{ width: `${pct(d.used, d.total)}%` }} />
+                              <div
+                                className={cn('h-full transition-all rounded-full', pct(d.used, d.total) > 90 ? 'bg-red-500' : pct(d.used, d.total) > 70 ? 'bg-amber-500' : 'bg-primary')}
+                                style={{ width: `${pct(d.used, d.total)}%` }}
+                              />
                             </div>
                             <div className="flex justify-between text-[10px] font-medium">
                               <span className="text-muted-foreground">Uso: {bytes(d.used)}</span>
-                              <span className="text-foreground">{pct(d.used, d.total)}% de {bytes(d.total)}</span>
+                              <span className={cn('font-bold', pct(d.used, d.total) > 90 ? 'text-red-500' : 'text-foreground')}>{pct(d.used, d.total)}% de {bytes(d.total)}</span>
                             </div>
                           </div>
                         </Card>
@@ -359,7 +500,6 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
                   </div>
                 </section>
 
-                {/* Network Interfaces */}
                 <section className="space-y-4">
                   <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Interfaces de Rede</h3>
                   <div className="space-y-2">
@@ -387,121 +527,110 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
                 </section>
               </TabsContent>
 
-              <TabsContent value="actions" className="mt-0 space-y-8">
-                <section className="space-y-6">
-                  <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-6 text-center space-y-4">
-                    <div className="w-12 h-12 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto">
-                      <Terminal className="w-6 h-6 text-indigo-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-base">Terminal Remoto</h4>
-                      <p className="text-xs text-muted-foreground mt-1 px-4 leading-relaxed">
-                        Execute comandos diretamente no agente Orion. Os resultados aparecerão instantaneamente no log.
-                      </p>
+              {/* ── Tab: Terminal (Phase 2) ── */}
+              <TabsContent value="actions" className="mt-0 space-y-6">
+                <section className="space-y-4">
+                  {/* Terminal header with connection status */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn('p-2 rounded-xl', isOnline ? 'bg-green-500/10' : 'bg-red-500/10')}>
+                        <Terminal className={cn('w-5 h-5', isOnline ? 'text-green-600' : 'text-red-500')} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm">Terminal Remoto</h4>
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                          <span className={cn('w-1.5 h-1.5 rounded-full', isOnline ? 'bg-green-500' : 'bg-red-500')} />
+                          {isOnline ? 'Agente conectado — pronto para receber comandos' : 'Agente offline — comandos ficam na fila'}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      <Input 
-                        placeholder="Ex: ping 8.8.8.8 ou ls -la" 
-                        value={cmd}
-                        onChange={(e) => setCmd(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleRunCommand()}
-                        className="bg-muted/20 border-border/40 font-mono text-xs"
-                      />
-                      <Button 
-                        className="font-bold gap-2 px-6"
-                        onClick={() => handleRunCommand()}
-                        disabled={createCommand.isPending || !cmd.trim()}
-                      >
-                        <Play className="w-3.5 h-3.5" /> {createCommand.isPending ? 'Enviando...' : 'Rodar'}
-                      </Button>
+                  {/* Preset commands */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-0.5">Comandos Rápidos</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'Flush DNS', cmd: 'ipconfig /flushdns', icon: Network },
+                        { label: 'Conexões Ativas', cmd: 'netstat -an', icon: Activity },
+                        { label: 'Ver Processos', cmd: 'tasklist', icon: Cpu },
+                        { label: 'Forçar GPO', cmd: 'gpupdate /force', icon: RefreshCw },
+                        { label: 'Info do Sistema', cmd: 'systeminfo', icon: Monitor },
+                        { label: 'Verificar Disco', cmd: 'chkdsk C:', icon: HardDrive },
+                      ].map(({ label, cmd: presetCmd, icon: Icon }) => (
+                        <Button
+                          key={label}
+                          variant="outline"
+                          size="sm"
+                          className="justify-start gap-2 h-10 text-[11px] font-semibold border-border/40 bg-muted/5 transition-all hover:border-primary/40 hover:bg-primary/5"
+                          onClick={() => handleRunCommand(presetCmd)}
+                          disabled={createCommand.isPending || hasPending}
+                        >
+                          <Icon className="w-3.5 h-3.5" /> {label}
+                        </Button>
+                      ))}
                     </div>
+                  </div>
 
-                    <div className="space-y-3">
-                      <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Comandos Pré-definidos</h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="justify-start gap-2 h-10 text-[11px] font-semibold border-border/40 bg-muted/5 transition-all hover:border-primary/40 hover:bg-primary/5"
-                          onClick={() => handleRunCommand('ipconfig /flushdns')}
-                          disabled={createCommand.isPending}
-                        >
-                          <Network className="w-3.5 h-3.5" /> Flush DNS
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="justify-start gap-2 h-10 text-[11px] font-semibold border-border/40 bg-muted/5 transition-all hover:border-primary/40 hover:bg-primary/5"
-                          onClick={() => handleRunCommand('netstat -an')}
-                          disabled={createCommand.isPending}
-                        >
-                          <Activity className="w-3.5 h-3.5" /> Conexões Ativas
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="justify-start gap-2 h-10 text-[11px] font-semibold border-border/40 bg-muted/5 transition-all hover:border-primary/40 hover:bg-primary/5"
-                          onClick={() => handleRunCommand('tasklist')}
-                          disabled={createCommand.isPending}
-                        >
-                          <Cpu className="w-3.5 h-3.5" /> Ver Processos
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="justify-start gap-2 h-10 text-[11px] font-semibold border-border/40 bg-muted/5 transition-all hover:border-primary/40 hover:bg-primary/5"
-                          onClick={() => handleRunCommand('gpupdate /force')}
-                          disabled={createCommand.isPending}
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" /> Forçar GPO
-                        </Button>
-                      </div>
-                    </div>
+                  {/* Command input */}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Ex: ping 8.8.8.8 ou ipconfig /all"
+                      value={cmd}
+                      onChange={(e) => setCmd(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleRunCommand()}
+                      disabled={hasPending}
+                      className="bg-muted/20 border-border/40 font-mono text-xs"
+                    />
+                    <Button
+                      className="font-bold gap-2 px-5"
+                      onClick={() => handleRunCommand()}
+                      disabled={createCommand.isPending || !cmd.trim() || hasPending}
+                    >
+                      {hasPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                      {hasPending ? 'Aguardando...' : 'Rodar'}
+                    </Button>
                   </div>
 
                   <Separator className="border-border/20" />
 
-                  <div className="bg-black/90 rounded-xl p-4 font-mono text-[11px] overflow-hidden flex flex-col min-h-[300px] border border-zinc-800 shadow-inner">
-                    <div className="flex items-center gap-2 mb-3 border-b border-zinc-900 pb-2">
-                      <div className="flex gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-red-500/20" />
-                        <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20" />
-                        <div className="w-2.5 h-2.5 rounded-full bg-green-500/20" />
+                  {/* Console output */}
+                  <div className="bg-[#0d0d0f] rounded-xl font-mono text-[11px] overflow-hidden flex flex-col border border-zinc-800/80 shadow-2xl">
+                    {/* Terminal chrome */}
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-900 bg-zinc-900/50">
+                      <div className="flex items-center gap-3">
+                        <div className="flex gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded-full bg-red-500/40 hover:bg-red-500 transition-colors cursor-pointer" />
+                          <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/40 hover:bg-yellow-500 transition-colors cursor-pointer" />
+                          <div className="w-2.5 h-2.5 rounded-full bg-green-500/40 hover:bg-green-500 transition-colors cursor-pointer" />
+                        </div>
+                        <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">
+                          {machine?.hostname ?? 'Console'} — Orion Shell
+                        </span>
                       </div>
-                      <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest ml-2">Console de Saída</span>
+                      <button
+                        onClick={handleClearConsole}
+                        className="flex items-center gap-1 text-[9px] text-zinc-600 hover:text-zinc-400 transition-colors"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" /> Limpar
+                      </button>
                     </div>
-                    
-                    <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+
+                    {/* Output area */}
+                    <div className="flex-1 overflow-y-auto max-h-[360px] p-4 space-y-4 custom-scrollbar">
                       {commandsLoading ? (
-                        <div className="flex items-center justify-center h-full text-zinc-700 animate-pulse">Sincronizando logs...</div>
+                        <div className="text-zinc-600 animate-pulse text-center py-8">Sincronizando logs...</div>
                       ) : commands.length === 0 ? (
-                        <p className="text-zinc-700 italic"># Aguardando entrada...</p>
+                        <div className="text-center py-8 space-y-2">
+                          <p className="text-zinc-600 italic text-[10px]"># Terminal pronto. Aguardando entrada...</p>
+                          <p className="text-zinc-700 text-[9px]">Digite um comando acima ou use os atalhos rápidos.</p>
+                        </div>
                       ) : (
                         commands.map((c) => (
-                          <div key={c.id} className="space-y-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-green-500/50 pr-1">#</span>
-                              <span className="text-zinc-300 font-bold">{c.command}</span>
-                              <span className={cn(
-                                "ml-auto text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase",
-                                c.status === 'completed' ? 'border-green-500/20 text-green-500 bg-green-500/5' :
-                                c.status === 'failed' ? 'border-red-500/20 text-red-500 bg-red-500/5' :
-                                'border-amber-500/20 text-amber-500 bg-amber-500/5 animate-pulse'
-                              )}>
-                                {c.status}
-                              </span>
-                            </div>
-                            {c.output && (
-                              <pre className="text-[10px] text-zinc-500 bg-zinc-900/40 p-3 rounded-lg border border-zinc-800/30 whitespace-pre-wrap leading-relaxed shadow-sm">
-                                {c.output}
-                              </pre>
-                            )}
-                          </div>
+                          <CommandEntry key={c.id} cmd={c} onCopy={handleCopyOutput} />
                         ))
                       )}
+                      <div ref={consoleEndRef} />
                     </div>
                   </div>
                 </section>

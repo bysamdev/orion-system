@@ -33,6 +33,7 @@ const navigationItems: NavItem[] = [
   { icon: Monitor, label: 'Monitoramento', path: '/monitoring', roles: ['admin', 'developer', 'technician'] },
   { icon: AlertTriangle, label: 'Alertas', path: '/alertas', roles: ['admin', 'developer', 'technician'] },
   { icon: GitBranch, label: 'Automações', path: '/automacoes', roles: ['admin', 'developer'] },
+  { icon: Package, label: 'Patches', path: '/patches', roles: ['admin', 'developer'] },
 ];
 
 const bottomItems: NavItem[] = [
