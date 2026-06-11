@@ -115,6 +115,8 @@ export interface CommandRow {
   command: string;
   status: 'pending' | 'sent' | 'completed' | 'failed';
   output: string | null;
+  executed_by_user_id: string | null;
+  executed_by_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -166,9 +168,29 @@ export function useMachineDetail(machineId: string | null) {
   });
 }
 
+export type MetricPeriod = '1h' | '6h' | '24h' | '7d';
+
+// Agent sends heartbeat every ~5min → 1h≈12 pts, 6h≈72, 24h≈288, 7d≈2016
+export const PERIOD_LIMIT: Record<MetricPeriod, number> = {
+  '1h': 12,
+  '6h': 72,
+  '24h': 288,
+  '7d': 2016,
+};
+
 export function useMachineMetrics(machineId: string | null, limit = 100) {
   return useQuery<MetricRow[]>({
     queryKey: ['monitoring', 'metrics', machineId, limit],
+    queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/metrics?limit=${limit}`),
+    enabled: !!machineId,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useMachineMetricsByPeriod(machineId: string | null, period: MetricPeriod) {
+  const limit = PERIOD_LIMIT[period];
+  return useQuery<MetricRow[]>({
+    queryKey: ['monitoring', 'metrics', machineId, 'period', period],
     queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/metrics?limit=${limit}`),
     enabled: !!machineId,
     refetchInterval: 60_000,
@@ -186,8 +208,22 @@ export function useMachineAlerts(machineId: string | null) {
 
 export function useCreateCommand() {
   return useMutation({
-    mutationFn: ({ machineId, command }: { machineId: string; command: string }) => 
-      apiPost<{ id: string }>(`/api/monitoring/machines/${machineId}/commands`, { command }),
+    mutationFn: ({
+      machineId,
+      command,
+      executed_by_user_id,
+      executed_by_name,
+    }: {
+      machineId: string;
+      command: string;
+      executed_by_user_id?: string;
+      executed_by_name?: string;
+    }) =>
+      apiPost<{ id: string }>(`/api/monitoring/machines/${machineId}/commands`, {
+        command,
+        executed_by_user_id,
+        executed_by_name,
+      }),
   });
 }
 
