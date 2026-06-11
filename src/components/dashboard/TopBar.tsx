@@ -1,25 +1,20 @@
 import React from 'react';
 import { 
-  Plus, Settings, Shield, Search, User, LogOut, 
-  Home, PieChart, Monitor, ArrowRight, BookOpen, FileText, Loader2, BarChart2
+  Plus, Search, LogOut, Loader2, ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
 import { NotificationsPopover } from './NotificationsPopover';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { cn } from '@/lib/utils';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
-  const { data: profile } = useUserProfile();
-  const { data: role } = useUserRole();
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [searchResults, setSearchResults] = React.useState<any[]>([]);
@@ -73,12 +68,10 @@ export const TopBar: React.FC = () => {
     navigate('/auth');
   };
 
-  const isActive = (path: string) => location.pathname === path;
-
   return (
     <div className="flex items-center justify-between mb-8 pb-4 border-b border-border/40 gap-4">
       {/* Área de Busca Progressiva */}
-      <div className="flex items-center gap-4 flex-1 max-w-md relative group">
+      <div className="flex items-center gap-4 flex-1 max-w-xl relative group">
         <div className="relative flex-1">
           {isSearching ? (
             <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
@@ -137,105 +130,8 @@ export const TopBar: React.FC = () => {
         )}
       </div>
       
-      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 justify-end lg:flex-initial lg:overflow-visible">
-        <div className="flex items-center gap-1 px-2">
-          <NavItem 
-            icon={Home} 
-            label="Início" 
-            tooltip="Painel Principal" 
-            isActive={isActive('/')} 
-            onClick={() => navigate('/')} 
-          />
-          
-          {(role === 'admin' || role === 'developer') && (
-            <NavItem 
-              icon={BarChart2 || PieChart} 
-              label="Insights" 
-              tooltip="Relatórios e Analytics" 
-              isActive={isActive('/relatorios')} 
-              onClick={() => navigate('/relatorios')} 
-            />
-          )}
-
-          {(role === 'admin' || role === 'developer') && (
-            <NavItem 
-              icon={Shield} 
-              label="Painel Admin" 
-              tooltip="Faturamento & Empresas" 
-              isActive={isActive('/admin')} 
-              onClick={() => navigate('/admin')} 
-            />
-          )}
-
-          {(role === 'admin' || role === 'developer' || role === 'technician') && (
-            <NavItem 
-              icon={Monitor} 
-              label="Sistemas" 
-              tooltip="Monitoramento Agente" 
-              isActive={isActive('/monitoring')} 
-              onClick={() => navigate('/monitoring')} 
-            />
-          )}
-
-          {(role === 'admin' || role === 'developer' || role === 'technician') && (
-            <NavItem 
-              icon={Monitor} 
-              label="Alertas" 
-              tooltip="Central de Alertas" 
-              isActive={isActive('/alertas')} 
-              onClick={() => navigate('/alertas')} 
-            />
-          )}
-
-          {(role === 'admin' || role === 'developer') && (
-            <NavItem 
-              icon={Settings} 
-              label="Automação" 
-              tooltip="Regras e Workflows" 
-              isActive={isActive('/automacoes')} 
-              onClick={() => navigate('/automacoes')} 
-            />
-          )}
-
-          <NavItem 
-            icon={Settings} 
-            label="Perfil" 
-            tooltip="Minha Conta" 
-            isActive={isActive('/ajustes')} 
-            onClick={() => navigate('/ajustes')} 
-          />
-
-          <Separator orientation="vertical" className="h-8 mx-1 hidden md:block opacity-40" />
-
-          <NavItem 
-            icon={BookOpen} 
-            label="Wiki" 
-            tooltip="Base de Conhecimento" 
-            isActive={isActive('/knowledge')} 
-            onClick={() => navigate('/knowledge')} 
-          />
-
-          {(role === 'admin' || role === 'developer' || role === 'technician') && (
-            <NavItem 
-              icon={Shield} 
-              label="Docs" 
-              tooltip="Manuais do Agente" 
-              isActive={isActive('/documentacao')} 
-              onClick={() => navigate('/documentacao')} 
-            />
-          )}
-
-          <NavItem 
-            icon={FileText} 
-            label="Manual" 
-            tooltip="Guia de Uso do Sistema" 
-            isActive={isActive('/tutorial')} 
-            onClick={() => navigate('/tutorial')} 
-          />
-        </div>
-        
-        <Separator orientation="vertical" className="h-8 mx-1 shrink-0 opacity-40" />
-        
+      {/* Ações Globais */}
+      <div className="flex items-center justify-end shrink-0 gap-1 lg:gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button 
@@ -243,7 +139,7 @@ export const TopBar: React.FC = () => {
               className="rounded-xl px-4 h-10 gap-2 shadow-lg hover:shadow-primary/20 transition-all bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 transform hover:scale-105 active:scale-95"
             >
               <Plus className="w-4 h-4" />
-              <span className="text-[11px] font-black uppercase tracking-widest hidden xl:inline">Novo Ticket</span>
+              <span className="text-[11px] font-black uppercase tracking-widest hidden sm:inline">Novo Ticket</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent className="text-[10px] font-bold">Criar novo chamado</TooltipContent>
@@ -261,49 +157,15 @@ export const TopBar: React.FC = () => {
                 variant="ghost" 
                 size="icon" 
                 onClick={handleSignOut}
-                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors h-10 w-10"
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors h-10 w-10 ml-1"
               >
                 <LogOut className="w-5 h-5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Sair</TooltipContent>
+            <TooltipContent>Sair do Sistema</TooltipContent>
           </Tooltip>
         </div>
       </div>
     </div>
   );
 };
-
-interface NavItemProps {
-  icon: any;
-  label: string;
-  tooltip: string;
-  isActive: boolean;
-  onClick: () => void;
-}
-
-const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, tooltip, isActive, onClick }) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <button 
-        onClick={onClick}
-        className={cn(
-          "flex flex-col items-center justify-center gap-1 h-14 min-w-[64px] px-2 rounded-xl transition-all duration-300 relative group",
-          isActive 
-            ? "text-primary bg-primary/5" 
-            : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-        )}
-      >
-        <Icon className={cn("w-5 h-5 transition-transform duration-300 group-hover:scale-110", isActive && "scale-110")} />
-        <span className="text-[9px] font-black uppercase tracking-tight opacity-70 whitespace-nowrap group-hover:opacity-100 transition-opacity">{label}</span>
-        
-        {isActive && (
-          <div className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full shadow-[0_0_8px_hsla(var(--primary),0.6)] animate-in fade-in zoom-in duration-500" />
-        )}
-      </button>
-    </TooltipTrigger>
-    <TooltipContent side="bottom" className="text-[10px] font-bold uppercase tracking-widest bg-sidebar-background text-white border-none shadow-2xl">
-      {tooltip}
-    </TooltipContent>
-  </Tooltip>
-);
