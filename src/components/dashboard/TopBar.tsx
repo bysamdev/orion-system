@@ -1,20 +1,33 @@
 import React from 'react';
 import { 
-  Plus, Search, LogOut, Loader2, ArrowRight
+  Plus, Search, LogOut, Loader2, ArrowRight,
+  ChevronDown, Home, BookOpen, FileText,
+  Monitor, AlertTriangle, BarChart2, Shield, Settings, PieChart
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useNavigate } from 'react-router-dom';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { NotificationsPopover } from './NotificationsPopover';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { cn } from '@/lib/utils';
+import { useUserRole } from '@/hooks/useUserRole';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const { data: role } = useUserRole();
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [searchResults, setSearchResults] = React.useState<any[]>([]);
@@ -68,10 +81,12 @@ export const TopBar: React.FC = () => {
     navigate('/auth');
   };
 
+  const isActive = (path: string) => location.pathname === path;
+
   return (
     <div className="flex items-center justify-between mb-8 pb-4 border-b border-border/40 gap-4">
-      {/* Área de Busca Progressiva */}
-      <div className="flex items-center gap-4 flex-1 max-w-xl relative group">
+      {/* Área de Busca */}
+      <div className="flex items-center gap-4 flex-1 max-w-sm relative group">
         <div className="relative flex-1">
           {isSearching ? (
             <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
@@ -130,6 +145,89 @@ export const TopBar: React.FC = () => {
         )}
       </div>
       
+      {/* Navegação por Categorias (Dropdowns) */}
+      <div className="flex items-center gap-2 flex-1 justify-center overflow-x-auto no-scrollbar">
+        {/* Service Desk */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-10 rounded-xl gap-2 font-semibold text-muted-foreground hover:text-primary hover:bg-primary/10">
+              <Home className="w-4 h-4" />
+              <span className="hidden lg:inline">Service Desk</span>
+              <ChevronDown className="w-3 h-3 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="w-48 bg-card/90 backdrop-blur-xl border-border/50">
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">Portal</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate('/')} className="gap-3 cursor-pointer rounded-lg">
+              <Home className="w-4 h-4 text-primary" /> Início
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/knowledge')} className="gap-3 cursor-pointer rounded-lg">
+              <BookOpen className="w-4 h-4 text-primary" /> Base de Conhecimento
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/tutorial')} className="gap-3 cursor-pointer rounded-lg">
+              <FileText className="w-4 h-4 text-primary" /> Manual de Uso
+            </DropdownMenuItem>
+            {(role === 'admin' || role === 'developer' || role === 'technician') && (
+              <DropdownMenuItem onClick={() => navigate('/documentacao')} className="gap-3 cursor-pointer rounded-lg">
+                <Shield className="w-4 h-4 text-primary" /> Documentação API
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Operacional */}
+        {(role === 'admin' || role === 'developer' || role === 'technician') && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-10 rounded-xl gap-2 font-semibold text-muted-foreground hover:text-primary hover:bg-primary/10">
+                <Monitor className="w-4 h-4" />
+                <span className="hidden lg:inline">Operacional</span>
+                <ChevronDown className="w-3 h-3 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-48 bg-card/90 backdrop-blur-xl border-border/50">
+              <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">Monitoramento</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/monitoring')} className="gap-3 cursor-pointer rounded-lg">
+                <Monitor className="w-4 h-4 text-primary" /> Sistemas
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/alertas')} className="gap-3 cursor-pointer rounded-lg">
+                <AlertTriangle className="w-4 h-4 text-primary" /> Central de Alertas
+              </DropdownMenuItem>
+              {(role === 'admin' || role === 'developer') && (
+                <DropdownMenuItem onClick={() => navigate('/relatorios')} className="gap-3 cursor-pointer rounded-lg">
+                  <PieChart className="w-4 h-4 text-primary" /> Insights & Analytics
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        {/* Gestão */}
+        {(role === 'admin' || role === 'developer') && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-10 rounded-xl gap-2 font-semibold text-muted-foreground hover:text-primary hover:bg-primary/10">
+                <Shield className="w-4 h-4" />
+                <span className="hidden lg:inline">Gestão</span>
+                <ChevronDown className="w-3 h-3 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-48 bg-card/90 backdrop-blur-xl border-border/50">
+              <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">Administração</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/admin')} className="gap-3 cursor-pointer rounded-lg">
+                <Shield className="w-4 h-4 text-primary" /> Painel Admin
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/automacoes')} className="gap-3 cursor-pointer rounded-lg">
+                <Settings className="w-4 h-4 text-primary" /> Regras de Automação
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+      
       {/* Ações Globais */}
       <div className="flex items-center justify-end shrink-0 gap-1 lg:gap-2">
         <Tooltip>
@@ -151,19 +249,28 @@ export const TopBar: React.FC = () => {
           <NotificationsPopover />
           <ThemeToggle />
           
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={handleSignOut}
-                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors h-10 w-10 ml-1"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl transition-colors h-10 w-10 ml-1"
               >
-                <LogOut className="w-5 h-5" />
+                <Settings className="w-5 h-5" />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>Sair do Sistema</TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-card/90 backdrop-blur-xl border-border/50">
+              <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">Minha Conta</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/ajustes')} className="gap-3 cursor-pointer rounded-lg">
+                <Settings className="w-4 h-4 text-primary" /> Ajustes do Perfil
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="gap-3 cursor-pointer rounded-lg text-destructive focus:bg-destructive/10 focus:text-destructive">
+                <LogOut className="w-4 h-4" /> Sair do Sistema
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>
