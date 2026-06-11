@@ -46,7 +46,6 @@ export const Sidebar: React.FC = () => {
   const location = useLocation();
   const { data: role } = useUserRole();
 
-  // Filtra itens baseado no role do usuário
   const filteredNavItems = navigationItems.filter(item => {
     if (!item.roles) return true;
     return role && item.roles.includes(role);
@@ -54,18 +53,22 @@ export const Sidebar: React.FC = () => {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <nav className="bg-sidebar-background h-screen w-20 flex flex-col items-center py-6 sticky top-0 border-r border-sidebar-border shadow-2xl z-50 overflow-hidden">
-        {/* Logo / Home Indicator */}
-        <div className="mb-10 flex flex-col items-center">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20 group transition-all duration-700 hover:rotate-[360deg]">
-            <div className="w-5 h-5 bg-primary rounded-md shadow-[0_0_15px_hsla(var(--primary),0.5)] flex items-center justify-center">
-              <span className="text-[10px] font-black text-white italic">O</span>
-            </div>
+      <nav className="bg-sidebar-background h-screen w-[72px] flex flex-col items-center py-6 sticky top-0 border-r border-sidebar-border z-50 overflow-hidden">
+        {/* Technical Logo Indicator */}
+        <div className="mb-10 w-full flex justify-center">
+          <div className="w-10 h-10 bg-black border border-primary/40 flex items-center justify-center relative group cursor-pointer" onClick={() => navigate('/')}>
+            {/* Tech crosshairs */}
+            <div className="absolute -top-[1px] -left-[1px] w-1.5 h-1.5 border-t border-l border-primary/80" />
+            <div className="absolute -top-[1px] -right-[1px] w-1.5 h-1.5 border-t border-r border-primary/80" />
+            <div className="absolute -bottom-[1px] -left-[1px] w-1.5 h-1.5 border-b border-l border-primary/80" />
+            <div className="absolute -bottom-[1px] -right-[1px] w-1.5 h-1.5 border-b border-r border-primary/80" />
+            
+            <span className="font-mono text-lg font-bold text-primary">O</span>
           </div>
         </div>
         
         {/* Main Navigation */}
-        <div className="flex flex-col items-center gap-4 flex-1 w-full px-2 overflow-y-auto no-scrollbar scroll-smooth">
+        <div className="flex flex-col items-center gap-2 flex-1 w-full px-2 overflow-y-auto no-scrollbar scroll-smooth">
           {filteredNavItems.map((item, index) => {
             const isActive = location.pathname === item.path;
             return (
@@ -74,27 +77,25 @@ export const Sidebar: React.FC = () => {
                   <button
                     onClick={() => navigate(item.path)}
                     className={cn(
-                      "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 transform hover:scale-110 active:scale-95 group relative",
+                      "w-full h-11 flex items-center justify-center relative transition-colors group",
                       isActive
-                        ? "bg-primary text-primary-foreground shadow-[0_0_20px_hsla(var(--primary),0.3)]" 
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-white"
+                        ? "bg-sidebar-accent text-primary" 
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
                     )}
                     aria-label={item.label}
                   >
                     <item.icon 
-                      className={cn(
-                        "w-5 h-5 transition-all duration-300",
-                        isActive ? "scale-110" : "group-hover:scale-110"
-                      )} 
+                      className="w-5 h-5" 
+                      strokeWidth={isActive ? 2.5 : 2}
                     />
                     
-                    {/* Active Indicator Bar */}
+                    {/* Hard Active Edge */}
                     {isActive && (
-                      <div className="absolute -left-2 w-1 h-6 bg-primary rounded-full shadow-[0_0_10px_hsla(var(--primary),0.8)]" />
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary" />
                     )}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="bg-sidebar-accent text-white border-sidebar-border font-medium text-[11px] px-3 py-1.5 shadow-xl">
+                <TooltipContent side="right" className="bg-sidebar-accent text-foreground border-sidebar-border font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-sm">
                   {item.label}
                 </TooltipContent>
               </Tooltip>
@@ -103,7 +104,7 @@ export const Sidebar: React.FC = () => {
         </div>
         
         {/* Bottom Navigation */}
-        <div className="flex flex-col items-center gap-4 mt-auto w-full px-2 pb-6 pt-6 border-t border-sidebar-border/30">
+        <div className="flex flex-col items-center gap-2 mt-auto w-full px-2 pt-6 border-t border-sidebar-border">
           {bottomItems.filter(item => !item.roles || (role && item.roles.includes(role))).map((item, index) => {
             const isActive = location.pathname === item.path;
             return (
@@ -112,22 +113,23 @@ export const Sidebar: React.FC = () => {
                   <button
                     onClick={() => navigate(item.path)}
                     className={cn(
-                      "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 transform hover:scale-110 active:scale-95 group relative",
+                      "w-full h-11 flex items-center justify-center relative transition-colors group",
                       isActive
-                        ? "bg-primary text-primary-foreground shadow-[0_0_20px_hsla(var(--primary),0.3)]"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-white"
+                        ? "bg-sidebar-accent text-primary" 
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
                     )}
                     aria-label={item.label}
                   >
                     <item.icon 
-                      className={cn(
-                        "w-5 h-5 transition-all duration-300",
-                        isActive ? "scale-110" : "group-hover:scale-110"
-                      )} 
+                      className="w-5 h-5" 
+                      strokeWidth={isActive ? 2.5 : 2}
                     />
+                    {isActive && (
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary" />
+                    )}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="bg-sidebar-accent text-white border-sidebar-border font-medium text-[11px] px-3 py-1.5 shadow-xl">
+                <TooltipContent side="right" className="bg-sidebar-accent text-foreground border-sidebar-border font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-sm">
                   {item.label}
                 </TooltipContent>
               </Tooltip>

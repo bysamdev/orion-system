@@ -1,35 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
+    /* Pure monochrome base with Electric Cyan primary for light mode */
     --background: 0 0% 98%;
-    --foreground: 240 10% 15%;
+    --foreground: 240 5% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 15%;
+    --card-foreground: 240 5% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 15%;
+    --popover-foreground: 240 5% 10%;
 
-    --primary: 263 70% 50%;
+    /* Electric Cyan */
+    --primary: 188 86% 43%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 94%;
-    --secondary-foreground: 240 10% 20%;
+    --secondary: 240 5% 92%;
+    --secondary-foreground: 240 5% 10%;
 
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 5% 40%;
+    --muted: 240 5% 94%;
+    --muted-foreground: 240 5% 45%;
 
-    --accent: 263 70% 50%;
+    --accent: 188 86% 43%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 84% 50%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 142 76% 36%;
@@ -38,42 +38,45 @@ All colors MUST be HSL.
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 263 70% 50%;
+    --border: 240 6% 85%;
+    --input: 240 6% 85%;
+    --ring: 188 86% 43%;
 
-    --radius: 0.75rem;
+    /* Sharp radiuses for industrial look */
+    --radius: 0.25rem;
 
-    --sidebar-background: 240 10% 10%;
-    --sidebar-foreground: 240 5% 70%;
-    --sidebar-primary: 263 70% 50%;
+    --sidebar-background: 240 5% 96%;
+    --sidebar-foreground: 240 5% 30%;
+    --sidebar-primary: 188 86% 43%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 8% 15%;
-    --sidebar-accent-foreground: 263 70% 60%;
-    --sidebar-border: 240 8% 15%;
-    --sidebar-ring: 263 70% 50%;
+    --sidebar-accent: 240 5% 90%;
+    --sidebar-accent-foreground: 240 5% 10%;
+    --sidebar-border: 240 6% 85%;
+    --sidebar-ring: 188 86% 43%;
   }
 
   .dark {
-    --background: 240 10% 10%;
-    --foreground: 0 0% 98%;
+    /* Extreme dark mode, technical console aesthetic */
+    --background: 240 5% 4%;
+    --foreground: 0 0% 96%;
 
-    --card: 240 10% 13%;
-    --card-foreground: 0 0% 98%;
+    --card: 240 5% 6%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 240 10% 13%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 240 5% 6%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 263 70% 50%;
+    /* Electric Cyan */
+    --primary: 188 86% 43%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 8% 18%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 240 5% 12%;
+    --secondary-foreground: 0 0% 96%;
 
-    --muted: 240 8% 18%;
-    --muted-foreground: 240 5% 70%;
+    --muted: 240 5% 12%;
+    --muted-foreground: 240 5% 65%;
 
-    --accent: 263 70% 50%;
+    --accent: 188 86% 43%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -85,18 +88,18 @@ All colors MUST be HSL.
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 240 8% 20%;
-    --input: 240 8% 20%;
-    --ring: 263 70% 50%;
+    --border: 240 5% 16%;
+    --input: 240 5% 16%;
+    --ring: 188 86% 43%;
     
-    --sidebar-background: 240 10% 8%;
-    --sidebar-foreground: 240 5% 70%;
-    --sidebar-primary: 263 70% 50%;
+    --sidebar-background: 240 5% 5%;
+    --sidebar-foreground: 240 5% 65%;
+    --sidebar-primary: 188 86% 43%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 8% 15%;
-    --sidebar-accent-foreground: 263 70% 60%;
-    --sidebar-border: 240 8% 15%;
-    --sidebar-ring: 263 70% 50%;
+    --sidebar-accent: 240 5% 10%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 240 5% 16%;
+    --sidebar-ring: 188 86% 43%;
   }
 }
 
@@ -106,35 +109,57 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Geist', sans-serif;
+  }
+
+  /* Override monospace global */
+  code, pre, kbd, samp, .font-mono {
+    font-family: 'Geist Mono', monospace;
   }
 }
+
 @layer utilities {
   .capitalize-first::first-letter {
     text-transform: uppercase;
   }
 
+  /* Redefine glass-card to be flat technical cards, removing heavy blurs */
   .glass-card {
-    @apply bg-white/70 dark:bg-black/40 backdrop-blur-lg border border-white/20 dark:border-white/10 shadow-xl;
+    @apply bg-card border border-border shadow-sm;
   }
 
+  /* Redefine glows to be tighter, more laser-like, less spread */
   .glow-green {
-    box-shadow: 0 0 15px hsla(142, 76%, 36%, 0.3);
+    box-shadow: 0 0 8px hsla(142, 76%, 36%, 0.4);
   }
 
   .glow-yellow {
-    box-shadow: 0 0 15px hsla(38, 92%, 50%, 0.3);
+    box-shadow: 0 0 8px hsla(38, 92%, 50%, 0.4);
   }
 
   .glow-red {
-    box-shadow: 0 0 15px hsla(0, 84%, 60%, 0.3);
+    box-shadow: 0 0 8px hsla(0, 84%, 60%, 0.4);
   }
 
   .glow-primary {
-    box-shadow: 0 0 15px hsla(263, 70%, 50%, 0.3);
+    box-shadow: 0 0 8px hsla(188, 86%, 43%, 0.4);
   }
 
   .neon-border {
-    @apply border-primary/50 shadow-[0_0_15px_hsla(263,70%,50%,0.2)];
+    @apply border-primary shadow-[0_0_8px_hsla(188,86%,43%,0.3)];
+  }
+
+  /* Technical custom utilities */
+  .tech-panel {
+    @apply bg-card border border-border rounded-sm overflow-hidden;
+  }
+  
+  .data-label {
+    @apply text-[10px] font-bold text-muted-foreground uppercase tracking-widest;
+  }
+  
+  .data-value {
+    @apply font-mono text-sm text-foreground;
   }
 }
