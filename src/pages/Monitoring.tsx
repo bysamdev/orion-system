@@ -25,11 +25,12 @@ import {
   Trash2,
   Lock,
 } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import {
   useMonitoringDashboard,
   useMonitoringGroups,
   useGroupMachines,
+  useMachineDetail,
   hasDiskAlert,
   pct,
   useCreateGroup,
@@ -56,6 +57,11 @@ import { toast } from 'sonner';
 import { Textarea } from '@/components/ui/textarea';
 
 type StatusFilter = 'all' | 'online' | 'offline' | 'alert';
+
+export interface MonitoringProps {
+  externalMachineId?: string | null;
+  onClearExternalMachine?: () => void;
+}
 
 // ── Sidebar de grupos ─────────────────────────────────────
 function GroupItem({
@@ -225,7 +231,7 @@ function MachinesGrid({
 }
 
 // ── Página Principal de Monitoramento (NOC View) ──────────
-const Monitoring: React.FC = () => {
+const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExternalMachine }) => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const queryClient = useQueryClient();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -255,12 +261,33 @@ const Monitoring: React.FC = () => {
 
   const isAdminOrGestor = role === 'admin' || role === 'developer' || role === 'gestor';
 
+  const { data: externalMachineDetail } = useMachineDetail(externalMachineId || null);
+
   // Auto-select first group if none selected
   React.useEffect(() => {
     if (!selectedGroupId && groups && groups.length > 0) {
       setSelectedGroupId(groups[0].id);
     }
   }, [groups, selectedGroupId]);
+
+  // Handle external machine selection (e.g. clicked from alerts tab)
+  React.useEffect(() => {
+    if (externalMachineId && externalMachineDetail?.machine) {
+      // Set the group so the sidebar shows it
+      if (externalMachineDetail.machine.group_id) {
+        setSelectedGroupId(externalMachineDetail.machine.group_id);
+      }
+      // Open the drawer
+      setSelectedMachine(externalMachineDetail.machine);
+    }
+  }, [externalMachineId, externalMachineDetail]);
+
+  const handleCloseDrawer = () => {
+    setSelectedMachine(null);
+    if (onClearExternalMachine) {
+      onClearExternalMachine();
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -344,8 +371,8 @@ const Monitoring: React.FC = () => {
   const selectedGroup = groups?.find((g) => g.id === selectedGroupId);
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="p-8 lg:p-12 max-w-[1600px] mx-auto w-full">
+    <div className="w-full h-full bg-background">
+      <main className="p-6 max-w-[1600px] mx-auto w-full">
 
         {/* ── Page Header ── */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -621,15 +648,15 @@ const Monitoring: React.FC = () => {
       <MachineDrawer
         machine={selectedMachine}
         open={!!selectedMachine}
-        onClose={() => setSelectedMachine(null)}
+        onClose={handleCloseDrawer}
       />
     </div>
   );
 };
 
-const MonitoringWrapper: React.FC = () => (
+const MonitoringWrapper: React.FC<MonitoringProps> = (props) => (
   <ErrorBoundary>
-    <Monitoring />
+    <Monitoring {...props} />
   </ErrorBoundary>
 );
 

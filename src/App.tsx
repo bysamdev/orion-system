@@ -19,7 +19,7 @@ const SetPassword = lazy(() => import("./pages/SetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const DebugTools = lazy(() => import("./pages/DebugTools"));
 const Reports = lazy(() => import("./pages/Reports"));
-const Monitoring = lazy(() => import("./pages/Monitoring"));
+const InfrastructureDashboard = lazy(() => import("./pages/InfrastructureDashboard"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const TicketHistory = lazy(() => import("./pages/TicketHistory"));
 const Avaliacao = lazy(() => import("./pages/Avaliacao"));
@@ -27,7 +27,6 @@ const Assets = lazy(() => import("./pages/Assets"));
 const ClientPortal = lazy(() => import("./pages/ClientPortal"));
 const Documentation = lazy(() => import("./pages/Documentation"));
 const UserGuide = lazy(() => import("./pages/UserGuide"));
-const AlertsDashboard = lazy(() => import("./pages/AlertsDashboard"));
 const Automacoes = lazy(() => import("./pages/Automacoes"));
 const PatchManagement = lazy(() => import("./pages/PatchManagement"));
 
@@ -67,7 +66,7 @@ const App = () => (
               <Route path="/ajustes" element={<AppRoute><Settings /></AppRoute>} />
               <Route path="/admin" element={<AppRoute><Admin /></AppRoute>} />
               <Route path="/relatorios" element={<AppRoute><Reports /></AppRoute>} />
-              <Route path="/monitoring" element={<AppRoute><Monitoring /></AppRoute>} />
+              <Route path="/sistemas" element={<AppRoute><InfrastructureDashboard /></AppRoute>} />
               <Route path="/ticket/:id" element={<AppRoute><TicketDetails /></AppRoute>} />
               <Route path="/historico" element={<AppRoute><TicketHistory /></AppRoute>} />
               <Route path="/knowledge" element={<AppRoute><KnowledgeBase /></AppRoute>} />
@@ -76,7 +75,6 @@ const App = () => (
               <Route path="/debug-tools" element={<AppRoute><DebugTools /></AppRoute>} />
               <Route path="/documentacao" element={<AppRoute><Documentation /></AppRoute>} />
               <Route path="/tutorial" element={<AppRoute><UserGuide /></AppRoute>} />
-              <Route path="/alertas" element={<AppRoute><AlertsDashboard /></AppRoute>} />
               <Route path="/automacoes" element={<AppRoute><Automacoes /></AppRoute>} />
               <Route path="/patches" element={<AppRoute><PatchManagement /></AppRoute>} />
               <Route path="/manual" element={<Navigate to="/tutorial" replace />} />
