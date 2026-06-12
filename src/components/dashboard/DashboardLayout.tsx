@@ -35,9 +35,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* Área principal — scroll vertical independente */}
       <div className="flex flex-col flex-1 overflow-y-auto">
         {/* TopBar sempre visível no topo */}
-        <div
-          className="sticky top-0 z-30 bg-background/80 backdrop-blur-sm border-b border-border/40 px-8 py-4"
-        >
+        <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-sm border-b border-border/30 px-8 py-3 flex items-center">
           <TopBar />
         </div>
 

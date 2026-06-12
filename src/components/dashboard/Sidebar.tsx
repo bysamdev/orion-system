@@ -1,22 +1,30 @@
-import { 
-  Home, 
-  Ticket, 
-  History, 
-  BookOpen, 
-  Package, 
-  BarChart2, 
-  Monitor, 
+import React from 'react';
+import {
+  Home,
+  Ticket,
+  History,
+  BookOpen,
+  FileText,
+  Monitor,
   AlertTriangle,
   GitBranch,
-  Settings, 
-  Shield,
+  BarChart2,
   Layers,
-  Cpu
+  Cpu,
+  Settings,
+  Shield,
+  LogOut,
+  Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { NotificationsPopover } from './NotificationsPopover';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface NavItem {
   icon: React.ElementType;
@@ -30,127 +38,153 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const homeItem: NavItem = { icon: Home, label: 'Início', path: '/' };
+// ─── Nav Data ─────────────────────────────────────────────────────────────────
 
 const navGroups: NavGroup[] = [
   {
     name: 'Service Desk',
     items: [
-      { icon: Ticket, label: 'Tickets Abertos', path: '/novo-ticket' },
-      { icon: History, label: 'Histórico', path: '/historico' },
-      { icon: BookOpen, label: 'Base de Conhecimento', path: '/knowledge' },
-    ]
+      { icon: Home,     label: 'Início',              path: '/' },
+      { icon: Ticket,   label: 'Novo Ticket',         path: '/novo-ticket' },
+      { icon: History,  label: 'Histórico',           path: '/historico' },
+      { icon: BookOpen, label: 'Base de Conhecimento',path: '/knowledge' },
+      { icon: FileText, label: 'Manual de Uso',       path: '/tutorial' },
+      {
+        icon: Shield,
+        label: 'Documentação API',
+        path: '/documentacao',
+        roles: ['admin', 'developer', 'technician'],
+      },
+    ],
   },
   {
-    name: 'Infraestrutura (RMM)',
+    name: 'Infraestrutura',
     items: [
-      { icon: Monitor, label: 'Monitoramento', path: '/monitoring', roles: ['admin', 'developer', 'technician'] },
-      { icon: AlertTriangle, label: 'Alertas', path: '/alertas', roles: ['admin', 'developer', 'technician'] },
-      { icon: Layers, label: 'Patches & Updates', path: '/patches', roles: ['admin', 'developer'] },
-      { icon: Cpu, label: 'Ativos (CMDB)', path: '/assets', roles: ['admin', 'technician', 'developer'] },
-    ]
+      { icon: Monitor,       label: 'Monitoramento',    path: '/monitoring', roles: ['admin', 'developer', 'technician'] },
+      { icon: AlertTriangle, label: 'Central de Alertas', path: '/alertas',  roles: ['admin', 'developer', 'technician'] },
+      { icon: Layers,        label: 'Patches & Updates', path: '/patches',   roles: ['admin', 'developer'] },
+      { icon: Cpu,           label: 'Ativos (CMDB)',    path: '/assets',     roles: ['admin', 'technician', 'developer'] },
+    ],
   },
   {
     name: 'Gestão',
     items: [
-      { icon: GitBranch, label: 'Automações', path: '/automacoes', roles: ['admin', 'developer'] },
-      { icon: BarChart2, label: 'Relatórios', path: '/relatorios', roles: ['admin', 'developer'] },
-    ]
-  }
+      { icon: GitBranch, label: 'Automações',       path: '/automacoes', roles: ['admin', 'developer'] },
+      { icon: BarChart2, label: 'Insights & Relatórios', path: '/relatorios', roles: ['admin', 'developer'] },
+      { icon: Shield,    label: 'Painel Admin',     path: '/admin',      roles: ['admin', 'developer'] },
+    ],
+  },
 ];
 
 const bottomItems: NavItem[] = [
-  { icon: Settings, label: 'Ajustes', path: '/ajustes' },
-  { icon: Shield, label: 'Admin', path: '/admin', roles: ['admin', 'developer'] },
+  { icon: Settings, label: 'Ajustes do Perfil', path: '/ajustes' },
 ];
 
-export const Sidebar: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { data: role } = useUserRole();
+// ─── Component ────────────────────────────────────────────────────────────────
 
-  const renderItem = (item: NavItem, index: number) => {
+export const Sidebar: React.FC = () => {
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const { data: role } = useUserRole();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    toast({ title: 'Logout realizado com sucesso' });
+    navigate('/auth');
+  };
+
+  const renderItem = (item: NavItem) => {
     if (item.roles && (!role || !item.roles.includes(role))) return null;
     const isActive = location.pathname === item.path;
 
     return (
-      <Tooltip key={item.path}>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => navigate(item.path)}
-            className={cn(
-              "group w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 transform active:scale-95 relative",
-              isActive
-                ? "bg-primary text-primary-foreground shadow-[0_0_20px_hsla(var(--primary),0.3)]"
-                : "text-sidebar-foreground hover:bg-sidebar-accent"
-            )}
-            aria-label={item.label}
-          >
-            <item.icon
-              className={cn(
-                "w-5 h-5 transition-all duration-300",
-                isActive
-                  ? "text-primary-foreground scale-110"
-                  : "group-hover:text-white group-hover:scale-110"
-              )}
-            />
-            {isActive && (
-              <div className="absolute -left-2 w-1 h-6 bg-primary rounded-full shadow-[0_0_10px_hsla(var(--primary),0.8)]" />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right" className="bg-sidebar-accent text-white border-sidebar-border font-medium text-[11px] px-3 py-1.5 shadow-xl">
-          {item.label}
-        </TooltipContent>
-      </Tooltip>
+      <button
+        key={item.path}
+        onClick={() => navigate(item.path)}
+        className={cn(
+          'group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 active:scale-[0.98] relative',
+          isActive
+            ? 'bg-primary/15 text-primary shadow-[inset_0_0_0_1px_hsla(var(--primary),0.3)]'
+            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+        )}
+        aria-label={item.label}
+      >
+        {/* Active indicator */}
+        {isActive && (
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-full shadow-[0_0_8px_hsla(var(--primary),0.8)]" />
+        )}
+        <item.icon
+          className={cn(
+            'w-4 h-4 shrink-0 transition-all duration-200',
+            isActive ? 'text-primary' : 'group-hover:text-sidebar-foreground'
+          )}
+        />
+        <span className="truncate leading-none">{item.label}</span>
+      </button>
     );
   };
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <nav className="bg-sidebar-background h-screen w-20 flex flex-col items-center py-6 sticky top-0 border-r border-sidebar-border shadow-2xl z-50 overflow-hidden">
-        {/* Logo */}
-        <div className="mb-6 flex flex-col items-center">
-          <div 
-            onClick={() => navigate('/')}
-            className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20 group transition-all duration-700 hover:rotate-[360deg] cursor-pointer"
-          >
-            <div className="w-5 h-5 bg-primary rounded-md shadow-[0_0_15px_hsla(var(--primary),0.5)] flex items-center justify-center">
-              <span className="text-[10px] font-black text-white italic">O</span>
+    <TooltipProvider delayDuration={100}>
+      <nav className="bg-sidebar-background h-screen w-64 flex flex-col shrink-0 sticky top-0 border-r border-sidebar-border shadow-2xl z-50 overflow-hidden">
+
+        {/* ── Logo / Brand ── */}
+        <div
+          onClick={() => navigate('/')}
+          className="flex items-center gap-3 px-5 py-5 cursor-pointer group border-b border-sidebar-border/40"
+        >
+          <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20 transition-all duration-700 group-hover:rotate-[360deg] shrink-0">
+            <div className="w-4 h-4 bg-primary rounded-md shadow-[0_0_12px_hsla(var(--primary),0.5)] flex items-center justify-center">
+              <span className="text-[9px] font-black text-white italic">O</span>
             </div>
           </div>
-        </div>
-        
-        {/* Main Navigation (Grouped) */}
-        <div className="flex flex-col items-center flex-1 w-full overflow-y-auto no-scrollbar scroll-smooth">
-          {/* Home — item destacado, sem categoria */}
-          <div className="flex flex-col items-center px-2 w-full mb-2">
-            {renderItem(homeItem, -1)}
+          <div className="min-w-0">
+            <p className="text-sm font-black text-sidebar-foreground tracking-tight leading-none">Orion System</p>
+            <p className="text-[10px] text-sidebar-foreground/40 mt-0.5 uppercase tracking-widest">Painel de Controle</p>
           </div>
+        </div>
 
-          <div className="w-8 h-px bg-sidebar-border/50 mb-3" />
-
-          {navGroups.map((group, groupIdx) => {
-            const hasVisibleItems = group.items.some(i => !i.roles || (role && i.roles.includes(role)));
-            if (!hasVisibleItems) return null;
+        {/* ── Scrollable Nav ── */}
+        <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar px-3 py-4 gap-6">
+          {navGroups.map((group) => {
+            const visibleItems = group.items.filter(
+              (i) => !i.roles || (role && i.roles.includes(role))
+            );
+            if (visibleItems.length === 0) return null;
 
             return (
-              <div key={group.name} className="flex flex-col items-center w-full">
-                {groupIdx > 0 && (
-                  <div className="w-8 h-px bg-sidebar-border/50 my-3" />
-                )}
-                <div className="flex flex-col items-center gap-3 px-2 w-full">
-                  {group.items.map(renderItem)}
-                </div>
+              <div key={group.name} className="flex flex-col gap-1">
+                {/* Group label */}
+                <p className="px-3 mb-1 text-[10px] font-black uppercase tracking-[0.12em] text-sidebar-foreground/30 select-none">
+                  {group.name}
+                </p>
+                {visibleItems.map(renderItem)}
               </div>
             );
           })}
         </div>
-        
-        {/* Bottom Navigation */}
-        <div className="flex flex-col items-center gap-4 mt-auto w-full px-2 pb-2 pt-6 border-t border-sidebar-border/30">
+
+        {/* ── Bottom: Notifications + Settings + Logout ── */}
+        <div className="border-t border-sidebar-border/40 px-3 py-3 flex flex-col gap-1">
           {bottomItems.map(renderItem)}
+
+          {/* Notifications inline button */}
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-all cursor-pointer">
+            <NotificationsPopover />
+            <span className="text-sm font-medium">Notificações</span>
+          </div>
+
+          {/* Logout */}
+          <button
+            onClick={handleSignOut}
+            className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive transition-all duration-200 active:scale-[0.98]"
+          >
+            <LogOut className="w-4 h-4 shrink-0 transition-colors group-hover:text-destructive" />
+            <span>Sair do Sistema</span>
+          </button>
         </div>
+
       </nav>
     </TooltipProvider>
   );
