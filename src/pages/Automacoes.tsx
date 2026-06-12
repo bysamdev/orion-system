@@ -6,6 +6,8 @@ import { GitBranch, History, Zap } from 'lucide-react';
 import { RulesTab } from '@/components/automation/RulesTab';
 import { HistoryTab } from '@/components/automation/HistoryTab';
 import { TemplatesTab } from '@/components/automation/TemplatesTab';
+import { SLATab } from '@/components/automation/SLATab';
+import { Clock } from 'lucide-react';
 
 const Automacoes: React.FC = () => {
   const { data: profile } = useUserProfile();
@@ -42,6 +44,9 @@ const Automacoes: React.FC = () => {
               <TabsTrigger value="history" className="gap-2 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <History className="w-4 h-4" /> Histórico
               </TabsTrigger>
+              <TabsTrigger value="sla" className="gap-2 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                <Clock className="w-4 h-4" /> SLA & Contratos
+              </TabsTrigger>
               <TabsTrigger value="templates" className="gap-2 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <Zap className="w-4 h-4" /> Templates
               </TabsTrigger>
@@ -49,6 +54,7 @@ const Automacoes: React.FC = () => {
 
             <TabsContent value="rules"><RulesTab companyId={companyId} /></TabsContent>
             <TabsContent value="history"><HistoryTab /></TabsContent>
+            <TabsContent value="sla"><SLATab companyId={companyId} /></TabsContent>
             <TabsContent value="templates"><TemplatesTab companyId={companyId} /></TabsContent>
           </Tabs>
         )}

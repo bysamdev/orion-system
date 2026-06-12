@@ -36,6 +36,8 @@ import { z } from 'zod';
 import { ticketPrioritySchema } from '@/lib/validation';
 import { useRealtimeTicket } from '@/hooks/useRealtimeTickets';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMachineDetail, useMachineAlerts, pct, useCreateCommand } from '@/hooks/useMonitoring';
+import { Server, HardDrive, Cpu, MemoryStick, Activity, Bell, Terminal } from 'lucide-react';
 
 const ticketUpdateSchema = z.object({
   content: z.string().trim().min(1, 'O comentário não pode estar vazio').max(5000, 'O comentário não pode ter mais de 5000 caracteres')
@@ -786,6 +788,11 @@ const TicketDetails: React.FC = () => {
                </div>
             </Card>
 
+            {/* Context Bridge (Ativo Relacionado) */}
+            {ticket.asset_id && (
+              <TicketAssetContext assetId={ticket.asset_id} />
+            )}
+
             {/* Acesso Remoto */}
             {canManageTickets && (ticket.remote_id || ticket.remote_password) && (
               <Card className="p-6 border-none shadow-sm bg-indigo-500/5 border border-indigo-500/20">
@@ -848,10 +855,158 @@ const RemoteField = ({ label, value, onCopy }: { label: string; value?: string; 
         <p className="text-[9px] font-bold text-muted-foreground uppercase leading-none mb-1">{label}</p>
         <p className="font-mono text-xs font-bold truncate">{value}</p>
       </div>
-      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-indigo-600" onClick={onCopy}>
-        <Copy className="w-3.5 h-3.5" />
+      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 hover:bg-background" onClick={onCopy}>
+        <Copy className="w-3 h-3 text-muted-foreground" />
       </Button>
     </div>
+  );
+};
+
+const TicketAssetContext = ({ assetId }: { assetId: string }) => {
+  const { data: detail, isLoading: detailLoading } = useMachineDetail(assetId);
+  const { data: alerts = [], isLoading: alertsLoading } = useMachineAlerts(assetId);
+  const createCommand = useCreateCommand();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const { data: userProfile } = useUserProfile();
+
+  const handleQuickAction = (commandStr: string, label: string) => {
+    createCommand.mutate({
+      machineId: assetId,
+      command: commandStr,
+      executed_by_user_id: user?.id,
+      executed_by_name: userProfile?.full_name || 'Agente'
+    }, {
+      onSuccess: () => {
+        toast({ title: 'Ação enviada', description: `O comando "${label}" foi enfileirado para execução.` });
+      },
+      onError: (err) => {
+        toast({ title: 'Erro', description: `Falha ao enviar ação. ${err.message}`, variant: 'destructive' });
+      }
+    });
+  };
+
+  if (detailLoading || alertsLoading) {
+    return (
+      <Card className="p-6 border-none shadow-sm bg-muted/20 animate-pulse">
+        <div className="h-4 w-32 bg-muted-foreground/20 rounded mb-4"></div>
+        <div className="h-10 w-full bg-muted-foreground/20 rounded"></div>
+      </Card>
+    );
+  }
+
+  if (!detail || !detail.machine) return null;
+
+  const m = detail.machine;
+  const cpu = pct(m.cpu_usage, 100);
+  const ram = pct(m.ram_used, m.ram_total);
+  const disk = pct(m.disk_used, m.disk_total);
+  const isOnline = m.status === 'online';
+
+  return (
+    <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Server className="w-4 h-4 text-primary" />
+          <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Ativo Relacionado</h3>
+        </div>
+        <div className={cn("w-2.5 h-2.5 rounded-full", isOnline ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-muted-foreground")} />
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Hostname</p>
+          <p className="text-sm font-bold text-foreground truncate">{m.hostname}</p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-muted/30 p-2 rounded-lg text-center">
+            <Cpu className="w-3 h-3 mx-auto mb-1 text-muted-foreground" />
+            <span className="text-xs font-bold">{cpu}%</span>
+          </div>
+          <div className="bg-muted/30 p-2 rounded-lg text-center">
+            <MemoryStick className="w-3 h-3 mx-auto mb-1 text-muted-foreground" />
+            <span className="text-xs font-bold">{ram}%</span>
+          </div>
+          <div className="bg-muted/30 p-2 rounded-lg text-center">
+            <HardDrive className="w-3 h-3 mx-auto mb-1 text-muted-foreground" />
+            <span className="text-xs font-bold">{disk}%</span>
+          </div>
+        </div>
+
+        {alerts.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-border/40">
+            <div className="flex items-center gap-2 mb-3 text-amber-500">
+              <Bell className="w-3 h-3" />
+              <span className="text-[10px] font-bold uppercase tracking-widest">Alertas Recentes</span>
+            </div>
+            <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1">
+              {alerts.slice(0, 3).map(alert => (
+                <div key={alert.id} className="text-xs p-2 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-lg">
+                  {alert.message}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 pt-4 border-t border-border/40">
+          <div className="flex items-center gap-2 mb-3 text-primary">
+            <Terminal className="w-3 h-3" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Ações Rápidas</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
+              onClick={() => handleQuickAction('ping 8.8.8.8', 'Ping 8.8.8.8')}
+              disabled={createCommand.isPending}
+            >
+              Ping Test
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
+              onClick={() => handleQuickAction('ipconfig /flushdns', 'Flush DNS')}
+              disabled={createCommand.isPending}
+            >
+              Flush DNS
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
+              onClick={() => handleQuickAction('net stop spooler & net start spooler', 'Reiniciar Spooler')}
+              disabled={createCommand.isPending}
+            >
+              Reset Spooler
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
+              onClick={() => handleQuickAction('del /q /f /s %temp%\\*', 'Limpar Temp')}
+              disabled={createCommand.isPending}
+            >
+              Clean Temp
+            </Button>
+          </div>
+        </div>
+
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full text-xs h-8 mt-2"
+          onClick={() => navigate('/sistemas')}
+        >
+          <Activity className="w-3 h-3 mr-2" />
+          Ver no RMM
+        </Button>
+      </div>
+    </Card>
   );
 };
 

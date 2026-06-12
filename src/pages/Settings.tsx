@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { User, Bell, Shield, Loader2, Building2, FolderOpen } from "lucide-react";
+import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2 } from "lucide-react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { useUserProfile } from "@/hooks/useUserRole";
@@ -35,6 +35,17 @@ export default function Settings() {
   // Estados para notificações
   const [emailNotifications, setEmailNotifications] = useState(profile?.email_notifications ?? true);
   const [pushNotifications, setPushNotifications] = useState(profile?.push_notifications ?? true);
+
+  // Estados para integração
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL || 'https://[YOUR_SUPABASE_REF].supabase.co'}/functions/v1/email-to-ticket`;
+
+  const handleCopyWebhook = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopiedWebhook(true);
+    toast({ title: 'Copiado', description: 'URL do Webhook copiada para a área de transferência' });
+    setTimeout(() => setCopiedWebhook(false), 2000);
+  };
 
   // Fetch user's company only (not all companies for security)
   const { data: userCompany } = useQuery({
@@ -176,7 +187,7 @@ export default function Settings() {
           <p className="text-muted-foreground mb-8">Gerencie suas preferências e configurações da conta</p>
           
           <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+            <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Perfil
@@ -188,6 +199,10 @@ export default function Settings() {
               <TabsTrigger value="notifications" className="flex items-center gap-2">
                 <Bell className="w-4 h-4" />
                 Notificações
+              </TabsTrigger>
+              <TabsTrigger value="integrations" className="flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                Integrações
               </TabsTrigger>
             </TabsList>
 
@@ -378,6 +393,37 @@ export default function Settings() {
                         updateProfileMutation.mutate();
                       }}
                     />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Aba Integrações */}
+            <TabsContent value="integrations">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="w-5 h-5" />
+                    Integração E-mail-to-Ticket
+                  </CardTitle>
+                  <CardDescription>Configure o recebimento de chamados via e-mail</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label>URL do Webhook (Supabase Edge Function)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input 
+                        readOnly 
+                        value={webhookUrl}
+                        className="bg-muted/50 font-mono text-sm"
+                      />
+                      <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
+                        {copiedWebhook ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Configure seu provedor de e-mail (ex: SendGrid Inbound Parse ou Postmark) para enviar requisições POST para esta URL quando um e-mail for recebido no seu endereço de suporte.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
