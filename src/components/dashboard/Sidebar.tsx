@@ -11,10 +11,10 @@ import {
   BarChart2,
   Layers,
   Cpu,
-  Settings,
   Shield,
   LogOut,
   Bell,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -60,8 +60,7 @@ const navGroups: NavGroup[] = [
   {
     name: 'Infraestrutura',
     items: [
-      { icon: Monitor,       label: 'Monitoramento',    path: '/monitoring', roles: ['admin', 'developer', 'technician'] },
-      { icon: AlertTriangle, label: 'Central de Alertas', path: '/alertas',  roles: ['admin', 'developer', 'technician'] },
+      { icon: Activity,      label: 'Sistemas e Alertas', path: '/sistemas', roles: ['admin', 'developer', 'technician'] },
       { icon: Layers,        label: 'Patches & Updates', path: '/patches',   roles: ['admin', 'developer'] },
       { icon: Cpu,           label: 'Ativos (CMDB)',    path: '/assets',     roles: ['admin', 'technician', 'developer'] },
     ],

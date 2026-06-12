@@ -25,8 +25,12 @@ import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+export interface AlertsDashboardProps {
+  onAlertClick?: (machineId: string) => void;
+}
+
 // ── Alert Card ──────────────────────────────────────────────
-function AlertCard({ alert }: { alert: CriticalAlertItem }) {
+function AlertCard({ alert, onClick }: { alert: CriticalAlertItem; onClick?: () => void }) {
   const iconMap = {
     offline: WifiOff,
     disk: HardDrive,
@@ -44,10 +48,14 @@ function AlertCard({ alert }: { alert: CriticalAlertItem }) {
   const colors = colorMap[alert.alert_type] || colorMap.alert;
 
   return (
-    <Card className={cn(
-      'border overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg group',
-      colors.bg, colors.border
-    )}>
+    <Card 
+      onClick={onClick}
+      className={cn(
+        'border overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg group',
+        onClick && 'cursor-pointer',
+        colors.bg, colors.border
+      )}
+    >
       <CardContent className="p-5">
         <div className="flex items-start gap-4">
           <div className={cn(
@@ -109,6 +117,7 @@ function AlertSection({
   icon: React.ElementType;
   colorClass: string;
   alerts: CriticalAlertItem[];
+  onAlertClick?: (machineId: string) => void;
 }) {
   if (alerts.length === 0) return null;
   return (
@@ -126,7 +135,11 @@ function AlertSection({
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {alerts.map((a, i) => (
-          <AlertCard key={`${a.machine_id}-${a.alert_type}-${i}`} alert={a} />
+          <AlertCard 
+            key={`${a.machine_id}-${a.alert_type}-${i}`} 
+            alert={a} 
+            onClick={() => onAlertClick?.(a.machine_id)} 
+          />
         ))}
       </div>
     </section>
@@ -134,7 +147,7 @@ function AlertSection({
 }
 
 // ── Main Page ───────────────────────────────────────────────
-const AlertsDashboard: React.FC = () => {
+const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: alerts = [], isLoading } = useCriticalAlerts();
   const { data: dashboard } = useMonitoringDashboard();
@@ -181,8 +194,8 @@ const AlertsDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="p-8 lg:p-12 max-w-[1600px] mx-auto w-full">
+    <div className="w-full h-full bg-background">
+      <main className="p-6 max-w-[1600px] mx-auto w-full">
 
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
@@ -257,24 +270,28 @@ const AlertsDashboard: React.FC = () => {
                 icon={WifiOff}
                 colorClass="bg-red-600"
                 alerts={grouped.offline}
+                onAlertClick={onAlertClick}
               />
               <AlertSection
                 title="Disco Crítico (>90%)"
                 icon={HardDrive}
                 colorClass="bg-orange-600"
                 alerts={grouped.disk}
+                onAlertClick={onAlertClick}
               />
               <AlertSection
                 title="CPU Sob Pressão (>85%)"
                 icon={Cpu}
                 colorClass="bg-amber-600"
                 alerts={grouped.cpu}
+                onAlertClick={onAlertClick}
               />
               <AlertSection
                 title="Alertas do Sistema"
                 icon={ShieldAlert}
                 colorClass="bg-rose-600"
                 alerts={grouped.alert}
+                onAlertClick={onAlertClick}
               />
             </div>
           </ScrollArea>
@@ -284,9 +301,9 @@ const AlertsDashboard: React.FC = () => {
   );
 };
 
-const AlertsDashboardWrapper: React.FC = () => (
+const AlertsDashboardWrapper: React.FC<AlertsDashboardProps> = (props) => (
   <ErrorBoundary>
-    <AlertsDashboard />
+    <AlertsDashboard {...props} />
   </ErrorBoundary>
 );
 
