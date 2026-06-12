@@ -49,20 +49,20 @@ export interface Company {
 
 // ── Constants (shared with UI components) ────────────────────
 export const CONDITION_FIELDS = [
-  { value: 'category',   label: 'Categoria' },
-  { value: 'priority',   label: 'Prioridade' },
-  { value: 'title',      label: 'Assunto (contém)' },
+  { value: 'category', label: 'Categoria' },
+  { value: 'priority', label: 'Prioridade' },
+  { value: 'title', label: 'Assunto (contém)' },
   { value: 'company_id', label: 'Empresa' },
-  { value: 'is_vip',     label: '👑 Cliente VIP' },
+  { value: 'is_vip', label: '👑 Cliente VIP' },
 ];
 
 export const ACTION_TYPES = [
-  { value: 'assign_tech',       label: 'Atribuir a Agente' },
-  { value: 'round_robin',       label: 'Round-Robin (Fila)' },
-  { value: 'escalate_manager',  label: 'Escalar para Gestor' },
-  { value: 'set_priority',      label: 'Definir Prioridade' },
-  { value: 'auto_response',     label: 'Resposta Automática' },
-  { value: 'notify_all',        label: 'Notificar Todos os Técnicos' },
+  { value: 'assign_tech', label: 'Atribuir a Agente' },
+  { value: 'round_robin', label: 'Round-Robin (Fila)' },
+  { value: 'escalate_manager', label: 'Escalar para Gestor' },
+  { value: 'set_priority', label: 'Definir Prioridade' },
+  { value: 'auto_response', label: 'Resposta Automática' },
+  { value: 'notify_all', label: 'Notificar Todos os Técnicos' },
 ];
 
 // ── Hooks ─────────────────────────────────────────────────────

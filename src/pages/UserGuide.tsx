@@ -1,5 +1,4 @@
 import React from 'react';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -38,7 +37,6 @@ const UserGuide = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <TopBar />
       
       <main className="flex-1 p-6 lg:p-12 max-w-5xl mx-auto w-full space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex items-center justify-between">

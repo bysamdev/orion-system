@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Search, Book, ChevronRight, Hash, Clock, Tag, ArrowRight, Sparkles } from 'lucide-react';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -54,7 +53,6 @@ export default function KnowledgeBase() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <TopBar />
       
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Hero Section */}

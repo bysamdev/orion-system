@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -356,7 +355,6 @@ const TicketDetails: React.FC = () => {
     return (
       <div className="min-h-screen bg-background">
         <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full text-center">
-          <TopBar />
           <p className="text-muted-foreground mt-20 mb-4">Chamado não encontrado.</p>
           <Button onClick={() => navigate('/')}><ArrowLeft className="w-4 h-4 mr-2" />Voltar ao Dashboard</Button>
         </main>
@@ -366,7 +364,6 @@ const TicketDetails: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background selection:bg-primary/10">
-      <TopBar />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

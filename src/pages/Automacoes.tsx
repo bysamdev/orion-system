@@ -1,6 +1,5 @@
 import React from 'react';
 import { useUserProfile } from '@/hooks/useUserRole';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { GitBranch, History, Zap } from 'lucide-react';
@@ -15,7 +14,6 @@ const Automacoes: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-        <TopBar />
 
         <div className="flex items-center gap-4 mb-8">
           <div className="p-3 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
