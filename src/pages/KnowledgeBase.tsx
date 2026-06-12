@@ -1,21 +1,31 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, Book, ChevronRight, Hash, Clock, Tag, ArrowRight, Sparkles } from 'lucide-react';
+import { Search, Book, ChevronRight, Hash, Clock, ArrowRight, Sparkles, Plus, Edit2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useUserRole } from '@/hooks/useUserRole';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/components/ui/use-toast';
 
 interface Article {
   id: string;
   title: string;
   slug: string;
   content: string;
+  category_id: string | null;
   category: string;
+  status: string;
+  is_public: boolean;
   tags: string[] | null;
   created_at: string;
 }
@@ -23,16 +33,28 @@ interface Article {
 export default function KnowledgeBase() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const { data: role } = useUserRole();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const isGestor = role === 'admin' || role === 'developer';
+
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingArticle, setEditingArticle] = useState<Partial<Article> | null>(null);
 
   const { data: articles, isLoading } = useQuery({
-    queryKey: ['knowledge-articles'],
+    queryKey: ['knowledge-articles', isGestor],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('knowledge_base_articles')
         .select('*, categories(name)')
-        .eq('status', 'published')
-        .eq('is_public', true)
         .order('created_at', { ascending: false });
+      
+      if (!isGestor) {
+        query = query.eq('status', 'published').eq('is_public', true);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       return (data || []).map((a: any) => ({
@@ -42,7 +64,89 @@ export default function KnowledgeBase() {
     }
   });
 
-  const categories = Array.from(new Set(articles?.map(a => a.category) || []));
+  const { data: dbCategories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('categories').select('id, name').order('name');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: isGestor
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (article: Partial<Article>) => {
+      const isUpdate = !!article.id;
+      
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error('Usuário não autenticado');
+
+      const { data: companyData } = await supabase.rpc('get_user_company_id', { user_id: userData.user.id });
+      if (!companyData) throw new Error('Empresa não encontrada');
+
+      const payload = {
+        title: article.title,
+        content: article.content,
+        category_id: article.category_id,
+        status: article.status,
+        is_public: article.is_public ?? true,
+        company_id: companyData,
+        ...(isUpdate ? { updated_by: userData.user.id } : { created_by: userData.user.id })
+      };
+
+      if (isUpdate) {
+        const { error } = await supabase.from('knowledge_base_articles').update(payload).eq('id', article.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('knowledge_base_articles').insert([payload]);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledge-articles'] });
+      setIsEditorOpen(false);
+      setEditingArticle(null);
+      toast({ title: 'Sucesso', description: 'Artigo salvo com sucesso.' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('knowledge_base_articles').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledge-articles'] });
+      toast({ title: 'Sucesso', description: 'Artigo excluído com sucesso.' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const handleSave = () => {
+    if (!editingArticle?.title || !editingArticle?.content || !editingArticle?.category_id) {
+      toast({ title: 'Atenção', description: 'Preencha título, categoria e conteúdo.', variant: 'destructive' });
+      return;
+    }
+    saveMutation.mutate(editingArticle);
+  };
+
+  const handleEdit = (article: Article) => {
+    setEditingArticle(article);
+    setIsEditorOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este artigo?')) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const uniqueCategories = Array.from(new Set(articles?.map(a => a.category) || []));
 
   const filteredArticles = articles?.filter(a => {
     const matchesSearch = a.title.toLowerCase().includes(search.toLowerCase()) || 
@@ -53,7 +157,6 @@ export default function KnowledgeBase() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Hero Section */}
         <div className="relative overflow-hidden bg-primary/5 border-b border-border/50 py-20 px-8">
@@ -86,7 +189,7 @@ export default function KnowledgeBase() {
               />
             </div>
 
-            <div className="flex flex-wrap justify-center gap-3">
+            <div className="flex flex-wrap justify-center items-center gap-3">
               <Button 
                 variant={selectedCategory === null ? "default" : "outline"}
                 size="sm"
@@ -98,7 +201,7 @@ export default function KnowledgeBase() {
               >
                 Todos
               </Button>
-              {categories.map(cat => (
+              {uniqueCategories.map(cat => (
                 <Button 
                   key={cat}
                   variant={selectedCategory === cat ? "default" : "outline"}
@@ -112,6 +215,20 @@ export default function KnowledgeBase() {
                   {cat}
                 </Button>
               ))}
+
+              {isGestor && (
+                <div className="pl-4 ml-4 border-l border-border/40">
+                  <Button 
+                    onClick={() => {
+                      setEditingArticle({ status: 'draft', is_public: true });
+                      setIsEditorOpen(true);
+                    }}
+                    className="rounded-full px-6 h-10 font-bold text-xs uppercase tracking-widest gap-2"
+                  >
+                    <Plus className="w-4 h-4" /> Novo Artigo
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -137,12 +254,15 @@ export default function KnowledgeBase() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredArticles?.map(article => (
                   <Card key={article.id} className="group p-0 border-border/40 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 cursor-pointer rounded-[32px] bg-card/50 backdrop-blur-md relative overflow-hidden flex flex-col h-full">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 transition-transform duration-700 group-hover:scale-[3] opacity-50" />
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 transition-transform duration-700 group-hover:scale-[3] opacity-50 pointer-events-none" />
                     
                     <CardContent className="p-8 relative flex-1 flex flex-col gap-6">
                       <div className="flex items-center justify-between">
-                        <Badge variant="outline" className="px-3 py-1 bg-primary/5 text-primary border-primary/20 text-[9px] font-black uppercase tracking-widest rounded-lg">
-                          {article.category}
+                        <Badge variant="outline" className={cn(
+                          "px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg",
+                          article.status === 'draft' ? "bg-secondary/5 text-secondary border-secondary/20" : "bg-primary/5 text-primary border-primary/20"
+                        )}>
+                          {article.status === 'draft' ? 'Rascunho' : article.category}
                         </Badge>
                         <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground/60">
                           <Clock className="w-3.5 h-3.5" />
@@ -168,8 +288,20 @@ export default function KnowledgeBase() {
                         ))}
                       </div>
 
-                      <div className="flex items-center gap-2 text-primary font-black text-xs uppercase tracking-widest group-hover:translate-x-2 transition-transform duration-500">
-                        Ler artigo <ArrowRight className="w-4 h-4" />
+                      <div className="flex items-center justify-between mt-auto">
+                        <div className="flex items-center gap-2 text-primary font-black text-xs uppercase tracking-widest group-hover:translate-x-2 transition-transform duration-500">
+                          Ler artigo <ArrowRight className="w-4 h-4" />
+                        </div>
+                        {isGestor && (
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(article)} className="h-8 w-8 text-muted-foreground hover:text-primary">
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(article.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -178,6 +310,86 @@ export default function KnowledgeBase() {
             )}
           </div>
         </div>
+
+        {/* Editor Dialog */}
+        <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+          <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>{editingArticle?.id ? 'Editar Artigo' : 'Novo Artigo'}</DialogTitle>
+            </DialogHeader>
+            
+            <div className="flex-1 overflow-y-auto pr-4 space-y-6 py-4">
+              <div className="space-y-2">
+                <Label>Título</Label>
+                <Input 
+                  value={editingArticle?.title || ''} 
+                  onChange={(e) => setEditingArticle(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Ex: Como configurar o proxy"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Categoria</Label>
+                  <Select 
+                    value={editingArticle?.category_id || ''} 
+                    onValueChange={(val) => setEditingArticle(prev => ({ ...prev, category_id: val }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {dbCategories?.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select 
+                    value={editingArticle?.status || 'draft'} 
+                    onValueChange={(val) => setEditingArticle(prev => ({ ...prev, status: val }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Rascunho</SelectItem>
+                      <SelectItem value="published">Publicado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  checked={editingArticle?.is_public ?? true}
+                  onCheckedChange={(checked) => setEditingArticle(prev => ({ ...prev, is_public: checked }))}
+                />
+                <Label>Artigo Público (Visível para Clientes)</Label>
+              </div>
+
+              <div className="space-y-2 flex-1 flex flex-col h-[400px]">
+                <Label>Conteúdo (Markdown suportado)</Label>
+                <Textarea 
+                  className="flex-1 resize-none font-mono text-sm" 
+                  value={editingArticle?.content || ''}
+                  onChange={(e) => setEditingArticle(prev => ({ ...prev, content: e.target.value }))}
+                  placeholder="# Título Principal&#10;&#10;Seu texto aqui..."
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setIsEditorOpen(false)}>Cancelar</Button>
+              <Button onClick={handleSave} disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? 'Salvando...' : 'Salvar Artigo'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

@@ -11,8 +11,6 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
 import { Loader2, Settings2, Users, Building, FileText, MessageSquare, ListChecks, GitBranch, Book } from 'lucide-react';
 import { SLAConfiguration } from '@/components/admin/SLAConfiguration';
-import { KnowledgeBaseManagement } from '@/components/admin/KnowledgeBaseManagement';
-
 export default function Admin() {
   const { data: role, isLoading } = useUserRole();
 
@@ -57,7 +55,6 @@ export default function Admin() {
               )}
               {/* Aba disponível para todos (admin, technician, developer) */}
               <TabsTrigger value="responses" className="gap-2"><MessageSquare className="w-4 h-4" /> Respostas Prontas</TabsTrigger>
-              <TabsTrigger value="kb" className="gap-2"><Book className="w-4 h-4" /> Base de Conhecimento</TabsTrigger>
               {!isTechnician && (
                 <>
                   <TabsTrigger value="routing" className="gap-2"><GitBranch className="w-4 h-4" /> Roteamento</TabsTrigger>
@@ -88,10 +85,6 @@ export default function Admin() {
             
             <TabsContent value="responses" className="mt-6">
               <CannedResponsesManagement />
-            </TabsContent>
-
-            <TabsContent value="kb" className="mt-6">
-              <KnowledgeBaseManagement />
             </TabsContent>
 
             {!isTechnician && (
