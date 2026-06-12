@@ -15,6 +15,7 @@ import {
   LogOut,
   Bell,
   Activity,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -44,7 +45,6 @@ const navGroups: NavGroup[] = [
   {
     name: 'Service Desk',
     items: [
-      { icon: Home,     label: 'Início',              path: '/' },
       { icon: Ticket,   label: 'Novo Ticket',         path: '/novo-ticket' },
       { icon: History,  label: 'Histórico',           path: '/historico' },
       { icon: BookOpen, label: 'Base de Conhecimento',path: '/knowledge' },
@@ -146,6 +146,11 @@ export const Sidebar: React.FC = () => {
 
         {/* ── Scrollable Nav ── */}
         <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar px-3 py-4 gap-6">
+          {/* Top Isolated Item */}
+          <div className="flex flex-col gap-1">
+            {renderItem({ icon: Home, label: 'Início', path: '/' })}
+          </div>
+
           {navGroups.map((group) => {
             const visibleItems = group.items.filter(
               (i) => !i.roles || (role && i.roles.includes(role))
