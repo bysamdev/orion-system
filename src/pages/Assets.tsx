@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -212,7 +211,6 @@ const Assets = () => {
   if (roleLoading || assetsLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <TopBar />
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" />
         </div>
@@ -227,7 +225,6 @@ const Assets = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <TopBar />
       
       <main className="flex-1 p-8 lg:p-12 max-w-[1400px] mx-auto w-full space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">

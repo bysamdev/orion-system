@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -70,7 +69,6 @@ const PatchManagement: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-        <TopBar />
 
         {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-8">
