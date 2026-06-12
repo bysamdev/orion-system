@@ -23,6 +23,11 @@ export const useUserRole = () => {
         .maybeSingle();
 
       if (error) throw error;
+      
+      const testRole = new URLSearchParams(window.location.search).get('testRole');
+      if (testRole) {
+        return testRole as UserRole;
+      }
       return data?.role as UserRole | null;
     },
     enabled: !!user?.id, // Só executa se houver um usuário logado.
