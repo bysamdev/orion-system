@@ -10,8 +10,9 @@ export const useRealtimeTickets = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    const channelName = `tickets-realtime-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const channel = supabase
-      .channel('tickets-realtime')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -52,8 +53,9 @@ export const useRealtimeTicket = (ticketId: string) => {
   useEffect(() => {
     if (!ticketId) return;
 
+    const channelName = `ticket-${ticketId}-realtime-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const channel = supabase
-      .channel(`ticket-${ticketId}-realtime`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
