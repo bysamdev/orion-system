@@ -1,6 +1,5 @@
 import React from 'react';
 import { DashboardHeader } from './DashboardHeader';
-import { TopBar } from './TopBar';
 import { QuickAccessCard } from './QuickAccessCard';
 import { CustomerTicketsTable } from './CustomerTicketsTable';
 import { TechnicianDashboard } from './TechnicianDashboard';
@@ -34,25 +33,22 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-        <TopBar />
-        <DashboardHeader userName={userName} />
-        
-        {hasManagementAccess ? (
-          // Técnico e Admin: Cockpit Operacional com lista de chamados
-          <TechnicianDashboard />
-        ) : (
-          // Acesso negado para outros roles
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center space-y-2">
-              <p className="text-lg font-semibold text-foreground">Acesso Restrito</p>
-              <p className="text-sm text-muted-foreground">Você não tem permissão para acessar o painel de gerenciamento.</p>
-            </div>
+    <>
+      <DashboardHeader userName={userName} />
+      
+      {hasManagementAccess ? (
+        // Técnico e Admin: Cockpit Operacional com lista de chamados
+        <TechnicianDashboard />
+      ) : (
+        // Acesso negado para outros roles
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-2">
+            <p className="text-lg font-semibold text-foreground">Acesso Restrito</p>
+            <p className="text-sm text-muted-foreground">Você não tem permissão para acessar o painel de gerenciamento.</p>
           </div>
-        )}
-      </main>
-    </div>
+        </div>
+      )}
+    </>
   );
 };
 

@@ -1,5 +1,4 @@
 import React from 'react';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserManagement } from '@/components/admin/UserManagement';
@@ -36,7 +35,6 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-background">
       <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-        <TopBar />
         
         <div className="mt-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Administração</h1>

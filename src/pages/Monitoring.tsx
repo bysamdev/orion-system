@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -347,7 +346,6 @@ const Monitoring: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       <main className="p-8 lg:p-12 max-w-[1600px] mx-auto w-full">
-        <TopBar />
 
         {/* ── Page Header ── */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">

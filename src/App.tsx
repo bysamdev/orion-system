@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import { lazy, Suspense } from 'react';
 
 const Index = lazy(() => import("./pages/Index"));
@@ -32,6 +33,13 @@ const PatchManagement = lazy(() => import("./pages/PatchManagement"));
 
 const queryClient = new QueryClient();
 
+/** Wrapper: ProtectedRoute + DashboardLayout compartilhado */
+const AppRoute = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <DashboardLayout>{children}</DashboardLayout>
+  </ProtectedRoute>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -48,27 +56,31 @@ const App = () => (
             </div>
           }>
             <Routes>
+              {/* ── Rotas públicas (sem layout) ── */}
               <Route path="/auth" element={<Auth />} />
               <Route path="/definir-senha" element={<SetPassword />} />
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/novo-ticket" element={<ProtectedRoute><NewTicket /></ProtectedRoute>} />
-              <Route path="/ajustes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-              <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-              <Route path="/monitoring" element={<ProtectedRoute><Monitoring /></ProtectedRoute>} />
-              <Route path="/ticket/:id" element={<ProtectedRoute><TicketDetails /></ProtectedRoute>} />
-              <Route path="/historico" element={<ProtectedRoute><TicketHistory /></ProtectedRoute>} />
-              <Route path="/knowledge" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
-              <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
-              <Route path="/portal" element={<ProtectedRoute><ClientPortal /></ProtectedRoute>} />
-              <Route path="/debug-tools" element={<ProtectedRoute><DebugTools /></ProtectedRoute>} />
               <Route path="/avaliacao/:id" element={<Avaliacao />} />
-              <Route path="/documentacao" element={<ProtectedRoute><Documentation /></ProtectedRoute>} />
-              <Route path="/tutorial" element={<ProtectedRoute><UserGuide /></ProtectedRoute>} />
-              <Route path="/alertas" element={<ProtectedRoute><AlertsDashboard /></ProtectedRoute>} />
-              <Route path="/automacoes" element={<ProtectedRoute><Automacoes /></ProtectedRoute>} />
-              <Route path="/patches" element={<ProtectedRoute><PatchManagement /></ProtectedRoute>} />
+
+              {/* ── Rotas autenticadas (com Sidebar + TopBar via DashboardLayout) ── */}
+              <Route path="/" element={<AppRoute><Index /></AppRoute>} />
+              <Route path="/novo-ticket" element={<AppRoute><NewTicket /></AppRoute>} />
+              <Route path="/ajustes" element={<AppRoute><Settings /></AppRoute>} />
+              <Route path="/admin" element={<AppRoute><Admin /></AppRoute>} />
+              <Route path="/relatorios" element={<AppRoute><Reports /></AppRoute>} />
+              <Route path="/monitoring" element={<AppRoute><Monitoring /></AppRoute>} />
+              <Route path="/ticket/:id" element={<AppRoute><TicketDetails /></AppRoute>} />
+              <Route path="/historico" element={<AppRoute><TicketHistory /></AppRoute>} />
+              <Route path="/knowledge" element={<AppRoute><KnowledgeBase /></AppRoute>} />
+              <Route path="/assets" element={<AppRoute><Assets /></AppRoute>} />
+              <Route path="/portal" element={<AppRoute><ClientPortal /></AppRoute>} />
+              <Route path="/debug-tools" element={<AppRoute><DebugTools /></AppRoute>} />
+              <Route path="/documentacao" element={<AppRoute><Documentation /></AppRoute>} />
+              <Route path="/tutorial" element={<AppRoute><UserGuide /></AppRoute>} />
+              <Route path="/alertas" element={<AppRoute><AlertsDashboard /></AppRoute>} />
+              <Route path="/automacoes" element={<AppRoute><Automacoes /></AppRoute>} />
+              <Route path="/patches" element={<AppRoute><PatchManagement /></AppRoute>} />
               <Route path="/manual" element={<Navigate to="/tutorial" replace />} />
+
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

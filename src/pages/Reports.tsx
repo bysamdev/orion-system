@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseRead } from '@/integrations/supabase/read-client';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -256,7 +255,6 @@ const Reports: React.FC = () => {
     return (
       <div className="min-h-screen bg-background">
         <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-          <TopBar />
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center space-y-2">
               <p className="text-lg font-semibold text-foreground">Acesso Restrito</p>
@@ -271,7 +269,6 @@ const Reports: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-        <TopBar />
         
         <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
           <div>

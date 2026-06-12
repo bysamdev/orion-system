@@ -30,12 +30,13 @@ interface NavGroup {
   items: NavItem[];
 }
 
+const homeItem: NavItem = { icon: Home, label: 'Início', path: '/' };
+
 const navGroups: NavGroup[] = [
   {
     name: 'Service Desk',
     items: [
-      { icon: Home, label: 'Início', path: '/' },
-      { icon: Ticket, label: 'Tickets Abertos', path: '/novo-ticket' }, // Redireciona pro form mas atua como desk
+      { icon: Ticket, label: 'Tickets Abertos', path: '/novo-ticket' },
       { icon: History, label: 'Histórico', path: '/historico' },
       { icon: BookOpen, label: 'Base de Conhecimento', path: '/knowledge' },
     ]
@@ -78,18 +79,20 @@ export const Sidebar: React.FC = () => {
           <button
             onClick={() => navigate(item.path)}
             className={cn(
-              "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 transform active:scale-95 group relative",
+              "group w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 transform active:scale-95 relative",
               isActive
-                ? "bg-primary text-primary-foreground shadow-[0_0_20px_hsla(var(--primary),0.3)]" 
-                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-white"
+                ? "bg-primary text-primary-foreground shadow-[0_0_20px_hsla(var(--primary),0.3)]"
+                : "text-sidebar-foreground hover:bg-sidebar-accent"
             )}
             aria-label={item.label}
           >
-            <item.icon 
+            <item.icon
               className={cn(
                 "w-5 h-5 transition-all duration-300",
-                isActive ? "scale-110" : "group-hover:scale-110"
-              )} 
+                isActive
+                  ? "text-primary-foreground scale-110"
+                  : "group-hover:text-white group-hover:scale-110"
+              )}
             />
             {isActive && (
               <div className="absolute -left-2 w-1 h-6 bg-primary rounded-full shadow-[0_0_10px_hsla(var(--primary),0.8)]" />
@@ -120,6 +123,13 @@ export const Sidebar: React.FC = () => {
         
         {/* Main Navigation (Grouped) */}
         <div className="flex flex-col items-center flex-1 w-full overflow-y-auto no-scrollbar scroll-smooth">
+          {/* Home — item destacado, sem categoria */}
+          <div className="flex flex-col items-center px-2 w-full mb-2">
+            {renderItem(homeItem, -1)}
+          </div>
+
+          <div className="w-8 h-px bg-sidebar-border/50 mb-3" />
+
           {navGroups.map((group, groupIdx) => {
             const hasVisibleItems = group.items.some(i => !i.roles || (role && i.roles.includes(role)));
             if (!hasVisibleItems) return null;

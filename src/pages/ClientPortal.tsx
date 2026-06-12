@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -47,7 +46,6 @@ const ClientPortal = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <TopBar />
       
       <main className="flex-1 p-8 lg:p-12 max-w-[1200px] mx-auto w-full space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
         

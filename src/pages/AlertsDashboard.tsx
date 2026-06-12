@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -184,7 +183,6 @@ const AlertsDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       <main className="p-8 lg:p-12 max-w-[1600px] mx-auto w-full">
-        <TopBar />
 
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">

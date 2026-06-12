@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { TopBar } from '@/components/dashboard/TopBar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -125,7 +124,6 @@ export default function TicketHistory() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <main className="p-4 md:p-8 lg:p-12 max-w-[1400px] mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <TopBar />
         
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
