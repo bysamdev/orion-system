@@ -105,7 +105,7 @@ export const Sidebar: React.FC = () => {
           'group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 active:scale-[0.98] relative',
           isActive
             ? 'bg-primary/15 text-primary shadow-[inset_0_0_0_1px_hsla(var(--primary),0.3)]'
-            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+            : 'text-sidebar-foreground/80 hover:bg-primary/10 hover:text-primary'
         )}
         aria-label={item.label}
       >
@@ -116,7 +116,7 @@ export const Sidebar: React.FC = () => {
         <item.icon
           className={cn(
             'w-4 h-4 shrink-0 transition-all duration-200',
-            isActive ? 'text-primary' : 'group-hover:text-sidebar-foreground'
+            isActive ? 'text-primary' : 'group-hover:text-primary'
           )}
         />
         <span className="truncate leading-none">{item.label}</span>
@@ -145,7 +145,7 @@ export const Sidebar: React.FC = () => {
         </div>
 
         {/* ── Scrollable Nav ── */}
-        <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar px-3 py-4 gap-6">
+        <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar px-3 py-4 gap-5">
           {/* Top Isolated Item */}
           <div className="flex flex-col gap-1">
             {renderItem({ icon: Home, label: 'Início', path: '/' })}
@@ -160,7 +160,7 @@ export const Sidebar: React.FC = () => {
             return (
               <div key={group.name} className="flex flex-col gap-1">
                 {/* Group label */}
-                <p className="px-3 mb-1 text-[10px] font-black uppercase tracking-[0.12em] text-sidebar-foreground/30 select-none">
+                <p className="px-3 mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-sidebar-foreground/50 select-none">
                   {group.name}
                 </p>
                 {visibleItems.map(renderItem)}
@@ -174,7 +174,7 @@ export const Sidebar: React.FC = () => {
           {bottomItems.map(renderItem)}
 
           {/* Notifications inline button */}
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-all cursor-pointer">
+          <div className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/80 hover:bg-primary/10 hover:text-primary transition-all cursor-pointer">
             <NotificationsPopover />
             <span className="text-sm font-medium">Notificações</span>
           </div>
@@ -182,7 +182,7 @@ export const Sidebar: React.FC = () => {
           {/* Logout */}
           <button
             onClick={handleSignOut}
-            className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive transition-all duration-200 active:scale-[0.98]"
+            className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/80 hover:bg-destructive/10 hover:text-destructive transition-all duration-200 active:scale-[0.98]"
           >
             <LogOut className="w-4 h-4 shrink-0 transition-colors group-hover:text-destructive" />
             <span>Sair do Sistema</span>
