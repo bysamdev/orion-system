@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Loader2, Trash2, Pencil, FileText, AlertTriangle } from 'lucide-react';
 import { useContracts, useCreateContract, useUpdateContract, useDeleteContract } from '@/hooks/useContracts';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 
 interface ContractForm {
   company_id: string;
@@ -162,11 +162,11 @@ export const ContractManagement = () => {
                     {companyMap.get(contract.company_id) || '—'}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {new Date(contract.start_date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                    {formatDate(contract.start_date + 'T00:00:00')}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
                     {contract.end_date
-                      ? new Date(contract.end_date + 'T00:00:00').toLocaleDateString('pt-BR')
+                      ? formatDate(contract.end_date + 'T00:00:00')
                       : 'Indeterminado'}
                   </TableCell>
                    <TableCell>
