@@ -84,7 +84,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant =
             </div>
             <div className="transition-all duration-300 transform translate-y-0 group-hover:-translate-y-full">
                <p className="text-[10px] font-bold text-primary h-4 flex items-center gap-1">
-                 <Info className="w-3 h-3" /> Ver detalhes da categoria
+                 <Info className="w-3 h-3" /> Ver tickets &rarr;
                </p>
             </div>
           </div>
@@ -457,10 +457,10 @@ export const TechnicianDashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <TabsList className="bg-muted/10 p-1 rounded-2xl border border-border/40">
                 <TabsTrigger value="my-tickets" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
-                  Meus Chamados
+                  Meus Chamados ({filteredMyTickets.length})
                 </TabsTrigger>
                 <TabsTrigger value="unassigned" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
-                  Fila de Espera
+                  Fila de Espera ({unassigned.length})
                 </TabsTrigger>
               </TabsList>
             </div>
