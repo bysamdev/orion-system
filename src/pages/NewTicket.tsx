@@ -367,10 +367,10 @@ const NewTicket = () => {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="urgent">🔴 Urgente {isSLALoading || !activeSla ? '(Carregando...)' : `(SLA: ${activeSla.urgent_hours}h)`}</SelectItem>
-                                <SelectItem value="high">🟠 Alta {isSLALoading || !activeSla ? '(Carregando...)' : `(SLA: ${activeSla.high_hours}h)`}</SelectItem>
-                                <SelectItem value="medium">🟡 Média {isSLALoading || !activeSla ? '(Carregando...)' : `(SLA: ${activeSla.medium_hours}h)`}</SelectItem>
-                                <SelectItem value="low">🟢 Baixa {isSLALoading || !activeSla ? '(Carregando...)' : `(SLA: ${activeSla.low_hours}h)`}</SelectItem>
+                                <SelectItem value="urgent">🔴 Urgente {isSLALoading || !activeSla ? '(SLA: 4h)' : `(SLA: ${activeSla.urgent_hours}h)`}</SelectItem>
+                                <SelectItem value="high">🟠 Alta {isSLALoading || !activeSla ? '(SLA: 12h)' : `(SLA: ${activeSla.high_hours}h)`}</SelectItem>
+                                <SelectItem value="medium">🟡 Média {isSLALoading || !activeSla ? '(SLA: 24h)' : `(SLA: ${activeSla.medium_hours}h)`}</SelectItem>
+                                <SelectItem value="low">🟢 Baixa {isSLALoading || !activeSla ? '(SLA: 48h)' : `(SLA: ${activeSla.low_hours}h)`}</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />

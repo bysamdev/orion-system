@@ -135,8 +135,9 @@ const TicketDetails: React.FC = () => {
             .maybeSingle();
 
           if (error) throw error;
-          if (data && data.id) {
-            navigate(`/ticket/${data.id}`, { replace: true });
+          const returnedId = Array.isArray(data) ? data[0]?.id : data?.id;
+          if (returnedId) {
+            navigate(`/ticket/${returnedId}`, { replace: true });
           } else {
             setIsResolving(false);
             toast({ title: 'Chamado não encontrado', variant: 'destructive' });
@@ -372,7 +373,7 @@ const TicketDetails: React.FC = () => {
     }
   };
 
-  const formatTimeAgo = (date: string) => formatDistanceToNow(new Date(date), { locale: ptBR, addSuffix: true });
+  const formatTimeAgo = (date: string | null | undefined) => { if (!date) return ""; const d = new Date(date); if (isNaN(d.getTime())) return ""; return formatDistanceToNow(d, { locale: ptBR, addSuffix: true }); };
 
   const totalMinutes = timeEntries.reduce((sum, te) => sum + (te.duration_minutes || 0), 0);
   const billableMinutes = timeEntries.filter(te => te.billable).reduce((sum, te) => sum + (te.duration_minutes || 0), 0);

@@ -62,8 +62,11 @@ function MetricBar({
 }
 
 export const MachineCard: React.FC<MachineCardProps> = ({ machine, onClick }) => {
-  const alerting = hasDiskAlert(machine);
   const isOnline = machine.status === 'online';
+  const offlineMinutes = !isOnline && machine.last_seen ? Math.floor((Date.now() - new Date(machine.last_seen).getTime()) / 60000) : 0;
+  const isOfflineLongAlert = !isOnline && offlineMinutes >= 30;
+  
+  const alerting = hasDiskAlert(machine) || isOfflineLongAlert;
 
   const cpuPct = machine.cpu_usage != null ? Math.round(machine.cpu_usage) : null;
   const ramPct = pct(machine.ram_used, machine.ram_total);
@@ -119,7 +122,9 @@ export const MachineCard: React.FC<MachineCardProps> = ({ machine, onClick }) =>
               {isOnline ? (
                 <><Wifi className="w-2.5 h-2.5 mr-0.5" />Online</>
               ) : (
-                <><WifiOff className="w-2.5 h-2.5 mr-0.5" />Offline</>
+                <><WifiOff className="w-2.5 h-2.5 mr-0.5" />
+                  {offlineMinutes >= 30 ? `Offline há ${Math.floor(offlineMinutes / 60) > 0 ? `${Math.floor(offlineMinutes / 60)}h` : `${offlineMinutes}m`}` : 'Offline'}
+                </>
               )}
             </Badge>
           </div>
