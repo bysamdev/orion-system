@@ -4,6 +4,7 @@ import { Clock, AlertTriangle, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { calculateSlaStatus } from '@/lib/ticket-helpers';
 
 interface SLABadgeProps {
   slaStatus: 'ok' | 'attention' | 'breached' | null;
@@ -24,7 +25,9 @@ export const SLABadge: React.FC<SLABadgeProps> = ({
   variant = 'default',
   className 
 }) => {
-  if (!slaStatus || !slaDueDate) {
+  const dynamicStatus = calculateSlaStatus(slaDueDate) || slaStatus;
+
+  if (!dynamicStatus) {
     return null;
   }
 
@@ -44,21 +47,21 @@ export const SLABadge: React.FC<SLABadgeProps> = ({
     },
     attention: {
       icon: AlertTriangle,
-      label: 'Atenção',
-      color: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20',
-      iconColor: 'text-yellow-600',
-      dot: 'bg-yellow-500'
+      label: 'Crítico',
+      color: 'bg-orange-500/10 text-orange-700 border-orange-500/20',
+      iconColor: 'text-orange-600',
+      dot: 'bg-orange-500'
     },
     breached: {
       icon: AlertCircle,
-      label: 'Estourado',
+      label: 'Vencido',
       color: 'bg-red-500/10 text-red-700 border-red-500/20',
       iconColor: 'text-red-600',
       dot: 'bg-red-500'
     }
   };
 
-  const config = statusConfig[slaStatus];
+  const config = statusConfig[dynamicStatus as 'ok' | 'attention' | 'breached'];
   const Icon = config.icon;
 
   if (variant === 'compact') {
@@ -83,7 +86,7 @@ export const SLABadge: React.FC<SLABadgeProps> = ({
     >
       <Icon className={cn("h-3.5 w-3.5", config.iconColor)} />
       <span className="font-medium">{config.label}</span>
-      {slaStatus !== 'breached' && (
+      {dynamicStatus !== 'breached' && (
         <span className="text-xs opacity-75 capitalize-first">
           ({timeRemaining})
         </span>

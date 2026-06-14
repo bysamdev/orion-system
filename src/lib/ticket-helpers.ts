@@ -30,7 +30,8 @@ export async function enrichTicketsWithCompany<T extends { user_id?: string }>(
   return tickets.map(ticket => {
     const profile = profileMap.get((ticket as any).user_id);
     const company = profile ? companyMap.get(profile.company_id) : null;
-    return { ...ticket, company_name: (company as any)?.name || null };
+    const dynamicSlaStatus = (ticket as any).sla_due_date ? calculateSlaStatus((ticket as any).sla_due_date) : (ticket as any).sla_status;
+    return { ...ticket, company_name: (company as any)?.name || null, sla_status: dynamicSlaStatus };
   });
 }
 
@@ -78,3 +79,25 @@ export const CATEGORY_LABELS: Record<string, string> = {
   software: 'Software',
   outros: 'Outros',
 };
+
+/**
+ * Calcula o status do SLA de forma dinâmica baseado na data atual.
+ * - VENCIDO (breached): now > vencimento
+ * - CRÍTICO (attention): now > vencimento - 24h
+ * - NO PRAZO (ok): now <= vencimento
+ */
+export function calculateSlaStatus(slaDueDate: string | null): 'ok' | 'attention' | 'breached' | null {
+  if (!slaDueDate) return null;
+  
+  const now = new Date();
+  const dueDate = new Date(slaDueDate);
+  const criticalDate = new Date(dueDate.getTime() - 24 * 60 * 60 * 1000); // dueDate - 24h
+
+  if (now > dueDate) {
+    return 'breached';
+  } else if (now > criticalDate) {
+    return 'attention';
+  } else {
+    return 'ok';
+  }
+}
