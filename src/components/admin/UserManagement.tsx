@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -221,10 +221,14 @@ export const UserManagement = () => {
     }
   });
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = useCallback((userId: string) => {
     setDeletingUserId(userId);
     deleteUserMutation.mutate(userId);
-  };
+  }, [deleteUserMutation]);
+
+  const handleUpdateUserRole = useCallback((userId: string, newRole: UserRole) => {
+    updateRoleMutation.mutate({ userId, newRole });
+  }, [updateRoleMutation]);
 
   const handleCreateUser = async () => {
     if (!formData.full_name || !formData.email) {
@@ -290,7 +294,7 @@ export const UserManagement = () => {
     }
   };
 
-  const handleOpenEditDialog = (userItem: UserData) => {
+  const handleOpenEditDialog = useCallback((userItem: UserData) => {
     setEditFormData({
       id: userItem.id,
       full_name: userItem.full_name || '',
@@ -301,7 +305,7 @@ export const UserManagement = () => {
       company_id: userItem.company_id,
     });
     setIsEditDialogOpen(true);
-  };
+  }, []);
 
   const handleUpdateUser = async () => {
     if (!editFormData.full_name || !editFormData.email) {
@@ -519,87 +523,15 @@ export const UserManagement = () => {
           </TableHeader>
           <TableBody>
             {users?.map((userItem) => (
-              <TableRow key={userItem.id}>
-                <TableCell className="font-medium max-w-[150px]">
-                  <span className="truncate block">{userItem.full_name || 'Sem nome'}</span>
-                </TableCell>
-                <TableCell className="max-w-[200px]">
-                  <span className="truncate block">{userItem.email}</span>
-                </TableCell>
-                <TableCell className="max-w-[150px]">
-                  <span className="truncate block">{userItem.company_name}</span>
-                </TableCell>
-                <TableCell className="max-w-[100px]">
-                  <span className="truncate block">{userItem.department || '-'}</span>
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={userItem.role}
-                    onValueChange={(value) => 
-                      updateRoleMutation.mutate({ 
-                        userId: userItem.id, 
-                        newRole: value as UserRole 
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="customer">Colaborador</SelectItem>
-                      <SelectItem value="technician">Técnico</SelectItem>
-                      <SelectItem value="admin">Gestor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleOpenEditDialog(userItem)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    {userItem.id !== user?.id && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            disabled={deletingUserId === userItem.id}
-                          >
-                            {deletingUserId === userItem.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Excluir Usuário?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Esta ação não pode ser desfeita. O usuário <strong>{userItem.full_name}</strong> ({userItem.email}) perderá o acesso imediatamente. Tem certeza?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteUser(userItem.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Sim, Excluir
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
+              <UserRow
+                key={userItem.id}
+                userItem={userItem}
+                onUpdateRole={handleUpdateUserRole}
+                onEdit={handleOpenEditDialog}
+                onDelete={handleDeleteUser}
+                isDeleting={deletingUserId === userItem.id}
+                isCurrentUser={userItem.id === user?.id}
+              />
             ))}
           </TableBody>
         </Table>
@@ -735,3 +667,101 @@ export const UserManagement = () => {
     </div>
   );
 };
+
+interface UserRowProps {
+  userItem: UserData;
+  onUpdateRole: (userId: string, newRole: UserRole) => void;
+  onEdit: (userItem: UserData) => void;
+  onDelete: (userId: string) => void;
+  isDeleting: boolean;
+  isCurrentUser: boolean;
+}
+
+const UserRow = React.memo(({
+  userItem,
+  onUpdateRole,
+  onEdit,
+  onDelete,
+  isDeleting,
+  isCurrentUser,
+}: UserRowProps) => {
+  return (
+    <TableRow>
+      <TableCell className="font-medium max-w-[150px]">
+        <span className="truncate block">{userItem.full_name || 'Sem nome'}</span>
+      </TableCell>
+      <TableCell className="max-w-[200px]">
+        <span className="truncate block">{userItem.email}</span>
+      </TableCell>
+      <TableCell className="max-w-[150px]">
+        <span className="truncate block">{userItem.company_name}</span>
+      </TableCell>
+      <TableCell className="max-w-[100px]">
+        <span className="truncate block">{userItem.department || '-'}</span>
+      </TableCell>
+      <TableCell>
+        <Select
+          value={userItem.role}
+          onValueChange={(value) => onUpdateRole(userItem.id, value as UserRole)}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="customer">Colaborador</SelectItem>
+            <SelectItem value="technician">Técnico</SelectItem>
+            <SelectItem value="admin">Gestor</SelectItem>
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => onEdit(userItem)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          {!isCurrentUser && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir Usuário?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação não pode ser desfeita. O usuário <strong>{userItem.full_name}</strong> ({userItem.email}) perderá o acesso imediatamente. Tem certeza?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onDelete(userItem.id)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Sim, Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+});
+UserRow.displayName = 'UserRow';

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,10 @@ interface Ticket {
 
 export default function TicketHistory() {
   const navigate = useNavigate();
+  const handleRowClick = useCallback((id: string) => {
+    navigate(`/ticket/${id}`);
+  }, [navigate]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -227,29 +231,7 @@ export default function TicketHistory() {
                     </TableRow>
                   ) : (
                     filteredTickets.map(t => (
-                      <TableRow key={t.id} onClick={() => navigate(`/ticket/${t.id}`)} className="group cursor-pointer border-b border-border/40 hover:bg-muted/30 transition-all">
-                        <TableCell className="pl-6 py-4 font-mono text-[11px] font-bold text-muted-foreground/60">
-                          #{t.ticket_number}
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <p className="text-sm font-bold text-foreground group-hover:text-purple-500 transition-colors">{t.title}</p>
-                          <p className="text-[10px] font-medium text-muted-foreground">{t.requester_name} · {t.company_name || 'N/A'}</p>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <PriorityBadge priority={t.priority} size="sm" />
-                        </TableCell>
-                        <TableCell className="py-4 text-center">
-                          <StatusBadge status={t.status} />
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <span className="text-[11px] font-medium text-muted-foreground">
-                            {formatDate(t.updated_at, "dd MMM yy 'às' HH:mm", { locale: ptBR })}
-                          </span>
-                        </TableCell>
-                        <TableCell className="py-4 text-right pr-6">
-                          <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-purple-500 transition-colors inline-block" />
-                        </TableCell>
-                      </TableRow>
+                      <TicketHistoryRow key={t.id} ticket={t} onClick={handleRowClick} />
                     ))
                   )}
                 </TableBody>
@@ -267,3 +249,40 @@ export default function TicketHistory() {
     </div>
   );
 }
+
+interface TicketHistoryRowProps {
+  ticket: Ticket;
+  onClick: (id: string) => void;
+}
+
+const TicketHistoryRow = React.memo(({ ticket, onClick }: TicketHistoryRowProps) => {
+  return (
+    <TableRow 
+      onClick={() => onClick(ticket.id)} 
+      className="group cursor-pointer border-b border-border/40 hover:bg-muted/30 transition-all"
+    >
+      <TableCell className="pl-6 py-4 font-mono text-[11px] font-bold text-muted-foreground/60">
+        #{ticket.ticket_number}
+      </TableCell>
+      <TableCell className="py-4">
+        <p className="text-sm font-bold text-foreground group-hover:text-purple-500 transition-colors">{ticket.title}</p>
+        <p className="text-[10px] font-medium text-muted-foreground">{ticket.requester_name} · {ticket.company_name || 'N/A'}</p>
+      </TableCell>
+      <TableCell className="py-4">
+        <PriorityBadge priority={ticket.priority} size="sm" />
+      </TableCell>
+      <TableCell className="py-4 text-center">
+        <StatusBadge status={ticket.status} />
+      </TableCell>
+      <TableCell className="py-4">
+        <span className="text-[11px] font-medium text-muted-foreground">
+          {formatDate(ticket.updated_at, "dd MMM yy 'às' HH:mm", { locale: ptBR })}
+        </span>
+      </TableCell>
+      <TableCell className="py-4 text-right pr-6">
+        <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-purple-500 transition-colors inline-block" />
+      </TableCell>
+    </TableRow>
+  );
+});
+TicketHistoryRow.displayName = 'TicketHistoryRow';
