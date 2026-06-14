@@ -61,7 +61,7 @@ export const CannedResponseSelector: React.FC<CannedResponseSelectorProps> = ({ 
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por título, conteúdo ou atalho..."
+              autoComplete="off" placeholder="Buscar por título, conteúdo ou atalho..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"

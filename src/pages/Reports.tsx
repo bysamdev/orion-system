@@ -303,11 +303,11 @@ const Reports: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <Label className="text-xs text-muted-foreground">Data Início</Label>
-                <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                <Input autoComplete="off" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Data Fim</Label>
-                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                <Input autoComplete="off" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Empresa</Label>

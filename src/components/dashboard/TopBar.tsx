@@ -57,6 +57,7 @@ export const TopBar: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
         )}
         <input
+          autoComplete="off"
           placeholder="Buscar tickets por #número ou título..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
