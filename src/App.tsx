@@ -83,7 +83,7 @@ const App = () => (
               <Route path="/notificacoes" element={<AppRoute><Notifications /></AppRoute>} />
               <Route path="/manual" element={<Navigate to="/knowledge" replace />} />
               <Route path="/tutorial" element={<Navigate to="/knowledge" replace />} />
-              <Route path="/base-conhecimento" element={<Navigate to="/knowledge" replace />} />
+              <Route path="/base-conhecimento" element={<Navigate to={{ pathname: "/knowledge", search: window.location.search }} replace />} />
               <Route path="/configuracoes" element={<Navigate to="/ajustes" replace />} />
               <Route path="/settings" element={<Navigate to="/ajustes" replace />} />
               <Route path="/history" element={<Navigate to="/historico" replace />} />

@@ -139,7 +139,7 @@ const TimelineEntry: React.FC<{ item: TimelineItem; isLast: boolean }> = ({ item
             )}
           </div>
           <span className="text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(item.created_at), { locale: ptBR, addSuffix: true })}
+            {item.created_at && !isNaN(new Date(item.created_at).getTime()) ? formatDistanceToNow(new Date(item.created_at), { locale: ptBR, addSuffix: true }) : ""}
           </span>
         </div>
         <p className={cn(

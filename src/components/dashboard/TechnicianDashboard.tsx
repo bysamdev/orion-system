@@ -1,3 +1,5 @@
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { SLABadge } from './SLABadge';
@@ -234,18 +236,29 @@ export const TechnicianDashboard: React.FC = () => {
             document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
           }}
         />
-        <StatCard
-          title="SLA Crítico"
-          value={stats?.slaAtRisk || 0}
-          icon={AlertTriangle}
-          variant={(stats?.slaAtRisk || 0) > 0 ? 'danger' : 'default'}
-          active={kpiFilter === 'sla'}
-          onClick={() => {
-            setKpiFilter(f => f === 'sla' ? null : 'sla');
-            setActiveTab('my-tickets');
-            document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
-          }}
-        />
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="w-full">
+                <StatCard
+                  title="SLA Crítico"
+                  value={stats?.slaAtRisk || 0}
+                  icon={AlertTriangle}
+                  variant={(stats?.slaAtRisk || 0) > 0 ? 'danger' : 'default'}
+                  active={kpiFilter === 'sla'}
+                  onClick={() => {
+                    setKpiFilter(f => f === 'sla' ? null : 'sla');
+                    setActiveTab('my-tickets');
+                    document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="font-medium">
+              <p>Tickets com prazo vencido</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <StatCard
           title="Minha Fila"
           value={stats?.pending || 0}
@@ -577,7 +590,7 @@ export const TechnicianDashboard: React.FC = () => {
                       <Pie data={workload} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value">
                         {workload.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />)}
                       </Pie>
-                      <Tooltip 
+                      <RechartsTooltip 
                         contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '16px', fontSize: '12px' }} 
                         itemStyle={{ fontWeight: 'bold' }}
                       />

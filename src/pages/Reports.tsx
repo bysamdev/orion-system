@@ -631,7 +631,7 @@ const Reports: React.FC = () => {
                             {ticket.assigned_to || '—'}
                           </TableCell>
                           <TableCell className="whitespace-nowrap text-xs text-muted-foreground capitalize-first">
-                            {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true, locale: ptBR })}
+                            {ticket.created_at && !isNaN(new Date(ticket.created_at).getTime()) ? formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true, locale: ptBR }) : "Desconhecido"}
                           </TableCell>
                         </TableRow>
                       ))

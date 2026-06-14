@@ -163,11 +163,18 @@ export const UserManagement = () => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      const labels: Record<string, string> = {
+        'customer': 'Colaborador',
+        'technician': 'Técnico',
+        'admin': 'Gestor'
+      };
+      const roleLabel = labels[variables.newRole] || variables.newRole;
+
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       toast({
         title: 'Sucesso',
-        description: 'Função do usuário atualizada com sucesso',
+        description: `Função atualizada para ${roleLabel} ✓`,
       });
     },
     onError: (error) => {

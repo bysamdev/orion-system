@@ -416,14 +416,14 @@ SELECT
 
 func (d *DB) CriticalAlerts(ctx context.Context) ([]CriticalAlertItem, error) {
 	rows, err := d.pool.Query(ctx, `
--- Máquinas offline há mais de 10 minutos
+-- Máquinas offline há mais de 30 minutos
 SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
        'offline'::text AS alert_type, 'critical'::text AS severity,
-       'Máquina offline há mais de 10 minutos' AS message,
+       'Máquina offline há mais de 30 minutos' AS message,
        NULL::float8 AS metric_value
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
-WHERE m.status = 'offline' AND m.last_seen < now() - INTERVAL '10 minutes'
+WHERE m.status = 'offline' AND m.last_seen < now() - INTERVAL '30 minutes'
 
 UNION ALL
 
