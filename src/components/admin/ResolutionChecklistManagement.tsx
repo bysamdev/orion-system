@@ -27,7 +27,7 @@ export const ResolutionChecklistManagement = () => {
   const [items, setItems] = useState<string[]>(['']);
   const [isActive, setIsActive] = useState(true);
 
-  const { data: checklists = [], isLoading } = useQuery({
+  const { data: checklists = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['resolution-checklists', profile?.company_id],
     queryFn: async () => {
       if (!profile?.company_id) return [];
@@ -205,15 +205,41 @@ export const ResolutionChecklistManagement = () => {
           <TableBody>
             {isLoading && profile?.company_id ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary opacity-50" /></TableCell>
+                <TableCell colSpan={4} className="h-32 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <span className="text-sm text-muted-foreground">Carregando checklists...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={4} className="h-32 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-2 text-destructive">
+                    <div className="text-sm font-bold">Erro ao carregar checklists</div>
+                    <div className="text-xs opacity-80">{error instanceof Error ? error.message : 'Erro desconhecido'}</div>
+                    <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2 text-foreground">Tentar novamente</Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ) : !profile?.company_id ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground italic">Perfil ou Empresa não identificada. Verifique suas permissões.</TableCell>
+                <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
+                  <div className="flex flex-col items-center justify-center space-y-1">
+                    <span className="font-medium">Empresa não identificada</span>
+                    <span className="text-xs">Verifique suas permissões de acesso.</span>
+                  </div>
+                </TableCell>
               </TableRow>
             ) : checklists.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground italic">Nenhum checklist configurado.</TableCell>
+                <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <ListChecks className="w-8 h-8 opacity-20" />
+                    <span className="font-medium">Nenhum checklist configurado</span>
+                    <span className="text-xs">Adicione checklists para orientar os técnicos na resolução de chamados.</span>
+                  </div>
+                </TableCell>
               </TableRow>
             ) : (
               checklists.map((checklist: any) => (
