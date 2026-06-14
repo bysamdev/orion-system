@@ -47,14 +47,7 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: Ticket,   label: 'Novo Ticket',         path: '/novo-ticket' },
       { icon: History,  label: 'Histórico',           path: '/historico' },
-      { icon: BookOpen, label: 'Base de Conhecimento',path: '/knowledge' },
-      { icon: FileText, label: 'Manual de Uso',       path: '/tutorial' },
-      {
-        icon: Shield,
-        label: 'Documentação API',
-        path: '/documentacao',
-        roles: ['admin', 'developer', 'technician'],
-      },
+      { icon: BookOpen, label: 'Base de Conhecimento & Manual', path: '/knowledge' },
     ],
   },
   {
