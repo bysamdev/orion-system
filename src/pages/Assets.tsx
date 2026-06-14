@@ -414,7 +414,7 @@ const Assets = () => {
               <div className="flex-1 max-w-md relative group">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
                 <Input 
-                  placeholder="Pesquisar por nome ou serial..." 
+                  autoComplete="off" placeholder="Pesquisar por nome ou serial..." 
                   className="pl-11 h-12 bg-background/50 border-border/40 rounded-xl focus-visible:ring-primary/20"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}

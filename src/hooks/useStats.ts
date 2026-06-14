@@ -3,12 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { supabaseRead } from '@/integrations/supabase/read-client';
 import { startOfDay, startOfWeek, endOfDay, endOfWeek, subDays, format } from 'date-fns';
 
-// SLA targets by priority (in hours)
-export const SLA_TARGETS = {
-  high: 2,
-  medium: 4,
-  low: 8,
-} as const;
 
 export const useActiveOperators = () => {
   return useQuery({
@@ -33,6 +27,10 @@ export const useTicketStats = (period: 'daily' | 'weekly') => {
   return useQuery({
     queryKey: ['ticket-stats', period],
     queryFn: async () => {
+      const { data: slaConfigs } = await supabaseRead.from('sla_configs').select('*').limit(1);
+      const activeSla = slaConfigs?.[0] || { urgent_hours: 4, high_hours: 24, medium_hours: 48, low_hours: 72 };
+      const SLA_TARGETS = { urgent: activeSla.urgent_hours, high: activeSla.high_hours, medium: activeSla.medium_hours, low: activeSla.low_hours };
+
       const now = new Date();
       const startDate = period === 'daily' ? startOfDay(now) : startOfWeek(now, { weekStartsOn: 0 });
       const endDate = period === 'daily' ? endOfDay(now) : endOfWeek(now, { weekStartsOn: 0 });
@@ -102,6 +100,10 @@ export const useGlobalTicketStats = () => {
   return useQuery({
     queryKey: ['global-ticket-stats'],
     queryFn: async () => {
+      const { data: slaConfigs } = await supabaseRead.from('sla_configs').select('*').limit(1);
+      const activeSla = slaConfigs?.[0] || { urgent_hours: 4, high_hours: 24, medium_hours: 48, low_hours: 72 };
+      const SLA_TARGETS = { urgent: activeSla.urgent_hours, high: activeSla.high_hours, medium: activeSla.medium_hours, low: activeSla.low_hours };
+
       const now = new Date();
       const today = startOfDay(now);
 

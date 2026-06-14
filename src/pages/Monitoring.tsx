@@ -385,6 +385,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
+                autoComplete="off"
                 placeholder="Buscar por hostname..."
                 className="pl-10 w-full sm:w-[300px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
                 value={search}
@@ -596,6 +597,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
               <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Nome do Grupo</Label>
               <Input 
                 id="name" 
+                autoComplete="off"
                 placeholder="Ex: Matriz - São Paulo" 
                 value={groupFormData.name}
                 onChange={e => setGroupFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -606,6 +608,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
               <Label htmlFor="contact" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Contato / Responsável</Label>
               <Input 
                 id="contact" 
+                autoComplete="off"
                 placeholder="Ex: João da Silva (joao@cliente.com)" 
                 value={groupFormData.client_contact}
                 onChange={e => setGroupFormData(prev => ({ ...prev, client_contact: e.target.value }))}

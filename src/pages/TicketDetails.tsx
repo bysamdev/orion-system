@@ -118,11 +118,12 @@ const TicketDetails: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
-  const isNumericId = /^\d+$/.test(id || '');
-  const [isResolving, setIsResolving] = useState(isNumericId);
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
+  const isNumber = /^\d+$/.test(id || '');
+  const [isResolving, setIsResolving] = useState(isNumber);
 
   React.useEffect(() => {
-    if (isNumericId) {
+    if (isNumber) {
       fetch(`/api/tickets/resolve/${id}`)
         .then(r => r.json())
         .then(data => {
@@ -140,14 +141,15 @@ const TicketDetails: React.FC = () => {
     } else {
       setIsResolving(false);
     }
-  }, [id, isNumericId, navigate, toast]);
+  }, [id, isNumber, navigate, toast]);
 
-  const validId = isNumericId ? '' : (id || '');
+  const validId = isUUID ? (id || '') : '';
 
   const { data: ticket, isLoading: ticketLoading } = useTicket(validId);
   const { data: updates = [], isLoading: updatesLoading } = useTicketUpdates(validId);
   const { data: userRole } = useUserRole();
   const { data: userProfile } = useUserProfile();
+  const { data: activeSla } = useSLAConfigs();
   const updateStatus = useUpdateTicketStatus();
   const updateAssignment = useUpdateTicketAssignment();
   const addUpdate = useAddTicketUpdate();
@@ -371,7 +373,9 @@ const TicketDetails: React.FC = () => {
     return h > 0 ? `${h}h${min > 0 ? `${min}min` : ''}` : `${min}min`;
   };
 
-  if (isResolving || ticketLoading || updatesLoading) {
+  const isActuallyLoading = isResolving || (!!validId && (ticketLoading || updatesLoading));
+
+  if (isActuallyLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -379,7 +383,7 @@ const TicketDetails: React.FC = () => {
     );
   }
 
-  if (!ticket) {
+  if (!ticket && !isResolving) {
     return (
       <div className="min-h-screen bg-background">
         <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full text-center">
@@ -669,7 +673,7 @@ const TicketDetails: React.FC = () => {
                     <div className="bg-green-500/5 border border-green-500/10 rounded-xl p-4 flex items-start gap-3">
                       <Clock className="w-4 h-4 text-green-600 mt-0.5" />
                       <p className="text-[10px] font-medium text-green-800 dark:text-green-300">
-                        O ticket será encerrado automaticamente em 48h caso não haja resposta.
+                        O ticket será encerrado automaticamente em {activeSla?.medium_hours || 48}h caso não haja resposta.
                       </p>
                     </div>
                   )}
@@ -896,6 +900,7 @@ const TicketAssetContext = ({ assetId }: { assetId: string }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { data: userProfile } = useUserProfile();
+  const { data: activeSla } = useSLAConfigs();
 
   const handleQuickAction = (commandStr: string, label: string) => {
     createCommand.mutate({

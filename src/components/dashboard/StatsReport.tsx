@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Activity, Loader2, AlertCircle, Clock } from 'lucide-react';
-import { useTicketStats, SLA_TARGETS } from '@/hooks/useStats';
+import { useTicketStats } from '@/hooks/useStats';
+import { useSLAConfigs } from '@/hooks/useSLAConfigs';
 
 interface ReportData {
   opened: number;
@@ -16,6 +17,12 @@ interface ReportData {
 export const StatsReport: React.FC = () => {
   const [period, setPeriod] = useState<'daily' | 'weekly'>('daily');
   const { data: stats, isLoading } = useTicketStats(period);
+  const { data: activeSla } = useSLAConfigs();
+  const SLA_TARGETS = {
+    high: activeSla?.high_hours || 24,
+    medium: activeSla?.medium_hours || 48,
+    low: activeSla?.low_hours || 72,
+  };
 
   const formatHours = (hours: number) => {
     if (hours < 1) {
