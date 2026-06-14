@@ -27,6 +27,7 @@ const Assets = lazy(() => import("./pages/Assets"));
 const ClientPortal = lazy(() => import("./pages/ClientPortal"));
 const Automacoes = lazy(() => import("./pages/Automacoes"));
 const PatchManagement = lazy(() => import("./pages/PatchManagement"));
+const Notifications = lazy(() => import("./pages/Notifications"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,6 +80,7 @@ const App = () => (
               <Route path="/debug-tools" element={<AppRoute><DebugTools /></AppRoute>} />
               <Route path="/automacoes" element={<AppRoute><Automacoes /></AppRoute>} />
               <Route path="/patches" element={<AppRoute><PatchManagement /></AppRoute>} />
+              <Route path="/notificacoes" element={<AppRoute><Notifications /></AppRoute>} />
               <Route path="/manual" element={<Navigate to="/knowledge" replace />} />
               <Route path="/tutorial" element={<Navigate to="/knowledge" replace />} />
               <Route path="/documentacao" element={<Navigate to="/" replace />} />

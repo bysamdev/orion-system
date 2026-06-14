@@ -87,6 +87,21 @@ const NewTicket = () => {
     enabled: !!profile?.company_id
   });
 
+  const { data: departments } = useQuery({
+    queryKey: ['company-departments', profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return [];
+      const { data, error } = await supabase
+        .from('departments')
+        .select('*')
+        .eq('company_id', profile.company_id)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.company_id
+  });
+
   const userInfo = {
     name: profile?.full_name || '',
     email: profile?.email || user?.email || '',
@@ -95,7 +110,7 @@ const NewTicket = () => {
 
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketSchema),
-    defaultValues: { title: '', category: '', priority: 'medium', description: '', department: '' },
+    defaultValues: { title: '', category: '', priority: 'medium', description: '', department: 'Geral' },
   });
 
   // ── Smart: VIP clients default to high priority ─────────────
@@ -139,7 +154,7 @@ const NewTicket = () => {
         priority: data.priority,
         description: data.description,
         requester_name: userInfo.name,
-        department: data.department,
+        department: data.department || 'Geral',
         status: 'open',
         user_id: user.id,
         company_id: profile.company_id,
@@ -353,20 +368,36 @@ const NewTicket = () => {
                         render={({ field }) => (
                           <FormItem className="space-y-4">
                             <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Seu Departamento</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="ti">TI</SelectItem>
-                                <SelectItem value="financeiro">Financeiro</SelectItem>
-                                <SelectItem value="rh">RH</SelectItem>
-                                <SelectItem value="operacional">Operacional</SelectItem>
-                                <SelectItem value="comercial">Comercial</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            {departments && departments.length > 0 ? (
+                              <Select onValueChange={field.onChange} defaultValue={field.value || 'Geral'}>
+                                <FormControl>
+                                  <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
+                                    <SelectValue placeholder="Selecione um departamento" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Geral">Geral</SelectItem>
+                                  {departments.map((dept: any) => (
+                                    <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <div className="space-y-2">
+                                <Select disabled value="Geral">
+                                  <FormControl>
+                                    <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl opacity-50">
+                                      <SelectValue placeholder="Geral" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                </Select>
+                                {userRole === 'admin' && (
+                                  <p className="text-[11px] text-muted-foreground">
+                                    Nenhum departamento cadastrado. <button type="button" onClick={() => navigate('/admin')} className="text-primary hover:underline font-bold">Cadastrar agora</button>
+                                  </p>
+                                )}
+                              </div>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}

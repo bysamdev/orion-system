@@ -155,6 +155,12 @@ order by created_at desc
 	return out, rows.Err()
 }
 
+func (d *DB) TicketUUIDByNumber(ctx context.Context, number int) (string, error) {
+	var id string
+	err := d.pool.QueryRow(ctx, `select id::text from public.tickets where ticket_number = $1 limit 1`, number).Scan(&id)
+	return id, err
+}
+
 func (d *DB) EnsureProfileRowExists(ctx context.Context, userID string) error {
 	var exists bool
 	err := d.pool.QueryRow(ctx, `select exists(select 1 from public.profiles where id = $1)`, userID).Scan(&exists)
