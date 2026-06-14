@@ -71,6 +71,9 @@ func buildRouter() http.Handler {
 	// ── /api/auth/* ───────────────────────────────────────────────────────────
 	r.Get("/api/auth/machine-login", machineLogin)
 
+	// ── /api/tickets/* ────────────────────────────────────────────────────────
+	r.Get("/api/tickets/resolve/{id}", ticketResolveHandler)
+
 	// ── /api/monitoring/* ─────────────────────────────────────────────────────
 	r.Get("/api/monitoring/dashboard", monitoringDashboard)
 	r.Get("/api/monitoring/groups", monitoringListGroups)

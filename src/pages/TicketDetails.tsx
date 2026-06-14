@@ -118,28 +118,54 @@ const TicketDetails: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
-  const { data: ticket, isLoading: ticketLoading } = useTicket(id || '');
-  const { data: updates = [], isLoading: updatesLoading } = useTicketUpdates(id || '');
+  const isNumericId = /^\d+$/.test(id || '');
+  const [isResolving, setIsResolving] = useState(isNumericId);
+
+  React.useEffect(() => {
+    if (isNumericId) {
+      fetch(`/api/tickets/resolve/${id}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.uuid) {
+            navigate(`/ticket/${data.uuid}`, { replace: true });
+          } else {
+            setIsResolving(false);
+            toast({ title: 'Chamado não encontrado', variant: 'destructive' });
+          }
+        })
+        .catch(() => {
+          setIsResolving(false);
+          toast({ title: 'Erro de conexão', description: 'Não foi possível resolver o ID.', variant: 'destructive' });
+        });
+    } else {
+      setIsResolving(false);
+    }
+  }, [id, isNumericId, navigate, toast]);
+
+  const validId = isNumericId ? '' : (id || '');
+
+  const { data: ticket, isLoading: ticketLoading } = useTicket(validId);
+  const { data: updates = [], isLoading: updatesLoading } = useTicketUpdates(validId);
   const { data: userRole } = useUserRole();
   const { data: userProfile } = useUserProfile();
   const updateStatus = useUpdateTicketStatus();
   const updateAssignment = useUpdateTicketAssignment();
   const addUpdate = useAddTicketUpdate();
-  const { data: timeEntries = [] } = useTicketTimeEntries(id || '');
+  const { data: timeEntries = [] } = useTicketTimeEntries(validId);
 
   // Buscar status history
   const { data: statusHistory = [] } = useQuery({
-    queryKey: ['ticket-status-history', id],
+    queryKey: ['ticket-status-history', validId],
     queryFn: async () => {
       const { data, error } = await supabaseRead
         .from('ticket_status_history')
         .select('*')
-        .eq('ticket_id', id!)
+        .eq('ticket_id', validId!)
         .order('created_at', { ascending: true });
       if (error) throw error;
       return data || [];
     },
-    enabled: !!id,
+    enabled: !!validId,
   });
 
   const [newUpdateText, setNewUpdateText] = useState('');
@@ -216,9 +242,9 @@ const TicketDetails: React.FC = () => {
     }
   };
 
-  const { data: attachments = [], isLoading: attachmentsLoading } = useTicketAttachments(id || '');
+  const { data: attachments = [], isLoading: attachmentsLoading } = useTicketAttachments(validId);
   const uploadAttachment = useUploadAttachment();
-  useRealtimeTicket(id || '');
+  useRealtimeTicket(validId);
 
   const { data: technicians = [], isLoading: techniciansLoading } = useQuery({
     queryKey: ['technicians'],
@@ -345,7 +371,7 @@ const TicketDetails: React.FC = () => {
     return h > 0 ? `${h}h${min > 0 ? `${min}min` : ''}` : `${min}min`;
   };
 
-  if (ticketLoading || updatesLoading) {
+  if (isResolving || ticketLoading || updatesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
