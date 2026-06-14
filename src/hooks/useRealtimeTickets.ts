@@ -6,40 +6,53 @@ import { supabase } from '@/integrations/supabase/client';
  * Hook para escutar mudanças em tempo real nos tickets
  * Atualiza automaticamente as queries quando há mudanças no banco
  */
+import { RealtimeChannel } from '@supabase/supabase-js';
+
+let globalChannel: RealtimeChannel | null = null;
+let subscriptionCount = 0;
+
 export const useRealtimeTickets = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const channelName = 'tickets-realtime-global';
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tickets'
-        },
-        (payload) => {
-          console.log('Ticket atualizado em tempo real:', payload);
-          
-          // Invalidar todas as queries de tickets relacionadas ao dashboard do técnico
-          queryClient.invalidateQueries({ queryKey: ['tickets'] });
-          queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
-          queryClient.invalidateQueries({ queryKey: ['sla-at-risk-tickets'] });
-          queryClient.invalidateQueries({ queryKey: ['my-active-tickets'] });
-          queryClient.invalidateQueries({ queryKey: ['my-recent-closed'] });
-          
-          // Se houver um ID específico, invalidar também
-          if (payload.new && 'id' in payload.new) {
-            queryClient.invalidateQueries({ queryKey: ['ticket', payload.new.id] });
+    subscriptionCount++;
+
+    if (!globalChannel) {
+      globalChannel = supabase
+        .channel('tickets-realtime-global')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tickets'
+          },
+          (payload) => {
+            console.log('Ticket atualizado em tempo real:', payload);
+            
+            // Invalidar todas as queries de tickets relacionadas ao dashboard do técnico
+            queryClient.invalidateQueries({ queryKey: ['tickets'] });
+            queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
+            queryClient.invalidateQueries({ queryKey: ['sla-at-risk-tickets'] });
+            queryClient.invalidateQueries({ queryKey: ['my-active-tickets'] });
+            queryClient.invalidateQueries({ queryKey: ['my-recent-closed'] });
+            
+            // Se houver um ID específico, invalidar também
+            if (payload.new && 'id' in payload.new) {
+              queryClient.invalidateQueries({ queryKey: ['ticket', payload.new.id] });
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      subscriptionCount--;
+      if (subscriptionCount <= 0 && globalChannel) {
+        supabase.removeChannel(globalChannel);
+        globalChannel = null;
+        subscriptionCount = 0;
+      }
     };
   }, [queryClient]);
 };
