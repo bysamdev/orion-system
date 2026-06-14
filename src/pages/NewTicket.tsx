@@ -57,7 +57,6 @@ const NewTicket = () => {
   const [remotePassword, setRemotePassword] = useState('');
   const [selectedContractId, setSelectedContractId] = useState<string>('');
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
-  const [userInfo, setUserInfo] = useState({ name: '', email: '', company: '' });
 
   // ── Smart: VIP Client detection ─────────────────
   const { data: companyInfo } = useQuery({
@@ -88,18 +87,11 @@ const NewTicket = () => {
     enabled: !!profile?.company_id
   });
 
-  useEffect(() => {
-    const fetchUserInfo = async () => {
-      if (!user || !profile) return;
-      const { data: companyData } = await supabase.from('companies').select('name').eq('id', profile.company_id).single();
-      setUserInfo({
-        name: profile.full_name || '',
-        email: profile.email || user.email || '',
-        company: companyData?.name || ''
-      });
-    };
-    fetchUserInfo();
-  }, [user, profile]);
+  const userInfo = {
+    name: profile?.full_name || '',
+    email: profile?.email || user?.email || '',
+    company: companyInfo?.name || '',
+  };
 
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketSchema),

@@ -1,0 +1,786 @@
+--- TABLES ---
+machine_commands, canned_responses, ticket_attachments, categories, custom_field_values, escalation_settings, user_roles, machine_metrics, notifications, departments, machine_alerts, machine_groups, contracts, services, ticket_assets, resolution_checklists, plans, machines, assets, time_entries, routing_rules, ticket_ratings, profiles, ticket_kb_links, custom_fields, invite_tokens, knowledge_articles, ticket_status_history, machine_hardware, tickets, audit_log, sla_configs, package_deployments, knowledge_base_articles, automation_logs, companies, api_keys, software_packages, ticket_updates
+
+--- INDEXES ---
+Table: tickets, Index: idx_tickets_status, Columns: status
+Table: tickets, Index: idx_tickets_created_at, Columns: created_at DESC
+Table: ticket_updates, Index: idx_ticket_updates_ticket_id, Columns: ticket_id
+Table: ticket_updates, Index: idx_ticket_updates_created_at, Columns: created_at DESC
+Table: tickets, Index: idx_tickets_status_created, Columns: status, created_at DESC
+Table: tickets, Index: idx_tickets_user_status, Columns: user_id, status
+Table: tickets, Index: idx_tickets_assigned_to_user, Columns: assigned_to_user_id
+Table: ticket_updates, Index: idx_ticket_updates_ticket_created, Columns: ticket_id, created_at
+Table: profiles, Index: idx_profiles_company, Columns: company_id
+Table: user_roles, Index: idx_user_roles_role, Columns: role
+Table: tickets, Index: idx_tickets_status, Columns: status
+Table: tickets, Index: idx_tickets_priority, Columns: priority
+Table: tickets, Index: idx_tickets_category, Columns: category
+Table: tickets, Index: idx_tickets_user_id, Columns: user_id
+Table: tickets, Index: idx_tickets_assigned_to_user_id, Columns: assigned_to_user_id
+Table: tickets, Index: idx_tickets_created_at_desc, Columns: created_at DESC
+Table: tickets, Index: idx_tickets_updated_at_desc, Columns: updated_at DESC
+Table: tickets, Index: idx_tickets_status_created_at, Columns: status, created_at DESC
+Table: tickets, Index: idx_tickets_user_status, Columns: user_id, status
+Table: tickets, Index: idx_tickets_assigned_status, Columns: assigned_to_user_id, status
+Table: profiles, Index: idx_profiles_company_id, Columns: company_id
+Table: profiles, Index: idx_profiles_full_name, Columns: full_name
+Table: ticket_updates, Index: idx_ticket_updates_ticket_id, Columns: ticket_id
+Table: ticket_updates, Index: idx_ticket_updates_created_at, Columns: created_at DESC
+Table: user_roles, Index: idx_user_roles_user_id_role, Columns: user_id, role
+Table: audit_log, Index: idx_audit_table_record, Columns: table_name, record_id
+Table: audit_log, Index: idx_audit_changed_at, Columns: changed_at DESC
+Table: audit_log, Index: idx_audit_changed_by, Columns: changed_by
+Table: audit_log, Index: idx_audit_action, Columns: action
+Table: companies, Index: idx_companies_name, Columns: name
+Table: departments, Index: idx_departments_company_id, Columns: company_id
+Table: departments, Index: idx_departments_name, Columns: name
+Table: profiles, Index: idx_profiles_company_id, Columns: company_id
+Table: profiles, Index: idx_profiles_email, Columns: email
+Table: profiles, Index: idx_profiles_full_name, Columns: full_name
+Table: user_roles, Index: idx_user_roles_user_id, Columns: user_id
+Table: user_roles, Index: idx_user_roles_role, Columns: role
+Table: tickets, Index: idx_tickets_user_id, Columns: user_id
+Table: tickets, Index: idx_tickets_assigned_to_user_id, Columns: assigned_to_user_id
+Table: tickets, Index: idx_tickets_status, Columns: status
+Table: tickets, Index: idx_tickets_priority, Columns: priority
+Table: tickets, Index: idx_tickets_created_at, Columns: created_at DESC
+Table: tickets, Index: idx_tickets_ticket_number, Columns: ticket_number
+Table: ticket_updates, Index: idx_ticket_updates_ticket_id, Columns: ticket_id
+Table: ticket_updates, Index: idx_ticket_updates_author_id, Columns: author_id
+Table: ticket_updates, Index: idx_ticket_updates_created_at, Columns: created_at DESC
+Table: ticket_updates, Index: idx_ticket_updates_type, Columns: type
+Table: audit_log, Index: idx_audit_log_table_name, Columns: table_name
+Table: audit_log, Index: idx_audit_log_record_id, Columns: record_id
+Table: audit_log, Index: idx_audit_log_changed_by, Columns: changed_by
+Table: audit_log, Index: idx_audit_log_changed_at, Columns: changed_at DESC
+Table: audit_log, Index: idx_audit_log_action, Columns: action
+Table: companies, Index: idx_companies_name, Columns: name
+Table: departments, Index: idx_departments_company_id, Columns: company_id
+Table: departments, Index: idx_departments_name, Columns: name
+Table: profiles, Index: idx_profiles_company_id, Columns: company_id
+Table: profiles, Index: idx_profiles_email, Columns: email
+Table: profiles, Index: idx_profiles_full_name, Columns: full_name
+Table: user_roles, Index: idx_user_roles_user_id, Columns: user_id
+Table: user_roles, Index: idx_user_roles_role, Columns: role
+Table: tickets, Index: idx_tickets_user_id, Columns: user_id
+Table: tickets, Index: idx_tickets_assigned_to_user_id, Columns: assigned_to_user_id
+Table: tickets, Index: idx_tickets_status, Columns: status
+Table: tickets, Index: idx_tickets_priority, Columns: priority
+Table: tickets, Index: idx_tickets_created_at, Columns: created_at DESC
+Table: tickets, Index: idx_tickets_ticket_number, Columns: ticket_number
+Table: ticket_updates, Index: idx_ticket_updates_ticket_id, Columns: ticket_id
+Table: ticket_updates, Index: idx_ticket_updates_author_id, Columns: author_id
+Table: ticket_updates, Index: idx_ticket_updates_created_at, Columns: created_at DESC
+Table: ticket_updates, Index: idx_ticket_updates_type, Columns: type
+Table: audit_log, Index: idx_audit_log_table_name, Columns: table_name
+Table: audit_log, Index: idx_audit_log_record_id, Columns: record_id
+Table: audit_log, Index: idx_audit_log_changed_by, Columns: changed_by
+Table: audit_log, Index: idx_audit_log_changed_at, Columns: changed_at DESC
+Table: audit_log, Index: idx_audit_log_action, Columns: action
+Table: companies, Index: idx_companies_name, Columns: name
+Table: departments, Index: idx_departments_company_id, Columns: company_id
+Table: departments, Index: idx_departments_name, Columns: name
+Table: profiles, Index: idx_profiles_company_id, Columns: company_id
+Table: profiles, Index: idx_profiles_email, Columns: email
+Table: profiles, Index: idx_profiles_full_name, Columns: full_name
+Table: user_roles, Index: idx_user_roles_user_id, Columns: user_id
+Table: user_roles, Index: idx_user_roles_role, Columns: role
+Table: tickets, Index: idx_tickets_user_id, Columns: user_id
+Table: tickets, Index: idx_tickets_assigned_to_user_id, Columns: assigned_to_user_id
+Table: tickets, Index: idx_tickets_status, Columns: status
+Table: tickets, Index: idx_tickets_priority, Columns: priority
+Table: tickets, Index: idx_tickets_created_at, Columns: created_at DESC
+Table: tickets, Index: idx_tickets_ticket_number, Columns: ticket_number
+Table: ticket_updates, Index: idx_ticket_updates_ticket_id, Columns: ticket_id
+Table: ticket_updates, Index: idx_ticket_updates_author_id, Columns: author_id
+Table: ticket_updates, Index: idx_ticket_updates_created_at, Columns: created_at DESC
+Table: ticket_updates, Index: idx_ticket_updates_type, Columns: type
+Table: audit_log, Index: idx_audit_log_table_name, Columns: table_name
+Table: audit_log, Index: idx_audit_log_record_id, Columns: record_id
+Table: audit_log, Index: idx_audit_log_changed_by, Columns: changed_by
+Table: audit_log, Index: idx_audit_log_changed_at, Columns: changed_at DESC
+Table: audit_log, Index: idx_audit_log_action, Columns: action
+Table: profiles, Index: idx_profiles_company_id, Columns: company_id
+Table: tickets, Index: idx_tickets_user_id, Columns: user_id
+Table: tickets, Index: idx_tickets_assigned_user_id, Columns: assigned_to_user_id
+Table: ticket_updates, Index: idx_ticket_updates_ticket_id, Columns: ticket_id
+Table: ticket_updates, Index: idx_ticket_updates_author_id, Columns: author_id
+Table: departments, Index: idx_departments_company_id, Columns: company_id
+Table: user_roles, Index: idx_user_roles_user_id, Columns: user_id
+Table: tickets, Index: idx_tickets_sla_due_date, Columns: sla_due_date
+Table: tickets, Index: idx_tickets_sla_status, Columns: sla_status
+Table: tickets, Index: idx_tickets_first_response_at, Columns: first_response_at
+Table: tickets, Index: idx_tickets_company_id, Columns: company_id
+Table: tickets, Index: idx_tickets_company_status, Columns: company_id, status
+Table: canned_responses, Index: idx_canned_responses_company_id, Columns: company_id
+Table: canned_responses, Index: idx_canned_responses_shortcut, Columns: company_id, shortcut
+Table: ticket_attachments, Index: idx_ticket_attachments_ticket_id, Columns: ticket_id
+Table: ticket_attachments, Index: idx_ticket_attachments_uploaded_by, Columns: uploaded_by
+Table: notifications, Index: idx_notifications_user_unread, Columns: user_id, is_read
+Table: notifications, Index: idx_notifications_created_at, Columns: created_at DESC
+Table: invite_tokens, Index: idx_invite_tokens_token, Columns: token
+Table: invite_tokens, Index: idx_invite_tokens_email, Columns: email
+Table: tickets, Index: idx_tickets_status, Columns: status
+Table: tickets, Index: idx_tickets_priority, Columns: priority
+Table: tickets, Index: idx_tickets_assigned_to, Columns: assigned_to
+Table: tickets, Index: idx_tickets_company_id, Columns: company_id
+Table: tickets, Index: idx_tickets_user_id, Columns: user_id
+Table: tickets, Index: idx_tickets_created_at, Columns: created_at DESC
+Table: tickets, Index: idx_tickets_resolved_at, Columns: resolved_at
+Table: tickets, Index: idx_tickets_sla_status, Columns: sla_status
+Table: tickets, Index: idx_tickets_company_status, Columns: company_id, status
+Table: categories, Index: idx_categories_unique_name, Columns: name, company_id, COALESCE(parent_id, '00000000-0000-0000-0000-000000000000'
+Table: services, Index: idx_services_unique_name, Columns: name, company_id
+Table: ticket_status_history, Index: idx_ticket_status_history_ticket, Columns: ticket_id, created_at DESC
+Table: time_entries, Index: idx_time_entries_ticket, Columns: ticket_id
+Table: time_entries, Index: idx_time_entries_user, Columns: user_id
+Table: knowledge_base_articles, Index: idx_kb_articles_company, Columns: company_id
+Table: tickets, Index: idx_tickets_contract, Columns: contract_id
+Table: tickets, Index: idx_tickets_service, Columns: service_id
+Table: tickets, Index: idx_tickets_category_id, Columns: category_id
+Table: machines, Index: idx_machines_group_id, Columns: group_id
+Table: machine_metrics, Index: idx_machine_metrics_machine_id, Columns: machine_id
+Table: machine_metrics, Index: idx_machine_metrics_collected_at, Columns: collected_at DESC
+Table: machine_metrics, Index: idx_machine_metrics_machine_collected, Columns: machine_id, collected_at DESC
+Table: machine_hardware, Index: idx_machine_hardware_machine_id, Columns: machine_id
+Table: machine_alerts, Index: idx_machine_alerts_machine_id, Columns: machine_id
+Table: machine_alerts, Index: idx_machine_alerts_resolved, Columns: machine_id, resolved
+Table: machine_commands, Index: idx_machine_commands_machine_id_status, Columns: machine_id, status
+Table: ticket_ratings, Index: idx_ticket_ratings_ticket_id, Columns: ticket_id
+Table: machines, Index: idx_machines_machine_token, Columns: machine_token
+Table: tickets, Index: idx_tickets_machine_token, Columns: machine_token
+Table: automation_logs, Index: idx_automation_logs_ticket, Columns: ticket_id, created_at DESC
+Table: automation_logs, Index: idx_automation_logs_rule, Columns: rule_id, created_at DESC
+Table: automation_logs, Index: idx_automation_logs_created, Columns: created_at DESC
+Table: machine_groups, Index: idx_machine_groups_company_id, Columns: company_id
+Table: machines, Index: idx_machines_company_id, Columns: company_id
+Table: machine_groups, Index: idx_machine_groups_company_id, Columns: company_id
+Table: machines, Index: idx_machines_company_id, Columns: company_id
+Table: machines, Index: idx_machines_machine_token, Columns: machine_token
+Table: machine_commands, Index: idx_machine_commands_executed_by, Columns: executed_by_user_id, created_at DESC
+Table: software_packages, Index: idx_software_packages_company, Columns: company_id, created_at DESC
+Table: package_deployments, Index: idx_package_deployments_package, Columns: package_id, dispatched_at DESC
+Table: package_deployments, Index: idx_package_deployments_machine, Columns: machine_id, dispatched_at DESC
+
+--- FOREIGN KEYS ---
+ticket_id UUID NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+ALTER TABLE public.tickets ADD COLUMN user_id UUID REFERENCES auth.users(id);
+ALTER TABLE public.profiles ADD COLUMN company_id UUID REFERENCES public.companies(id) ON DELETE SET NULL;
+ADD COLUMN IF NOT EXISTS author_id uuid REFERENCES auth.users(id);
+ADD COLUMN IF NOT EXISTS assigned_to_user_id uuid REFERENCES profiles(id);
+ALTER TABLE public.tickets ADD CONSTRAINT fk_tickets_user_id FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.tickets ADD CONSTRAINT fk_tickets_assigned_to_user_id FOREIGN KEY (assigned_to_user_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.ticket_updates ADD CONSTRAINT fk_ticket_updates_ticket_id FOREIGN KEY (ticket_id) REFERENCES public.tickets(id) ON DELETE CASCADE;
+ALTER TABLE public.ticket_updates ADD CONSTRAINT fk_ticket_updates_author_id FOREIGN KEY (author_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.profiles ADD CONSTRAINT fk_profiles_company_id FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE SET NULL;
+ALTER TABLE public.departments ADD CONSTRAINT fk_departments_company_id FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE public.user_roles ADD CONSTRAINT fk_user_roles_user_id FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+changed_by uuid REFERENCES public.profiles(id),
+company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+assigned_to_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+author_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+changed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+assigned_to_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+author_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+changed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+assigned_to_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+author_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+changed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+REFERENCES companies(id)
+REFERENCES profiles(id)
+REFERENCES profiles(id)
+REFERENCES tickets(id)
+REFERENCES profiles(id)
+REFERENCES companies(id)
+REFERENCES profiles(id)
+REFERENCES companies(id)
+company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+created_by UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+ticket_id UUID NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+uploaded_by UUID NOT NULL REFERENCES public.profiles(id),
+user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+ADD COLUMN current_plan_id uuid REFERENCES public.plans(id);
+company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+sla_config_id uuid REFERENCES public.sla_configs(id) ON DELETE SET NULL,
+parent_id uuid REFERENCES public.categories(id) ON DELETE SET NULL,
+company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+category_id uuid REFERENCES public.categories(id) ON DELETE SET NULL,
+company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+ticket_id uuid NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+ticket_id uuid NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+category_id uuid REFERENCES public.categories(id) ON DELETE SET NULL,
+company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+ticket_id uuid NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+article_id uuid NOT NULL REFERENCES public.knowledge_base_articles(id) ON DELETE CASCADE,
+company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+custom_field_id uuid NOT NULL REFERENCES public.custom_fields(id) ON DELETE CASCADE,
+ADD COLUMN IF NOT EXISTS contract_id uuid REFERENCES public.contracts(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS service_id uuid REFERENCES public.services(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS category_id uuid REFERENCES public.categories(id) ON DELETE SET NULL;
+group_id        UUID          REFERENCES public.machine_groups (id) ON DELETE SET NULL,
+machine_id   UUID          NOT NULL REFERENCES public.machines (id) ON DELETE CASCADE,
+machine_id  UUID          NOT NULL REFERENCES public.machines (id) ON DELETE CASCADE,
+machine_id  UUID          NOT NULL REFERENCES public.machines (id) ON DELETE CASCADE,
+machine_id   UUID          NOT NULL REFERENCES public.machines (id) ON DELETE CASCADE,
+ticket_id    UUID          NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+user_id      UUID          NOT NULL REFERENCES auth.users(id),
+company_id   UUID          NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+ticket_id    UUID          NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+asset_id     UUID          NOT NULL REFERENCES public.assets(id) ON DELETE CASCADE,
+company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+condition_company_id UUID REFERENCES public.companies(id),
+action_target_user_id UUID REFERENCES public.users(id),
+company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE UNIQUE,
+company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS asset_id UUID REFERENCES assets(id);
+rule_id     UUID REFERENCES public.routing_rules(id) ON DELETE SET NULL,
+ticket_id   UUID REFERENCES public.tickets(id) ON DELETE CASCADE,
+ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id),
+ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.companies(id),
+ADD COLUMN IF NOT EXISTS contract_id UUID REFERENCES public.contracts(id),
+ADD COLUMN IF NOT EXISTS asset_id UUID REFERENCES public.assets(id),
+user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE;
+ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE;
+ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE;
+ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE;
+machine_id   UUID          NOT NULL REFERENCES public.machines (id) ON DELETE CASCADE,
+ADD COLUMN IF NOT EXISTS executed_by_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+company_id      UUID REFERENCES public.companies(id) ON DELETE CASCADE NOT NULL,
+created_by      UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+package_id      UUID REFERENCES public.software_packages(id) ON DELETE CASCADE NOT NULL,
+machine_id      UUID REFERENCES public.machines(id) ON DELETE CASCADE NOT NULL,
+command_id      UUID REFERENCES public.machine_commands(id) ON DELETE SET NULL,
+dispatched_by   UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+
+--- RLS POLICIES ---
+Table: tickets, Policy: Allow all access to tickets
+Table: ticket_updates, Policy: Allow all access to ticket_updates
+Table: profiles, Policy: Users can view their own profile
+Table: profiles, Policy: Users can update their own profile
+Table: tickets, Policy: Customers can view their own tickets
+Table: tickets, Policy: Customers can create their own tickets
+Table: tickets, Policy: Technicians and admins can update tickets
+Table: tickets, Policy: Admins can delete tickets
+Table: ticket_updates, Policy: Users can view updates for their tickets
+Table: ticket_updates, Policy: Authenticated users can create updates for accessible tickets
+Table: user_roles, Policy: Users can view their own roles
+Table: user_roles, Policy: Only admins can manage roles
+Table: profiles, Policy: Users can insert their own profile
+Table: profiles, Policy: Admins can delete profiles
+Table: profiles, Policy: Users can view their own profile or admins can view all
+Table: companies, Policy: Admins can view all companies
+Table: companies, Policy: Admins can insert companies
+Table: companies, Policy: Admins can update companies
+Table: companies, Policy: Admins can delete companies
+Table: companies, Policy: Users can view their own company
+Table: profiles, Policy: Users can view their own profile or admins can view all
+Table: ticket_updates, Policy: Authenticated users can create updates for accessible tickets
+Table: profiles, Policy: Users can update their own profile except company
+Table: profiles, Policy: Admins can update any profile including company
+Table: tickets, Policy: Customers can view their own tickets
+Table: tickets, Policy: Customers can create their own tickets
+Table: tickets, Policy: Technicians and admins can update tickets
+Table: tickets, Policy: Admins can delete tickets
+Table: ticket_updates, Policy: Users can view updates for their tickets
+Table: ticket_updates, Policy: Authenticated users can create updates for accessible tickets
+Table: user_roles, Policy: Users can view their own roles or admins can view all
+Table: user_roles, Policy: Only admins can manage roles
+Table: profiles, Policy: Users can insert their own profile
+Table: profiles, Policy: Admins can delete profiles
+Table: profiles, Policy: Users can view their own profile or admins can view all
+Table: profiles, Policy: Users can update profiles
+Table: companies, Policy: Users can view companies
+Table: companies, Policy: Admins can insert companies
+Table: companies, Policy: Admins can update companies
+Table: companies, Policy: Admins can delete companies
+Table: ticket_updates, Policy: Authors can edit recent updates
+Table: ticket_updates, Policy: Admins can delete updates in their company
+Table: ticket_updates, Policy: Developers can delete any update
+Table: ticket_updates, Policy: Developers can update any update
+Table: profiles, Policy: Admins can view profiles in their company
+Table: profiles, Policy: Admins can update profiles in their company
+Table: profiles, Policy: Admins can delete profiles in their company
+Table: ticket_updates, Policy: Admins can create ticket updates in their company
+Table: ticket_updates, Policy: Admins can delete updates in their company
+Table: ticket_updates, Policy: Admins can view ticket updates in their company
+Table: ticket_updates, Policy: Technicians can create ticket updates in their company
+Table: ticket_updates, Policy: Technicians can view ticket updates in their company
+Table: ticket_updates, Policy: Authors can edit recent updates
+Table: ticket_updates, Policy: Developers can delete any update
+Table: ticket_updates, Policy: Developers can update any update
+Table: ticket_updates, Policy: Developers can view all ticket updates
+Table: ticket_updates, Policy: Admins can create ticket updates in their company
+Table: ticket_updates, Policy: Admins can delete updates in their company
+Table: ticket_updates, Policy: Admins can view ticket updates in their company
+Table: ticket_updates, Policy: Technicians can create ticket updates in their company
+Table: ticket_updates, Policy: Technicians can view ticket updates in their company
+Table: ticket_updates, Policy: Users can create updates for their tickets
+Table: ticket_updates, Policy: Users can view updates for their tickets
+Table: ticket_updates, Policy: Developers can create ticket updates
+Table: profiles, Policy: Admins can view profiles in their company
+Table: profiles, Policy: Admins can update profiles in their company
+Table: profiles, Policy: Admins can delete profiles in their company
+Table: profiles, Policy: Developers can view all profiles
+Table: profiles, Policy: Developers can update any profile
+Table: profiles, Policy: Developers can delete any profile
+Table: profiles, Policy: Users can insert their own profile
+Table: profiles, Policy: Users can update their own profile
+Table: profiles, Policy: Users can view their own profile
+Table: tickets, Policy: Customers can create their own tickets
+Table: tickets, Policy: Customers can view their own tickets
+Table: tickets, Policy: Developers can update any ticket
+Table: tickets, Policy: Developers can view all tickets
+Table: tickets, Policy: Developers can delete any ticket
+Table: tickets, Policy: Admins can view tickets in their company
+Table: tickets, Policy: Admins can update tickets in their company
+Table: tickets, Policy: Admins can delete tickets in their company
+Table: tickets, Policy: Technicians can view tickets in their company
+Table: tickets, Policy: Technicians can update tickets in their company
+Table: companies, Policy: Developers can view all companies
+Table: companies, Policy: Admins can view their own company
+Table: companies, Policy: Users can view their own company
+Table: companies, Policy: Developers can insert companies
+Table: companies, Policy: Developers can update companies
+Table: companies, Policy: Developers can delete companies
+Table: departments, Policy: Developers can view all departments
+Table: departments, Policy: Admins can view departments in their company
+Table: departments, Policy: Users can view departments from their company
+Table: departments, Policy: Developers can create any department
+Table: departments, Policy: Developers can update any department
+Table: departments, Policy: Developers can delete any department
+Table: departments, Policy: Admins can create departments in their company
+Table: departments, Policy: Admins can update departments in their company
+Table: departments, Policy: Admins can delete departments from their company
+Table: user_roles, Policy: Developers can view all roles
+Table: user_roles, Policy: Admins can view roles in their company
+Table: user_roles, Policy: Users can view their own role
+Table: user_roles, Policy: Developers can insert any role
+Table: user_roles, Policy: Developers can update any role
+Table: user_roles, Policy: Developers can delete any role
+Table: user_roles, Policy: Admins can insert roles for users in their company
+Table: user_roles, Policy: Admins can update roles in their company
+Table: user_roles, Policy: Admins can delete roles in their company
+Table: audit_log, Policy: Admins can view audit logs in their company
+Table: audit_log, Policy: Developers can view all audit logs
+Table: user_roles, Policy: Prevent self-promotion to admin
+Table: companies, Policy: Users from master company can view all companies
+Table: companies, Policy: Users can view their own company
+Table: companies, Policy: Master company admins can insert companies
+Table: companies, Policy: Master company admins can update companies
+Table: companies, Policy: Master company admins can delete companies
+Table: profiles, Policy: Master company users can view all profiles
+Table: profiles, Policy: Admins can view profiles in their company
+Table: profiles, Policy: Users can view their own profile
+Table: profiles, Policy: Master company admins can update all profiles
+Table: profiles, Policy: Admins can update profiles in their company
+Table: profiles, Policy: Master company admins can delete all profiles
+Table: profiles, Policy: Admins can delete profiles in their company
+Table: user_roles, Policy: Master company users can view all roles
+Table: user_roles, Policy: Admins can view roles in their company
+Table: user_roles, Policy: Users can view their own role
+Table: user_roles, Policy: Master company admins can insert any role
+Table: user_roles, Policy: Admins can insert roles for users in their company
+Table: user_roles, Policy: Master company admins can update any role
+Table: user_roles, Policy: Admins can update roles in their company
+Table: user_roles, Policy: Master company admins can delete any role
+Table: user_roles, Policy: Admins can delete roles in their company
+Table: companies, Policy: Developers can view all companies
+Table: companies, Policy: Developers can insert companies
+Table: companies, Policy: Developers can update companies
+Table: companies, Policy: Developers can delete companies
+Table: companies, Policy: Master company users can view all companies
+Table: companies, Policy: Master company admins can insert companies
+Table: companies, Policy: Master company admins can update companies
+Table: companies, Policy: Master company admins can delete companies
+Table: companies, Policy: Users can view their own company
+Table: departments, Policy: Developers can view all departments
+Table: departments, Policy: Developers can create any department
+Table: departments, Policy: Developers can update any department
+Table: departments, Policy: Developers can delete any department
+Table: departments, Policy: Admins can view departments in their company
+Table: departments, Policy: Admins can create departments in their company
+Table: departments, Policy: Admins can update departments in their company
+Table: departments, Policy: Admins can delete departments from their company
+Table: departments, Policy: Users can view departments from their company
+Table: profiles, Policy: Developers can view all profiles
+Table: profiles, Policy: Developers can update any profile
+Table: profiles, Policy: Developers can delete any profile
+Table: profiles, Policy: Master company users can view all profiles
+Table: profiles, Policy: Master company admins can update all profiles
+Table: profiles, Policy: Master company admins can delete all profiles
+Table: profiles, Policy: Admins can view profiles in their company
+Table: profiles, Policy: Admins can update profiles in their company
+Table: profiles, Policy: Admins can delete profiles in their company
+Table: profiles, Policy: Users can view their own profile
+Table: profiles, Policy: Users can insert their own profile
+Table: profiles, Policy: Users can update their own profile
+Table: user_roles, Policy: Developers can view all roles
+Table: user_roles, Policy: Developers can insert any role
+Table: user_roles, Policy: Developers can update any role
+Table: user_roles, Policy: Developers can delete any role
+Table: user_roles, Policy: Master company users can view all roles
+Table: user_roles, Policy: Master company admins can insert any role
+Table: user_roles, Policy: Master company admins can update any role
+Table: user_roles, Policy: Master company admins can delete any role
+Table: user_roles, Policy: Admins can view roles in their company
+Table: user_roles, Policy: Admins can insert roles for users in their company
+Table: user_roles, Policy: Admins can update roles in their company
+Table: user_roles, Policy: Admins can delete roles in their company
+Table: user_roles, Policy: Users can view their own role
+Table: user_roles, Policy: Prevent self-promotion to admin
+Table: tickets, Policy: Developers can view all tickets
+Table: tickets, Policy: Developers can update any ticket
+Table: tickets, Policy: Developers can delete any ticket
+Table: tickets, Policy: Admins can view tickets in their company
+Table: tickets, Policy: Admins can update tickets in their company
+Table: tickets, Policy: Admins can delete tickets in their company
+Table: tickets, Policy: Technicians can view tickets in their company
+Table: tickets, Policy: Technicians can update tickets in their company
+Table: tickets, Policy: Customers can view their own tickets
+Table: tickets, Policy: Customers can create their own tickets
+Table: ticket_updates, Policy: Developers can view all ticket updates
+Table: ticket_updates, Policy: Developers can create ticket updates
+Table: ticket_updates, Policy: Developers can update any update
+Table: ticket_updates, Policy: Developers can delete any update
+Table: ticket_updates, Policy: Admins can view ticket updates in their company
+Table: ticket_updates, Policy: Admins can create ticket updates in their company
+Table: ticket_updates, Policy: Admins can delete updates in their company
+Table: ticket_updates, Policy: Technicians can view ticket updates in their company
+Table: ticket_updates, Policy: Technicians can create ticket updates in their company
+Table: ticket_updates, Policy: Users can view updates for their tickets
+Table: ticket_updates, Policy: Users can create updates for their tickets
+Table: ticket_updates, Policy: Authors can edit recent updates
+Table: audit_log, Policy: Developers can view all audit logs
+Table: audit_log, Policy: Admins can view audit logs in their company
+Table: companies, Policy: Developers can view all companies
+Table: companies, Policy: Developers can insert companies
+Table: companies, Policy: Developers can update companies
+Table: companies, Policy: Developers can delete companies
+Table: companies, Policy: Master company users can view all companies
+Table: companies, Policy: Master company admins can insert companies
+Table: companies, Policy: Master company admins can update companies
+Table: companies, Policy: Master company admins can delete companies
+Table: companies, Policy: Users can view their own company
+Table: departments, Policy: Developers can view all departments
+Table: departments, Policy: Developers can create any department
+Table: departments, Policy: Developers can update any department
+Table: departments, Policy: Developers can delete any department
+Table: departments, Policy: Admins can view departments in their company
+Table: departments, Policy: Admins can create departments in their company
+Table: departments, Policy: Admins can update departments in their company
+Table: departments, Policy: Admins can delete departments from their company
+Table: departments, Policy: Users can view departments from their company
+Table: profiles, Policy: Developers can view all profiles
+Table: profiles, Policy: Developers can update any profile
+Table: profiles, Policy: Developers can delete any profile
+Table: profiles, Policy: Master company users can view all profiles
+Table: profiles, Policy: Master company admins can update all profiles
+Table: profiles, Policy: Master company admins can delete all profiles
+Table: profiles, Policy: Admins can view profiles in their company
+Table: profiles, Policy: Admins can update profiles in their company
+Table: profiles, Policy: Admins can delete profiles in their company
+Table: profiles, Policy: Users can view their own profile
+Table: profiles, Policy: Users can insert their own profile
+Table: profiles, Policy: Users can update their own profile
+Table: user_roles, Policy: Developers can view all roles
+Table: user_roles, Policy: Developers can insert any role
+Table: user_roles, Policy: Developers can update any role
+Table: user_roles, Policy: Developers can delete any role
+Table: user_roles, Policy: Master company users can view all roles
+Table: user_roles, Policy: Master company admins can insert any role
+Table: user_roles, Policy: Master company admins can update any role
+Table: user_roles, Policy: Master company admins can delete any role
+Table: user_roles, Policy: Admins can view roles in their company
+Table: user_roles, Policy: Admins can insert roles for users in their company
+Table: user_roles, Policy: Admins can update roles in their company
+Table: user_roles, Policy: Admins can delete roles in their company
+Table: user_roles, Policy: Users can view their own role
+Table: user_roles, Policy: Prevent self-promotion to admin
+Table: tickets, Policy: Developers can view all tickets
+Table: tickets, Policy: Developers can update any ticket
+Table: tickets, Policy: Developers can delete any ticket
+Table: tickets, Policy: Admins can view tickets in their company
+Table: tickets, Policy: Admins can update tickets in their company
+Table: tickets, Policy: Admins can delete tickets in their company
+Table: tickets, Policy: Technicians can view tickets in their company
+Table: tickets, Policy: Technicians can update tickets in their company
+Table: tickets, Policy: Customers can view their own tickets
+Table: tickets, Policy: Customers can create their own tickets
+Table: ticket_updates, Policy: Developers can view all ticket updates
+Table: ticket_updates, Policy: Developers can create ticket updates
+Table: ticket_updates, Policy: Developers can update any update
+Table: ticket_updates, Policy: Developers can delete any update
+Table: ticket_updates, Policy: Admins can view ticket updates in their company
+Table: ticket_updates, Policy: Admins can create ticket updates in their company
+Table: ticket_updates, Policy: Admins can delete updates in their company
+Table: ticket_updates, Policy: Technicians can view ticket updates in their company
+Table: ticket_updates, Policy: Technicians can create ticket updates in their company
+Table: ticket_updates, Policy: Users can view updates for their tickets
+Table: ticket_updates, Policy: Users can create updates for their tickets
+Table: ticket_updates, Policy: Authors can edit recent updates
+Table: audit_log, Policy: Developers can view all audit logs
+Table: audit_log, Policy: Admins can view audit logs in their company
+Table: companies, Policy: Developers can view all companies
+Table: companies, Policy: Developers can insert companies
+Table: companies, Policy: Developers can update companies
+Table: companies, Policy: Developers can delete companies
+Table: companies, Policy: Master company users can view all companies
+Table: companies, Policy: Master company admins can insert companies
+Table: companies, Policy: Master company admins can update companies
+Table: companies, Policy: Master company admins can delete companies
+Table: companies, Policy: Users can view their own company
+Table: departments, Policy: Developers can view all departments
+Table: departments, Policy: Developers can create any department
+Table: departments, Policy: Developers can update any department
+Table: departments, Policy: Developers can delete any department
+Table: departments, Policy: Admins can view departments in their company
+Table: departments, Policy: Admins can create departments in their company
+Table: departments, Policy: Admins can update departments in their company
+Table: departments, Policy: Admins can delete departments from their company
+Table: departments, Policy: Users can view departments from their company
+Table: profiles, Policy: Developers can view all profiles
+Table: profiles, Policy: Developers can update any profile
+Table: profiles, Policy: Developers can delete any profile
+Table: profiles, Policy: Master company users can view all profiles
+Table: profiles, Policy: Master company admins can update all profiles
+Table: profiles, Policy: Master company admins can delete all profiles
+Table: profiles, Policy: Admins can view profiles in their company
+Table: profiles, Policy: Admins can update profiles in their company
+Table: profiles, Policy: Admins can delete profiles in their company
+Table: profiles, Policy: Users can view their own profile
+Table: profiles, Policy: Users can insert their own profile
+Table: profiles, Policy: Users can update their own profile
+Table: user_roles, Policy: Developers can view all roles
+Table: user_roles, Policy: Developers can insert any role
+Table: user_roles, Policy: Developers can update any role
+Table: user_roles, Policy: Developers can delete any role
+Table: user_roles, Policy: Master company users can view all roles
+Table: user_roles, Policy: Master company admins can insert any role
+Table: user_roles, Policy: Master company admins can update any role
+Table: user_roles, Policy: Master company admins can delete any role
+Table: user_roles, Policy: Admins can view roles in their company
+Table: user_roles, Policy: Admins can insert roles for users in their company
+Table: user_roles, Policy: Admins can update roles in their company
+Table: user_roles, Policy: Admins can delete roles in their company
+Table: user_roles, Policy: Users can view their own role
+Table: user_roles, Policy: Prevent self-promotion to admin
+Table: tickets, Policy: Developers can view all tickets
+Table: tickets, Policy: Developers can update any ticket
+Table: tickets, Policy: Developers can delete any ticket
+Table: tickets, Policy: Admins can view tickets in their company
+Table: tickets, Policy: Admins can update tickets in their company
+Table: tickets, Policy: Admins can delete tickets in their company
+Table: tickets, Policy: Technicians can view tickets in their company
+Table: tickets, Policy: Technicians can update tickets in their company
+Table: tickets, Policy: Customers can view their own tickets
+Table: tickets, Policy: Customers can create their own tickets
+Table: ticket_updates, Policy: Developers can view all ticket updates
+Table: ticket_updates, Policy: Developers can create ticket updates
+Table: ticket_updates, Policy: Developers can update any update
+Table: ticket_updates, Policy: Developers can delete any update
+Table: ticket_updates, Policy: Admins can view ticket updates in their company
+Table: ticket_updates, Policy: Admins can create ticket updates in their company
+Table: ticket_updates, Policy: Admins can delete updates in their company
+Table: ticket_updates, Policy: Technicians can view ticket updates in their company
+Table: ticket_updates, Policy: Technicians can create ticket updates in their company
+Table: ticket_updates, Policy: Users can view updates for their tickets
+Table: ticket_updates, Policy: Users can create updates for their tickets
+Table: ticket_updates, Policy: Authors can edit recent updates
+Table: audit_log, Policy: Developers can view all audit logs
+Table: audit_log, Policy: Admins can view audit logs in their company
+Table: tickets, Policy: Master admins can view all tickets
+Table: tickets, Policy: Master admins can update all tickets
+Table: tickets, Policy: Master admins can delete all tickets
+Table: tickets, Policy: Company admins can view company tickets
+Table: tickets, Policy: Company admins can update company tickets
+Table: tickets, Policy: Company admins can delete company tickets
+Table: tickets, Policy: Company technicians can view company tickets
+Table: tickets, Policy: Company technicians can update company tickets
+Table: ticket_updates, Policy: Master admins can view all ticket updates
+Table: ticket_updates, Policy: Master admins can create all ticket updates
+Table: ticket_updates, Policy: Master admins can delete all ticket updates
+Table: ticket_updates, Policy: Company admins can view company ticket updates
+Table: ticket_updates, Policy: Company admins can create company ticket updates
+Table: ticket_updates, Policy: Company admins can delete company ticket updates
+Table: ticket_updates, Policy: Company technicians can view company ticket updates
+Table: ticket_updates, Policy: Company technicians can create company ticket updates
+Table: companies, Policy: Developers can view all companies
+Table: companies, Policy: Developers can insert companies
+Table: companies, Policy: Developers can update companies
+Table: companies, Policy: Developers can delete companies
+Table: companies, Policy: Only master admins can insert companies
+Table: companies, Policy: Only master admins can update companies
+Table: companies, Policy: Only master admins can delete companies
+Table: companies, Policy: Master company users can view all companies
+Table: companies, Policy: Users can view their own company
+Table: tickets, Policy: Master technicians can update all tickets
+Table: departments, Policy: Technicians can view company departments
+Table: tickets, Policy: Customers can reopen their own closed tickets
+Table: tickets, Policy: Customers can view own tickets
+Table: tickets, Policy: Customers can create tickets
+Table: tickets, Policy: Customers can reopen own tickets
+Table: tickets, Policy: Technicians view company tickets
+Table: tickets, Policy: Technicians update company tickets
+Table: tickets, Policy: Admins view company tickets
+Table: tickets, Policy: Admins update company tickets
+Table: tickets, Policy: Admins delete company tickets
+Table: tickets, Policy: Master admins view all tickets
+Table: tickets, Policy: Master admins update all tickets
+Table: tickets, Policy: Master admins delete all tickets
+Table: tickets, Policy: Master technicians update all tickets
+Table: tickets, Policy: Developers view all tickets
+Table: tickets, Policy: Developers update all tickets
+Table: tickets, Policy: Developers delete all tickets
+Table: canned_responses, Policy: Technicians and admins can view company canned responses
+Table: canned_responses, Policy: Technicians and admins can create company canned responses
+Table: canned_responses, Policy: Technicians and admins can update company canned responses
+Table: canned_responses, Policy: Technicians and admins can delete company canned responses
+Table: canned_responses, Policy: Developers can manage all canned responses
+Table: ticket_attachments, Policy: Customers can view own ticket attachments
+Table: ticket_attachments, Policy: Customers can create own ticket attachments
+Table: ticket_attachments, Policy: Technicians can view company ticket attachments
+Table: ticket_attachments, Policy: Technicians can create company ticket attachments
+Table: ticket_attachments, Policy: Admins can view company ticket attachments
+Table: ticket_attachments, Policy: Admins can create company ticket attachments
+Table: ticket_attachments, Policy: Admins can delete company ticket attachments
+Table: ticket_attachments, Policy: Master admins can view all attachments
+Table: ticket_attachments, Policy: Master admins can create all attachments
+Table: ticket_attachments, Policy: Master admins can delete all attachments
+Table: ticket_attachments, Policy: Developers can view all attachments
+Table: ticket_attachments, Policy: Developers can create attachments
+Table: ticket_attachments, Policy: Developers can delete all attachments
+Table: storage, Policy: Authenticated users can upload ticket files
+Table: storage, Policy: Users can view ticket files they have access to
+Table: storage, Policy: Admins can delete ticket files
+Table: notifications, Policy: Users can view their own notifications
+Table: notifications, Policy: Users can update their own notifications
+Table: notifications, Policy: Users can delete their own notifications
+Table: notifications, Policy: System can insert notifications
+Table: storage, Policy: Users can upload to their tickets
+Table: invite_tokens, Policy: Anyone can validate tokens
+Table: invite_tokens, Policy: Admins can create tokens
+Table: invite_tokens, Policy: Service role can delete tokens
+Table: ticket_updates, Policy: Users can view updates for their tickets
+Table: ticket_updates, Policy: Company technicians can view company ticket updates
+Table: ticket_updates, Policy: Company admins can view company ticket updates
+Table: ticket_updates, Policy: Master admins can view all ticket updates
+Table: ticket_updates, Policy: Developers can view all ticket updates
+Table: plans, Policy: Authenticated users can view plans
+Table: plans, Policy: Developers can manage plans
+Table: sla_configs, Policy: Developers can manage all sla_configs
+Table: sla_configs, Policy: Master admins can manage all sla_configs
+Table: sla_configs, Policy: Admins can view company sla_configs
+Table: sla_configs, Policy: Technicians can view company sla_configs
+Table: contracts, Policy: Developers can manage all contracts
+Table: contracts, Policy: Master admins can manage all contracts
+Table: contracts, Policy: Admins can view company contracts
+Table: contracts, Policy: Technicians can view company contracts
+Table: categories, Policy: Developers can manage all categories
+Table: categories, Policy: Master admins can manage all categories
+Table: categories, Policy: Admins can manage company categories
+Table: categories, Policy: Users can view company categories
+Table: services, Policy: Developers can manage all services
+Table: services, Policy: Master admins can manage all services
+Table: services, Policy: Admins can manage company services
+Table: services, Policy: Users can view company services
+Table: ticket_status_history, Policy: Developers can manage all status history
+Table: ticket_status_history, Policy: Master admins can view all status history
+Table: ticket_status_history, Policy: Admins can view company status history
+Table: ticket_status_history, Policy: Technicians can view company status history
+Table: ticket_status_history, Policy: Customers can view own ticket status history
+Table: ticket_status_history, Policy: System can insert status history
+Table: time_entries, Policy: Developers can manage all time_entries
+Table: time_entries, Policy: Master admins can manage all time_entries
+Table: time_entries, Policy: Admins can view company time_entries
+Table: time_entries, Policy: Technicians can manage own time_entries
+Table: knowledge_base_articles, Policy: Developers can manage all kb_articles
+Table: knowledge_base_articles, Policy: Master admins can manage all kb_articles
+Table: knowledge_base_articles, Policy: Admins and techs can manage company kb_articles
+Table: knowledge_base_articles, Policy: Customers can view public published kb_articles
+Table: ticket_kb_links, Policy: Developers can manage all ticket_kb_links
+Table: ticket_kb_links, Policy: Master admins can manage all ticket_kb_links
+Table: ticket_kb_links, Policy: Techs and admins can manage company ticket_kb_links
+Table: ticket_kb_links, Policy: Customers can view links for own tickets
+Table: custom_fields, Policy: Developers can manage all custom_fields
+Table: custom_fields, Policy: Master admins can manage all custom_fields
+Table: custom_fields, Policy: Admins can manage company custom_fields
+Table: custom_fields, Policy: Users can view company custom_fields
+Table: custom_field_values, Policy: Developers can manage all custom_field_values
+Table: custom_field_values, Policy: Master admins can manage all custom_field_values
+Table: custom_field_values, Policy: Authenticated users can manage own entity custom_field_values
+Table: machine_groups, Policy: Authenticated users can view machine_groups
+Table: machine_groups, Policy: Authenticated users can insert machine_groups
+Table: machine_groups, Policy: Authenticated users can update machine_groups
+Table: machine_groups, Policy: Authenticated users can delete machine_groups
+Table: machines, Policy: Authenticated users can view machines
+Table: machines, Policy: Authenticated users can insert machines
+Table: machines, Policy: Authenticated users can update machines
+Table: machines, Policy: Authenticated users can delete machines
+Table: machine_metrics, Policy: Authenticated users can view machine_metrics
+Table: machine_metrics, Policy: Authenticated users can insert machine_metrics
+Table: machine_metrics, Policy: Authenticated users can update machine_metrics
+Table: machine_metrics, Policy: Authenticated users can delete machine_metrics
+Table: machine_hardware, Policy: Authenticated users can view machine_hardware
+Table: machine_hardware, Policy: Authenticated users can insert machine_hardware
+Table: machine_hardware, Policy: Authenticated users can update machine_hardware
+Table: machine_hardware, Policy: Authenticated users can delete machine_hardware
+Table: machine_alerts, Policy: Authenticated users can view machine_alerts
+Table: machine_alerts, Policy: Authenticated users can insert machine_alerts
+Table: machine_alerts, Policy: Authenticated users can update machine_alerts
+Table: machine_alerts, Policy: Authenticated users can delete machine_alerts
+Table: machine_commands, Policy: Authenticated users can manage commands
+Table: knowledge_articles, Policy: Anyone can read published articles
+Table: knowledge_articles, Policy: Authenticated users can manage articles
+Table: ticket_ratings, Policy: Users can rate their own tickets
+Table: ticket_ratings, Policy: Technicians and admins can see ratings
+Table: ticket_ratings, Policy: Users can rate their own tickets
+Table: ticket_ratings, Policy: Users can see their own ratings
+Table: assets, Policy: Users can view assets of their company
+Table: assets, Policy: Admins and Technicians can manage assets
+Table: ticket_assets, Policy: Users can view links for their tickets
+Table: ticket_assets, Policy: Admins and Technicians can link assets to tickets
+Table: routing_rules, Policy: Users can view routing rules of their company
+Table: routing_rules, Policy: Admins can manage routing rules
+Table: escalation_settings, Policy: Users can view escalation settings of their company
+Table: escalation_settings, Policy: Admins can manage escalation settings
+Table: resolution_checklists, Policy: Users can view resolution checklists of their company
+Table: resolution_checklists, Policy: Admins can manage resolution checklists
+Table: machines, Policy: Agents can update machines by token
+Table: automation_logs, Policy: Admins and devs can view automation logs
+Table: automation_logs, Policy: System can insert automation logs
+Table: api_keys, Policy: Users can view their own company API keys
+Table: api_keys, Policy: Admins can manage all company API keys
+Table: machines, Policy: Global select for machines
+Table: machines, Policy: Global insert for machines
+Table: machines, Policy: Global update for machines
+Table: machine_groups, Policy: Global select for groups
+Table: machine_groups, Policy: Global insert for groups
+Table: machine_commands, Policy: Global select for commands
+Table: machine_commands, Policy: Global manage for commands
+Table: software_packages, Policy: Admins and devs can manage packages
+Table: package_deployments, Policy: Admins and devs can view deployments
+Table: package_deployments, Policy: Admins and devs can insert deployments
+Table: knowledge_base_articles, Policy: Admins can manage company kb_articles
+Table: knowledge_base_articles, Policy: Techs can view company kb_articles

@@ -25,13 +25,17 @@ const TicketHistory = lazy(() => import("./pages/TicketHistory"));
 const Avaliacao = lazy(() => import("./pages/Avaliacao"));
 const Assets = lazy(() => import("./pages/Assets"));
 const ClientPortal = lazy(() => import("./pages/ClientPortal"));
-const Documentation = lazy(() => import("./pages/Documentation"));
-const UserGuide = lazy(() => import("./pages/UserGuide"));
 const Automacoes = lazy(() => import("./pages/Automacoes"));
 const PatchManagement = lazy(() => import("./pages/PatchManagement"));
 
-const queryClient = new QueryClient();
-
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes cache
+      refetchOnWindowFocus: false, // Prevents duplicate fetches on tab switch
+    },
+  },
+});
 /** Wrapper: ProtectedRoute + DashboardLayout compartilhado */
 const AppRoute = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
@@ -73,11 +77,11 @@ const App = () => (
               <Route path="/assets" element={<AppRoute><Assets /></AppRoute>} />
               <Route path="/portal" element={<AppRoute><ClientPortal /></AppRoute>} />
               <Route path="/debug-tools" element={<AppRoute><DebugTools /></AppRoute>} />
-              <Route path="/documentacao" element={<AppRoute><Documentation /></AppRoute>} />
-              <Route path="/tutorial" element={<AppRoute><UserGuide /></AppRoute>} />
               <Route path="/automacoes" element={<AppRoute><Automacoes /></AppRoute>} />
               <Route path="/patches" element={<AppRoute><PatchManagement /></AppRoute>} />
-              <Route path="/manual" element={<Navigate to="/tutorial" replace />} />
+              <Route path="/manual" element={<Navigate to="/knowledge" replace />} />
+              <Route path="/tutorial" element={<Navigate to="/knowledge" replace />} />
+              <Route path="/documentacao" element={<Navigate to="/" replace />} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
