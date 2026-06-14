@@ -4,7 +4,7 @@ import { supabaseRead } from '@/integrations/supabase/read-client';
 import { toast } from '@/hooks/use-toast';
 import { ticketStatusSchema, ticketUpdateSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
-import { enrichTicketsWithCompany } from '@/lib/ticket-helpers';
+import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpers';
 
 export interface Ticket {
   id: string;
@@ -83,29 +83,42 @@ export const useTicket = (id: string) => {
   return useQuery({
     queryKey: ['ticket', id],
     queryFn: async () => {
+      // Fetch ticket, associated profile, and associated company in a single join query
       const { data: ticket, error } = await supabaseRead
         .from('tickets')
-        .select('*')
+        .select(`
+          *,
+          profiles:user_id (
+            full_name,
+            company_id,
+            companies:company_id (
+              name
+            )
+          )
+        `)
         .eq('id', id)
         .single();
 
       if (error) throw error;
 
-      // Parallel fetch: profile + company at once
-      const { data: profile } = await supabaseRead
-        .from('profiles')
-        .select('full_name, company_id')
-        .eq('id', ticket.user_id)
-        .single();
+      // Extract nested company name and format back to the expected Ticket interface structure
+      let companyName = null;
+      if (ticket.profiles && !Array.isArray(ticket.profiles)) {
+        const profile = ticket.profiles as any;
+        if (profile.companies && !Array.isArray(profile.companies)) {
+          companyName = profile.companies.name;
+        }
+      }
+      
+      // Clean up the nested object to avoid polluting the state
+      const cleanedTicket = { ...ticket };
+      delete (cleanedTicket as any).profiles;
 
-      const companyName = profile
-        ? (await supabaseRead.from('companies').select('name').eq('id', profile.company_id).single()).data?.name ?? null
-        : null;
-
-      return { ...ticket, company_name: companyName } as Ticket;
+      const dynamicSlaStatus = ticket.sla_due_date ? calculateSlaStatus(ticket.sla_due_date) : ticket.sla_status;
+      return { ...cleanedTicket, company_name: companyName, sla_status: dynamicSlaStatus } as Ticket;
     },
     enabled: !!id,
-    staleTime: 15_000,
+    staleTime: 60_000,
   });
 };
 
@@ -113,31 +126,40 @@ export const useTicketUpdates = (ticketId: string) => {
   return useQuery({
     queryKey: ['ticket-updates', ticketId],
     queryFn: async () => {
-      // Use read client for queries
+      // Fetch updates and associated author profiles in a single query using joins
       const { data: updates, error } = await supabaseRead
         .from('ticket_updates')
-        .select('*')
+        .select(`
+          *,
+          profiles:author_id (
+            full_name
+          )
+        `)
         .eq('ticket_id', ticketId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
       if (!updates || updates.length === 0) return [];
 
-      // Fetch author profiles
-      const authorIds = [...new Set(updates.map(u => u.author_id))];
-      const { data: profiles } = await supabaseRead
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', authorIds);
+      return updates.map(u => {
+        // Extract nested profile full_name if available
+        let authorName = u.author || 'Sistema';
+        if (u.profiles && !Array.isArray(u.profiles)) {
+          authorName = (u.profiles as any).full_name || authorName;
+        }
 
-      const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+        // Clean up nested objects
+        const cleanedUpdate = { ...u };
+        delete (cleanedUpdate as any).profiles;
 
-      return updates.map(u => ({
-        ...u,
-        author: profileMap.get(u.author_id) || u.author || 'Sistema'
-      })) as TicketUpdate[];
+        return {
+          ...cleanedUpdate,
+          author: authorName
+        } as TicketUpdate;
+      });
     },
     enabled: !!ticketId,
+    staleTime: 60_000,
   });
 };
 
