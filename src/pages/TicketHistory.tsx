@@ -143,7 +143,7 @@ export default function TicketHistory() {
               <div className="relative w-full md:max-w-md group">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-purple-500" />
                 <Input
-                  placeholder="Pesquisar histórico..."
+                  autoComplete="off" placeholder="Pesquisar histórico..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-purple-500/20 rounded-2xl transition-all"
