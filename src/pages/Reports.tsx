@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
+import { calculateSlaStatus } from '@/lib/ticket-helpers';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Loader2, ArrowLeft, BarChart3, Clock, CheckCircle2, AlertTriangle, TrendingUp, ShieldAlert, Download, Printer } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
@@ -89,7 +90,10 @@ const Reports: React.FC = () => {
         .in('id', companyIds);
       const companyMap = new Map(companyData?.map(c => [c.id, c.name]) || []);
 
-      return data.map(t => ({ ...t, company_name: companyMap.get(t.company_id) || 'N/A' }));
+      return data.map(t => {
+        const dynamicSlaStatus = t.sla_due_date ? calculateSlaStatus(t.sla_due_date) : t.sla_status;
+        return { ...t, company_name: companyMap.get(t.company_id) || 'N/A', sla_status: dynamicSlaStatus };
+      });
     },
   });
 
