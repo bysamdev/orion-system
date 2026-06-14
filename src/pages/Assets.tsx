@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
@@ -158,7 +158,7 @@ const Assets = () => {
     }
   });
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setFormData({
       name: '',
       hostname: '',
@@ -172,9 +172,9 @@ const Assets = () => {
       model: ''
     });
     setEditingAsset(null);
-  };
+  }, []);
 
-  const handleOpenEdit = (asset: Asset) => {
+  const handleOpenEdit = useCallback((asset: Asset) => {
     setEditingAsset(asset);
     setFormData({
       name: asset.name,
@@ -189,23 +189,35 @@ const Assets = () => {
       model: asset.model || ''
     });
     setIsDialogOpen(true);
-  };
+  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (editingAsset) {
       updateAsset.mutate({ id: editingAsset.id, ...formData });
     } else {
       createAsset.mutate(formData);
     }
-  };
+  }, [editingAsset, formData, updateAsset, createAsset]);
 
-  const filteredAssets = assets?.filter(a => {
-    const matchesSearch = a.name.toLowerCase().includes(search.toLowerCase()) || 
-                         a.serial_number?.toLowerCase().includes(search.toLowerCase());
-    const matchesType = typeFilter === 'all' || a.type === typeFilter;
-    return matchesSearch && matchesType;
-  });
+  const handleOpenHistory = useCallback((asset: Asset) => {
+    setHistoryAsset(asset);
+  }, []);
+
+  const handleDeleteAsset = useCallback((id: string) => {
+    if (confirm('Tem certeza que deseja remover este ativo?')) {
+      deleteAsset.mutate(id);
+    }
+  }, [deleteAsset]);
+
+  const filteredAssets = useMemo(() => {
+    return assets?.filter(a => {
+      const matchesSearch = a.name.toLowerCase().includes(search.toLowerCase()) || 
+                           a.serial_number?.toLowerCase().includes(search.toLowerCase());
+      const matchesType = typeFilter === 'all' || a.type === typeFilter;
+      return matchesSearch && matchesType;
+    }) || [];
+  }, [assets, search, typeFilter]);
 
   if (roleLoading || assetsLoading) {
     return (
@@ -452,79 +464,15 @@ const Assets = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAssets?.map((asset) => {
-                  const Icon = typeIcons[asset.type] || Laptop;
-                  return (
-                    <TableRow key={asset.id} className="group hover:bg-primary/5 transition-colors border-border/40">
-                      <TableCell className="pl-8 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="p-2.5 bg-background border border-border/60 rounded-xl group-hover:scale-110 transition-transform">
-                            <Icon className="w-5 h-5 text-primary" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="font-bold text-foreground leading-tight">{asset.name}</span>
-                            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">SN: {asset.serial_number || 'N/A'}</span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm font-semibold">{asset.company_name}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="bg-muted/50 text-muted-foreground border-border/40 font-bold text-[10px] rounded-md">{asset.type}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className={cn(
-                            "w-1.5 h-1.5 rounded-full",
-                            asset.status === 'active' ? "bg-green-500" : "bg-warning"
-                          )} />
-                          <span className="text-xs font-bold capitalize">{asset.status}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col text-xs">
-                          <span className="font-medium text-muted-foreground">
-                            {formatDate(asset.warranty_until, "dd/MM/yyyy")}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right pr-8">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
-                            onClick={() => setHistoryAsset(asset)}
-                            title="Histórico de Incidentes"
-                          >
-                            <History className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
-                            onClick={() => handleOpenEdit(asset)}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors"
-                            onClick={() => {
-                              if (confirm('Tem certeza que deseja remover este ativo?')) {
-                                deleteAsset.mutate(asset.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {filteredAssets?.map((asset) => (
+                  <AssetRow 
+                    key={asset.id} 
+                    asset={asset}
+                    onOpenHistory={handleOpenHistory}
+                    onOpenEdit={handleOpenEdit}
+                    onDelete={handleDeleteAsset}
+                  />
+                ))}
                 {filteredAssets?.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="h-[400px] text-center">
@@ -622,5 +570,86 @@ const Assets = () => {
     </div>
   );
 };
+
+const AssetRow = React.memo(({ 
+  asset, 
+  onOpenHistory, 
+  onOpenEdit, 
+  onDelete 
+}: { 
+  asset: Asset; 
+  onOpenHistory: (asset: Asset) => void;
+  onOpenEdit: (asset: Asset) => void;
+  onDelete: (id: string) => void;
+}) => {
+  const Icon = typeIcons[asset.type] || Laptop;
+  return (
+    <TableRow className="group hover:bg-primary/5 transition-colors border-border/40">
+      <TableCell className="pl-8 py-4">
+        <div className="flex items-center gap-4">
+          <div className="p-2.5 bg-background border border-border/60 rounded-xl group-hover:scale-110 transition-transform">
+            <Icon className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-foreground leading-tight">{asset.name}</span>
+            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">SN: {asset.serial_number || 'N/A'}</span>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <span className="text-sm font-semibold">{asset.company_name}</span>
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary" className="bg-muted/50 text-muted-foreground border-border/40 font-bold text-[10px] rounded-md">{asset.type}</Badge>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "w-1.5 h-1.5 rounded-full",
+            asset.status === 'active' ? "bg-green-500" : "bg-warning"
+          )} />
+          <span className="text-xs font-bold capitalize">{asset.status}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex flex-col text-xs">
+          <span className="font-medium text-muted-foreground">
+            {formatDate(asset.warranty_until, "dd/MM/yyyy")}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell className="text-right pr-8">
+        <div className="flex items-center justify-end gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
+            onClick={() => onOpenHistory(asset)}
+            title="Histórico de Incidentes"
+          >
+            <History className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
+            onClick={() => onOpenEdit(asset)}
+          >
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors"
+            onClick={() => onDelete(asset.id)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+});
+AssetRow.displayName = 'AssetRow';
 
 export default Assets;
