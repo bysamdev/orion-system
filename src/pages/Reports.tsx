@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseRead } from '@/integrations/supabase/read-client';
+import { useTickets } from '@/hooks/useTickets';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -60,42 +61,36 @@ const Reports: React.FC = () => {
     },
   });
 
-  // Buscar tickets filtrados
-  const { data: tickets = [], isLoading: ticketsLoading } = useQuery({
-    queryKey: ['report-tickets', dateFrom, dateTo, companyFilter, techFilter],
-    queryFn: async () => {
-      let query = supabaseRead
-        .from('tickets')
-        .select('id, ticket_number, title, status, priority, sla_status, sla_due_date, created_at, resolved_at, first_response_at, assigned_to, assigned_to_user_id, company_id, requester_name, category')
-        .gte('created_at', `${dateFrom}T00:00:00`)
-        .lte('created_at', `${dateTo}T23:59:59`)
-        .order('created_at', { ascending: false });
+  // Buscar tickets através da fonte unificada (useTickets)
+  const { data: allTickets = [], isLoading: ticketsLoading } = useTickets();
 
-      if (companyFilter && companyFilter !== 'all') {
-        query = query.eq('company_id', companyFilter);
+  // Filtragem no client-side para manter a consistência com o Dashboard
+  const tickets = useMemo(() => {
+    return allTickets.filter(t => {
+      // Filtros de empresa e técnico
+      if (companyFilter !== 'all' && t.company_id !== companyFilter) return false;
+      if (techFilter !== 'all' && t.assigned_to_user_id !== techFilter) return false;
+
+      // Status ativo
+      const isOpen = ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'].includes(t.status);
+
+      // Tratamento para tickets sem data de criação válida
+      if (!t.created_at && isOpen) return true;
+      if (!t.created_at) return false;
+
+      const createdDate = t.created_at.split('T')[0];
+      const isCreatedInPeriod = createdDate >= dateFrom && createdDate <= dateTo;
+
+      let isResolvedInPeriod = false;
+      if (t.resolved_at) {
+        const resolvedDate = t.resolved_at.split('T')[0];
+        isResolvedInPeriod = resolvedDate >= dateFrom && resolvedDate <= dateTo;
       }
-      if (techFilter && techFilter !== 'all') {
-        query = query.eq('assigned_to_user_id', techFilter);
-      }
 
-      const { data, error } = await query;
-      if (error) throw error;
-
-      // Enriquecer com company_name
-      if (!data || data.length === 0) return [];
-      const companyIds = [...new Set(data.map(t => t.company_id))];
-      const { data: companyData } = await supabaseRead
-        .from('companies')
-        .select('id, name')
-        .in('id', companyIds);
-      const companyMap = new Map(companyData?.map(c => [c.id, c.name]) || []);
-
-      return data.map(t => {
-        const dynamicSlaStatus = t.sla_due_date ? calculateSlaStatus(t.sla_due_date) : t.sla_status;
-        return { ...t, company_name: companyMap.get(t.company_id) || 'N/A', sla_status: dynamicSlaStatus };
-      });
-    },
-  });
+      // Ticket é relevante se foi criado, resolvido ou continua ativo no período
+      return isCreatedInPeriod || isResolvedInPeriod || isOpen;
+    });
+  }, [allTickets, dateFrom, dateTo, companyFilter, techFilter]);
 
   // Calcular métricas
   const metrics = useMemo(() => {
@@ -162,11 +157,14 @@ const Reports: React.FC = () => {
       { name: 'Estourado', value: metrics.slaBreached, color: '#ef4444' }
     ].filter(d => d.value > 0);
 
-    // 3. Tickets por dia
+    // 3. Tickets por dia (apenas considerando criação dentro do período para o gráfico)
     const ticketsPerDay = tickets.reduce((acc: any, t) => {
+      if (!t.created_at) return acc;
       const date = t.created_at.split('T')[0];
-      if (!acc[date]) acc[date] = 0;
-      acc[date]++;
+      if (date >= dateFrom && date <= dateTo) {
+        if (!acc[date]) acc[date] = 0;
+        acc[date]++;
+      }
       return acc;
     }, {});
     const trendData = Object.entries(ticketsPerDay)
