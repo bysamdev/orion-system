@@ -72,9 +72,10 @@ export const ticketCreationSchema = z.object({
   priority: ticketPrioritySchema,
   department: z.string()
     .trim()
-    .min(1, 'Selecione um departamento')
     .max(50, 'Departamento deve ter no máximo 50 caracteres')
     .regex(/^[a-zA-Z0-9\s\-_.áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ!?,;:()\[\]{}@#$%&*+='"\/\\]*$/, 'O departamento contém caracteres inválidos')
+    .optional()
+    .or(z.literal(''))
 });
 
 export type TicketStatus = z.infer<typeof ticketStatusSchema>;
