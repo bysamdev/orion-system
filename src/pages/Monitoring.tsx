@@ -211,12 +211,17 @@ function MachinesGrid({
   }
 
   if (filtered.length === 0) {
+    const isTotallyEmpty = machines && machines.length === 0;
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-2xl opacity-50">
           <div className="p-4 bg-muted rounded-full">
             <Monitor className="h-10 w-10 text-muted-foreground/40" />
           </div>
-          <p className="text-sm font-medium">Nenhuma máquina encontrada com os filtros ativos.</p>
+          <p className="text-sm font-medium">
+            {isTotallyEmpty 
+              ? "Nenhum dispositivo neste grupo ainda. Instale o agente para começar a monitorar."
+              : "Nenhuma máquina encontrada com os filtros ativos."}
+          </p>
       </div>
     );
   }

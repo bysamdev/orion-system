@@ -112,12 +112,12 @@ type CriticalAlertItem struct {
 
 func (d *DB) ListMachineGroups(ctx context.Context) ([]MachineGroupRow, error) {
 	rows, err := d.pool.Query(ctx, `
-SELECT mg.id::text, mg.name, mg.description, mg.client_contact, mg.created_at,
+SELECT MAX(mg.id::text) AS id, mg.name, MAX(mg.description), MAX(mg.client_contact), MIN(mg.created_at),
        COUNT(m.id)                                              AS total_machines,
        COUNT(m.id) FILTER (WHERE m.status = 'online')          AS online_machines
 FROM public.machine_groups mg
 LEFT JOIN public.machines m ON m.group_id = mg.id
-GROUP BY mg.id ORDER BY mg.name`)
+GROUP BY mg.name ORDER BY mg.name`)
 	if err != nil {
 		return nil, err
 	}
@@ -139,11 +139,12 @@ SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_versio
        m.status, m.last_seen, m.agent_version, m.created_at,
        lm.cpu_usage, lm.ram_total, lm.ram_used, lm.disk_total, lm.disk_used, lm.uptime, lm.collected_at
 FROM public.machines m
+JOIN public.machine_groups mg ON mg.id = m.group_id
 LEFT JOIN LATERAL (
   SELECT cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, collected_at
   FROM public.machine_metrics WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
 ) lm ON true
-WHERE m.group_id = $1 ORDER BY m.hostname`, groupID)
+WHERE mg.name = (SELECT name FROM public.machine_groups WHERE id = $1) ORDER BY m.hostname`, groupID)
 	if err != nil {
 		return nil, err
 	}
