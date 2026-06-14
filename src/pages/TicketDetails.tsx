@@ -131,7 +131,7 @@ const TicketDetails: React.FC = () => {
           const { data, error } = await supabaseRead
             .from('tickets')
             .select('id')
-            .eq('number', parseInt(id || '0', 10))
+            .eq('ticket_number', parseInt(id || '0', 10))
             .maybeSingle();
 
           if (error) throw error;

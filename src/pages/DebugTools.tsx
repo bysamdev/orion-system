@@ -418,7 +418,7 @@ const DebugTools = () => {
             </CardTitle>
             <CardDescription>
               Cria tickets com diferentes prioridades e valida se o banco calcula corretamente a data de SLA.
-              Esperado: Urgente (4h), Alta (24h), Média (48h), Baixa (72h)
+              Esperado: Urgente (2h), Alta (8h), Média (24h), Baixa (72h)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
