@@ -38,6 +38,8 @@ import { useRealtimeTicket } from '@/hooks/useRealtimeTickets';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMachineDetail, useMachineAlerts, pct, useCreateCommand } from '@/hooks/useMonitoring';
 import { Server, HardDrive, Cpu, MemoryStick, Activity, Bell, Terminal } from 'lucide-react';
+import { useSLAConfigs } from '@/hooks/useSLAConfigs';
+
 
 const ticketUpdateSchema = z.object({
   content: z.string().trim().min(1, 'O comentário não pode estar vazio').max(5000, 'O comentário não pode ter mais de 5000 caracteres')
@@ -124,20 +126,27 @@ const TicketDetails: React.FC = () => {
 
   React.useEffect(() => {
     if (isNumber) {
-      fetch(`/api/tickets/resolve/${id}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.uuid) {
-            navigate(`/ticket/${data.uuid}`, { replace: true });
+      const fetchUUID = async () => {
+        try {
+          const { data, error } = await supabaseRead
+            .from('tickets')
+            .select('id')
+            .eq('number', parseInt(id || '0', 10))
+            .maybeSingle();
+
+          if (error) throw error;
+          if (data && data.id) {
+            navigate(`/ticket/${data.id}`, { replace: true });
           } else {
             setIsResolving(false);
             toast({ title: 'Chamado não encontrado', variant: 'destructive' });
           }
-        })
-        .catch(() => {
+        } catch (error) {
           setIsResolving(false);
           toast({ title: 'Erro de conexão', description: 'Não foi possível resolver o ID.', variant: 'destructive' });
-        });
+        }
+      };
+      fetchUUID();
     } else {
       setIsResolving(false);
     }
