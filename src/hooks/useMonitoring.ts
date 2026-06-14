@@ -207,6 +207,7 @@ export function useMachineAlerts(machineId: string | null) {
 }
 
 export function useCreateCommand() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
       machineId,
@@ -224,6 +225,9 @@ export function useCreateCommand() {
         executed_by_user_id,
         executed_by_name,
       }),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'commands', variables.machineId] });
+    },
   });
 }
 
@@ -255,6 +259,8 @@ export function useManagementCompanies() {
       if (error) throw error;
       return data;
     },
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000, // 10 minutos
   });
 }
 

@@ -31,6 +31,8 @@ export const useUserRole = () => {
       return data?.role as UserRole | null;
     },
     enabled: !!user?.id, // Só executa se houver um usuário logado.
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000, // 10 minutos
   });
 };
 
@@ -54,5 +56,7 @@ export const useUserProfile = () => {
       return data;
     },
     enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000, // 10 minutos
   });
 };

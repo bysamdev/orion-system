@@ -314,6 +314,8 @@ export const useAddTicketUpdate = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ticket-updates', data.ticket_id] });
+      queryClient.invalidateQueries({ queryKey: ['ticket', data.ticket_id] });
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
       toast({
         title: 'Comentário adicionado',
         description: 'Seu comentário foi adicionado com sucesso.',
