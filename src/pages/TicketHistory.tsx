@@ -11,8 +11,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabaseRead } from '@/integrations/supabase/read-client';
 import { useNavigate, Navigate } from 'react-router-dom'; // Added Navigate import
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
-import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatDate } from '@/lib/utils';
 
 // Define types for tickets to avoid 'unknown' property errors
 interface Ticket {
@@ -243,7 +243,7 @@ export default function TicketHistory() {
                         </TableCell>
                         <TableCell className="py-4">
                           <span className="text-[11px] font-medium text-muted-foreground">
-                            {format(new Date(t.updated_at), "dd MMM yy 'às' HH:mm", { locale: ptBR })}
+                            {formatDate(t.updated_at, "dd MMM yy 'às' HH:mm", { locale: ptBR })}
                           </span>
                         </TableCell>
                         <TableCell className="py-4 text-right pr-6">
