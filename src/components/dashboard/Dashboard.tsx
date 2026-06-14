@@ -1,7 +1,5 @@
 import React from 'react';
 import { DashboardHeader } from './DashboardHeader';
-import { QuickAccessCard } from './QuickAccessCard';
-import { CustomerTicketsTable } from './CustomerTicketsTable';
 import { TechnicianDashboard } from './TechnicianDashboard';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
