@@ -123,6 +123,13 @@ const NewTicket = () => {
     }
   }, [isVIP, form]);
 
+  // ── Sync: Default to user's profile department ──────────────
+  useEffect(() => {
+    if (profile?.department && form.getValues('department') === 'Geral') {
+      form.setValue('department', profile.department);
+    }
+  }, [profile?.department, form]);
+
   const currentCategory = form.watch('category');
   const watchedTitle = form.watch('title');
   const watchedDescription = form.watch('description');
@@ -378,7 +385,7 @@ const NewTicket = () => {
                           <FormItem className="space-y-4">
                             <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Seu Departamento</FormLabel>
                             {departments && departments.length > 0 ? (
-                              <Select onValueChange={field.onChange} defaultValue={field.value || 'Geral'}>
+                              <Select onValueChange={field.onChange} value={field.value || 'Geral'}>
                                 <FormControl>
                                   <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
                                     <SelectValue placeholder="Selecione um departamento" />
