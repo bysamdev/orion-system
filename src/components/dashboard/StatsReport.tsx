@@ -17,12 +17,7 @@ interface ReportData {
 export const StatsReport: React.FC = () => {
   const [period, setPeriod] = useState<'daily' | 'weekly'>('daily');
   const { data: stats, isLoading } = useTicketStats(period);
-  const { data: activeSla } = useSLAConfigs();
-  const SLA_TARGETS = {
-    high: activeSla?.high_hours || 24,
-    medium: activeSla?.medium_hours || 48,
-    low: activeSla?.low_hours || 72,
-  };
+  const { data: activeSla, isLoading: isSlaLoading } = useSLAConfigs();
 
   const formatHours = (hours: number) => {
     if (hours < 1) {
@@ -65,7 +60,7 @@ export const StatsReport: React.FC = () => {
           </CardTitle>
           <Badge variant="outline" className="text-xs">
             <Clock className="w-3 h-3 mr-1" />
-            SLA: Alta {SLA_TARGETS.high}h | Média {SLA_TARGETS.medium}h | Baixa {SLA_TARGETS.low}h
+            {isSlaLoading || !activeSla ? 'SLA: Carregando...' : `SLA: Alta ${activeSla.high_hours}h | Média ${activeSla.medium_hours}h | Baixa ${activeSla.low_hours}h`}
           </Badge>
         </div>
       </CardHeader>

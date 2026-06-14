@@ -16,13 +16,8 @@ export const useSLAConfigs = () => {
         
       if (error && error.code !== 'PGRST116') throw error; // ignore row not found
       
-      // Fallback defaults if none configured
-      return data || {
-        urgent_hours: 4,
-        high_hours: 24,
-        medium_hours: 48,
-        low_hours: 72,
-      };
+      // Return the data fetched from the database, no hardcoded fallbacks
+      return data;
     }
   });
 };

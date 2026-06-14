@@ -103,7 +103,7 @@ const NewTicket = () => {
     enabled: !!profile?.company_id
   });
 
-  const { data: activeSla } = useSLAConfigs();
+  const { data: activeSla, isLoading: isSLALoading } = useSLAConfigs();
 
   const userInfo = {
     name: profile?.full_name || '',
@@ -360,10 +360,10 @@ const NewTicket = () => {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="urgent">🔴 Urgente (SLA: {activeSla.urgent_hours}h)</SelectItem>
-                                <SelectItem value="high">🟠 Alta (SLA: {activeSla.high_hours}h)</SelectItem>
-                                <SelectItem value="medium">🟡 Média (SLA: {activeSla.medium_hours}h)</SelectItem>
-                                <SelectItem value="low">🟢 Baixa (SLA: {activeSla.low_hours}h)</SelectItem>
+                                <SelectItem value="urgent">🔴 Urgente {isSLALoading || !activeSla ? '(Carregando...)' : `(SLA: ${activeSla.urgent_hours}h)`}</SelectItem>
+                                <SelectItem value="high">🟠 Alta {isSLALoading || !activeSla ? '(Carregando...)' : `(SLA: ${activeSla.high_hours}h)`}</SelectItem>
+                                <SelectItem value="medium">🟡 Média {isSLALoading || !activeSla ? '(Carregando...)' : `(SLA: ${activeSla.medium_hours}h)`}</SelectItem>
+                                <SelectItem value="low">🟢 Baixa {isSLALoading || !activeSla ? '(Carregando...)' : `(SLA: ${activeSla.low_hours}h)`}</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
