@@ -32,6 +32,7 @@ interface NavItem {
   label: string;
   path: string;
   roles?: string[];
+  matchPatterns?: string[];
 }
 
 interface NavGroup {
@@ -88,7 +89,10 @@ export const Sidebar: React.FC = () => {
 
   const renderItem = (item: NavItem) => {
     const isAllowed = !item.roles || (role && item.roles.includes(role));
-    const isActive = location.pathname === item.path;
+    const isActive = 
+      location.pathname === item.path || 
+      (item.path !== '/' && location.pathname.startsWith(item.path)) ||
+      (item.matchPatterns?.some(pattern => location.pathname.startsWith(pattern)));
 
     return (
       <button
@@ -147,9 +151,9 @@ export const Sidebar: React.FC = () => {
         {/* ── Scrollable Nav ── */}
         <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar px-3 py-4 gap-5">
           {/* Top Isolated Item */}
-          <div className="flex flex-col gap-1 mb-4">
-            {renderItem({ icon: Home, label: 'Início', path: '/' })}
-          </div>
+        <div className="flex flex-col gap-1 mb-4">
+          {renderItem({ icon: Home, label: 'Início', path: '/', matchPatterns: ['/ticket/'] })}
+        </div>
 
           {navGroups.map((group) => {
             return (
