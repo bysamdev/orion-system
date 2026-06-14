@@ -81,7 +81,7 @@ const NotificationItem: React.FC<{
 export const NotificationsPopover: React.FC = () => {
   const navigate = useNavigate();
   const {
-    notifications,
+    unread,
     unreadCount,
     isLoading,
     markAsRead,
@@ -133,14 +133,14 @@ export const NotificationsPopover: React.FC = () => {
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
             </div>
-          ) : notifications.length === 0 ? (
+          ) : unread.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
               <Bell className="w-8 h-8 mb-2 opacity-50" />
               <p className="text-sm">Nenhuma notificação</p>
             </div>
           ) : (
             <div className="p-2">
-              {notifications.map((notification) => (
+              {unread.map((notification) => (
                 <NotificationItem
                   key={notification.id}
                   notification={notification}

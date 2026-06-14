@@ -27,7 +27,7 @@ export const useNotifications = () => {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(100);
 
       if (error) throw error;
       return data as Notification[];
@@ -70,10 +70,12 @@ export const useNotifications = () => {
   });
 
   // Count unread notifications
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const unread = notifications.filter((n) => !n.is_read);
+  const unreadCount = unread.length;
 
   return {
-    notifications,
+    all: notifications,
+    unread,
     unreadCount,
     isLoading,
     refetch,
