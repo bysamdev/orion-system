@@ -10,8 +10,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { invokeOrionFunction } from '@/lib/orion-functions';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatDate } from '@/lib/utils';
 
 interface SLATestResult {
   id: string;
@@ -453,8 +454,8 @@ const DebugTools = () => {
                     <TableRow key={result.id}>
                       <TableCell>#{result.ticket_number}</TableCell>
                       <TableCell>{getPriorityBadge(result.priority)}</TableCell>
-                      <TableCell>{format(new Date(result.created_at), 'dd/MM HH:mm:ss')}</TableCell>
-                      <TableCell>{format(new Date(result.sla_due_date), 'dd/MM HH:mm:ss')}</TableCell>
+                      <TableCell>{formatDate(result.created_at, 'dd/MM HH:mm:ss')}</TableCell>
+                      <TableCell>{formatDate(result.sla_due_date, 'dd/MM HH:mm:ss')}</TableCell>
                       <TableCell>{result.expected_hours}h</TableCell>
                       <TableCell>{result.calculated_hours}h</TableCell>
                       <TableCell>

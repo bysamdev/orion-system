@@ -23,8 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { cn, formatDate } from '@/lib/utils';
 import { ptBR } from 'date-fns/locale';
 
 interface Asset {
@@ -486,7 +485,7 @@ const Assets = () => {
                       <TableCell>
                         <div className="flex flex-col text-xs">
                           <span className="font-medium text-muted-foreground">
-                            {asset.warranty_until ? format(new Date(asset.warranty_until), "dd/MM/yyyy") : 'N/A'}
+                            {formatDate(asset.warranty_until, "dd/MM/yyyy")}
                           </span>
                         </div>
                       </TableCell>
@@ -592,7 +591,7 @@ const Assets = () => {
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm font-bold text-foreground">#{ticket.ticket_number} — {ticket.title}</span>
-                          <span className="text-[10px] text-muted-foreground font-medium">{format(new Date(ticket.created_at), "dd/MM/yy HH:mm")}</span>
+                          <span className="text-[10px] text-muted-foreground font-medium">{formatDate(ticket.created_at, "dd/MM/yy HH:mm")}</span>
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
                         <div className="flex items-center gap-2 mt-2">

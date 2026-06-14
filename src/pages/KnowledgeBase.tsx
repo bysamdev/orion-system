@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Search, Book, ChevronRight, Hash, Clock, ArrowRight, Sparkles, Plus, Edit2, Trash2, Ticket, Monitor, Heart, HelpCircle, ExternalLink } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDate } from '@/lib/utils';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -378,7 +378,7 @@ export default function KnowledgeBase() {
                         </Badge>
                         <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground/60">
                           <Clock className="w-3.5 h-3.5" />
-                          <span>{format(new Date(article.created_at), "dd MMM, yy", { locale: ptBR })}</span>
+                          <span>{formatDate(article.created_at, "dd MMM, yy", { locale: ptBR })}</span>
                         </div>
                       </div>
                       

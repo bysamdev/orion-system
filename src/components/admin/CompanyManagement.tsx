@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Loader2, Trash2, Pencil, Building2, Zap } from 'lucide-react';
 import { companyNameSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
+import { formatDate } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,7 +84,7 @@ export const CompanyManagement = () => {
         company_id: companyId,
         user_id: userData.user.id,
         key_value: result,
-        label: `Gerada manualmente em ${new Date().toLocaleDateString()}`
+        label: `Gerada manualmente em ${formatDate(new Date())}`
       } as any);
       if (error) throw error;
     },
@@ -233,7 +234,7 @@ export const CompanyManagement = () => {
                     {company.phone || '—'}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
-                    {new Date(company.created_at).toLocaleDateString('pt-BR')}
+                    {formatDate(company.created_at)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -305,7 +306,7 @@ export const CompanyManagement = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {tk.last_used_at ? new Date(tk.last_used_at).toLocaleString('pt-BR') : 'Nunca usado'}
+                        {tk.last_used_at ? formatDate(tk.last_used_at) : 'Nunca usado'}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button 

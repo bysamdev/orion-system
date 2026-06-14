@@ -330,6 +330,12 @@ const NewTicket = () => {
                               placeholder="Conte-nos o que aconteceu, erros exibidos e o que você já tentou..."
                               className="min-h-[180px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-none leading-relaxed"
                               {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                if (e.target.value.trim().length >= 20) {
+                                  form.clearErrors('description');
+                                }
+                              }}
                             />
                           </FormControl>
                           <FormMessage />
