@@ -13,7 +13,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
 
       const now = new Date();
       const today = startOfDay(now);
-      const fourHoursFromNow = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+      const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
       // Buscar perfil do técnico para pegar o nome
       const { data: profile } = await supabase
@@ -43,13 +43,13 @@ export const useTechnicianStats = (userId: string | undefined) => {
 
       if (resolvedError) throw resolvedError;
 
-      // 3. SLA em Risco (tickets do técnico com prazo < 4 horas)
+      // 3. SLA em Risco (tickets do técnico com prazo < 24 horas)
       const { data: slaAtRisk, error: slaError } = await supabase
         .from('tickets')
         .select('id')
         .eq('assigned_to_user_id', userId)
         .not('status', 'in', '("resolved","closed","cancelled")')
-        .lt('sla_due_date', fourHoursFromNow.toISOString())
+        .lt('sla_due_date', twentyFourHoursFromNow.toISOString())
         .gt('sla_due_date', now.toISOString());
 
       if (slaError) throw slaError;
