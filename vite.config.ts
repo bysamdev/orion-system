@@ -30,29 +30,13 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-              return 'vendor-react';
-            }
-            if (id.includes('@tanstack/react-query')) {
-              return 'vendor-query';
-            }
-            if (id.includes('@radix-ui') || id.includes('class-variance-authority') || id.includes('tailwind-merge') || id.includes('clsx')) {
-              return 'vendor-ui';
-            }
-            if (id.includes('@supabase')) {
-              return 'vendor-supabase';
-            }
-            if (id.includes('recharts') || id.includes('d3')) {
-              return 'charts';
-            }
-            if (id.includes('lucide-react')) {
-              return 'lucide';
-            }
-            return 'vendor-other';
-          }
-        },
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-query': ['@tanstack/react-query'],
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-slot', '@radix-ui/react-toast', 'class-variance-authority', 'tailwind-merge', 'clsx', 'lucide-react'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'charts': ['recharts']
+        }
       },
     },
   },
