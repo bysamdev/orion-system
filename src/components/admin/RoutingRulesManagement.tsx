@@ -33,7 +33,7 @@ export const RoutingRulesManagement = () => {
   const [actionTarget, setActionTarget] = useState('');
   const [isActive, setIsActive] = useState(true);
 
-  const { data: rules = [], isLoading } = useQuery({
+  const { data: rules = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['routing-rules', profile?.company_id],
     queryFn: async () => {
       if (!profile?.company_id) return [];
@@ -303,15 +303,41 @@ export const RoutingRulesManagement = () => {
           <TableBody>
             {isLoading && profile?.company_id ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary opacity-50" /></TableCell>
+                <TableCell colSpan={6} className="h-32 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <span className="text-sm text-muted-foreground">Carregando regras de roteamento...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-32 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-2 text-destructive">
+                    <div className="text-sm font-bold">Erro ao carregar regras</div>
+                    <div className="text-xs opacity-80">{error instanceof Error ? error.message : 'Erro desconhecido'}</div>
+                    <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2 text-foreground">Tentar novamente</Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ) : !profile?.company_id ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground italic">Perfil ou Empresa não identificada. Verifique suas permissões.</TableCell>
+                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                  <div className="flex flex-col items-center justify-center space-y-1">
+                    <span className="font-medium">Empresa não identificada</span>
+                    <span className="text-xs">Verifique suas permissões de acesso.</span>
+                  </div>
+                </TableCell>
               </TableRow>
             ) : rules.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground italic">Nenhuma regra de roteamento configurada.</TableCell>
+                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <GitBranch className="w-8 h-8 opacity-20" />
+                    <span className="font-medium">Nenhuma regra de roteamento configurada</span>
+                    <span className="text-xs">Crie regras para rotear chamados automaticamente.</span>
+                  </div>
+                </TableCell>
               </TableRow>
             ) : (
               rules.map((rule: any) => (
