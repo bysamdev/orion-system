@@ -18,6 +18,8 @@ export const useSLAConfigs = () => {
       
       // Return the data fetched from the database, no hardcoded fallbacks
       return data;
-    }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000, // 10 minutos
   });
 };
