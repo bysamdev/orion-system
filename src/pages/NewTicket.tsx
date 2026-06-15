@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { FileUpload } from '@/components/ticket/FileUpload';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
@@ -175,9 +176,10 @@ const NewTicket = () => {
       }).select().single();
 
       if (ticketError) {
-        console.error('[NewTicket] Error inserting ticket:', ticketError);
         throw ticketError;
       }
+
+      console.log('Sucesso:', ticket);
 
       // Attachments logic
       if (pendingFiles.length > 0) {
@@ -205,9 +207,21 @@ const NewTicket = () => {
       queryClient.invalidateQueries({ queryKey: ['technician-stats'] });
       queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
       queryClient.invalidateQueries({ queryKey: ['team-workload'] });
-      navigate('/');
+      navigate(`/ticket/${ticket.id}`);
     } catch (error: any) {
-      handleError(error, 'NewTicket.onSubmit');
+      console.error('Erro completo:', error);
+      console.error('Mensagem:', error.message);
+      console.error('Código:', error.code);
+      toast({
+        title: 'Erro ao criar chamado',
+        description: error.message || 'Ocorreu um erro inesperado.',
+        variant: 'destructive',
+        action: (
+          <ToastAction altText="Tente novamente ou contate o suporte" onClick={() => window.location.href = 'mailto:suporte@orion.com.br'}>
+            Suporte
+          </ToastAction>
+        ),
+      });
     } finally {
       setIsSubmitting(false);
     }
