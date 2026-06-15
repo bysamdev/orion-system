@@ -23,6 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatDate } from '@/lib/utils';
 import { ptBR } from 'date-fns/locale';
 
@@ -222,9 +223,66 @@ const Assets = () => {
   if (roleLoading || assetsLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" />
-        </div>
+        <main className="flex-1 p-8 lg:p-12 max-w-[1400px] mx-auto w-full space-y-10 animate-in fade-in duration-500">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-4">
+              <Skeleton className="h-6 w-24" />
+              <Skeleton className="h-10 w-64" />
+              <Skeleton className="h-5 w-96" />
+            </div>
+            <Skeleton className="h-12 w-32 rounded-xl" />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
+          </div>
+
+          <Card className="border-border/50 shadow-sm overflow-hidden">
+            <CardHeader className="border-b border-border/50 bg-muted/20 pb-4">
+              <div className="flex justify-between items-center">
+                <Skeleton className="h-8 w-48" />
+                <div className="flex gap-4">
+                  <Skeleton className="h-10 w-64 rounded-xl" />
+                  <Skeleton className="h-10 w-40 rounded-xl" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow className="hover:bg-transparent border-border/40">
+                    <TableHead className="w-[300px] pl-8 text-[10px] font-black uppercase tracking-widest">Ativo</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Empresa</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Tipo</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Status</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Garantia</TableHead>
+                    <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[1, 2, 3, 4, 5, 6, 7].map(i => (
+                    <TableRow key={i} className="border-border/40">
+                      <TableCell className="pl-8 py-4">
+                        <Skeleton className="h-5 w-48 mb-2" />
+                        <Skeleton className="h-3 w-24" />
+                      </TableCell>
+                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                      <TableCell className="text-right pr-8">
+                        <div className="flex justify-end gap-2">
+                          <Skeleton className="h-8 w-8 rounded-md" />
+                          <Skeleton className="h-8 w-8 rounded-md" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </main>
       </div>
     );
   }

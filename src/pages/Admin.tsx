@@ -11,13 +11,50 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
 import { Loader2, Settings2, Users, Building, FileText, MessageSquare, ListChecks, GitBranch, Book } from 'lucide-react';
 import { SLAConfiguration } from '@/components/admin/SLAConfiguration';
+import { Skeleton } from '@/components/ui/skeleton';
 export default function Admin() {
   const { data: role, isLoading } = useUserRole();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background">
+        <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full animate-in fade-in duration-500">
+          <div className="mt-8">
+            <Skeleton className="h-9 w-64 mb-2" />
+            <Skeleton className="h-5 w-96 mb-6" />
+            
+            <div className="bg-muted/50 p-1 rounded-xl flex space-x-2 w-max mb-6">
+              {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-9 w-32 rounded-lg" />)}
+            </div>
+            
+            <Card className="border-border/50 shadow-sm mt-6">
+              <CardHeader>
+                <Skeleton className="h-6 w-48 mb-2" />
+                <Skeleton className="h-4 w-64" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-10 w-64" />
+                    <Skeleton className="h-10 w-32" />
+                  </div>
+                  <div className="rounded-md border">
+                    <div className="h-12 border-b bg-muted/30" />
+                    {[1, 2, 3, 4, 5].map(i => (
+                      <div key={i} className="p-4 flex items-center justify-between border-b last:border-0">
+                        <div className="space-y-2">
+                          <Skeleton className="h-5 w-48" />
+                          <Skeleton className="h-4 w-32" />
+                        </div>
+                        <Skeleton className="h-8 w-20" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
       </div>
     );
   }
