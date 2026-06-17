@@ -83,6 +83,7 @@ export const useTicket = (id: string) => {
   return useQuery({
     queryKey: ['ticket', id],
     queryFn: async () => {
+      console.log('[useTicket] Buscando ticket com id:', id);
       // Fetch ticket, associated profile, and associated company in a single join query
       const { data: ticket, error } = await supabaseRead
         .from('tickets')
@@ -99,7 +100,10 @@ export const useTicket = (id: string) => {
         .eq('id', id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useTicket] Erro retornado pelo Supabase:', error.code, error.message, error.details);
+        throw error;
+      }
 
       // Extract nested company name and format back to the expected Ticket interface structure
       let companyName = null;
