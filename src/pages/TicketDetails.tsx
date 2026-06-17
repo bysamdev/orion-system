@@ -122,20 +122,27 @@ const TicketDetails: React.FC = () => {
 
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
   const isNumber = /^\d+$/.test(id || '');
+  // isResolving: true enquanto buscamos o UUID a partir do número — evita query prematura
   const [isResolving, setIsResolving] = useState(isNumber);
 
   React.useEffect(() => {
     if (isNumber) {
+      setIsResolving(true);
       const fetchUUID = async () => {
         try {
+          console.log('[TicketDetails] Resolvendo número de chamado:', id);
           const { data, error } = await supabaseRead
             .from('tickets')
             .select('id')
             .eq('ticket_number', parseInt(id || '0', 10))
             .maybeSingle();
 
-          if (error) throw error;
+          if (error) {
+            console.error('[TicketDetails] Erro ao resolver número:', error);
+            throw error;
+          }
           const returnedId = Array.isArray(data) ? data[0]?.id : data?.id;
+          console.log('[TicketDetails] UUID resolvido:', returnedId);
           if (returnedId) {
             navigate(`/ticket/${returnedId}`, { replace: true });
           } else {
@@ -151,9 +158,10 @@ const TicketDetails: React.FC = () => {
     } else {
       setIsResolving(false);
     }
-  }, [id, isNumber, navigate, toast]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const validId = isUUID ? (id || '') : '';
+  // Só passa o UUID se for realmente um UUID válido E não estamos no meio de um redirect
+  const validId = (isUUID && !isResolving) ? (id || '') : '';
 
   const { data: ticket, isLoading: ticketLoading } = useTicket(validId);
   const { data: updates = [], isLoading: updatesLoading } = useTicketUpdates(validId);
