@@ -84,17 +84,14 @@ export const useTicket = (id: string) => {
     queryKey: ['ticket', id],
     queryFn: async () => {
       console.log('[useTicket] Buscando ticket com id:', id);
-      // Fetch ticket, associated profile, and associated company in a single join query
+      // Busca o ticket com o nome do operador via FK explícita (evita PGRST201)
+      // Não usamos join aninhado profiles→companies pois há múltiplas FKs e gera ambiguidade.
       const { data: ticket, error } = await supabaseRead
         .from('tickets')
         .select(`
           *,
-          profiles:user_id (
-            full_name,
-            company_id,
-            companies:company_id (
-              name
-            )
+          profiles:fk_tickets_user (
+            full_name
           )
         `)
         .eq('id', id)
@@ -105,16 +102,18 @@ export const useTicket = (id: string) => {
         throw error;
       }
 
-      // Extract nested company name and format back to the expected Ticket interface structure
-      let companyName = null;
-      if (ticket.profiles && !Array.isArray(ticket.profiles)) {
-        const profile = ticket.profiles as any;
-        if (profile.companies && !Array.isArray(profile.companies)) {
-          companyName = profile.companies.name;
-        }
+      // Busca o nome da empresa separadamente usando o company_id do próprio ticket
+      let companyName: string | null = null;
+      if (ticket.company_id) {
+        const { data: company } = await supabaseRead
+          .from('companies')
+          .select('name')
+          .eq('id', ticket.company_id)
+          .maybeSingle();
+        companyName = company?.name ?? null;
       }
-      
-      // Clean up the nested object to avoid polluting the state
+
+      // Limpa o objeto aninhado para não poluir o estado
       const cleanedTicket = { ...ticket };
       delete (cleanedTicket as any).profiles;
 
