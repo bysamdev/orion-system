@@ -245,19 +245,23 @@ export default function Settings() {
                   {/* Campos Editáveis */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Nome Completo</Label>
+                      <Label htmlFor="profile-name">Nome Completo</Label>
                       <Input 
-                        id="name" 
+                        id="profile-name"
+                        name="profile-name"
+                        autoComplete="name"
                         placeholder="Nome Completo"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="profile-email">Email</Label>
                       <Input 
-                        id="email" 
-                        type="email" 
+                        id="profile-email"
+                        name="profile-email"
+                        type="email"
+                        autoComplete="email"
                         value={profile?.email || ''}
                         disabled
                         className="bg-muted/50"
@@ -267,9 +271,11 @@ export default function Settings() {
                       </p>
                     </div>
                     <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="department">Departamento</Label>
+                      <Label htmlFor="profile-department">Departamento</Label>
                       <Input 
-                        id="department" 
+                        id="profile-department"
+                        name="profile-department"
+                        autoComplete="organization-title"
                         placeholder="Ex: TI, RH, Financeiro"
                         value={department}
                         onChange={(e) => setDepartment(e.target.value)}
@@ -308,8 +314,10 @@ export default function Settings() {
                   <div className="space-y-2">
                     <Label htmlFor="current-password">Senha Atual</Label>
                     <Input 
-                      id="current-password" 
+                      id="current-password"
+                      name="current-password"
                       type="password"
+                      autoComplete="current-password"
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       placeholder="Digite sua senha atual"
@@ -318,8 +326,10 @@ export default function Settings() {
                   <div className="space-y-2">
                     <Label htmlFor="new-password">Nova Senha</Label>
                     <Input 
-                      id="new-password" 
+                      id="new-password"
+                      name="new-password"
                       type="password"
+                      autoComplete="new-password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Digite a nova senha"
@@ -328,8 +338,10 @@ export default function Settings() {
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
                     <Input 
-                      id="confirm-password" 
+                      id="confirm-password"
+                      name="confirm-password"
                       type="password"
+                      autoComplete="new-password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Confirme a nova senha"
@@ -413,6 +425,10 @@ export default function Settings() {
                     <Label>URL do Webhook (Supabase Edge Function)</Label>
                     <div className="flex items-center gap-2">
                       <Input 
+                        id="webhook-url"
+                        name="webhook-url"
+                        autoComplete="off"
+                        data-lpignore="true"
                         readOnly 
                         value={webhookUrl}
                         className="bg-muted/50 font-mono text-sm"

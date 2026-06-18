@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { cn } from '@/lib/utils';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
@@ -57,11 +58,19 @@ export const TopBar: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
         )}
         <input
+          id="global-search-ticket"
+          name="global-search-ticket"
+          type="search"
           autoComplete="off"
-          placeholder="Buscar tickets por #número ou título..."
+          // "new-password" é o único valor que todos os browsers respeitam para desativar autocomplete
+          // Usamos data-lpignore para desativar LastPass/1Password também
+          data-lpignore="true"
+          data-form-type="other"
+          placeholder="Buscar tickets por #número, título ou cliente..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => searchQuery.length >= 2 && setShowResults(true)}
+          onKeyDown={(e) => e.stopPropagation()}
           className="w-full h-10 rounded-xl border border-border/40 bg-muted/20 pl-10 pr-4 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background focus:border-primary/30 transition-all"
         />
 
@@ -87,12 +96,7 @@ export const TopBar: React.FC = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-mono font-bold text-primary">#{ticket.ticket_number}</span>
-                      <span className={cn(
-                        'text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase',
-                        ticket.status === 'aberto' ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'
-                      )}>
-                        {ticket.status}
-                      </span>
+                      <StatusBadge status={ticket.status} className="text-[9px] py-0 h-4" />
                     </div>
                     <p className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors mt-0.5">
                       {ticket.title}
