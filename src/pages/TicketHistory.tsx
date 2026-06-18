@@ -240,7 +240,8 @@ export default function TicketHistory() {
             
             {!isLoading && filteredTickets.length > 0 && (
               <div className="p-4 border-t border-border/40 bg-muted/10 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
-                Mostrando {filteredTickets.length} resultados limitados
+                Mostrando {filteredTickets.length}{' '}
+                {filteredTickets.length === 1 ? 'resultado limitado' : 'resultados limitados'}
               </div>
             )}
           </CardContent>
