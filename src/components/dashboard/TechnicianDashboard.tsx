@@ -350,7 +350,7 @@ export const TechnicianDashboard: React.FC = () => {
               {searchTerm && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-tighter text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                    {filteredMyTickets.length} resultados
+                    {filteredMyTickets.length} {filteredMyTickets.length === 1 ? 'resultado' : 'resultados'}
                   </span>
                 </div>
               )}

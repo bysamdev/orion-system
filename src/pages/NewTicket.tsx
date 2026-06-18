@@ -114,6 +114,7 @@ const NewTicket = () => {
 
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketSchema),
+    mode: 'onChange',
     defaultValues: { title: '', category: '', priority: 'medium', description: '', department: 'Geral' },
   });
 
@@ -280,7 +281,10 @@ const NewTicket = () => {
                           <button
                             key={cat.id}
                             type="button"
-                            onClick={() => form.setValue('category', cat.id)}
+                            onClick={() => {
+                            form.setValue('category', cat.id, { shouldValidate: true });
+                            form.clearErrors('category');
+                          }}
                             className={cn(
                               "relative group p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-4 text-center h-40 justify-center overflow-hidden",
                               currentCategory === cat.id 
@@ -605,7 +609,7 @@ const NewTicket = () => {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-primary opacity-40">Organization</span>
-            <span>{userInfo.company || '---'}</span>
+            <span>{userInfo.company || 'Não vinculado'}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-primary opacity-40">Auth Level</span>
