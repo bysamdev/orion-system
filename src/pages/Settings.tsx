@@ -7,10 +7,10 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2 } from "lucide-react";
+import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
-import { useUserProfile } from "@/hooks/useUserRole";
+import { useUserProfile, useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +23,7 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const { handleError, handleValidationError } = useErrorHandler();
   const { data: profile, isLoading: profileLoading } = useUserProfile();
+  const { data: role } = useUserRole();
   
   const [fullName, setFullName] = useState('');
   const [department, setDepartment] = useState('');
@@ -38,7 +39,12 @@ export default function Settings() {
 
   // Estados para integração
   const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [showWebhook, setShowWebhook] = useState(false);
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL || 'https://[YOUR_SUPABASE_REF].supabase.co'}/functions/v1/email-to-ticket`;
+  
+  const maskedWebhook = webhookUrl.length > 30 
+    ? `${webhookUrl.substring(0, 15)}...${webhookUrl.substring(webhookUrl.length - 15)}`
+    : '******************************';
 
   const handleCopyWebhook = () => {
     navigator.clipboard.writeText(webhookUrl);
@@ -412,37 +418,64 @@ export default function Settings() {
 
             {/* Aba Integrações */}
             <TabsContent value="integrations">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Mail className="w-5 h-5" />
-                    Integração E-mail-to-Ticket
-                  </CardTitle>
-                  <CardDescription>Configure o recebimento de chamados via e-mail</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-2">
-                    <Label>URL do Webhook (Supabase Edge Function)</Label>
-                    <div className="flex items-center gap-2">
-                      <Input 
-                        id="webhook-url"
-                        name="webhook-url"
-                        autoComplete="off"
-                        data-lpignore="true"
-                        readOnly 
-                        value={webhookUrl}
-                        className="bg-muted/50 font-mono text-sm"
-                      />
-                      <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
-                        {copiedWebhook ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                      </Button>
+              {['admin', 'gestor'].includes(role || '') && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Mail className="w-5 h-5" />
+                      Integração E-mail-to-Ticket
+                    </CardTitle>
+                    <CardDescription>Configure o recebimento de chamados via e-mail</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-2">
+                      <Label>URL do Webhook (Supabase Edge Function)</Label>
+                      <div className="flex items-center gap-2">
+                        <Input 
+                          id="webhook-url"
+                          name="webhook-url"
+                          autoComplete="off"
+                          data-lpignore="true"
+                          readOnly 
+                          value={showWebhook ? webhookUrl : maskedWebhook}
+                          className="bg-muted/50 font-mono text-sm"
+                        />
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="icon" 
+                                onClick={() => setShowWebhook(!showWebhook)}
+                              >
+                                {showWebhook ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{showWebhook ? 'Ocultar URL' : 'Revelar URL'}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
+                                {copiedWebhook ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Copiar URL</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Configure seu provedor de e-mail (ex: SendGrid Inbound Parse ou Postmark) para enviar requisições POST para esta URL quando um e-mail for recebido no seu endereço de suporte.
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Configure seu provedor de e-mail (ex: SendGrid Inbound Parse ou Postmark) para enviar requisições POST para esta URL quando um e-mail for recebido no seu endereço de suporte.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           </Tabs>
         </div>
