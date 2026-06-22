@@ -266,7 +266,7 @@ export default function TicketHistory() {
             {!isLoading && filteredTickets.length > 0 && (
               <div className="p-4 border-t border-border/40 bg-muted/10 flex items-center justify-between text-sm">
                 <div className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/50">
-                  Mostrando {filteredTickets.length} {filteredTickets.length === 1 ? 'resultado' : 'resultados'} limitado{filteredTickets.length === 1 ? '' : 's'}
+                  Mostrando {filteredTickets.length} resultado{filteredTickets.length !== 1 ? 's' : ''}{totalCount > filteredTickets.length ? ' limitado' + (filteredTickets.length !== 1 ? 's' : '') : ''}
                 </div>
                 {totalPages > 1 && (
                   <div className="flex items-center gap-2">

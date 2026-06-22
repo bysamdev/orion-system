@@ -96,8 +96,8 @@ const App = () => (
               <Route path="/novo" element={<Navigate to="/novo-ticket" replace />} />
               <Route path="/notifications" element={<Navigate to="/notificacoes" replace />} />
               <Route path="/documentacao" element={<Navigate to="/knowledge" replace />} />
-              <Route path="/ativos" element={<Navigate to="/assets" replace />} />
-              <Route path="/cmdb" element={<Navigate to="/assets" replace />} />
+              <Route path="/ativos" element={<Navigate to={{ pathname: "/assets", search: window.location.search }} replace />} />
+              <Route path="/cmdb" element={<Navigate to={{ pathname: "/assets", search: window.location.search }} replace />} />
               <Route path="/administracao" element={<Navigate to="/admin" replace />} />
               <Route path="/painel-admin" element={<Navigate to="/admin" replace />} />
               <Route path="/cliente" element={<Navigate to="/portal" replace />} />
