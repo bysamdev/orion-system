@@ -64,34 +64,12 @@ export default function TicketHistory() {
     setPage(0);
   };
 
-        name: string;
-      }
-
-      const userIds = [...new Set((data || []).map(t => t.user_id))];
-      const { data: profilesData } = userIds.length > 0
-        ? await supabaseRead.from('profiles').select('id, company_id').in('id', userIds)
-        : { data: [] };
-      
-      const profiles = (profilesData || []) as ProfileItem[];
-
-      const companyIds = [...new Set(profiles.map(p => p.company_id))];
-      const { data: companiesData } = companyIds.length > 0
-        ? await supabaseRead.from('companies').select('id, name').in('id', companyIds)
-        : { data: [] };
-      
-      const companies = (companiesData || []) as CompanyItem[];
-
-      const profileMap = new Map<string, ProfileItem>(profiles.map(p => [p.id, p]));
-      const companyMap = new Map<string, CompanyItem>(companies.map(c => [c.id, c]));
-
-      const enrichedTickets = (data || []).map((ticket: any) => {
-        const profile = profileMap.get(ticket.user_id);
-        const company = profile ? companyMap.get(profile.company_id) : null;
-        return { ...ticket, company_name: company?.name || null } as Ticket;
-      });
-
-      return { tickets: enrichedTickets, count: count || 0 };
-    }
+  const { data: queryResult, isLoading } = useMeusTickets(profile?.id, role, {
+    statusFilter,
+    priorityFilter,
+    searchTerm: debouncedSearch,
+    page,
+    pageSize: PAGE_SIZE
   });
 
   const filteredTickets = queryResult?.data || [];
