@@ -95,7 +95,8 @@ export default function TicketHistory() {
       }
 
       query = query
-        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true }) // Tie-breaker for stable pagination
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
       const { data, count, error } = await query;
