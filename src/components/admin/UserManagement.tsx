@@ -35,6 +35,7 @@ interface EditUserForm {
   role: 'customer' | 'technician' | 'admin';
   password: string;
   company_id: string;
+  status: string;
 }
 
 interface UserData {
@@ -45,6 +46,7 @@ interface UserData {
   company_id: string;
   role: string;
   company_name: string;
+  status: string;
 }
 
 export const UserManagement = () => {
@@ -71,6 +73,7 @@ export const UserManagement = () => {
     role: 'customer',
     password: '',
     company_id: '',
+    status: 'active',
   });
 
   // Buscar todas as empresas para o select de edição
@@ -121,7 +124,7 @@ export const UserManagement = () => {
     queryFn: async () => {
       const { data: profiles, error: profilesError} = await supabase
         .from('profiles')
-        .select('id, full_name, email, department, company_id')
+        .select('id, full_name, email, department, company_id, status')
         .order('full_name');
 
       if (profilesError) throw profilesError;
@@ -304,6 +307,7 @@ export const UserManagement = () => {
       role: userItem.role as 'customer' | 'technician' | 'admin',
       password: '',
       company_id: userItem.company_id,
+      status: userItem.status || 'active',
     });
     setIsEditDialogOpen(true);
   }, []);
@@ -342,6 +346,7 @@ export const UserManagement = () => {
         role: editFormData.role,
         password: editFormData.password || undefined,
         company_id: companyChanged ? editFormData.company_id : undefined,
+        status: editFormData.status,
       });
 
       if (error) {
@@ -557,13 +562,14 @@ export const UserManagement = () => {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit_email">E-mail *</Label>
+              <Label htmlFor="edit_email">E-mail (Apenas Leitura)</Label>
               <Input
                 id="edit_email"
                 type="email"
                 placeholder="email@exemplo.com"
                 value={editFormData.email}
-                onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                readOnly
+                className="bg-muted cursor-not-allowed"
               />
             </div>
             <div className="grid gap-2">
@@ -639,6 +645,21 @@ export const UserManagement = () => {
               </Select>
             </div>
             <div className="grid gap-2">
+              <Label htmlFor="edit_status">Status</Label>
+              <Select
+                value={editFormData.status}
+                onValueChange={(value) => setEditFormData({ ...editFormData, status: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Ativo</SelectItem>
+                  <SelectItem value="inactive">Inativo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="edit_password">Nova Senha (Opcional)</Label>
               <Input
                 id="edit_password"
@@ -686,7 +707,10 @@ const UserRow = React.memo(({
   isCurrentUser,
 }: UserRowProps) => {
   return (
-    <TableRow>
+    <TableRow 
+      className="cursor-pointer hover:bg-muted/50 transition-colors" 
+      onClick={() => onEdit(userItem)}
+    >
       <TableCell className="font-medium max-w-[150px]">
         <span className="truncate block">{userItem.full_name || 'Sem nome'}</span>
       </TableCell>
@@ -699,7 +723,7 @@ const UserRow = React.memo(({
       <TableCell className="max-w-[100px]">
         <span className="truncate block">{userItem.department || '-'}</span>
       </TableCell>
-      <TableCell>
+      <TableCell onClick={(e) => e.stopPropagation()}>
         <Select
           value={userItem.role}
           onValueChange={(value) => onUpdateRole(userItem.id, value as UserRole)}
@@ -714,7 +738,7 @@ const UserRow = React.memo(({
           </SelectContent>
         </Select>
       </TableCell>
-      <TableCell>
+      <TableCell onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"

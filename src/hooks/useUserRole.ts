@@ -15,6 +15,12 @@ export const useUserRole = () => {
     queryFn: async () => {
       if (!user?.id) return null;
 
+      // Mock para ambiente de teste via URL
+      const testRole = new URLSearchParams(window.location.search).get('testRole');
+      if (testRole) {
+        return testRole as UserRole;
+      }
+
       // Consultamos a tabela user_roles associada ao ID do Supabase Auth.
       const { data, error } = await supabase
         .from('user_roles')
@@ -24,10 +30,6 @@ export const useUserRole = () => {
 
       if (error) throw error;
       
-      const testRole = new URLSearchParams(window.location.search).get('testRole');
-      if (testRole) {
-        return testRole as UserRole;
-      }
       return data?.role as UserRole | null;
     },
     enabled: !!user?.id, // Só executa se houver um usuário logado.

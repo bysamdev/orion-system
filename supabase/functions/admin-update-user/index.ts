@@ -86,7 +86,7 @@ serve(async (req) => {
     console.log('Permissão verificada. Role:', callerRole.role);
 
     // 6. Parse do body da requisição
-    const { user_id, email, password, full_name, department, role, company_id } = await req.json();
+    const { user_id, email, password, full_name, department, role, company_id, status } = await req.json();
 
     console.log('Admin update user request for:', user_id, 'company_id:', company_id);
 
@@ -142,8 +142,8 @@ serve(async (req) => {
       console.log('Auth atualizado com sucesso');
     }
 
-    // 2. Atualizar profile (full_name, department, email, company_id)
-    const profileUpdateData: { full_name?: string; department?: string | null; email?: string; company_id?: string } = {};
+    // 2. Atualizar profile (full_name, department, email, company_id, status)
+    const profileUpdateData: { full_name?: string; department?: string | null; email?: string; company_id?: string; status?: string } = {};
     
     if (full_name) {
       profileUpdateData.full_name = full_name.trim();
@@ -155,6 +155,10 @@ serve(async (req) => {
 
     if (email) {
       profileUpdateData.email = email.trim();
+    }
+
+    if (status) {
+      profileUpdateData.status = status;
     }
 
     // Atualizar company_id se fornecido (transferência de empresa)

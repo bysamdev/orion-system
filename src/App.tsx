@@ -9,6 +9,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import { lazy, Suspense } from 'react';
 import { ThemeProvider } from "@/components/theme-provider";
+import { UserRole } from '@/hooks/useUserRole';
 
 const Index = lazy(() => import("./pages/Index"));
 const NewTicket = lazy(() => import("./pages/NewTicket"));
@@ -41,8 +42,8 @@ const queryClient = new QueryClient({
   },
 });
 /** Wrapper: ProtectedRoute + DashboardLayout compartilhado */
-const AppRoute = ({ children }: { children: React.ReactNode }) => (
-  <ProtectedRoute>
+const AppRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: UserRole[] }) => (
+  <ProtectedRoute allowedRoles={allowedRoles}>
     <DashboardLayout>{children}</DashboardLayout>
   </ProtectedRoute>
 );
@@ -73,19 +74,19 @@ const App = () => (
               <Route path="/" element={<AppRoute><Index /></AppRoute>} />
               <Route path="/novo-ticket" element={<AppRoute><NewTicket /></AppRoute>} />
               <Route path="/ajustes" element={<AppRoute><Settings /></AppRoute>} />
-              <Route path="/admin" element={<AppRoute><Admin /></AppRoute>} />
-              <Route path="/relatorios" element={<AppRoute><Reports /></AppRoute>} />
-              <Route path="/sistemas" element={<AppRoute><InfrastructureDashboard /></AppRoute>} />
+              <Route path="/admin" element={<AppRoute allowedRoles={['admin', 'developer']}><Admin /></AppRoute>} />
+              <Route path="/relatorios" element={<AppRoute allowedRoles={['admin', 'developer']}><Reports /></AppRoute>} />
+              <Route path="/sistemas" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><InfrastructureDashboard /></AppRoute>} />
               <Route path="/monitoramento" element={<AppRoute><Monitoring /></AppRoute>} />
               <Route path="/central-alertas" element={<AppRoute><AlertsDashboard /></AppRoute>} />
               <Route path="/ticket/:id" element={<AppRoute><TicketDetails /></AppRoute>} />
               <Route path="/historico" element={<AppRoute><TicketHistory /></AppRoute>} />
               <Route path="/knowledge" element={<AppRoute><KnowledgeBase /></AppRoute>} />
-              <Route path="/assets" element={<AppRoute><Assets /></AppRoute>} />
+              <Route path="/assets" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><Assets /></AppRoute>} />
               <Route path="/portal" element={<AppRoute><ClientPortal /></AppRoute>} />
               <Route path="/debug-tools" element={<AppRoute><DebugTools /></AppRoute>} />
-              <Route path="/automacoes" element={<AppRoute><Automacoes /></AppRoute>} />
-              <Route path="/patches" element={<AppRoute><PatchManagement /></AppRoute>} />
+              <Route path="/automacoes" element={<AppRoute allowedRoles={['admin', 'developer']}><Automacoes /></AppRoute>} />
+              <Route path="/patches" element={<AppRoute allowedRoles={['admin', 'developer']}><PatchManagement /></AppRoute>} />
               <Route path="/notificacoes" element={<AppRoute><Notifications /></AppRoute>} />
               <Route path="/manual" element={<Navigate to="/knowledge" replace />} />
               <Route path="/tutorial" element={<Navigate to="/knowledge" replace />} />
