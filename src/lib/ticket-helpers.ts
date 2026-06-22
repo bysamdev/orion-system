@@ -83,9 +83,9 @@ export const CATEGORY_LABELS: Record<string, string> = {
 /**
  * Calcula o status do SLA de forma dinâmica baseado na data atual.
  * - VENCIDO (breached): now > vencimento
- * - CRÍTICO (attention): <= 15% do tempo restante
- * - ATENÇÃO (warning): <= 40% do tempo restante
- * - NO PRAZO (ok): > 40% do tempo restante
+ * - CRÍTICO (attention): < 10% do tempo restante ou < 2h restantes
+ * - ATENÇÃO (warning): <= 25% do tempo restante
+ * - NO PRAZO (ok): > 25% do tempo restante
  */
 export function calculateSlaStatus(slaDueDate: string | null, createdAt?: string | null): 'ok' | 'warning' | 'attention' | 'breached' | null {
   if (!slaDueDate) return null;
@@ -111,8 +111,8 @@ export function calculateSlaStatus(slaDueDate: string | null, createdAt?: string
   const msRemaining = dueDate.getTime() - now.getTime();
   const percentualRestante = (msRemaining / slaPolicyMs) * 100;
   
-  if (percentualRestante <= 15) return 'attention';
-  if (percentualRestante <= 40) return 'warning';
+  if (percentualRestante <= 10 || msRemaining <= 2 * 60 * 60 * 1000) return 'attention';
+  if (percentualRestante <= 25) return 'warning';
   
   return 'ok';
 }

@@ -15,7 +15,7 @@ BEGIN
     FROM public.profiles p
     JOIN public.user_roles ur ON ur.user_id = p.id
     WHERE p.company_id = NEW.company_id
-      AND ur.role IN ('technician', 'gestor', 'admin');
+      AND ur.role IN ('technician', 'admin');
 
     IF agent_count = 1 THEN
         -- Apenas 1 agente, atribui diretamente
@@ -23,7 +23,7 @@ BEGIN
         FROM public.profiles p
         JOIN public.user_roles ur ON ur.user_id = p.id
         WHERE p.company_id = NEW.company_id
-          AND ur.role IN ('technician', 'gestor', 'admin')
+          AND ur.role IN ('technician', 'admin')
         LIMIT 1;
 
     ELSIF agent_count > 1 THEN
@@ -33,7 +33,7 @@ BEGIN
         JOIN public.user_roles ur ON ur.user_id = p.id
         LEFT JOIN public.tickets t ON t.assigned_to_user_id = p.id AND t.status IN ('open', 'in-progress', 'awaiting-customer', 'awaiting-third-party', 'reopened')
         WHERE p.company_id = NEW.company_id
-          AND ur.role IN ('technician', 'gestor', 'admin')
+          AND ur.role IN ('technician', 'admin')
         GROUP BY p.id, p.full_name
         ORDER BY COUNT(t.id) ASC, p.id ASC
         LIMIT 1;
@@ -59,7 +59,7 @@ BEGIN
     FROM public.profiles p
     JOIN public.user_roles ur ON ur.user_id = p.id
     WHERE p.company_id = p_company_id
-      AND ur.role IN ('technician', 'gestor', 'admin');
+      AND ur.role IN ('technician', 'admin');
       
     RETURN total_agents;
 END;

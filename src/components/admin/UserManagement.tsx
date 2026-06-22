@@ -17,7 +17,7 @@ import { userRoleSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
 import { useAuth } from '@/contexts/AuthContext';
 import { PlanUsageCard } from './PlanUsageCard';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { invokeOrionFunction } from '@/lib/orion-functions';
 
 interface NewUserForm {
@@ -404,7 +404,6 @@ export const UserManagement = () => {
             </CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span>
@@ -422,7 +421,6 @@ export const UserManagement = () => {
                   </TooltipContent>
                 )}
               </Tooltip>
-            </TooltipProvider>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Novo Usuário</DialogTitle>

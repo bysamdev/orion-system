@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Define os níveis de acesso possíveis dentro do Orion System.
-export type UserRole = 'customer' | 'technician' | 'admin' | 'developer' | 'gestor';
+export type UserRole = 'customer' | 'technician' | 'admin' | 'developer';
 
 // Hook para identificar o nível de permissão (role) do usuário logado.
 // Utilizado para restringir acesso a páginas técnicas e de admin.

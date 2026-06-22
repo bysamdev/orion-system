@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -231,7 +231,7 @@ export const TechnicianDashboard: React.FC = () => {
           <div className="flex flex-col gap-1">
             <h4 className="font-semibold text-sm">Atenção: Auto-atribuição Indisponível</h4>
             <p className="text-xs text-destructive/90 leading-relaxed">
-              Existem {unassigned.length} ticket(s) na Fila de Espera, mas o sistema de auto-atribuição não encontrou agentes técnicos ou gestores online/ativos para esta empresa. O roteamento automático foi pausado.
+              Existem {unassigned.length} ticket(s) na Fila de Espera, mas o sistema de auto-atribuição não encontrou agentes técnicos ou admins online/ativos para esta empresa. O roteamento automático foi pausado.
             </p>
           </div>
         </div>
@@ -250,8 +250,7 @@ export const TechnicianDashboard: React.FC = () => {
             document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
           }}
         />
-        <TooltipProvider>
-          <Tooltip>
+        <Tooltip>
             <TooltipTrigger asChild>
               <div className="w-full">
                 <StatCard
@@ -272,7 +271,6 @@ export const TechnicianDashboard: React.FC = () => {
               <p>Tickets com prazo vencido</p>
             </TooltipContent>
           </Tooltip>
-        </TooltipProvider>
         <StatCard
           title="Minha Fila"
           value={stats?.pending || 0}
@@ -300,8 +298,8 @@ export const TechnicianDashboard: React.FC = () => {
         />
       </div>
 
-      {/* Team Workload Widget (Only for Gestores/Admins) */}
-      {(role === 'admin' || role === 'developer' || role === 'gestor') && teamWorkload && teamWorkload.length > 0 && (
+      {/* Team Workload Widget (Only for Admins) */}
+      {(role === 'admin' || role === 'developer') && teamWorkload && teamWorkload.length > 0 && (
         <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
           <CardHeader className="p-6 border-b border-border/40 bg-muted/10">
             <div className="flex items-center gap-3">
