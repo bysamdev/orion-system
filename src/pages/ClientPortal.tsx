@@ -12,6 +12,7 @@ import {
 import { useUserProfile } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useMeusTickets } from '@/hooks/useMyTickets';
 
 const ClientPortal = () => {
   const navigate = useNavigate();
@@ -27,22 +28,12 @@ const ClientPortal = () => {
     );
   }
 
-  // Hook para buscar os 3 chamados mais recentes da empresa deste usuário.
-  const { data: recentTickets } = useQuery({
-    queryKey: ['client-recent-tickets', profile?.company_id],
-    queryFn: async () => {
-      if (!profile?.company_id) return [];
-      const { data, error } = await supabase
-        .from('tickets')
-        .select('*')
-        .eq('company_id', profile.company_id)
-        .order('created_at', { ascending: false })
-        .limit(3);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!profile?.company_id
+  // Hook centralizado para buscar os 5 chamados recentes do usuário.
+  const { data: recentTicketsData } = useMeusTickets(profile?.id, 'customer', {
+    statusIn: ['open', 'in-progress', 'awaiting-customer'],
+    limit: 5
   });
+  const recentTickets = recentTicketsData?.data;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -71,7 +62,7 @@ const ClientPortal = () => {
                 <History className="w-6 h-6 xl:w-8 xl:h-8 text-primary" />
               </div>
               <div className="space-y-1 min-w-0">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight break-words">Meus Chamados</h3>
+                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight">Meus Chamados</h3>
                 <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Acompanhe o status das suas solicitações.</p>
               </div>
             </CardContent>
@@ -83,7 +74,7 @@ const ClientPortal = () => {
                 <Book className="w-6 h-6 xl:w-8 xl:h-8 text-secondary-foreground" />
               </div>
               <div className="space-y-1 min-w-0">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight break-words">Base de Conhecimento</h3>
+                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight">Base de Conhecimento</h3>
                 <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Tire suas dúvidas e encontre soluções.</p>
               </div>
             </CardContent>
@@ -95,7 +86,7 @@ const ClientPortal = () => {
                 <MessageSquare className="w-6 h-6 xl:w-8 xl:h-8 text-warning" />
               </div>
               <div className="space-y-1 min-w-0">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight break-words">Falar com Consultor</h3>
+                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight">Falar com Consultor</h3>
                 <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Abra um chamado e fale com a equipe de suporte.</p>
               </div>
             </CardContent>

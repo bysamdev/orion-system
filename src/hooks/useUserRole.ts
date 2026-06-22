@@ -47,6 +47,12 @@ export const useUserProfile = () => {
     queryFn: async () => {
       if (!user?.id) return null;
 
+      // Mock para ambiente de teste via URL
+      const testRole = new URLSearchParams(window.location.search).get('testRole');
+      if (testRole) {
+        return { id: user.id, full_name: 'Usuário Teste' };
+      }
+
       // O perfil guarda informações adicionais que não estão no Auth nativo do Supabase.
       const { data, error } = await supabase
         .from('profiles')

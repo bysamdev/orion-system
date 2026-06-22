@@ -130,3 +130,76 @@ export const useActiveAgentsCount = (companyId: string | undefined) => {
     refetchInterval: 60000,
   });
 };
+
+interface UseMeusTicketsOptions {
+  role?: string;
+  statusFilter?: string;
+  statusIn?: string[];
+  priorityFilter?: string;
+  searchTerm?: string;
+  page?: number;
+  pageSize?: number;
+  limit?: number;
+}
+
+export const useMeusTickets = (userId: string | undefined, role: string | undefined, options: UseMeusTicketsOptions = {}) => {
+  return useQuery({
+    queryKey: ['meus-tickets', userId, role, options],
+    queryFn: async () => {
+      if (role === 'customer' && !userId) return { data: [], count: 0 };
+
+      let query = supabaseRead
+        .from('tickets')
+        .select('*', options.page !== undefined ? { count: 'exact' } : undefined);
+
+      if (role === 'customer' && userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      if (options.statusIn && options.statusIn.length > 0) {
+        query = query.in('status', options.statusIn);
+      } else if (options.statusFilter && options.statusFilter !== 'all') {
+        if (options.statusFilter === 'open') {
+          query = query.in('status', ['open', 'reopened']);
+        } else if (options.statusFilter === 'in-progress') {
+          query = query.in('status', ['in-progress', 'awaiting-customer', 'awaiting-third-party']);
+        } else if (options.statusFilter === 'resolved') {
+          query = query.in('status', ['resolved', 'closed', 'cancelled']);
+        } else {
+          query = query.eq('status', options.statusFilter);
+        }
+      }
+
+      if (options.priorityFilter && options.priorityFilter !== 'all') {
+        query = query.eq('priority', options.priorityFilter);
+      }
+
+      if (options.searchTerm) {
+        const isNumeric = !isNaN(Number(options.searchTerm)) && options.searchTerm.trim() !== '';
+        if (isNumeric) {
+          query = query.or(`title.ilike.%${options.searchTerm}%,ticket_number.eq.${Number(options.searchTerm)},requester_name.ilike.%${options.searchTerm}%`);
+        } else {
+          query = query.or(`title.ilike.%${options.searchTerm}%,requester_name.ilike.%${options.searchTerm}%`);
+        }
+      }
+
+      query = query.order('created_at', { ascending: false });
+
+      if (options.page !== undefined && options.pageSize !== undefined) {
+        query = query
+          .order('id', { ascending: true }) // Tie-breaker for stable pagination
+          .range(options.page * options.pageSize, (options.page + 1) * options.pageSize - 1);
+      } else if (options.limit !== undefined) {
+        query = query.limit(options.limit);
+      }
+
+      const { data, count, error } = await query;
+      if (error) throw error;
+
+      const enrichedData = await enrichTicketsWithCompany(data || []);
+
+      return { data: enrichedData, count: count || 0 };
+    },
+    enabled: role !== 'customer' || !!userId,
+  });
+};

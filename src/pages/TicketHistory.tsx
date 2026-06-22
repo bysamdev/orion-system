@@ -13,6 +13,7 @@ import { useNavigate, Navigate } from 'react-router-dom'; // Added Navigate impo
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { ptBR } from 'date-fns/locale';
 import { formatDate } from '@/lib/utils';
+import { useMeusTickets } from '@/hooks/useMyTickets';
 
 // Define types for tickets to avoid 'unknown' property errors
 interface Ticket {
@@ -63,52 +64,6 @@ export default function TicketHistory() {
     setPage(0);
   };
 
-  // Fetch historic tickets
-  const { data: queryResult, isLoading } = useQuery({
-    queryKey: ['historic-tickets', profile?.company_id, role, page, statusFilter, priorityFilter, debouncedSearch],
-    queryFn: async () => {
-      let query = supabaseRead
-        .from('tickets')
-        .select('*', { count: 'exact' });
-
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      } else {
-        query = query.in('status', ['resolved', 'closed', 'cancelled']);
-      }
-
-      if (priorityFilter !== 'all') {
-        query = query.eq('priority', priorityFilter);
-      }
-
-      if (debouncedSearch) {
-        const isNumeric = !isNaN(Number(debouncedSearch)) && debouncedSearch.trim() !== '';
-        if (isNumeric) {
-          query = query.or(`title.ilike.%${debouncedSearch}%,ticket_number.eq.${Number(debouncedSearch)},requester_name.ilike.%${debouncedSearch}%`);
-        } else {
-          query = query.or(`title.ilike.%${debouncedSearch}%,requester_name.ilike.%${debouncedSearch}%`);
-        }
-      }
-
-      if (role === 'customer' && profile?.company_id) {
-        query = query.eq('company_id', profile.company_id);
-      }
-
-      query = query
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: true }) // Tie-breaker for stable pagination
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-      const { data, count, error } = await query;
-
-      if (error) throw error;
-      
-      interface ProfileItem {
-        id: string;
-        company_id: string;
-      }
-      interface CompanyItem {
-        id: string;
         name: string;
       }
 
@@ -139,7 +94,7 @@ export default function TicketHistory() {
     }
   });
 
-  const filteredTickets = queryResult?.tickets || [];
+  const filteredTickets = queryResult?.data || [];
   const totalCount = queryResult?.count || 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -201,13 +156,13 @@ export default function TicketHistory() {
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Status</label>
                   <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                     <SelectTrigger className="h-10 bg-background border-border/40 rounded-xl">
-                      <SelectValue placeholder="Todos os Status" />
+                      <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos os Status</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="open">Abertos</SelectItem>
+                      <SelectItem value="in-progress">Em Atendimento</SelectItem>
                       <SelectItem value="resolved">Resolvidos</SelectItem>
-                      <SelectItem value="closed">Fechados</SelectItem>
-                      <SelectItem value="cancelled">Cancelados</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
