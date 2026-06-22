@@ -436,6 +436,7 @@ export default function Settings() {
                           name="webhook-url"
                           autoComplete="off"
                           data-lpignore="true"
+                          data-1p-ignore="true"
                           readOnly 
                           value={showWebhook ? webhookUrl : maskedWebhook}
                           className="bg-muted/50 font-mono text-sm"

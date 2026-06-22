@@ -196,7 +196,7 @@ const TicketDetails: React.FC = () => {
     queryKey: ['kb-suggestions', ticket?.category, ticket?.title],
     queryFn: async () => {
       if (!ticket) return [];
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('knowledge_articles')
         .select('id, title, slug, category')
         .or(`category.eq."${ticket.category}",title.ilike.%${ticket.title.split(' ')[0]}%`)
@@ -704,7 +704,7 @@ const TicketDetails: React.FC = () => {
               <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Acordo de SLA</h3>
-                  <SLABadge slaStatus={ticket.sla_status as any} slaDueDate={ticket.sla_due_date} />
+                  <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} />
                 </div>
                 <div className="space-y-3">
                    <div className="flex justify-between items-center text-xs">
@@ -729,7 +729,7 @@ const TicketDetails: React.FC = () => {
                   <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Artigos Sugeridos</h3>
                 </div>
                 <div className="space-y-3">
-                  {suggestedArticles.map((article: any) => (
+                  {suggestedArticles.map((article: { id: string; title: string; slug: string; category: string }) => (
                     <button
                       key={article.id}
                       onClick={() => navigate('/knowledge')} // Idealmente abriria o modal ou artigo específico, mas por agora vai pra lista

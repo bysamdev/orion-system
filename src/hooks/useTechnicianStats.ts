@@ -43,26 +43,39 @@ export const useTechnicianStats = (userId: string | undefined) => {
 
       if (resolvedError) throw resolvedError;
 
-      // 3. SLA em Risco (tickets do técnico com prazo < 24 horas)
-      const { data: slaAtRisk, error: slaError } = await supabase
+      // 3. SLA em Risco e Breached
+      const { data: activeTickets, error: activeError } = await supabase
         .from('tickets')
-        .select('id')
+        .select('id, sla_due_date, created_at')
         .eq('assigned_to_user_id', userId)
-        .not('status', 'in', '("resolved","closed","cancelled")')
-        .lt('sla_due_date', twentyFourHoursFromNow.toISOString())
-        .gt('sla_due_date', now.toISOString());
+        .not('status', 'in', '("resolved","closed","cancelled")');
 
-      if (slaError) throw slaError;
+      if (activeError) throw activeError;
 
-      // 3b. SLA Breached (já passou do prazo)
-      const { data: slaBreached, error: slaBreachedError } = await supabase
-        .from('tickets')
-        .select('id')
-        .eq('assigned_to_user_id', userId)
-        .not('status', 'in', '("resolved","closed","cancelled")')
-        .lt('sla_due_date', now.toISOString());
+      let slaAtRiskCount = 0;
+      let slaBreachedCount = 0;
 
-      if (slaBreachedError) throw slaBreachedError;
+      activeTickets?.forEach(ticket => {
+        if (!ticket.sla_due_date) return;
+        const dueDate = new Date(ticket.sla_due_date);
+        
+        if (now > dueDate) {
+          slaBreachedCount++;
+          return;
+        }
+
+        if (ticket.created_at) {
+          const createdDate = new Date(ticket.created_at);
+          const slaPolicyMs = dueDate.getTime() - createdDate.getTime();
+          const msRemaining = dueDate.getTime() - now.getTime();
+          if (slaPolicyMs > 0) {
+            const percentualRestante = (msRemaining / slaPolicyMs) * 100;
+            if (percentualRestante <= 15) {
+              slaAtRiskCount++;
+            }
+          }
+        }
+      });
 
       // 4. Meus Pendentes (tickets abertos atribuídos ao técnico)
       const { data: pendingTickets, error: pendingError } = await supabase
@@ -76,7 +89,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
       return {
         inProgress: inProgressTickets?.length || 0,
         resolvedToday: resolvedToday?.length || 0,
-        slaAtRisk: (slaAtRisk?.length || 0) + (slaBreached?.length || 0),
+        slaAtRisk: slaAtRiskCount + slaBreachedCount,
         pending: pendingTickets?.length || 0,
       };
     },

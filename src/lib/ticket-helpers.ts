@@ -4,12 +4,12 @@ import { supabaseRead } from '@/integrations/supabase/read-client';
  * Enriches a list of tickets with company_name by batch-fetching
  * profiles and companies. Replaces 5 duplicated implementations.
  */
-export async function enrichTicketsWithCompany<T extends { user_id?: string }>(
+export async function enrichTicketsWithCompany<T extends { user_id?: string; sla_due_date?: string | null; created_at?: string | null; sla_status?: string | null }>(
   tickets: T[]
 ): Promise<(T & { company_name: string | null })[]> {
   if (!tickets || tickets.length === 0) return [];
 
-  const userIds = [...new Set(tickets.map(t => (t as any).user_id).filter(Boolean))];
+  const userIds = [...new Set(tickets.map(t => t.user_id).filter((id): id is string => Boolean(id)))];
   if (userIds.length === 0) return tickets.map(t => ({ ...t, company_name: null }));
 
   // Batch fetch profiles and companies in parallel where possible
@@ -25,13 +25,13 @@ export async function enrichTicketsWithCompany<T extends { user_id?: string }>(
     : { data: [] };
 
   const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-  const companyMap = new Map((companies || []).map((c: any) => [c.id, c] as [string, any]));
+  const companyMap = new Map((companies || []).map(c => [c.id, c] as [string, { id: string; name: string }]));
 
   return tickets.map(ticket => {
-    const profile = profileMap.get((ticket as any).user_id);
-    const company = profile ? companyMap.get(profile.company_id) : null;
-    const dynamicSlaStatus = (ticket as any).sla_due_date ? calculateSlaStatus((ticket as any).sla_due_date) : (ticket as any).sla_status;
-    return { ...ticket, company_name: (company as any)?.name || null, sla_status: dynamicSlaStatus };
+    const profile = ticket.user_id ? profileMap.get(ticket.user_id) : null;
+    const company = profile?.company_id ? companyMap.get(profile.company_id) : null;
+    const dynamicSlaStatus = ticket.sla_due_date ? calculateSlaStatus(ticket.sla_due_date, ticket.created_at) : ticket.sla_status;
+    return { ...ticket, company_name: company?.name || null, sla_status: dynamicSlaStatus };
   });
 }
 
@@ -83,21 +83,36 @@ export const CATEGORY_LABELS: Record<string, string> = {
 /**
  * Calcula o status do SLA de forma dinâmica baseado na data atual.
  * - VENCIDO (breached): now > vencimento
- * - CRÍTICO (attention): now > vencimento - 24h
- * - NO PRAZO (ok): now <= vencimento
+ * - CRÍTICO (attention): <= 15% do tempo restante
+ * - ATENÇÃO (warning): <= 40% do tempo restante
+ * - NO PRAZO (ok): > 40% do tempo restante
  */
-export function calculateSlaStatus(slaDueDate: string | null): 'ok' | 'attention' | 'breached' | null {
+export function calculateSlaStatus(slaDueDate: string | null, createdAt?: string | null): 'ok' | 'warning' | 'attention' | 'breached' | null {
   if (!slaDueDate) return null;
   
   const now = new Date();
   const dueDate = new Date(slaDueDate);
-  const criticalDate = new Date(dueDate.getTime() - 24 * 60 * 60 * 1000); // dueDate - 24h
-
+  
   if (now > dueDate) {
     return 'breached';
-  } else if (now > criticalDate) {
-    return 'attention';
-  } else {
-    return 'ok';
   }
+  
+  let slaPolicyMs = 0;
+  if (createdAt) {
+    const createdDate = new Date(createdAt);
+    slaPolicyMs = dueDate.getTime() - createdDate.getTime();
+  }
+  
+  if (slaPolicyMs <= 0) {
+    // Default to 24h if no createdAt or invalid duration
+    slaPolicyMs = 24 * 60 * 60 * 1000;
+  }
+  
+  const msRemaining = dueDate.getTime() - now.getTime();
+  const percentualRestante = (msRemaining / slaPolicyMs) * 100;
+  
+  if (percentualRestante <= 15) return 'attention';
+  if (percentualRestante <= 40) return 'warning';
+  
+  return 'ok';
 }

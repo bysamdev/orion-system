@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import fs from 'fs';
+
+const togglePath = '/Users/sam/Documents/orion-system/src/components/ThemeToggle.tsx';
+let toggleContent = `import React, { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -6,7 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useTheme } from '@/components/theme-provider';
+import { useTheme } from 'next-themes';
 
 export const ThemeToggle: React.FC = () => {
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -48,3 +51,26 @@ export const ThemeToggle: React.FC = () => {
     </Tooltip>
   );
 };
+`;
+fs.writeFileSync(togglePath, toggleContent, 'utf8');
+
+const appPath = '/Users/sam/Documents/orion-system/src/App.tsx';
+let appContent = fs.readFileSync(appPath, 'utf8');
+
+appContent = appContent.replace(
+  "import { lazy, Suspense } from 'react';",
+  "import { lazy, Suspense } from 'react';\nimport { ThemeProvider } from \"next-themes\";"
+);
+
+appContent = appContent.replace(
+  "<QueryClientProvider client={queryClient}>",
+  "<ThemeProvider attribute=\"class\" defaultTheme=\"system\" enableSystem>\n    <QueryClientProvider client={queryClient}>"
+);
+
+appContent = appContent.replace(
+  "</QueryClientProvider>",
+  "</QueryClientProvider>\n  </ThemeProvider>"
+);
+
+fs.writeFileSync(appPath, appContent, 'utf8');
+console.log('Update successful');
