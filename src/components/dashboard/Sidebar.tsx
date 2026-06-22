@@ -90,6 +90,8 @@ export const Sidebar: React.FC = () => {
 
   const renderItem = (item: NavItem) => {
     const isAllowed = !item.roles || (role && item.roles.includes(role));
+    if (!isAllowed) return null;
+
     const isActive = 
       location.pathname === item.path || 
       (item.path !== '/' && location.pathname.startsWith(item.path)) ||
@@ -102,25 +104,23 @@ export const Sidebar: React.FC = () => {
         disabled={!isAllowed}
         className={cn(
           'group w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 relative',
-          !isAllowed ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]',
-          isActive && isAllowed
+          'cursor-pointer active:scale-[0.98]',
+          isActive
             ? 'bg-purple-600'
-            : isAllowed && 'hover:bg-purple-500/10'
+            : 'hover:bg-purple-500/10'
         )}
         aria-label={item.label}
       >
         <item.icon
           className={cn(
             'w-4 h-4 shrink-0 transition-colors duration-200',
-            isActive && isAllowed ? 'text-white' : 'text-gray-400',
-            isAllowed && !isActive && 'group-hover:text-purple-400'
+            isActive ? 'text-white' : 'text-gray-400 group-hover:text-purple-400'
           )}
         />
         <span
           className={cn(
             'truncate leading-none text-sm font-medium transition-colors duration-200',
-            isActive && isAllowed ? 'text-white' : 'text-gray-400',
-            isAllowed && !isActive && 'group-hover:text-purple-300'
+            isActive ? 'text-white' : 'text-gray-400 group-hover:text-purple-300'
           )}
         >
           {item.label}
@@ -151,13 +151,16 @@ export const Sidebar: React.FC = () => {
         </div>
 
           {navGroups.map((group) => {
+            const allowedItems = group.items.filter(item => !item.roles || (role && item.roles.includes(role)));
+            if (allowedItems.length === 0) return null;
+
             return (
               <div key={group.name} className="flex flex-col gap-1">
                 {/* Group label */}
                 <p className="px-3 mt-4 mb-2 text-xs font-semibold uppercase tracking-widest text-sidebar-foreground/60 select-none">
                   {group.name}
                 </p>
-                {group.items.map(renderItem)}
+                {allowedItems.map(renderItem)}
               </div>
             );
           })}
