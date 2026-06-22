@@ -59,6 +59,7 @@ const NewTicket = () => {
   const [remotePassword, setRemotePassword] = useState('');
   const [selectedContractId, setSelectedContractId] = useState<string>('');
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
+  const [anyDropdownOpen, setAnyDropdownOpen] = useState(false);
 
   // ── Smart: VIP Client detection ─────────────────
   const { data: companyInfo } = useQuery({
@@ -406,7 +407,7 @@ const NewTicket = () => {
                         render={({ field }) => (
                           <FormItem className="space-y-4">
                             <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Qual a urgência?</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} onOpenChange={setAnyDropdownOpen}>
                               <FormControl>
                                 <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
                                   <SelectValue />
@@ -431,7 +432,7 @@ const NewTicket = () => {
                           <FormItem className="space-y-4">
                             <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Seu Departamento</FormLabel>
                             {departments && departments.length > 0 ? (
-                              <Select onValueChange={field.onChange} value={field.value || 'Geral'}>
+                              <Select onValueChange={field.onChange} value={field.value || 'Geral'} onOpenChange={setAnyDropdownOpen}>
                                 <FormControl>
                                   <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
                                     <SelectValue placeholder="Selecione um departamento" />
@@ -506,7 +507,7 @@ const NewTicket = () => {
                     {activeContracts && activeContracts.length > 0 && (
                       <section className="space-y-4">
                         <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Vincular a Contrato</Label>
-                        <Select value={selectedContractId} onValueChange={setSelectedContractId}>
+                        <Select value={selectedContractId} onValueChange={setSelectedContractId} onOpenChange={setAnyDropdownOpen}>
                           <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
                             <SelectValue placeholder="Selecione um contrato" />
                           </SelectTrigger>
@@ -522,7 +523,7 @@ const NewTicket = () => {
                     {companyAssets && companyAssets.length > 0 && (
                       <section className="space-y-4">
                         <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Vincular Ativo (CMDB)</Label>
-                        <Select value={selectedAssetId} onValueChange={setSelectedAssetId}>
+                        <Select value={selectedAssetId} onValueChange={setSelectedAssetId} onOpenChange={setAnyDropdownOpen}>
                           <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
                             <SelectValue placeholder="Selecione um ativo (Equipamento/Software)" />
                           </SelectTrigger>
@@ -607,6 +608,7 @@ const NewTicket = () => {
                       <Button 
                         type="button" 
                         onClick={nextStep} 
+                        disabled={anyDropdownOpen}
                         className="h-12 px-8 rounded-xl font-bold gap-2 shadow-lg shadow-primary/20 tracking-tight"
                       >
                         Próximo <ChevronRight className="w-4 h-4" />
