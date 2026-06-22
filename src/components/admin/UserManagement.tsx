@@ -195,8 +195,8 @@ export const UserManagement = () => {
         throw new Error(error.message || 'Erro ao excluir usuário');
       }
 
-      if (data?.error) {
-        throw new Error(data.error);
+      if ((data as { error?: string })?.error) {
+        throw new Error((data as { error?: string }).error);
       }
 
       return data;
@@ -208,7 +208,7 @@ export const UserManagement = () => {
         description: 'Usuário removido com sucesso',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       logError('deleteUserMutation', error);
       toast({
         title: 'Erro ao excluir',
@@ -264,8 +264,8 @@ export const UserManagement = () => {
         throw new Error(error.message || 'Erro ao criar usuário');
       }
 
-      if (data?.error) {
-        throw new Error(data.error);
+      if ((data as { error?: string })?.error) {
+        throw new Error((data as { error?: string }).error);
       }
 
       toast({
@@ -282,11 +282,12 @@ export const UserManagement = () => {
       setIsDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
 
-    } catch (error: any) {
-      logError('handleCreateUser', error);
+    } catch (error) {
+      const err = error as Error;
+      logError('handleCreateUser', err);
       toast({
         title: 'Erro ao criar usuário',
-        description: error.message || 'Tente novamente',
+        description: err.message || 'Tente novamente',
         variant: 'destructive',
       });
     } finally {
@@ -347,8 +348,8 @@ export const UserManagement = () => {
         throw new Error(error.message || 'Erro ao atualizar usuário');
       }
 
-      if (data?.error) {
-        throw new Error(data.error);
+      if ((data as { error?: string })?.error) {
+        throw new Error((data as { error?: string }).error);
       }
 
       toast({
@@ -359,11 +360,12 @@ export const UserManagement = () => {
       setIsEditDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
 
-    } catch (error: any) {
-      logError('handleUpdateUser', error);
+    } catch (error) {
+      const err = error as Error;
+      logError('handleUpdateUser', err);
       toast({
         title: 'Erro ao atualizar',
-        description: error.message || 'Tente novamente',
+        description: err.message || 'Tente novamente',
         variant: 'destructive',
       });
     } finally {

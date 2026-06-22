@@ -270,7 +270,25 @@ const NewTicket = () => {
         <Card className="border-border/40 shadow-2xl shadow-primary/5 overflow-hidden bg-card/50 backdrop-blur-sm">
           <CardContent className="p-8">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (step === 3) {
+                    form.handleSubmit(onSubmit)(e);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    if (step < 3) {
+                      nextStep();
+                    } else {
+                      form.handleSubmit(onSubmit)(e);
+                    }
+                  }
+                }}
+                className="space-y-8"
+              >
                 
                 {step === 1 && (
                   <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
