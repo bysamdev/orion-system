@@ -40,8 +40,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (new URLSearchParams(window.location.search).get('testAuth')) {
-        setSession({ access_token: 'test', user: { id: 'test-user', email: 'test@orion.com' } } as any);
-        setUser({ id: 'test-user', email: 'test@orion.com' } as any);
+        const testUserId = new URLSearchParams(window.location.search).get('testUserId') || 'test-user';
+        setSession({ access_token: 'test', user: { id: testUserId, email: 'test@orion.com' } } as any);
+        setUser({ id: testUserId, email: 'test@orion.com' } as any);
         setLoading(false);
         return;
       }

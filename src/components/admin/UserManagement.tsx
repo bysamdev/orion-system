@@ -459,14 +459,14 @@ export const UserManagement = () => {
                 <Label htmlFor="department">Departamento</Label>
                 {departments && departments.length > 0 ? (
                   <Select
-                    value={formData.department}
-                    onValueChange={(value) => setFormData({ ...formData, department: value })}
+                    value={formData.department || "none"}
+                    onValueChange={(value) => setFormData({ ...formData, department: value === "none" ? "" : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um departamento" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
+                      <SelectItem value="none">Nenhum</SelectItem>
                       {departments.map((dept) => (
                         <SelectItem key={dept.id} value={dept.name}>
                           {dept.name}
@@ -486,7 +486,7 @@ export const UserManagement = () => {
               <div className="grid gap-2">
                 <Label htmlFor="role">Função *</Label>
                 <Select
-                  value={formData.role}
+                  value={formData.role || undefined}
                   onValueChange={(value: 'customer' | 'technician' | 'admin') => 
                     setFormData({ ...formData, role: value })
                   }
@@ -576,14 +576,14 @@ export const UserManagement = () => {
               <Label htmlFor="edit_department">Departamento</Label>
               {departments && departments.length > 0 ? (
                 <Select
-                  value={editFormData.department}
-                  onValueChange={(value) => setEditFormData({ ...editFormData, department: value })}
+                  value={editFormData.department || "none"}
+                  onValueChange={(value) => setEditFormData({ ...editFormData, department: value === "none" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um departamento" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="none">Nenhum</SelectItem>
                     {departments.map((dept) => (
                       <SelectItem key={dept.id} value={dept.name}>
                         {dept.name}
@@ -603,7 +603,7 @@ export const UserManagement = () => {
             <div className="grid gap-2">
               <Label htmlFor="edit_company">Empresa / Filial</Label>
               <Select
-                value={editFormData.company_id}
+                value={editFormData.company_id || undefined}
                 onValueChange={(value) => setEditFormData({ ...editFormData, company_id: value })}
               >
                 <SelectTrigger>
@@ -629,7 +629,7 @@ export const UserManagement = () => {
             <div className="grid gap-2">
               <Label htmlFor="edit_role">Função *</Label>
               <Select
-                value={editFormData.role}
+                value={editFormData.role || undefined}
                 onValueChange={(value: 'customer' | 'technician' | 'admin') => 
                   setEditFormData({ ...editFormData, role: value })
                 }
@@ -647,7 +647,7 @@ export const UserManagement = () => {
             <div className="grid gap-2">
               <Label htmlFor="edit_status">Status</Label>
               <Select
-                value={editFormData.status}
+                value={editFormData.status || undefined}
                 onValueChange={(value) => setEditFormData({ ...editFormData, status: value })}
               >
                 <SelectTrigger>
@@ -725,8 +725,9 @@ const UserRow = React.memo(({
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
         <Select
-          value={userItem.role}
-          onValueChange={(value) => onUpdateRole(userItem.id, value as UserRole)}
+          value={userItem.role || undefined}
+          onValueChange={(value: 'customer' | 'technician' | 'admin') => onUpdateRole(userItem.id, value)}
+          disabled={isCurrentUser || isUpdating}
         >
           <SelectTrigger className="w-[140px]">
             <SelectValue />
