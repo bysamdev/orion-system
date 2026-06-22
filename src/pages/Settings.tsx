@@ -192,7 +192,14 @@ export default function Settings() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Configurações</h1>
           <p className="text-muted-foreground mb-8">Gerencie suas preferências e configurações da conta</p>
           
-          <Tabs defaultValue="profile" className="space-y-6">
+          <Tabs 
+            defaultValue="profile" 
+            className="space-y-6"
+            onValueChange={(value) => {
+              window.dispatchEvent(new CustomEvent('clear-global-search'));
+              document.getElementById('global-search-ticket')?.blur();
+            }}
+          >
             <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="w-4 h-4" />

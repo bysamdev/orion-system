@@ -19,8 +19,12 @@ export const TopBar: React.FC = () => {
   const [showResults, setShowResults] = React.useState(false);
 
   React.useEffect(() => {
-    setSearchQuery('');
-  }, [location.pathname]);
+    const handleClearSearch = () => {
+      setSearchQuery('');
+    };
+    window.addEventListener('clear-global-search', handleClearSearch);
+    return () => window.removeEventListener('clear-global-search', handleClearSearch);
+  }, []);
 
   React.useEffect(() => {
     const searchTickets = async () => {
@@ -63,14 +67,27 @@ export const TopBar: React.FC = () => {
         ) : (
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
         )}
+        
+        {/* Isca invisível para gerenciadores de senha agressivos */}
+        <input 
+          type="text" 
+          style={{ display: 'none' }} 
+          autoComplete="username" 
+          tabIndex={-1} 
+          aria-hidden="true" 
+        />
+
         <input
           id="global-search-ticket"
-          name="global-search-ticket"
-          type="search"
+          name={`gst-${Math.random().toString(36).slice(2)}`}
+          type="text"
+          role="searchbox"
           autoComplete="off"
           // "new-password" é o único valor que todos os browsers respeitam para desativar autocomplete
           // Usamos data-lpignore para desativar LastPass/1Password também
           data-lpignore="true"
+          data-1p-ignore="true"
+          data-bwignore="true"
           data-form-type="other"
           placeholder="Buscar tickets por #número, título ou cliente..."
           value={searchQuery}
