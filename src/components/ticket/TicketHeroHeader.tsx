@@ -109,7 +109,7 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={ticket.status} />
         <PriorityBadge priority={ticket.priority} />
-        <SLABadge slaStatus={ticket.sla_status as any} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} />
+        <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} />
         
         {/* Badge de Horas Apontadas conforme solicitado */}
         <TooltipProvider>

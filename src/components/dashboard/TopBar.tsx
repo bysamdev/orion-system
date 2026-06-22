@@ -7,14 +7,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from '@/components/shared/StatusBadge';
-import { Ticket } from '@/types';
+import { Ticket } from '@/hooks/useTickets';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [searchResults, setSearchResults] = React.useState<Ticket[]>([]);
+  const [searchResults, setSearchResults] = React.useState<Pick<Ticket, 'id' | 'ticket_number' | 'title' | 'status'>[]>([]);
   const [isSearching, setIsSearching] = React.useState(false);
   const [showResults, setShowResults] = React.useState(false);
 
@@ -42,7 +42,7 @@ export const TopBar: React.FC = () => {
         }
         const { data, error } = await query.limit(6);
         if (error) throw error;
-        setSearchResults(data || []);
+        setSearchResults((data as unknown as Pick<Ticket, 'id' | 'ticket_number' | 'title' | 'status'>[]) || []);
       } catch (err) {
         console.error('Search error:', err);
       } finally {
