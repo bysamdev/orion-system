@@ -124,7 +124,7 @@ export const UserManagement = () => {
     queryFn: async () => {
       const { data: profiles, error: profilesError} = await supabase
         .from('profiles')
-        .select('id, full_name, email, department, company_id, status')
+        .select('id, full_name, email, department, company_id')
         .order('full_name');
 
       if (profilesError) throw profilesError;
@@ -145,6 +145,7 @@ export const UserManagement = () => {
 
       return profiles.map(profile => ({
         ...profile,
+        status: 'active',
         role: roles.find(r => r.user_id === profile.id)?.role || 'customer',
         company_name: companyMap.get(profile.company_id) || 'Sem empresa'
       })) as UserData[];
