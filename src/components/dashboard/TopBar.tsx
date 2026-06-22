@@ -2,19 +2,25 @@ import React from 'react';
 import { Plus, Search, Loader2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { Ticket } from '@/types';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [searchResults, setSearchResults] = React.useState<any[]>([]);
+  const [searchResults, setSearchResults] = React.useState<Ticket[]>([]);
   const [isSearching, setIsSearching] = React.useState(false);
   const [showResults, setShowResults] = React.useState(false);
+
+  React.useEffect(() => {
+    setSearchQuery('');
+  }, [location.pathname]);
 
   React.useEffect(() => {
     const searchTickets = async () => {
@@ -51,7 +57,7 @@ export const TopBar: React.FC = () => {
   return (
     <div className="flex items-center gap-4">
       {/* Busca global */}
-      <div className="relative flex-1 max-w-lg group">
+      <div className="relative flex-1 max-w-2xl group">
         {isSearching ? (
           <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
         ) : (

@@ -51,7 +51,8 @@ const statusConfig: Record<string, { label: string; dotColor: string; badgeClass
 };
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) => {
-  const config = statusConfig[status] || { label: status, dotColor: 'bg-muted-foreground', badgeClass: '' };
+  const normalizedStatus = status?.toLowerCase() || '';
+  const config = statusConfig[normalizedStatus] || { label: status, dotColor: 'bg-muted-foreground', badgeClass: '' };
   return (
     <Badge variant="outline" className={cn('gap-1.5', config.badgeClass, className)}>
       <div className={cn('w-1.5 h-1.5 rounded-full', config.dotColor)} />
@@ -61,5 +62,6 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) =
 };
 
 export const getStatusLabel = (status: string): string => {
-  return statusConfig[status]?.label || status;
+  const normalizedStatus = status?.toLowerCase() || '';
+  return statusConfig[normalizedStatus]?.label || status;
 };

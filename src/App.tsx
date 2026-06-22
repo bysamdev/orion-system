@@ -8,6 +8,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import { lazy, Suspense } from 'react';
+import { ThemeProvider } from "@/components/theme-provider";
 
 const Index = lazy(() => import("./pages/Index"));
 const NewTicket = lazy(() => import("./pages/NewTicket"));
@@ -20,6 +21,8 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const DebugTools = lazy(() => import("./pages/DebugTools"));
 const Reports = lazy(() => import("./pages/Reports"));
 const InfrastructureDashboard = lazy(() => import("./pages/InfrastructureDashboard"));
+const AlertsDashboard = lazy(() => import("./pages/AlertsDashboard"));
+const Monitoring = lazy(() => import("./pages/Monitoring"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const TicketHistory = lazy(() => import("./pages/TicketHistory"));
 const Avaliacao = lazy(() => import("./pages/Avaliacao"));
@@ -45,7 +48,8 @@ const AppRoute = ({ children }: { children: React.ReactNode }) => (
 );
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
+  <ThemeProvider defaultTheme="system">
+    <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
         <Toaster />
@@ -72,6 +76,8 @@ const App = () => (
               <Route path="/admin" element={<AppRoute><Admin /></AppRoute>} />
               <Route path="/relatorios" element={<AppRoute><Reports /></AppRoute>} />
               <Route path="/sistemas" element={<AppRoute><InfrastructureDashboard /></AppRoute>} />
+              <Route path="/monitoramento" element={<AppRoute><Monitoring /></AppRoute>} />
+              <Route path="/central-alertas" element={<AppRoute><AlertsDashboard /></AppRoute>} />
               <Route path="/ticket/:id" element={<AppRoute><TicketDetails /></AppRoute>} />
               <Route path="/historico" element={<AppRoute><TicketHistory /></AppRoute>} />
               <Route path="/knowledge" element={<AppRoute><KnowledgeBase /></AppRoute>} />
@@ -87,6 +93,7 @@ const App = () => (
               <Route path="/configuracoes" element={<Navigate to="/ajustes" replace />} />
               <Route path="/settings" element={<Navigate to="/ajustes" replace />} />
               <Route path="/history" element={<Navigate to="/historico" replace />} />
+              <Route path="/novo" element={<Navigate to="/novo-ticket" replace />} />
               <Route path="/notifications" element={<Navigate to="/notificacoes" replace />} />
               <Route path="/documentacao" element={<Navigate to="/knowledge" replace />} />
 
@@ -98,6 +105,7 @@ const App = () => (
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

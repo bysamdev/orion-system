@@ -19,6 +19,7 @@ interface TicketHeroHeaderProps {
     assigned_to: string | null;
     sla_status: string | null;
     sla_due_date: string | null;
+    created_at?: string;
     company_name?: string | null;
   };
   totalTimeMinutes?: number;
@@ -108,7 +109,7 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={ticket.status} />
         <PriorityBadge priority={ticket.priority} />
-        <SLABadge slaStatus={ticket.sla_status as any} slaDueDate={ticket.sla_due_date} />
+        <SLABadge slaStatus={ticket.sla_status as any} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} />
         
         {/* Badge de Horas Apontadas conforme solicitado */}
         <TooltipProvider>

@@ -20,12 +20,14 @@ export interface Ticket {
   department: string | null;
   created_at: string;
   updated_at: string;
+  company_id?: string | null;
   company_name: string | null;
+  assigned_to_user_id?: string | null;
   // Campos SLA
   sla_due_date: string | null;
   first_response_at: string | null;
   resolved_at: string | null;
-  sla_status: 'ok' | 'attention' | 'breached' | null;
+  sla_status: 'ok' | 'warning' | 'attention' | 'breached' | null;
   // Campos de Acesso Remoto
   remote_id: string | null;
   remote_password: string | null;
@@ -114,10 +116,9 @@ export const useTicket = (id: string) => {
       }
 
       // Limpa o objeto aninhado para não poluir o estado
-      const cleanedTicket = { ...ticket };
-      delete (cleanedTicket as any).profiles;
+      const { profiles, ...cleanedTicket } = ticket as typeof ticket & { profiles?: unknown };
 
-      const dynamicSlaStatus = ticket.sla_due_date ? calculateSlaStatus(ticket.sla_due_date) : ticket.sla_status;
+      const dynamicSlaStatus = ticket.sla_due_date ? calculateSlaStatus(ticket.sla_due_date, ticket.created_at) : ticket.sla_status;
       return { ...cleanedTicket, company_name: companyName, sla_status: dynamicSlaStatus } as Ticket;
     },
     enabled: !!id,
@@ -148,12 +149,11 @@ export const useTicketUpdates = (ticketId: string) => {
         // Extract nested profile full_name if available
         let authorName = u.author || 'Sistema';
         if (u.profiles && !Array.isArray(u.profiles)) {
-          authorName = (u.profiles as any).full_name || authorName;
+          authorName = (u.profiles as { full_name?: string }).full_name || authorName;
         }
 
         // Clean up nested objects
-        const cleanedUpdate = { ...u };
-        delete (cleanedUpdate as any).profiles;
+        const { profiles, ...cleanedUpdate } = u as typeof u & { profiles?: unknown };
 
         return {
           ...cleanedUpdate,
@@ -193,7 +193,7 @@ export const useUpdateTicketStatus = () => {
       }
 
       // Build update object
-      const updateData: any = { status: validationResult.data };
+      const updateData: Record<string, unknown> = { status: validationResult.data };
       
       // Add assignment fields if provided
       if (assigned_to !== undefined) {

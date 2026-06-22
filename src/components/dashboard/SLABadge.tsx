@@ -7,25 +7,28 @@ import { cn } from '@/lib/utils';
 import { calculateSlaStatus } from '@/lib/ticket-helpers';
 
 interface SLABadgeProps {
-  slaStatus: 'ok' | 'attention' | 'breached' | null;
+  slaStatus: 'ok' | 'warning' | 'attention' | 'breached' | string | null;
   slaDueDate: string | null;
+  createdAt?: string | null;
   variant?: 'default' | 'compact';
   className?: string;
 }
 
 /**
  * Badge visual para indicar status do SLA
- * 🟢 Verde: No prazo (> 4h restantes)
- * 🟡 Amarelo: Atenção (< 4h restantes)
+ * 🟢 Verde: No prazo (> 40% restantes)
+ * 🟡 Amarelo: Atenção (<= 40% restantes)
+ * 🟠 Laranja: Crítico (<= 15% restantes)
  * 🔴 Vermelho: Estourado (Breached)
  */
 export const SLABadge: React.FC<SLABadgeProps> = ({ 
   slaStatus, 
-  slaDueDate, 
+  slaDueDate,
+  createdAt,
   variant = 'default',
   className 
 }) => {
-  const dynamicStatus = calculateSlaStatus(slaDueDate) || slaStatus;
+  const dynamicStatus = calculateSlaStatus(slaDueDate, createdAt) || slaStatus;
 
   if (!dynamicStatus) {
     return null;
@@ -36,14 +39,29 @@ export const SLABadge: React.FC<SLABadgeProps> = ({
     addSuffix: true
   }) : '';
 
+  interface StatusConfig {
+    icon: React.ElementType;
+    label: string;
+    color: string;
+    iconColor: string;
+    dot: string;
+  }
+  
   // Configuração de cores e ícones por status
-  const statusConfig = {
+  const statusConfig: Record<string, StatusConfig> = {
     ok: {
       icon: Clock,
       label: 'No prazo',
       color: 'bg-green-500/10 text-green-700 border-green-500/20',
       iconColor: 'text-green-600',
       dot: 'bg-green-500'
+    },
+    warning: {
+      icon: Clock,
+      label: 'Atenção',
+      color: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20',
+      iconColor: 'text-yellow-600',
+      dot: 'bg-yellow-500'
     },
     attention: {
       icon: AlertTriangle,
@@ -61,7 +79,7 @@ export const SLABadge: React.FC<SLABadgeProps> = ({
     }
   };
 
-  const config = statusConfig[dynamicStatus as 'ok' | 'attention' | 'breached'];
+  const config = statusConfig[dynamicStatus as string] || statusConfig['ok'];
   const Icon = config.icon;
 
   if (variant === 'compact') {

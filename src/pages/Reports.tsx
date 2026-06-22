@@ -115,22 +115,22 @@ const Reports: React.FC = () => {
     const slaBreached = withSla.filter(t => t.sla_status === 'breached').length;
 
     // Rankings
-    const techRanking = tickets.reduce((acc: any, t) => {
+    const techRanking = tickets.reduce((acc: Record<string, number>, t) => {
       if (t.assigned_to) {
         acc[t.assigned_to] = (acc[t.assigned_to] || 0) + 1;
       }
       return acc;
     }, {});
 
-    const companyRanking = tickets.reduce((acc: any, t) => {
+    const companyRanking = tickets.reduce((acc: Record<string, number>, t) => {
       if (t.company_name) {
         acc[t.company_name] = (acc[t.company_name] || 0) + 1;
       }
       return acc;
     }, {});
 
-    const categoryRanking = tickets.reduce((acc: any, t) => {
-      const cat = (t as any).category || 'Sem Categoria';
+    const categoryRanking = tickets.reduce((acc: Record<string, number>, t) => {
+      const cat = t.category || 'Sem Categoria';
       acc[cat] = (acc[cat] || 0) + 1;
       return acc;
     }, {});
@@ -158,7 +158,7 @@ const Reports: React.FC = () => {
     ].filter(d => d.value > 0);
 
     // 3. Tickets por dia (apenas considerando criação dentro do período para o gráfico)
-    const ticketsPerDay = tickets.reduce((acc: any, t) => {
+    const ticketsPerDay = tickets.reduce((acc: Record<string, number>, t) => {
       if (!t.created_at) return acc;
       const date = t.created_at.split('T')[0];
       if (date >= dateFrom && date <= dateTo) {
@@ -174,23 +174,23 @@ const Reports: React.FC = () => {
     // 5. Técnico Ranking (Top 5)
     const technicianData = Object.entries(metrics.techRanking)
       .map(([name, count]) => ({ name, count }))
-      .sort((a: any, b: any) => b.count - a.count)
+      .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
     // 6. Empresa Ranking (Top 5)
     const companyData = Object.entries(metrics.companyRanking)
       .map(([name, count]) => ({ name, count }))
-      .sort((a: any, b: any) => b.count - a.count)
+      .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
     // 7. Categoria Ranking
     const categoryData = Object.entries(metrics.categoryRanking)
       .map(([name, count]) => ({ name, count }))
-      .sort((a: any, b: any) => b.count - a.count)
+      .sort((a, b) => b.count - a.count)
       .slice(0, 8);
 
     // 4. Priority Distribution
-    const priorityData = tickets.reduce((acc: any, t) => {
+    const priorityData = tickets.reduce((acc: Record<string, number>, t) => {
       acc[t.priority] = (acc[t.priority] || 0) + 1;
       return acc;
     }, {});
@@ -198,10 +198,10 @@ const Reports: React.FC = () => {
       name: name === 'urgent' ? 'Urgente' : name === 'high' ? 'Alta' : name === 'medium' ? 'Média' : 'Baixa',
       value,
       color: name === 'urgent' ? '#ef4444' : name === 'high' ? '#f97316' : name === 'medium' ? '#eab308' : '#22c55e'
-    })).filter(d => (d as any).value > 0);
+    })).filter(d => d.value > 0);
 
     return { statusData, slaData, trendData, priorityChartData, technicianData, companyData, categoryData };
-  }, [tickets, metrics]);
+  }, [tickets, metrics, dateFrom, dateTo]);
 
   const exportToCSV = () => {
     if (tickets.length === 0) return;
@@ -622,8 +622,9 @@ const Reports: React.FC = () => {
                           <TableCell><StatusBadge status={ticket.status} /></TableCell>
                           <TableCell>
                             <SLABadge
-                              slaStatus={ticket.sla_status as any}
+                              slaStatus={ticket.sla_status}
                               slaDueDate={ticket.sla_due_date}
+                              createdAt={ticket.created_at}
                               variant="compact"
                             />
                           </TableCell>

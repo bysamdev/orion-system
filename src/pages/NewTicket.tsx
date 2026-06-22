@@ -336,7 +336,17 @@ const NewTicket = () => {
                         <FormItem className="space-y-4">
                           <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Título do chamado</FormLabel>
                           <FormControl>
-                            <Input placeholder="Resuma em poucas palavras" {...field} className="h-14 text-lg bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl" />
+                            <Input 
+                              placeholder="Resuma em poucas palavras" 
+                              {...field} 
+                              onChange={(e) => {
+                                field.onChange(e);
+                                if (e.target.value.trim().length >= 5) {
+                                  form.clearErrors('title');
+                                }
+                              }}
+                              className="h-14 text-lg bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl" 
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
