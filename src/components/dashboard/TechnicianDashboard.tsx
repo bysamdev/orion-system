@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTechnicianStats, useTechnicianWorkload, useTeamWorkload } from '@/hooks/useTechnicianStats';
-import { useMyActiveTickets, useSLAAtRiskTickets, useUnassignedTicketsEnhanced, useMyRecentClosedTickets } from '@/hooks/useMyTickets';
+import { useMyActiveTickets, useSLAAtRiskTickets, useUnassignedTicketsEnhanced, useMyRecentClosedTickets, useActiveAgentsCount } from '@/hooks/useMyTickets';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -128,7 +128,7 @@ const TicketRow: React.FC<{ ticket: Ticket; onAction: () => void }> = ({ ticket,
         <StatusBadge status={ticket.status} />
       </TableCell>
       <TableCell className="py-4">
-        <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} variant="compact" />
+        <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} variant="compact" />
       </TableCell>
       <TableCell className="py-4 text-right">
         <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-0 group-hover:opacity-100 transition-opacity">
@@ -157,6 +157,7 @@ export const TechnicianDashboard: React.FC = () => {
   const { data: slaTickets = [], isLoading: slaLoading } = useSLAAtRiskTickets();
   const { data: unassigned = [], isLoading: unassignedLoading } = useUnassignedTicketsEnhanced();
   const { data: recentClosed = [], isLoading: closedLoading } = useMyRecentClosedTickets(user?.id);
+  const { data: activeAgentsCount } = useActiveAgentsCount(profile?.company_id);
 
   const { data: teamWorkload, isLoading: teamWorkloadLoading } = useTeamWorkload(profile?.company_id);
 
@@ -223,6 +224,19 @@ export const TechnicianDashboard: React.FC = () => {
 
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Alerta de ausência de agentes */}
+      {activeAgentsCount === 0 && unassigned.length > 0 && (
+        <div className="bg-destructive/15 border border-destructive/30 rounded-xl p-4 flex items-start gap-3 text-destructive animate-in fade-in zoom-in duration-300">
+          <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" />
+          <div className="flex flex-col gap-1">
+            <h4 className="font-semibold text-sm">Atenção: Auto-atribuição Indisponível</h4>
+            <p className="text-xs text-destructive/90 leading-relaxed">
+              Existem {unassigned.length} ticket(s) na Fila de Espera, mas o sistema de auto-atribuição não encontrou agentes técnicos ou gestores online/ativos para esta empresa. O roteamento automático foi pausado.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* KPIs Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -550,7 +564,7 @@ export const TechnicianDashboard: React.FC = () => {
                               <PriorityBadge priority={t.priority} size="sm" />
                             </TableCell>
                             <TableCell className="py-4 text-center">
-                              <SLABadge slaStatus={t.sla_status} slaDueDate={t.sla_due_date} variant="compact" />
+                              <SLABadge slaStatus={t.sla_status} slaDueDate={t.sla_due_date} createdAt={t.created_at} variant="compact" />
                             </TableCell>
                             <TableCell className="py-4 text-right">
                               <Button 
