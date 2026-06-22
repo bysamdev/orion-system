@@ -179,7 +179,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
     return <Navigate to="/tutorial" replace />;
   }
 
-  if (role && !['admin', 'developer', 'technician', 'gestor'].includes(role)) {
+  if (role && !['admin', 'developer', 'technician'].includes(role)) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh] p-8 space-y-4 animate-in fade-in zoom-in duration-500">
         <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">

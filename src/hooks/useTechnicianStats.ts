@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { startOfDay, subHours } from 'date-fns';
+import { startOfDay } from 'date-fns';
+import { calculateSlaStatus } from '@/lib/ticket-helpers';
 
 /**
  * Hook para buscar estatísticas pessoais do técnico logado
@@ -13,16 +14,6 @@ export const useTechnicianStats = (userId: string | undefined) => {
 
       const now = new Date();
       const today = startOfDay(now);
-      const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-
-      // Buscar perfil do técnico para pegar o nome
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', userId)
-        .single();
-
-      const technicianName = profile?.full_name || '';
 
       // 1. Em Atendimento (tickets in-progress atribuídos ao técnico)
       const { data: inProgressTickets, error: inProgressError } = await supabase
@@ -56,24 +47,11 @@ export const useTechnicianStats = (userId: string | undefined) => {
       let slaBreachedCount = 0;
 
       activeTickets?.forEach(ticket => {
-        if (!ticket.sla_due_date) return;
-        const dueDate = new Date(ticket.sla_due_date);
-        
-        if (now > dueDate) {
+        const status = calculateSlaStatus(ticket.sla_due_date, ticket.created_at);
+        if (status === 'breached') {
           slaBreachedCount++;
-          return;
-        }
-
-        if (ticket.created_at) {
-          const createdDate = new Date(ticket.created_at);
-          const slaPolicyMs = dueDate.getTime() - createdDate.getTime();
-          const msRemaining = dueDate.getTime() - now.getTime();
-          if (slaPolicyMs > 0) {
-            const percentualRestante = (msRemaining / slaPolicyMs) * 100;
-            if (percentualRestante <= 15) {
-              slaAtRiskCount++;
-            }
-          }
+        } else if (status === 'warning' || status === 'attention') {
+          slaAtRiskCount++;
         }
       });
 

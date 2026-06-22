@@ -22,7 +22,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNotifications } from '@/hooks/useNotifications';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -130,8 +130,7 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <TooltipProvider delayDuration={100}>
-      <nav className="bg-sidebar-background h-screen w-64 flex flex-col shrink-0 sticky top-0 border-r border-sidebar-border shadow-2xl z-50 overflow-hidden">
+    <nav className="bg-sidebar-background h-screen w-64 flex flex-col shrink-0 sticky top-0 border-r border-sidebar-border shadow-2xl z-50 overflow-hidden">
 
         {/* ── Logo / Brand ── */}
         <div
@@ -224,6 +223,5 @@ export const Sidebar: React.FC = () => {
         </div>
 
       </nav>
-    </TooltipProvider>
   );
 };
