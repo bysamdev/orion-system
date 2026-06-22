@@ -20,6 +20,14 @@ const ClientPortal = () => {
   const { data: profile, isLoading: profileLoading } = useUserProfile();
   const [search, setSearch] = useState('');
 
+  // Hook centralizado para buscar os 5 chamados recentes do usuário.
+  // Deve sempre ser chamado incondicionalmente antes de qualquer return
+  const { data: recentTicketsData } = useMeusTickets(profile?.id, 'customer', {
+    statusIn: ['open', 'in-progress', 'awaiting-customer'],
+    limit: 5
+  });
+  const recentTickets = recentTicketsData?.data;
+
   if (profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -27,13 +35,6 @@ const ClientPortal = () => {
       </div>
     );
   }
-
-  // Hook centralizado para buscar os 5 chamados recentes do usuário.
-  const { data: recentTicketsData } = useMeusTickets(profile?.id, 'customer', {
-    statusIn: ['open', 'in-progress', 'awaiting-customer'],
-    limit: 5
-  });
-  const recentTickets = recentTicketsData?.data;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -61,8 +62,8 @@ const ClientPortal = () => {
               <div className="p-3 xl:p-4 bg-primary/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
                 <History className="w-6 h-6 xl:w-8 xl:h-8 text-primary" />
               </div>
-              <div className="space-y-1 min-w-0">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight">Meus Chamados</h3>
+              <div className="min-w-[160px] flex-1 space-y-1">
+                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight truncate">Meus Chamados</h3>
                 <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Acompanhe o status das suas solicitações.</p>
               </div>
             </CardContent>
@@ -73,8 +74,8 @@ const ClientPortal = () => {
               <div className="p-3 xl:p-4 bg-secondary/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
                 <Book className="w-6 h-6 xl:w-8 xl:h-8 text-secondary-foreground" />
               </div>
-              <div className="space-y-1 min-w-0">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight">Base de Conhecimento</h3>
+              <div className="min-w-[160px] flex-1 space-y-1">
+                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight truncate">Base de Conhecimento</h3>
                 <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Tire suas dúvidas e encontre soluções.</p>
               </div>
             </CardContent>
@@ -85,8 +86,8 @@ const ClientPortal = () => {
               <div className="p-3 xl:p-4 bg-warning/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
                 <MessageSquare className="w-6 h-6 xl:w-8 xl:h-8 text-warning" />
               </div>
-              <div className="space-y-1 min-w-0">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight">Falar com Consultor</h3>
+              <div className="min-w-[160px] flex-1 space-y-1">
+                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight truncate">Falar com Consultor</h3>
                 <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Abra um chamado e fale com a equipe de suporte.</p>
               </div>
             </CardContent>
