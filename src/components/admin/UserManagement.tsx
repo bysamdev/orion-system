@@ -536,6 +536,7 @@ export const UserManagement = () => {
                 onDelete={handleDeleteUser}
                 isDeleting={deletingUserId === userItem.id}
                 isCurrentUser={userItem.id === user?.id}
+                isUpdating={isUpdating}
               />
             ))}
           </TableBody>
@@ -696,6 +697,7 @@ interface UserRowProps {
   onDelete: (userId: string) => void;
   isDeleting: boolean;
   isCurrentUser: boolean;
+  isUpdating: boolean;
 }
 
 const UserRow = React.memo(({
@@ -705,6 +707,7 @@ const UserRow = React.memo(({
   onDelete,
   isDeleting,
   isCurrentUser,
+  isUpdating,
 }: UserRowProps) => {
   return (
     <TableRow 
