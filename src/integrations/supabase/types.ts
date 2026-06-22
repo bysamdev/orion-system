@@ -1338,7 +1338,7 @@ export type Database = {
       update_all_tickets_sla_status: { Args: never; Returns: number }
     }
     Enums: {
-      app_role: "customer" | "technician" | "admin" | "developer" | "gestor"
+      app_role: "customer" | "technician" | "admin" | "developer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1466,7 +1466,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["customer", "technician", "admin", "developer", "gestor"],
+      app_role: ["customer", "technician", "admin", "developer"],
     },
   },
 } as const

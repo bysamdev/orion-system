@@ -1,8 +1,8 @@
+import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpers';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseRead } from '@/integrations/supabase/read-client';
 import { Ticket } from './useTickets';
-import { enrichTicketsWithCompany } from '@/lib/ticket-helpers';
 
 /**
  * Hook para buscar tickets atribuídos ao técnico logado (ativos)
@@ -46,26 +46,10 @@ export const useSLAAtRiskTickets = () => {
       
       const enrichedTickets = await enrichTicketsWithCompany(tickets || []) as Ticket[];
       
-      const now = new Date();
       return enrichedTickets.filter(ticket => {
         if (!ticket.sla_due_date) return false;
-        const dueDate = new Date(ticket.sla_due_date);
-        
-        // Breached
-        if (now > dueDate) return true;
-        
-        if (ticket.created_at) {
-          const createdDate = new Date(ticket.created_at);
-          const slaPolicyMs = dueDate.getTime() - createdDate.getTime();
-          const msRemaining = dueDate.getTime() - now.getTime();
-          
-          if (slaPolicyMs > 0) {
-            const percentualRestante = (msRemaining / slaPolicyMs) * 100;
-            // Critical (attention) is <= 15%
-            if (percentualRestante <= 15) return true;
-          }
-        }
-        return false;
+        const status = calculateSlaStatus(ticket.sla_due_date, ticket.created_at);
+        return status === 'warning' || status === 'attention' || status === 'breached';
       });
     },
     refetchInterval: 30000,

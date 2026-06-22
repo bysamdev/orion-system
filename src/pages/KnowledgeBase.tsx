@@ -37,20 +37,20 @@ export default function KnowledgeBase() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const isGestor = role === 'admin' || role === 'developer';
+  const isAdmin = role === 'admin' || role === 'developer';
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Partial<Article> | null>(null);
 
   const { data: articles, isLoading } = useQuery({
-    queryKey: ['knowledge-articles', isGestor],
+    queryKey: ['knowledge-articles', isAdmin],
     queryFn: async () => {
       let query = supabase
         .from('knowledge_base_articles')
         .select('*, categories(name)')
         .order('created_at', { ascending: false });
       
-      if (!isGestor) {
+      if (!isAdmin) {
         query = query.eq('status', 'published').eq('is_public', true);
       }
       
@@ -71,7 +71,7 @@ export default function KnowledgeBase() {
       if (error) throw error;
       return data || [];
     },
-    enabled: isGestor
+    enabled: isAdmin
   });
 
   const saveMutation = useMutation({
@@ -216,7 +216,7 @@ export default function KnowledgeBase() {
                 </Button>
               ))}
 
-              {isGestor && (
+              {isAdmin && (
                 <div className="pl-4 ml-4 border-l border-border/40">
                   <Button 
                     onClick={() => {
@@ -404,7 +404,7 @@ export default function KnowledgeBase() {
                         <div className="flex items-center gap-2 text-primary font-black text-xs uppercase tracking-widest group-hover:translate-x-2 transition-transform duration-500">
                           Ler artigo <ArrowRight className="w-4 h-4" />
                         </div>
-                        {isGestor && (
+                        {isAdmin && (
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <Button variant="ghost" size="icon" onClick={() => handleEdit(article)} className="h-8 w-8 text-muted-foreground hover:text-primary">
                               <Edit2 className="w-4 h-4" />

@@ -418,7 +418,7 @@ export default function Settings() {
 
             {/* Aba Integrações */}
             <TabsContent value="integrations">
-              {['admin', 'gestor'].includes(role || '') && (
+              {['admin'].includes(role || '') && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -441,7 +441,6 @@ export default function Settings() {
                           value={showWebhook ? webhookUrl : maskedWebhook}
                           className="bg-muted/50 font-mono text-sm"
                         />
-                        <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button 
@@ -456,8 +455,6 @@ export default function Settings() {
                               <p>{showWebhook ? 'Ocultar URL' : 'Revelar URL'}</p>
                             </TooltipContent>
                           </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
@@ -468,7 +465,6 @@ export default function Settings() {
                               <p>Copiar URL</p>
                             </TooltipContent>
                           </Tooltip>
-                        </TooltipProvider>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
                         Configure seu provedor de e-mail (ex: SendGrid Inbound Parse ou Postmark) para enviar requisições POST para esta URL quando um e-mail for recebido no seu endereço de suporte.

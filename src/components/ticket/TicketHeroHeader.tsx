@@ -4,7 +4,7 @@ import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
 import { Timer, CheckCircle2, ArrowUpRight, Paperclip, BookOpen, Play, Square, User, Clock } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveTimer, useStartTimer, useStopTimer } from '@/hooks/useTimeEntries';
 import { cn } from '@/lib/utils';
@@ -112,7 +112,6 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
         <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} />
         
         {/* Badge de Horas Apontadas conforme solicitado */}
-        <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/5 border border-primary/20 text-primary cursor-help">
@@ -122,7 +121,6 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
             </TooltipTrigger>
             <TooltipContent>Total de tempo apontado neste chamado</TooltipContent>
           </Tooltip>
-        </TooltipProvider>
 
         {ticket.company_name && (
           <span className="text-sm text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">

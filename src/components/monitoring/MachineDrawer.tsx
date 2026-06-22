@@ -52,7 +52,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
   const { data: groups = [] } = useMonitoringGroups();
   const updateMachine = useUpdateMachine();
 
-  const canManage = role === 'admin' || role === 'developer' || role === 'gestor';
+  const canManage = role === 'admin' || role === 'developer';
   const isOnline = machine?.status === 'online';
   const ledColor = isOnline ? 'bg-green-400 shadow-green-400/60' : 'bg-red-400 shadow-red-400/60';
 

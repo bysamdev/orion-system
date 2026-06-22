@@ -264,7 +264,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
   const updateGroup = useUpdateGroup();
   const deleteGroup = useDeleteGroup();
 
-  const isAdminOrGestor = role === 'admin' || role === 'developer' || role === 'gestor';
+  const isAdminOrGestor = role === 'admin' || role === 'developer';
 
   const { data: externalMachineDetail } = useMachineDetail(externalMachineId || null);
 
@@ -359,7 +359,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
     return <Navigate to="/tutorial" replace />;
   }
 
-  if (role && !['admin', 'developer', 'technician', 'gestor'].includes(role)) {
+  if (role && !['admin', 'developer', 'technician'].includes(role)) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh] p-8 space-y-4 animate-in fade-in zoom-in duration-500">
         <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">

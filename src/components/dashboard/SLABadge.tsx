@@ -16,9 +16,9 @@ interface SLABadgeProps {
 
 /**
  * Badge visual para indicar status do SLA
- * 🟢 Verde: No prazo (> 40% restantes)
- * 🟡 Amarelo: Atenção (<= 40% restantes)
- * 🟠 Laranja: Crítico (<= 15% restantes)
+ * 🟢 Verde: No prazo (> 25% restantes)
+ * 🟡 Amarelo: Atenção (<= 25% restantes)
+ * 🟠 Laranja: Crítico (< 10% restantes ou < 2h restantes)
  * 🔴 Vermelho: Estourado (Breached)
  */
 export const SLABadge: React.FC<SLABadgeProps> = ({ 

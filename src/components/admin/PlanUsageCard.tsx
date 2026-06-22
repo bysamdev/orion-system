@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, Crown, AlertTriangle } from 'lucide-react';
 import { usePlanUsage } from '@/hooks/usePlanUsage';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PlanUsageCardProps {
   onLimitReached?: (isLimitReached: boolean) => void;
@@ -94,8 +94,7 @@ export const PlanUsageCard: React.FC<PlanUsageCardProps> = ({ onLimitReached }) 
               <span className="font-semibold text-foreground">{displayMaxUsers}</span> licenças
             </span>
             {isLimitReached && (
-              <TooltipProvider>
-                <Tooltip>
+              <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-1 text-destructive">
                       <AlertTriangle className="h-4 w-4" />
@@ -106,7 +105,6 @@ export const PlanUsageCard: React.FC<PlanUsageCardProps> = ({ onLimitReached }) 
                     <p>Faça upgrade do plano para adicionar mais usuários</p>
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
             )}
           </div>
           
