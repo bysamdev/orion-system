@@ -130,6 +130,7 @@ export const useActiveAgentsCount = (companyId: string | undefined) => {
     queryFn: async () => {
       if (!companyId) return 0;
       
+      // @ts-expect-error - RPC not yet in generated types
       const { data, error } = await supabaseRead.rpc('count_company_active_agents', { 
         p_company_id: companyId 
       });
