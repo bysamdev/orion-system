@@ -137,11 +137,6 @@ export const Sidebar: React.FC = () => {
           onClick={() => navigate('/')}
           className="flex items-center gap-3 px-5 py-5 cursor-pointer group border-b border-sidebar-border/40"
         >
-          <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20 transition-all duration-700 group-hover:rotate-[360deg] shrink-0">
-            <div className="w-4 h-4 bg-primary rounded-md shadow-[0_0_12px_hsla(var(--primary),0.5)] flex items-center justify-center">
-              <span className="text-[9px] font-black text-white italic">O</span>
-            </div>
-          </div>
           <div className="min-w-0">
             <p className="text-sm font-black text-sidebar-foreground tracking-tight leading-none">Orion System</p>
             <p className="text-[10px] text-sidebar-foreground/40 mt-0.5 uppercase tracking-widest">Painel de Controle</p>
