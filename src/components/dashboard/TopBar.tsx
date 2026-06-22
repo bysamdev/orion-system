@@ -17,6 +17,9 @@ export const TopBar: React.FC = () => {
   const [searchResults, setSearchResults] = React.useState<Pick<Ticket, 'id' | 'ticket_number' | 'title' | 'status'>[]>([]);
   const [isSearching, setIsSearching] = React.useState(false);
   const [showResults, setShowResults] = React.useState(false);
+  
+  // Nome aleatório estável para enganar o autofill sem quebrar a seleção nativa do input (Ctrl+A)
+  const randomName = React.useMemo(() => `gst-${Math.random().toString(36).slice(2)}`, []);
 
   React.useEffect(() => {
     const handleClearSearch = () => {
@@ -79,7 +82,7 @@ export const TopBar: React.FC = () => {
 
         <input
           id="global-search-ticket"
-          name={`gst-${Math.random().toString(36).slice(2)}`}
+          name={randomName}
           type="text"
           role="searchbox"
           autoComplete="off"

@@ -13,6 +13,7 @@ export interface TimeEntry {
   description: string | null;
   billable: boolean;
   created_at: string;
+  tickets?: { ticket_number: number } | null;
 }
 
 /** Buscar time_entries de um ticket */
@@ -40,7 +41,7 @@ export const useActiveTimer = (userId: string | undefined) => {
       if (!userId) return null;
       const { data, error } = await supabaseRead
         .from('time_entries')
-        .select('*')
+        .select('*, tickets(ticket_number)')
         .eq('user_id', userId)
         .is('end_time', null)
         .limit(1)

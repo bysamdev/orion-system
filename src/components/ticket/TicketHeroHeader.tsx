@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { StatusBadge } from '@/components/shared/StatusBadge';
@@ -186,9 +187,11 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
             </Button>
           )}
 
-          {isTimerActiveElsewhere && (
+          {isTimerActiveElsewhere && activeTimer && (
             <span className="text-xs text-muted-foreground italic ml-2">
-              Timer ativo em outro ticket
+              <Link to={`/ticket/${activeTimer.ticket_id}`} className="underline hover:text-primary transition-colors">
+                Timer ativo no ticket #{activeTimer.tickets?.ticket_number || 'desconhecido'} — clique para gerenciar
+              </Link>
             </span>
           )}
         </div>

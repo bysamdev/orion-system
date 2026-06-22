@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
+import { useTimerGuard } from '@/hooks/useTimerGuard';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -27,6 +28,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
   maxWidth = '1600px',
 }) => {
+  useTimerGuard();
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Barra lateral fixa */}
