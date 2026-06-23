@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useAddTicketUpdate } from '@/hooks/useTickets';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
+import { useCannedResponses } from '@/hooks/useCannedResponses';
 import { useTicketAttachments, useUploadAttachment } from '@/hooks/useTicketAttachments';
 import { useTicketTimeEntries } from '@/hooks/useTimeEntries';
 import { supabase } from '@/integrations/supabase/client';
@@ -223,6 +224,24 @@ const TicketDetails: React.FC = () => {
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [escalateDialogOpen, setEscalateDialogOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { data: cannedResponses = [] } = useCannedResponses();
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    if (value.endsWith(' ')) {
+      const words = value.split(' ');
+      const lastWord = words[words.length - 2];
+      if (lastWord && lastWord.startsWith('/')) {
+        const response = cannedResponses.find(r => r.shortcut === lastWord);
+        if (response) {
+          const newValue = value.slice(0, -(lastWord.length + 1)) + response.content + ' ';
+          setNewUpdateText(newValue);
+          return;
+        }
+      }
+    }
+    setNewUpdateText(value);
+  };
 
   const [checklistCompleted, setChecklistCompleted] = useState<string[]>([]);
   const [resolutionNotes, setResolutionNotes] = useState('');
@@ -534,7 +553,7 @@ const TicketDetails: React.FC = () => {
                     ref={textareaRef}
                     placeholder="Escreva sua resposta ou nota aqui..."
                     value={newUpdateText}
-                    onChange={(e) => setNewUpdateText(e.target.value)}
+                    onChange={handleTextChange}
                     className="min-h-[160px] bg-background border-border/50 focus-visible:ring-primary/20 resize-none p-4 text-base transition-all group-hover:border-primary/20"
                     maxLength={5000}
                   />
