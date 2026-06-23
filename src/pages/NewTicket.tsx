@@ -42,6 +42,14 @@ const categories = [
   { id: 'outros', name: 'Outros', icon: MoreHorizontal, color: 'text-slate-500', bg: 'bg-slate-500/10' },
 ];
 
+const CATEGORY_TEMPLATES: Record<string, string> = {
+  hardware: "Equipamento: [preencher]\nPatrimônio/Nº de série: [preencher]\nProblema observado: [preencher]\nDesde quando ocorre: [preencher]",
+  software: "Software/Sistema: [preencher]\nVersão (se souber): [preencher]\nMensagem de erro: [preencher]\nPassos para reproduzir: [preencher]",
+  rede: "Local/Setor: [preencher]\nDispositivos afetados (Wi-Fi, Cabo, todos?): [preencher]\nProblema: [preencher]",
+  erp: "Módulo do ERP: [preencher]\nTela/Rotina: [preencher]\nUsuário afetado: [preencher]\nDescrição do erro: [preencher]",
+  email: "E-mail afetado: [preencher]\nProblema (Não envia, não recebe, senha?): [preencher]\nUsa Outlook ou Webmail?: [preencher]"
+};
+
 const NewTicket = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -136,6 +144,19 @@ const NewTicket = () => {
   const currentCategory = form.watch('category');
   const watchedTitle = form.watch('title');
   const watchedDescription = form.watch('description');
+
+  // ── Smart: Description templates based on category ──────────
+  useEffect(() => {
+    if (currentCategory && CATEGORY_TEMPLATES[currentCategory]) {
+      const currentDesc = form.getValues('description');
+      const isDescEmpty = !currentDesc || currentDesc.trim() === '';
+      const isDescTemplate = Object.values(CATEGORY_TEMPLATES).includes(currentDesc);
+      
+      if (isDescEmpty || isDescTemplate) {
+        form.setValue('description', CATEGORY_TEMPLATES[currentCategory]);
+      }
+    }
+  }, [currentCategory, form]);
 
   // ── Smart: Auto-suggest category from title/description ─────
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);

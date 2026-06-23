@@ -1059,6 +1059,7 @@ export type Database = {
           updated_at: string
           user_id: string
           asset_id: string | null
+          metadata: Json | null
         }
         Insert: {
           assigned_to?: string | null
@@ -1096,6 +1097,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           asset_id?: string | null
+          metadata?: Json | null
         }
         Update: {
           assigned_to?: string | null
@@ -1133,6 +1135,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           asset_id?: string | null
+          metadata?: Json | null
         }
         Relationships: [
           {
