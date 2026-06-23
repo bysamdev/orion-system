@@ -74,8 +74,10 @@ const NewTicket = () => {
     queryKey: ['company-info-vip', profile?.company_id],
     queryFn: async () => {
       if (!profile?.company_id) return null;
-      const { data } = await (supabase as any).from('companies').select('id, name, is_vip').eq('id', profile.company_id).single();
-      return data;
+      const { data, error } = await supabase.from('companies').select('id, name, settings').eq('id', profile.company_id).single();
+      if (error || !data) return null;
+      const settings = data.settings as Record<string, unknown> | null;
+      return { ...data, is_vip: settings?.is_vip === true };
     },
     enabled: !!profile?.company_id,
     staleTime: 60_000,
@@ -175,7 +177,7 @@ const NewTicket = () => {
     setIsSubmitting(true);
     try {
       // Check rate limit
-      const { data: rateLimitData } = await invokeOrionFunction<any>('check-rate-limit');
+      const { data: rateLimitData } = await invokeOrionFunction<{ allowed: boolean; message: string }>('check-rate-limit');
       if (rateLimitData && !rateLimitData.allowed) {
         toast({ title: 'Limite atingido', description: rateLimitData.message, variant: 'destructive' });
         setIsSubmitting(false);
@@ -231,13 +233,14 @@ const NewTicket = () => {
       queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
       queryClient.invalidateQueries({ queryKey: ['team-workload'] });
       navigate(`/ticket/${ticket.id}`);
-    } catch (error: any) {
-      console.error('Erro completo:', error);
-      console.error('Mensagem:', error.message);
-      console.error('Código:', error.code);
+    } catch (error: unknown) {
+      const err = error as Error & { code?: string };
+      console.error('Erro completo:', err);
+      console.error('Mensagem:', err.message);
+      console.error('Código:', err.code);
       toast({
         title: 'Erro ao criar chamado',
-        description: error.message || 'Ocorreu um erro inesperado.',
+        description: err.message || 'Ocorreu um erro inesperado.',
         variant: 'destructive',
         action: (
           <ToastAction altText="Tente novamente ou contate o suporte" onClick={() => window.location.href = 'mailto:suporte@orion.com.br'}>
@@ -252,7 +255,7 @@ const NewTicket = () => {
 
   const nextStep = async () => {
     const fieldsToValidate = step === 1 ? ['category', 'title'] : ['description', 'priority', 'department'];
-    const isValid = await form.trigger(fieldsToValidate as any);
+    const isValid = await form.trigger(fieldsToValidate as (keyof TicketFormValues)[]);
     if (isValid) setStep(s => s + 1);
   };
 
@@ -461,7 +464,7 @@ const NewTicket = () => {
                                 </FormControl>
                                 <SelectContent>
                                   <SelectItem value="Geral">Geral</SelectItem>
-                                  {departments.map((dept: any) => (
+                                  {departments.map((dept: { id: string; name: string }) => (
                                     <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
                                   ))}
                                 </SelectContent>
