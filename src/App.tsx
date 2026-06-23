@@ -30,7 +30,12 @@ const Avaliacao = lazy(() => import("./pages/Avaliacao"));
 const Assets = lazy(() => import("./pages/Assets"));
 const ClientPortal = lazy(() => import("./pages/ClientPortal"));
 const Automacoes = lazy(() => import("./pages/Automacoes"));
-const PatchManagement = lazy(() => import("./pages/PatchManagement"));
+const PatchManagement = lazy(() =>
+  import("./pages/PatchManagement").catch(() => {
+    window.location.reload();
+    return { default: () => null };
+  })
+);
 const Notifications = lazy(() => import("./pages/Notifications"));
 
 const queryClient = new QueryClient({
