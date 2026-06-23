@@ -286,6 +286,21 @@ Técnico vê resultado no painel
 **Decisão:** Duas triggers separadas (BEFORE e AFTER INSERT).
 **Motivo:** BEFORE altera `NEW.*` (prioridade, assigned_to). AFTER insere em `ticket_updates` (precisa do ticket ID confirmado).
 
+### 6. Campos Customizados via JSONB (Future-Proofing)
+**Decisão:** Adicionada coluna `metadata` (JSONB) indexada (GIN) na tabela `tickets`.
+**Motivo:** Permite que APIs e integrações salvem campos customizados específicos por empresa (ex: MAC Address, Código de Patrimônio) sem exigir a construção imediata de uma UI complexa de gerenciamento dinâmico. Isso garante a flexibilidade para integrações avançadas no MVP sem acréscimo de dívida técnica ou esforço de frontend.
+
+---
+
+## Decisões de Produto — Log
+
+### Campos Customizados por Empresa — REJEITADO (MVP)
+**Data:** 23/06/2026
+**Decisão:** Não implementar engine de formulários dinâmicos no MVP.
+**Mitigação:** Coluna `metadata` JSONB adicionada na tabela `tickets` para suportar uso futuro via API sem necessidade de migration.
+**Alternativa adotada:** Templates de Descrição pré-preenchidos por categoria.
+**Revisar quando:** A base de clientes ativos crescer significativamente ou um cliente específico exigir como condição de fechamento de contrato.
+
 ---
 
 ## Escalabilidade
