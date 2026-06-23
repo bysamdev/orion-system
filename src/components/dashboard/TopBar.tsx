@@ -40,7 +40,7 @@ export const TopBar: React.FC = () => {
       setShowResults(true);
       try {
         const cleanQuery = searchQuery.replace(/#/g, '').trim();
-        const numberMatch = searchQuery.match(/^\d+$/);
+        const numberMatch = cleanQuery.match(/^\d+$/);
         let query = supabase.from('tickets').select('id, ticket_number, title, status');
         if (numberMatch) {
           query = query.eq('ticket_number', parseInt(numberMatch[0], 10));

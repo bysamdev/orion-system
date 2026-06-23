@@ -58,6 +58,10 @@ const Auth = () => {
     },
   });
 
+  useEffect(() => {
+    signInForm.reset({ email: '', password: '' });
+  }, [signInForm]);
+
   const handleSignIn = async (values: SignInFormValues) => {
     const { error } = await supabase.auth.signInWithPassword({
       email: values.email,
@@ -102,7 +106,7 @@ const Auth = () => {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="seu@email.com" {...field} />
+                      <Input type="email" placeholder="seu@email.com" autoComplete="off" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

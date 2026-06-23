@@ -16,7 +16,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, Loader2, Trash2, Pencil, FileText, AlertTriangle } from 'lucide-react';
-import { useContracts, useCreateContract, useUpdateContract, useDeleteContract } from '@/hooks/useContracts';
+import { useContracts, useCreateContract, useUpdateContract, useDeleteContract, type Contract } from '@/hooks/useContracts';
 import { cn, formatDate } from '@/lib/utils';
 
 interface ContractForm {
@@ -68,7 +68,7 @@ export const ContractManagement = () => {
     setShowDialog(true);
   };
 
-  const openEdit = (contract: any) => {
+  const openEdit = (contract: Contract) => {
     setFormData({
       company_id: contract.company_id,
       name: contract.name,

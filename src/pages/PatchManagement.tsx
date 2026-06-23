@@ -52,7 +52,7 @@ const PatchManagement: React.FC = () => {
     );
   }
 
-  if (!role || !['admin', 'developer'].includes(role)) {
+  if (!role || !['admin', 'developer', 'technician'].includes(role)) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh] p-8 space-y-4">
         <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
@@ -60,7 +60,7 @@ const PatchManagement: React.FC = () => {
         </div>
         <h2 className="text-2xl font-bold">Acesso Restrito</h2>
         <p className="text-muted-foreground text-center max-w-md">
-          O Gerenciamento de Patches requer privilégios de Administrador ou Desenvolvedor.
+          O Gerenciamento de Patches requer privilégios de Administrador, Desenvolvedor ou Técnico.
         </p>
       </div>
     );

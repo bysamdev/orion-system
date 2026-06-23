@@ -39,7 +39,7 @@ const ClientPortal = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       
-      <main className="flex-1 p-8 lg:p-12 max-w-[1200px] mx-auto w-full space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <main className="flex-1 p-4 sm:p-8 lg:p-12 max-w-[1200px] mx-auto w-full space-y-8 sm:space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
         {/* Sessão de Boas-vindas: Foco em ação rápida de abertura de chamado */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -58,36 +58,36 @@ const ClientPortal = () => {
         {/* Atalhos Rápidos: Acesso ao histórico, Wiki e Suporte Humano */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" onClick={() => navigate('/historico')}>
-            <CardContent className="p-6 xl:p-8 flex items-center gap-4 xl:gap-6">
+            <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
               <div className="p-3 xl:p-4 bg-primary/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
                 <History className="w-6 h-6 xl:w-8 xl:h-8 text-primary" />
               </div>
-              <div className="min-w-[160px] flex-1 space-y-1">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight truncate">Meus Chamados</h3>
+              <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
+                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight sm:truncate">Meus Chamados</h3>
                 <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Acompanhe o status das suas solicitações.</p>
               </div>
             </CardContent>
           </Card>
 
           <Card className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" onClick={() => navigate('/knowledge')}>
-            <CardContent className="p-6 xl:p-8 flex items-center gap-4 xl:gap-6">
+            <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
               <div className="p-3 xl:p-4 bg-secondary/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
                 <Book className="w-6 h-6 xl:w-8 xl:h-8 text-secondary-foreground" />
               </div>
-              <div className="min-w-[160px] flex-1 space-y-1">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight truncate">Base de Conhecimento</h3>
+              <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
+                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight sm:truncate">Base de Conhecimento</h3>
                 <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Tire suas dúvidas e encontre soluções.</p>
               </div>
             </CardContent>
           </Card>
 
           <Card className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" onClick={() => navigate('/novo-ticket')}>
-            <CardContent className="p-6 xl:p-8 flex items-center gap-4 xl:gap-6">
+            <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
               <div className="p-3 xl:p-4 bg-warning/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
                 <MessageSquare className="w-6 h-6 xl:w-8 xl:h-8 text-warning" />
               </div>
-              <div className="min-w-[160px] flex-1 space-y-1">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight truncate">Falar com Consultor</h3>
+              <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
+                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight sm:truncate">Falar com Consultor</h3>
                 <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Abra um chamado e fale com a equipe de suporte.</p>
               </div>
             </CardContent>
