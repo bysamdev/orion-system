@@ -35,6 +35,7 @@ export interface Ticket {
   sla_accumulated_pause_minutes: number | null;
   contract_id: string | null;
   asset_id: string | null;
+  metadata?: Record<string, any> | null;
 }
 
 export interface TicketUpdate {
