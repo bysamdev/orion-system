@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseRead } from '@/integrations/supabase/read-client';
 import { toast } from '@/hooks/use-toast';
+import { Database } from '@/integrations/supabase/types';
 import { ticketStatusSchema, ticketUpdateSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
 import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpers';
@@ -35,7 +36,7 @@ export interface Ticket {
   sla_accumulated_pause_minutes: number | null;
   contract_id: string | null;
   asset_id: string | null;
-  metadata?: Record<string, any> | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface TicketUpdate {
@@ -194,7 +195,7 @@ export const useUpdateTicketStatus = () => {
       }
 
       // Build update object
-      const updateData: Record<string, unknown> = { status: validationResult.data };
+      const updateData: Database['public']['Tables']['tickets']['Update'] = { status: validationResult.data as any };
       
       // Add assignment fields if provided
       if (assigned_to !== undefined) {
