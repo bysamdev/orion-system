@@ -86,7 +86,7 @@ const App = () => (
               <Route path="/portal" element={<AppRoute><ClientPortal /></AppRoute>} />
               <Route path="/debug-tools" element={<AppRoute><DebugTools /></AppRoute>} />
               <Route path="/automacoes" element={<AppRoute allowedRoles={['admin', 'developer']}><Automacoes /></AppRoute>} />
-              <Route path="/patches" element={<AppRoute allowedRoles={['admin', 'developer']}><PatchManagement /></AppRoute>} />
+              <Route path="/patches" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><PatchManagement /></AppRoute>} />
               <Route path="/notificacoes" element={<AppRoute><Notifications /></AppRoute>} />
               <Route path="/manual" element={<Navigate to="/knowledge" replace />} />
               <Route path="/tutorial" element={<Navigate to="/knowledge" replace />} />
