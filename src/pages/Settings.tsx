@@ -425,16 +425,16 @@ export default function Settings() {
 
             {/* Aba Integrações */}
             <TabsContent value="integrations">
-              {['admin'].includes(role || '') && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Mail className="w-5 h-5" />
-                      Integração E-mail-to-Ticket
-                    </CardTitle>
-                    <CardDescription>Configure o recebimento de chamados via e-mail</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="w-5 h-5" />
+                    Integração E-mail-to-Ticket
+                  </CardTitle>
+                  <CardDescription>Configure o recebimento de chamados via e-mail</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {['admin', 'gestor', 'developer'].includes(role || '') ? (
                     <div className="space-y-2">
                       <Label>URL do Webhook (Supabase Edge Function)</Label>
                       <div className="flex items-center gap-2">
@@ -448,38 +448,46 @@ export default function Settings() {
                           value={showWebhook ? webhookUrl : maskedWebhook}
                           className="bg-muted/50 font-mono text-sm"
                         />
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="icon" 
-                                onClick={() => setShowWebhook(!showWebhook)}
-                              >
-                                {showWebhook ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>{showWebhook ? 'Ocultar URL' : 'Revelar URL'}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
-                                {copiedWebhook ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Copiar URL</p>
-                            </TooltipContent>
-                          </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              onClick={() => setShowWebhook(!showWebhook)}
+                            >
+                              {showWebhook ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{showWebhook ? 'Ocultar URL' : 'Revelar URL'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
+                              {copiedWebhook ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Copiar URL</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
                         Configure seu provedor de e-mail (ex: SendGrid Inbound Parse ou Postmark) para enviar requisições POST para esta URL quando um e-mail for recebido no seu endereço de suporte.
                       </p>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-8 text-center border rounded-lg bg-muted/20 border-dashed">
+                      <Shield className="w-12 h-12 text-muted-foreground/50 mb-4" />
+                      <h3 className="font-bold text-lg text-foreground">Acesso Restrito</h3>
+                      <p className="text-muted-foreground text-sm max-w-sm mt-2">
+                        Apenas Administradores e Gestores podem visualizar e configurar as chaves de integração do sistema.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>

@@ -55,7 +55,7 @@ const navGroups: NavGroup[] = [
     name: 'Infraestrutura',
     items: [
       { icon: Activity,      label: 'Sistemas e Alertas', path: '/sistemas', roles: ['admin', 'developer', 'technician'] },
-      { icon: Layers,        label: 'Patches & Updates', path: '/patches',   roles: ['admin', 'developer'] },
+      { icon: Layers,        label: 'Patches & Updates', path: '/patches',   roles: ['admin', 'developer', 'technician'] },
       { icon: Cpu,           label: 'Ativos (CMDB)',    path: '/assets',     roles: ['admin', 'technician', 'developer'] },
     ],
   },
