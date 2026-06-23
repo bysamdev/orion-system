@@ -106,7 +106,7 @@ const Auth = () => {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="seu@email.com" autoComplete="off" {...field} />
+                      <Input type="email" placeholder="seu@email.com" {...field} autoComplete="off" name="login-email-unique" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
