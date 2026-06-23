@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { Database } from '@/integrations/supabase/types';
 
 // Define os níveis de acesso possíveis dentro do Orion System.
 export type UserRole = 'customer' | 'technician' | 'admin' | 'developer';
@@ -50,7 +51,18 @@ export const useUserProfile = () => {
       // Mock para ambiente de teste via URL
       const testRole = new URLSearchParams(window.location.search).get('testRole');
       if (testRole) {
-        return { id: user.id, full_name: 'Usuário Teste' };
+        return { 
+          id: user.id, 
+          full_name: 'Usuário Teste',
+          email: user.email || '',
+          company_id: '',
+          department: 'Geral',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          last_assigned_at: null,
+          email_notifications: true,
+          push_notifications: true
+        } as Database['public']['Tables']['profiles']['Row'];
       }
 
       // O perfil guarda informações adicionais que não estão no Auth nativo do Supabase.
