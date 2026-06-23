@@ -13,6 +13,11 @@ window.addEventListener("unhandledrejection", (event) => {
   console.error("Global Promise Rejection Caught:", event.reason);
 });
 
+// Força o reload da página quando o Vite falha em carregar um chunk JS antigo
+(window as any).addEventListener("vite:preloadError", () => {
+  window.location.reload();
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
