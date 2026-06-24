@@ -226,8 +226,55 @@ const TicketDetails: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: cannedResponses = [] } = useCannedResponses();
 
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredTemplates, setFilteredTemplates] = useState<any[]>([]);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
+
+  const applySuggestion = (template: any) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    const cursorPosition = textarea.selectionStart;
+    const textBefore = newUpdateText.slice(0, cursorPosition);
+    const textAfter = newUpdateText.slice(cursorPosition);
+    
+    const match = textBefore.match(/\/(\w*)$/);
+    if (match) {
+      const startIdx = textBefore.lastIndexOf(match[0]);
+      const newText = textBefore.slice(0, startIdx) + template.content + ' ' + textAfter;
+      setNewUpdateText(newText);
+      
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = startIdx + template.content.length + 1;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    }
+    
+    setShowSuggestions(false);
+    setSelectedSuggestionIndex(0);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showSuggestions && filteredTemplates.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => (prev + 1) % filteredTemplates.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => (prev - 1 + filteredTemplates.length) % filteredTemplates.length);
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        applySuggestion(filteredTemplates[selectedSuggestionIndex]);
+      } else if (e.key === 'Escape') {
+        setShowSuggestions(false);
+      }
+    }
+  };
+
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
+    
     if (value.endsWith(' ')) {
       const words = value.split(' ');
       const lastWord = words[words.length - 2];
@@ -236,11 +283,35 @@ const TicketDetails: React.FC = () => {
         if (response) {
           const newValue = value.slice(0, -(lastWord.length + 1)) + response.content + ' ';
           setNewUpdateText(newValue);
+          setShowSuggestions(false);
           return;
         }
       }
     }
+    
     setNewUpdateText(value);
+
+    // Dropdown suggestion logic
+    const textarea = e.target;
+    const cursorPosition = textarea.selectionStart;
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const match = textBeforeCursor.match(/\/(\w*)$/);
+
+    if (match) {
+      const query = match[1].toLowerCase();
+      const filtered = cannedResponses.filter((t: any) => 
+        t.shortcut?.toLowerCase().replace('/', '').startsWith(query)
+      );
+      if (filtered.length > 0) {
+        setShowSuggestions(true);
+        setFilteredTemplates(filtered);
+        setSelectedSuggestionIndex(0);
+      } else {
+        setShowSuggestions(false);
+      }
+    } else {
+      setShowSuggestions(false);
+    }
   };
 
   const [checklistCompleted, setChecklistCompleted] = useState<string[]>([]);
@@ -554,9 +625,36 @@ const TicketDetails: React.FC = () => {
                     placeholder="Escreva sua resposta ou nota aqui..."
                     value={newUpdateText}
                     onChange={handleTextChange}
+                    onKeyDown={handleKeyDown}
                     className="min-h-[160px] bg-background border-border/50 focus-visible:ring-primary/20 resize-none p-4 text-base transition-all group-hover:border-primary/20"
                     maxLength={5000}
                   />
+
+                  {showSuggestions && filteredTemplates.length > 0 && (
+                    <div className="absolute z-10 bottom-full left-0 mb-1 w-full max-w-md bg-popover text-popover-foreground rounded-md border shadow-md overflow-hidden">
+                      <div className="px-3 py-2 bg-muted/50 border-b text-xs font-semibold text-muted-foreground flex justify-between">
+                        <span>Sugestões de Respostas</span>
+                        <span>Tab/Enter para inserir</span>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto p-1">
+                        {filteredTemplates.map((template, idx) => (
+                          <div
+                            key={template.id}
+                            className={cn(
+                              "px-3 py-2 text-sm rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground",
+                              selectedSuggestionIndex === idx && "bg-accent text-accent-foreground"
+                            )}
+                            onMouseEnter={() => setSelectedSuggestionIndex(idx)}
+                            onClick={() => applySuggestion(template)}
+                          >
+                            <div className="font-medium">{template.shortcut}</div>
+                            <div className="text-xs text-muted-foreground truncate">{template.title}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="absolute bottom-3 right-3 text-[10px] font-medium text-muted-foreground/60">
                     {newUpdateText.length}/5000
                   </div>
