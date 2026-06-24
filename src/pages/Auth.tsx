@@ -1,24 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from '@/lib/useErrorHandler';
 import { Loader2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+
+
 import orionLogo from '@/assets/orion-logo.png';
-
-const signInSchema = z.object({
-  email: z.string().trim().email('Email inválido').max(255, 'Email muito longo'),
-  password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres').max(100, 'Senha muito longa'),
-});
-
-type SignInFormValues = z.infer<typeof signInSchema>;
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -26,6 +17,16 @@ const Auth = () => {
   const { handleError } = useErrorHandler();
   const [machineToken, setMachineToken] = useState<string | null>(null);
   const [isDetectingAgent, setIsDetectingAgent] = useState(false);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setEmail('');
+    setPassword('');
+    localStorage.removeItem('lastEmail'); // clean up any old persist behavior
+  }, []);
 
   useEffect(() => {
     const detectAgent = async () => {
@@ -50,23 +51,19 @@ const Auth = () => {
     detectAgent();
   }, [toast]);
 
-  const signInForm = useForm<SignInFormValues>({
-    resolver: zodResolver(signInSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-  });
-
-  useEffect(() => {
-    signInForm.reset({ email: '', password: '' });
-  }, [signInForm]);
-
-  const handleSignIn = async (values: SignInFormValues) => {
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      toast({ title: 'Erro', description: 'Preencha email e senha.', variant: 'destructive' });
+      return;
+    }
+    
+    setIsSubmitting(true);
     const { error } = await supabase.auth.signInWithPassword({
-      email: values.email,
-      password: values.password,
+      email,
+      password,
     });
+    setIsSubmitting(false);
 
     if (error) {
       handleError(error, 'Auth.handleLogin', 'Credenciais inválidas. Verifique seu email e senha.');
@@ -97,40 +94,34 @@ const Auth = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Form {...signInForm}>
-            <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4">
-              <FormField
-                control={signInForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="seu@email.com" {...field} autoComplete="off" name="login-email-unique" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+          <form onSubmit={handleSignIn} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Email</label>
+              <Input 
+                type="email" 
+                placeholder="seu@email.com" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="off" 
+                name="login-email-unique" 
+                required
               />
-              <FormField
-                control={signInForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Senha</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Senha</label>
+              <Input 
+                type="password" 
+                placeholder="••••••••" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
               />
-              <Button type="submit" className="w-full" disabled={signInForm.formState.isSubmitting}>
-                {signInForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Entrar
-              </Button>
-            </form>
-          </Form>
+            </div>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Entrar
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </main>
