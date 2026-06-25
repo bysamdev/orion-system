@@ -41,9 +41,15 @@ export const ProtectedRoute = ({
     return null;
   }
 
-  // Verifica RBAC se a rota exigir roles específicos
   if (allowedRoles && allowedRoles.length > 0) {
     console.log("ProtectedRoute RBAC check:", { role, allowedRoles });
+    if (role === undefined) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
+    }
     if (!role || !allowedRoles.includes(role)) {
       console.log("Redirecionando! Usuário não tem permissão.");
       return <RedirectWithToast />;
