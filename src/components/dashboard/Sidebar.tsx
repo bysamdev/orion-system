@@ -48,7 +48,7 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: Ticket,   label: 'Novo Ticket',         path: '/novo-ticket' },
       { icon: History,  label: 'Histórico',           path: '/historico' },
-      { icon: BookOpen, label: 'Base de Conhecimento & Manual', path: '/knowledge' },
+      { icon: BookOpen, label: 'Base de Conhecimento', path: '/knowledge' },
     ],
   },
   {
@@ -75,12 +75,17 @@ const bottomItems: NavItem[] = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export const Sidebar: React.FC = () => {
+export const Sidebar: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
   const navigate  = useNavigate();
   const location  = useLocation();
   const { data: role } = useUserRole();
   const { toast } = useToast();
   const { unreadCount } = useNotifications();
+
+  const go = (path: string) => {
+    navigate(path);
+    onNavigate?.();
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -100,7 +105,7 @@ export const Sidebar: React.FC = () => {
     return (
       <button
         key={item.path}
-        onClick={() => isAllowed && navigate(item.path)}
+        onClick={() => isAllowed && go(item.path)}
         disabled={!isAllowed}
         className={cn(
           'group w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 relative',
@@ -119,9 +124,10 @@ export const Sidebar: React.FC = () => {
         />
         <span
           className={cn(
-            'truncate leading-none text-sm font-medium transition-colors duration-200',
+            'truncate leading-none text-sm font-medium transition-colors duration-200 flex-1 text-left',
             isActive ? 'text-white' : 'text-gray-400 group-hover:text-purple-300'
           )}
+          title={item.label}
         >
           {item.label}
         </span>
@@ -139,7 +145,7 @@ export const Sidebar: React.FC = () => {
         >
           <div className="min-w-0">
             <p className="text-sm font-black text-sidebar-foreground tracking-tight leading-none">Orion System</p>
-            <p className="text-[10px] text-sidebar-foreground/40 mt-0.5 uppercase tracking-widest">Painel de Controle</p>
+            <p className="text-[10px] text-sidebar-foreground/60 mt-0.5 uppercase tracking-widest">Painel de Controle</p>
           </div>
         </div>
 
@@ -147,7 +153,7 @@ export const Sidebar: React.FC = () => {
         <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar px-3 py-4 gap-5">
           {/* Top Isolated Item */}
         <div className="flex flex-col gap-1 mb-4">
-          {renderItem({ icon: Home, label: 'Início', path: '/', matchPatterns: ['/ticket/'] })}
+        {renderItem({ icon: Home, label: 'Início', path: '/', matchPatterns: ['/ticket/'] })}
         </div>
 
           {navGroups.map((group) => {
@@ -157,7 +163,7 @@ export const Sidebar: React.FC = () => {
             return (
               <div key={group.name} className="flex flex-col gap-1">
                 {/* Group label */}
-                <p className="px-3 mt-4 mb-2 text-xs font-semibold uppercase tracking-widest text-sidebar-foreground/60 select-none">
+                <p className="px-3 mt-4 mb-2 text-xs font-semibold uppercase tracking-widest text-sidebar-foreground/75 select-none">
                   {group.name}
                 </p>
                 {allowedItems.map(renderItem)}
@@ -172,7 +178,7 @@ export const Sidebar: React.FC = () => {
 
           {/* Notificações como item de navegação padrão */}
           <button
-            onClick={() => navigate('/notificacoes')}
+            onClick={() => { navigate('/notificacoes'); onNavigate?.(); }}
             className={cn(
               'group w-full flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 active:scale-[0.98] relative outline-none',
               location.pathname === '/notificacoes'
@@ -195,9 +201,10 @@ export const Sidebar: React.FC = () => {
             </div>
             <span
               className={cn(
-                'text-sm font-medium transition-colors duration-200',
+                'truncate text-sm font-medium transition-colors duration-200 flex-1 text-left',
                 location.pathname === '/notificacoes' ? 'text-white' : 'text-gray-400 group-hover:text-purple-300'
               )}
+              title="Notificações"
             >
               Notificações
             </span>
@@ -214,7 +221,7 @@ export const Sidebar: React.FC = () => {
             className="group w-full flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-purple-500/10 transition-all duration-200 active:scale-[0.98]"
           >
             <LogOut className="w-4 h-4 shrink-0 text-gray-400 group-hover:text-purple-400 transition-colors duration-200" />
-            <span className="text-sm font-medium text-gray-400 group-hover:text-purple-300 transition-colors duration-200">
+            <span className="truncate text-sm font-medium text-gray-400 group-hover:text-purple-300 transition-colors duration-200 flex-1 text-left" title="Sair do Sistema">
               Sair do Sistema
             </span>
           </button>

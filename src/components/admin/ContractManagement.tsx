@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -130,10 +131,9 @@ export const ContractManagement = () => {
               <CardTitle>Gerenciar Contratos</CardTitle>
               <CardDescription>Vincule contratos a empresas com parâmetros de SLA e banco de horas</CardDescription>
             </div>
-            <Button onClick={openCreate} className="gap-2">
-              <Plus className="h-4 w-4" />
+            <ButtonPrimary onClick={openCreate} className="gap-2 font-bold" icon={<Plus className="h-4 w-4" />}>
               Novo Contrato
-            </Button>
+            </ButtonPrimary>
           </div>
         </CardHeader>
         <CardContent>

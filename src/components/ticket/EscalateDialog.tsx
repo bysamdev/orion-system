@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,19 +35,19 @@ export const EscalateDialog: React.FC<EscalateDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] border-border/50 bg-background/95 backdrop-blur shadow-2xl">
-        <DialogHeader>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="sm:max-w-[500px] border-border/50 bg-background/95 backdrop-blur shadow-2xl">
+        <AlertDialogHeader>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
               <ArrowUpRight className="w-5 h-5 text-amber-500" />
             </div>
-            <DialogTitle className="text-xl font-bold">Escalar Chamado</DialogTitle>
+            <AlertDialogTitle className="text-xl font-bold">Escalar Chamado</AlertDialogTitle>
           </div>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <AlertDialogDescription className="text-sm text-muted-foreground">
             Transfira a responsabilidade para outro técnico ou eleve a prioridade deste atendimento se necessário.
-          </DialogDescription>
-        </DialogHeader>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
         <div className="space-y-6 py-4">
           <div className="space-y-3">
@@ -110,16 +110,14 @@ export const EscalateDialog: React.FC<EscalateDialogProps> = ({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            type="button"
-            variant="ghost"
+        <AlertDialogFooter className="gap-2 sm:gap-0">
+          <AlertDialogCancel
             onClick={() => onOpenChange(false)}
             disabled={isPending}
-            className="font-bold uppercase tracking-wider text-xs h-11"
+            className="font-bold uppercase tracking-wider text-xs h-11 mt-0"
           >
             Cancelar
-          </Button>
+          </AlertDialogCancel>
           <Button
             type="button"
             onClick={handleConfirm}
@@ -129,8 +127,8 @@ export const EscalateDialog: React.FC<EscalateDialogProps> = ({
             {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowUpRight className="w-4 h-4 mr-2" />}
             Confirmar Escalação
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };

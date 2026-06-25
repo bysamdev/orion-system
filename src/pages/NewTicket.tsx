@@ -42,12 +42,13 @@ const categories = [
   { id: 'outros', name: 'Outros', icon: MoreHorizontal, color: 'text-slate-500', bg: 'bg-slate-500/10' },
 ];
 
-const CATEGORY_TEMPLATES: Record<string, string> = {
-  hardware: "Equipamento: [preencher]\nPatrimônio/Nº de série: [preencher]\nProblema observado: [preencher]\nDesde quando ocorre: [preencher]",
-  software: "Software/Sistema: [preencher]\nVersão (se souber): [preencher]\nMensagem de erro: [preencher]\nPassos para reproduzir: [preencher]",
-  rede: "Local/Setor: [preencher]\nDispositivos afetados (Wi-Fi, Cabo, todos?): [preencher]\nProblema: [preencher]",
-  erp: "Módulo do ERP: [preencher]\nTela/Rotina: [preencher]\nUsuário afetado: [preencher]\nDescrição do erro: [preencher]",
-  email: "E-mail afetado: [preencher]\nProblema (Não envia, não recebe, senha?): [preencher]\nUsa Outlook ou Webmail?: [preencher]"
+const CATEGORY_PLACEHOLDERS: Record<string, string> = {
+  hardware: "Equipamento: (ex: Notebook Dell XPS)\nPatrimônio/Nº de série: \nProblema observado: \nDesde quando ocorre: ",
+  software: "Software/Sistema: \nVersão (se souber): \nMensagem de erro exibida: \nPassos para reproduzir: ",
+  rede: "Local/Setor: \nDispositivos afetados (Wi-Fi, Cabo, todos?): \nProblema: ",
+  erp: "Módulo do ERP: \nTela/Rotina: \nUsuário afetado: \nDescrição do erro: ",
+  email: "E-mail afetado: \nProblema (Não envia, não recebe, senha?): \nUsa Outlook ou Webmail?: ",
+  outros: "Descreva o problema com detalhes:\nQuando começou: \nO que você já tentou: ",
 };
 
 const NewTicket = () => {
@@ -68,6 +69,7 @@ const NewTicket = () => {
   const [selectedContractId, setSelectedContractId] = useState<string>('');
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [anyDropdownOpen, setAnyDropdownOpen] = useState(false);
+  const [createdTicket, setCreatedTicket] = useState<{ id: string; number: number; priority: string } | null>(null);
 
   // ── Smart: VIP Client detection ─────────────────
   const { data: companyInfo } = useQuery({
@@ -147,18 +149,7 @@ const NewTicket = () => {
   const watchedTitle = form.watch('title');
   const watchedDescription = form.watch('description');
 
-  // ── Smart: Description templates based on category ──────────
-  useEffect(() => {
-    if (currentCategory && CATEGORY_TEMPLATES[currentCategory]) {
-      const currentDesc = form.getValues('description');
-      const isDescEmpty = !currentDesc || currentDesc.trim() === '';
-      const isDescTemplate = Object.values(CATEGORY_TEMPLATES).includes(currentDesc);
-      
-      if (isDescEmpty || isDescTemplate) {
-        form.setValue('description', CATEGORY_TEMPLATES[currentCategory]);
-      }
-    }
-  }, [currentCategory, form]);
+  // ── Smart: Description placeholder is derived from selected category (no pre-fill) ──
 
   // ── Smart: Auto-suggest category from title/description ─────
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
@@ -226,13 +217,18 @@ const NewTicket = () => {
         }
       }
 
-      toast({ title: 'Chamado criado!', description: `Número: #${ticket.ticket_number}` });
+      // toast({ title: 'Chamado criado!', description: `Número: #${ticket.ticket_number}` });
       
       // Invalida estatísticas para atualizar o dashboard imediatamente
       queryClient.invalidateQueries({ queryKey: ['technician-stats'] });
       queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
       queryClient.invalidateQueries({ queryKey: ['team-workload'] });
-      navigate(`/ticket/${ticket.id}`);
+      
+      setCreatedTicket({
+        id: ticket.id,
+        number: ticket.ticket_number,
+        priority: ticket.priority
+      });
     } catch (error: unknown) {
       const err = error as Error & { code?: string };
       console.error('Erro completo:', err);
@@ -261,10 +257,48 @@ const NewTicket = () => {
 
   const prevStep = () => setStep(s => s - 1);
 
+  if (createdTicket) {
+    const slaHours = activeSla ? activeSla[`${createdTicket.priority}_hours` as keyof typeof activeSla] : 24;
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <Card className="max-w-md w-full border-border/40 shadow-2xl shadow-primary/5 bg-card/50 backdrop-blur-sm animate-in zoom-in-95 duration-500">
+          <CardContent className="pt-10 pb-8 px-8 text-center space-y-6">
+            <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+              <CheckCircle2 className="w-10 h-10 text-green-500" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black tracking-tight text-foreground">Chamado #{createdTicket.number} criado!</h2>
+              <p className="text-muted-foreground font-medium">
+                Prazo estimado de resposta: <span className="text-foreground font-bold">{slaHours}h</span>
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 pt-4">
+              <Button onClick={() => navigate(`/ticket/${createdTicket.id}`)} className="h-12 w-full font-bold shadow-lg shadow-primary/20">
+                Acompanhar Chamado
+              </Button>
+              <Button variant="outline" onClick={() => {
+                setCreatedTicket(null);
+                setStep(1);
+                form.reset({ title: '', category: '', priority: 'medium', description: '', department: 'Geral' });
+                setPendingFiles([]);
+                setRemoteId('');
+                setRemotePassword('');
+                setSelectedContractId('');
+                setSelectedAssetId('');
+              }} className="h-12 w-full font-bold">
+                Abrir Outro Chamado
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       
-      <main className="flex-1 p-6 lg:p-12 max-w-4xl mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <main className="flex-1 p-4 md:p-6 lg:p-12 max-w-4xl mx-auto w-full space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="hover:bg-primary/5 transition-colors gap-2 text-muted-foreground">
             <ArrowLeft className="w-4 h-4" /> Voltar
@@ -293,14 +327,12 @@ const NewTicket = () => {
         </div>
 
         <Card className="border-border/40 shadow-2xl shadow-primary/5 overflow-hidden bg-card/50 backdrop-blur-sm">
-          <CardContent className="p-8">
+          <CardContent className="p-4 md:p-8">
             <Form {...form}>
               <form 
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (step === 3) {
-                    form.handleSubmit(onSubmit)(e);
-                  }
+                  // Handled explicitly on the submit button
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
@@ -319,7 +351,7 @@ const NewTicket = () => {
                   <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
                     <section className="space-y-4">
                       <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">O que está acontecendo?</Label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
                         {categories.map((cat) => (
                           <button
                             key={cat.id}
@@ -329,7 +361,7 @@ const NewTicket = () => {
                             form.clearErrors('category');
                           }}
                             className={cn(
-                              "relative group p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-4 text-center h-40 justify-center overflow-hidden",
+                              "relative group p-4 md:p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 md:gap-4 text-center h-32 md:h-40 justify-center overflow-hidden",
                               currentCategory === cat.id 
                                 ? "border-primary bg-primary/5 shadow-xl shadow-primary/10" 
                                 : "border-border/40 bg-muted/20 hover:border-primary/20 hover:bg-muted/30"
@@ -403,25 +435,37 @@ const NewTicket = () => {
                     <FormField
                       control={form.control}
                       name="description"
-                      render={({ field }) => (
-                        <FormItem className="space-y-4">
-                          <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Descrição detalhada</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Conte-nos o que aconteceu, erros exibidos e o que você já tentou..."
-                              className="min-h-[180px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-none leading-relaxed"
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                if (e.target.value.trim().length >= 20) {
-                                  form.clearErrors('description');
-                                }
-                              }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const hasUnfilledMarker = field.value?.includes('[preencher]');
+                        const categoryPlaceholder = currentCategory && CATEGORY_PLACEHOLDERS[currentCategory]
+                          ? CATEGORY_PLACEHOLDERS[currentCategory]
+                          : 'Conte-nos o que aconteceu, erros exibidos e o que você já tentou...';
+                        return (
+                          <FormItem className="space-y-4">
+                            <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Descrição detalhada</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder={categoryPlaceholder}
+                                className="min-h-[180px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-none leading-relaxed"
+                                {...field}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  if (e.target.value.trim().length >= 20) {
+                                    form.clearErrors('description');
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            {hasUnfilledMarker && (
+                              <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm animate-in fade-in slide-in-from-top-1 duration-200">
+                                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                                <span>Parece que você não preencheu todos os campos do template — confirme antes de enviar.</span>
+                              </div>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -630,6 +674,7 @@ const NewTicket = () => {
                   <div className="flex items-center gap-3">
                     {step < 3 ? (
                       <Button 
+                        key="btn-next"
                         type="button" 
                         onClick={nextStep} 
                         disabled={anyDropdownOpen}
@@ -639,7 +684,12 @@ const NewTicket = () => {
                       </Button>
                     ) : (
                       <Button 
-                        type="submit" 
+                        key="btn-submit"
+                        type="button" 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          form.handleSubmit(onSubmit)();
+                        }}
                         disabled={isSubmitting} 
                         className="h-12 px-10 rounded-xl font-bold gap-2 shadow-xl shadow-primary/25 tracking-tight"
                       >

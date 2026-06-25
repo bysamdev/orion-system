@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -72,7 +73,9 @@ export const TemplatesTab: React.FC<Props> = ({ companyId }) => {
         </div>
         <Dialog open={dialogOpen} onOpenChange={open => { setDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button onClick={openNew} className="gap-2 font-bold"><Plus className="w-4 h-4" />Novo Template</Button>
+            <ButtonPrimary onClick={openNew} className="font-bold" icon={<Plus className="w-4 h-4" />}>
+              Novo Template
+            </ButtonPrimary>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>

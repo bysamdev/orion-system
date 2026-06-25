@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from '@/hooks/useUserRole';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -115,9 +116,9 @@ export const SLAConfiguration: React.FC = () => {
           </h2>
           <p className="text-sm text-muted-foreground mt-1">Gerencie os tempos limites e níveis de serviço para os chamados da sua empresa.</p>
         </div>
-        <Button onClick={handleCreate} disabled={editingId !== null} className="gap-2 font-bold shadow-lg shadow-primary/20">
-          <Plus className="w-4 h-4" /> Novo SLA
-        </Button>
+        <ButtonPrimary onClick={handleCreate} className="font-bold" icon={<Plus className="w-4 h-4" />}>
+          Novo SLA
+        </ButtonPrimary>
       </div>
 
       {editingId && formData && (

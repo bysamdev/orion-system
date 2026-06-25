@@ -6,6 +6,7 @@ import { useUserProfile } from '@/hooks/useUserRole';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Loader2, Plus, Edit2, Trash2, ArrowRightLeft, GitBranch } from 'lucide-react';
@@ -171,7 +172,9 @@ export const RoutingRulesManagement = () => {
           if (!open) resetForm();
         }}>
           <DialogTrigger asChild>
-            <Button className="gap-2 font-bold"><Plus className="w-4 h-4" /> Nova Regra</Button>
+            <ButtonPrimary onClick={() => setEditingRule(null)} className="font-bold" icon={<Plus className="w-4 h-4" />}>
+              Nova Regra
+            </ButtonPrimary>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>

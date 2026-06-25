@@ -45,7 +45,7 @@ All colors MUST be HSL.
     --radius: 0.75rem;
 
     --sidebar-background: 240 10% 10%;
-    --sidebar-foreground: 240 5% 70%;
+    --sidebar-foreground: 240 5% 75%;
     --sidebar-primary: 263 70% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 8% 15%;
@@ -90,7 +90,7 @@ All colors MUST be HSL.
     --ring: 263 70% 50%;
     
     --sidebar-background: 240 10% 8%;
-    --sidebar-foreground: 240 5% 70%;
+    --sidebar-foreground: 240 5% 78%;
     --sidebar-primary: 263 70% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 8% 15%;

@@ -3,6 +3,7 @@ import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ButtonPrimary } from '@/components/ui/button-primary';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Package, Plus, ShieldCheck, RefreshCw, Clock, Lock } from 'lucide-react';
@@ -83,9 +84,9 @@ const PatchManagement: React.FC = () => {
               </p>
             </div>
           </div>
-          <Button onClick={() => setNewDialogOpen(true)} className="gap-2 font-bold">
-            <Plus className="w-4 h-4" /> Novo Pacote
-          </Button>
+          <ButtonPrimary onClick={() => setNewDialogOpen(true)} className="gap-2 font-bold" icon={<Plus className="w-4 h-4" />}>
+            Novo Pacote
+          </ButtonPrimary>
         </div>
 
         {/* Security banner */}
@@ -118,9 +119,9 @@ const PatchManagement: React.FC = () => {
                     <p className="font-bold">Nenhum pacote cadastrado</p>
                     <p className="text-sm text-muted-foreground mt-1 max-w-xs">Cadastre scripts ou instaladores para implantação remota.</p>
                   </div>
-                  <Button onClick={() => setNewDialogOpen(true)} className="gap-2">
-                    <Plus className="w-4 h-4" /> Cadastrar Primeiro Pacote
-                  </Button>
+                  <ButtonPrimary onClick={() => setNewDialogOpen(true)} className="gap-2" icon={<Plus className="w-4 h-4" />}>
+                    Cadastrar Primeiro Pacote
+                  </ButtonPrimary>
                 </CardContent>
               </Card>
             ) : (

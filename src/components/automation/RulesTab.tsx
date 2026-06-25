@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Loader2, GitBranch, Plus, Edit2, Trash2, RefreshCw, AlertTriangle, Zap, MessageSquare, Crown, ArrowRightLeft, ChevronRight } from 'lucide-react';
@@ -79,7 +80,9 @@ export const RulesTab: React.FC<Props> = ({ companyId }) => {
         </div>
         <Dialog open={dialogOpen} onOpenChange={open => { setDialogOpen(open); if (!open) setEditing(null); }}>
           <DialogTrigger asChild>
-            <Button onClick={openNew} className="gap-2 font-bold"><Plus className="w-4 h-4" />Nova Regra</Button>
+            <ButtonPrimary onClick={openNew} className="font-bold" icon={<Plus className="w-4 h-4" />}>
+              Nova Regra
+            </ButtonPrimary>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[620px]">
             <DialogHeader>

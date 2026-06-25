@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -197,10 +198,9 @@ export const CompanyManagement = () => {
               <CardTitle>Gerenciar Empresas</CardTitle>
               <CardDescription>Adicione e gerencie as empresas que utilizam o sistema</CardDescription>
             </div>
-            <Button onClick={openCreate} className="gap-2">
-              <Plus className="h-4 w-4" />
+            <ButtonPrimary onClick={openCreate} className="gap-2 font-bold" icon={<Plus className="h-4 w-4" />}>
               Nova Empresa
-            </Button>
+            </ButtonPrimary>
           </div>
         </CardHeader>
         <CardContent>
@@ -279,13 +279,14 @@ export const CompanyManagement = () => {
           </DialogHeader>
           
           <div className="space-y-6">
-            <Button 
+            <ButtonPrimary 
               onClick={() => tokenCompanyId && generateTokenMutation.mutate(tokenCompanyId)}
-              className="w-full gap-2 font-black uppercase tracking-widest text-[10px]"
+              className="w-full gap-2 font-bold"
               disabled={generateTokenMutation.isPending}
+              icon={<Plus className="h-4 w-4" />}
             >
-              <Plus className="h-4 w-4" /> Gerar Novo Token
-            </Button>
+              Gerar Novo Token
+            </ButtonPrimary>
 
             <div className="rounded-xl border border-border/40 overflow-hidden">
               <Table>

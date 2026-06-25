@@ -169,31 +169,62 @@ export default function TicketHistory() {
                 <Loader2 className="w-8 h-8 animate-spin" />
               </div>
             ) : (
-              <Table>
-                <TableHeader className="bg-muted/5">
-                  <TableRow className="hover:bg-transparent border-b border-border/40">
-                    <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-14 pl-6">Nº</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest h-14">Ticket</TableHead>
-                    <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-14">Prioridade</TableHead>
-                    <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-14 text-center">Situação Final</TableHead>
-                    <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-14">Modificado em</TableHead>
-                    <TableHead className="w-[80px] h-14"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                {/* ── Mobile Card List (< md) ── */}
+                <div className="md:hidden divide-y divide-border/40">
                   {filteredTickets.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-48 text-center text-muted-foreground text-sm font-medium">
-                        Nenhum ticket histórico encontrado com estes filtros.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredTickets.map(t => (
-                      <TicketHistoryRow key={t.id} ticket={t} onClick={handleRowClick} />
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    <p className="text-center text-muted-foreground text-sm p-12 font-medium">
+                      Nenhum ticket encontrado.
+                    </p>
+                  ) : filteredTickets.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => handleRowClick(t.id)}
+                      className="w-full flex items-start justify-between gap-3 px-4 py-4 hover:bg-muted/30 active:bg-muted/50 transition-colors text-left"
+                    >
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[10px] font-bold text-muted-foreground/60">#{t.ticket_number}</span>
+                          <StatusBadge status={t.status} />
+                          <PriorityBadge priority={t.priority} size="sm" />
+                        </div>
+                        <p className="text-sm font-bold text-foreground truncate">{t.title}</p>
+                        <p className="text-[10px] text-muted-foreground">{t.requester_name} · {formatDate(t.updated_at, "dd/MM/yy", { locale: ptBR })}</p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-1" />
+                    </button>
+                  ))}
+                </div>
+
+                {/* ── Desktop Table (>= md) ── */}
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader className="bg-muted/5">
+                      <TableRow className="hover:bg-transparent border-b border-border/40">
+                        <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-14 pl-6">Nº</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-14">Ticket</TableHead>
+                        <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-14">Prioridade</TableHead>
+                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-14 text-center">Situação Final</TableHead>
+                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-14">Modificado em</TableHead>
+                        <TableHead className="w-[80px] h-14"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredTickets.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-48 text-center text-muted-foreground text-sm font-medium">
+                            Nenhum ticket histórico encontrado com estes filtros.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredTickets.map(t => (
+                          <TicketHistoryRow key={t.id} ticket={t} onClick={handleRowClick} />
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
             
             {!isLoading && filteredTickets.length > 0 && (
