@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -30,17 +30,17 @@ export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="sm:max-w-[500px]">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-success" />
             Resolver Chamado
-          </DialogTitle>
-          <DialogDescription>
-            Descreva a resolução do problema antes de marcar como resolvido.
-          </DialogDescription>
-        </DialogHeader>
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Descreva a resolução do problema antes de marcar como resolvido. O chamado será marcado como resolvido e o solicitante será notificado.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
         <div className="space-y-4">
           <div>
@@ -71,20 +71,20 @@ export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => onOpenChange(false)} disabled={isPending}>
             Cancelar
-          </Button>
+          </AlertDialogCancel>
           <Button
             onClick={handleConfirm}
             disabled={!notes.trim() || isPending}
             className="gap-2"
           >
             <CheckCircle2 className="w-4 h-4" />
-            Confirmar Resolução
+            Confirmar
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };

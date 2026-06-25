@@ -64,7 +64,11 @@ export const ticketCreationSchema = z.object({
     .trim()
     .min(20, 'Descrição deve ter no mínimo 20 caracteres')
     .max(5000, 'Descrição deve ter no máximo 5000 caracteres')
-    .regex(safeTextRegex, 'A descrição contém caracteres inválidos'),
+    .regex(safeTextRegex, 'A descrição contém caracteres inválidos')
+    .refine(
+      (val) => !val.includes('[preencher]'),
+      { message: 'Parece que você não preencheu todos os campos do template — revise antes de enviar.' }
+    ),
   category: z.string()
     .trim()
     .min(1, 'Categoria é obrigatória')

@@ -6,6 +6,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
@@ -313,9 +314,9 @@ const Assets = () => {
             if (!open) resetForm();
           }}>
             <DialogTrigger asChild>
-              <Button className="h-12 px-6 rounded-xl font-bold gap-2 shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95">
-                <Plus className="w-5 h-5" /> Novo Ativo
-              </Button>
+              <ButtonPrimary className="h-12 px-6 rounded-xl font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95" icon={<Plus className="w-5 h-5" />}>
+                Novo Ativo
+              </ButtonPrimary>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -544,12 +545,13 @@ const Assets = () => {
                             Adicione a primeira máquina monitorada do seu cliente para gerenciar incidentes e inventário.
                           </p>
                         </div>
-                        <Button 
+                        <ButtonPrimary 
                           onClick={() => setIsDialogOpen(true)}
-                          className="h-12 px-8 rounded-xl font-bold gap-2 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                          className="h-12 px-8 rounded-xl font-bold shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                          icon={<Plus className="w-5 h-5" />}
                         >
-                          <Plus className="w-5 h-5" /> Adicionar Máquina
-                        </Button>
+                          Adicionar Máquina
+                        </ButtonPrimary>
                       </div>
                     </TableCell>
                   </TableRow>
