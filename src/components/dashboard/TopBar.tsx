@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, Search, Loader2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -142,13 +143,12 @@ export const TopBar: React.FC = () => {
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
+            <ButtonPrimary
               onClick={() => navigate('/novo-ticket')}
-              className="rounded-xl px-4 h-10 gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-primary/25 transition-all transform hover:scale-105 active:scale-95"
+              icon={<Plus className="w-4 h-4" />}
             >
-              <Plus className="w-4 h-4" />
-              <span className="text-[11px] font-black uppercase tracking-widest hidden sm:inline">Novo Ticket</span>
-            </Button>
+              <span className="hidden sm:inline">Novo Ticket</span>
+            </ButtonPrimary>
           </TooltipTrigger>
           <TooltipContent className="text-[10px] font-bold">Criar novo chamado</TooltipContent>
         </Tooltip>

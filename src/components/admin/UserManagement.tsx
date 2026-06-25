@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -416,10 +417,9 @@ export const UserManagement = () => {
                 <TooltipTrigger asChild>
                   <span>
                     <DialogTrigger asChild>
-                      <Button disabled={isLimitReached}>
-                        <Plus className="h-4 w-4 mr-2" />
+                      <ButtonPrimary disabled={isLimitReached} icon={<Plus className="h-4 w-4" />}>
                         Adicionar Usuário
-                      </Button>
+                      </ButtonPrimary>
                     </DialogTrigger>
                   </span>
                 </TooltipTrigger>

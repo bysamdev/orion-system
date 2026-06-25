@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Badge } from '@/components/ui/badge';
 import { 
   Plus, Ticket, Book, History, Search, 
@@ -47,12 +48,13 @@ const ClientPortal = () => {
             <h1 className="text-4xl font-black tracking-tight text-foreground">Olá, {profile?.full_name?.split(' ')[0]}!</h1>
             <p className="text-muted-foreground text-lg font-medium">Como podemos ajudar você hoje?</p>
           </div>
-          <Button 
+          <ButtonPrimary 
             onClick={() => navigate('/novo-ticket')}
-            className="h-14 px-8 rounded-2xl font-bold gap-3 shadow-2xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 text-lg"
+            className="h-14 px-8 rounded-2xl font-bold shadow-2xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 text-lg"
+            icon={<Plus className="w-6 h-6" />}
           >
-            <Plus className="w-6 h-6" /> Abrir Novo Chamado
-          </Button>
+            Abrir Novo Chamado
+          </ButtonPrimary>
         </div>
 
         {/* Atalhos Rápidos: Acesso ao histórico, Wiki e Suporte Humano */}

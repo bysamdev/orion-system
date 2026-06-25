@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
@@ -46,6 +47,24 @@ const ticketUpdateSchema = z.object({
   content: z.string().trim().min(1, 'O comentário não pode estar vazio').max(5000, 'O comentário não pode ter mais de 5000 caracteres')
 });
 
+function TicketDetailSkeleton() {
+  return (
+    <div className="min-h-screen bg-background">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-12">
+        <div className="space-y-4 animate-pulse">
+          <div className="h-8 bg-muted rounded w-1/3" />
+          <div className="flex gap-4">
+            <div className="h-6 bg-muted rounded w-20" />
+            <div className="h-6 bg-muted rounded w-20" />
+          </div>
+          <div className="h-32 bg-muted rounded" />
+          <div className="h-10 bg-muted rounded w-1/4" />
+        </div>
+      </main>
+    </div>
+  );
+}
+
 // ── Ticket Status Stepper ─────────────────────────────────
 const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
   const steps = [
@@ -65,8 +84,9 @@ const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
   const currentIndex = getStatusIndex(currentStatus);
 
   return (
-    <div className="w-full py-6 px-4 mb-6 bg-muted/20 border border-border/50 rounded-xl overflow-x-auto">
-      <div className="flex items-center justify-between min-w-[500px]">
+    <div className="w-full py-6 px-4 mb-6 bg-muted/20 border border-border/50 rounded-xl overflow-x-auto relative">
+      <p className="absolute top-3 left-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status Atual</p>
+      <div className="flex items-center justify-between min-w-[500px] mt-4">
         {steps.map((step, idx) => {
           const isActive = idx === currentIndex;
           const isPast = idx < currentIndex;
@@ -76,21 +96,14 @@ const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
           return (
             <React.Fragment key={step.key}>
               <div key={step.key} className="flex flex-col items-center gap-2 relative z-10">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className={cn(
-                      "w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-500 cursor-help",
-                      isActive ? "bg-primary border-primary text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-110" :
-                      isPast ? "bg-green-500 border-green-500 text-white" :
-                      "bg-background border-muted-foreground/20 text-muted-foreground hover:border-primary/30"
-                    )}>
-                      {isPast ? <Check className="w-6 h-6" /> : <Icon className={cn("w-6 h-6", isActive ? "animate-pulse" : "opacity-40")} />}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-[10px] font-bold uppercase tracking-widest bg-background border-border">
-                    Status: {step.label}
-                  </TooltipContent>
-                </Tooltip>
+                <div className={cn(
+                  "w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-500",
+                  isActive ? "bg-primary border-primary text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-110" :
+                  isPast ? "bg-green-500 border-green-500 text-white" :
+                  "bg-background border-muted-foreground/20 text-muted-foreground"
+                )}>
+                  {isPast ? <Check className="w-6 h-6" /> : <Icon className={cn("w-6 h-6", isActive ? "animate-pulse" : "opacity-40")} />}
+                </div>
                 <span className={cn(
                   "text-[10px] font-black uppercase tracking-widest",
                   isActive ? "text-primary" : isPast ? "text-green-600" : "text-muted-foreground opacity-40"
@@ -223,6 +236,7 @@ const TicketDetails: React.FC = () => {
 
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [escalateDialogOpen, setEscalateDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: cannedResponses = [] } = useCannedResponses();
 
@@ -393,11 +407,27 @@ const TicketDetails: React.FC = () => {
   const handleStatusChange = async (newStatus: string) => {
     if (!ticket || !canManageTickets) return;
 
+    await executeStatusChange(newStatus);
+  };
+
+  const executeStatusChange = async (newStatus: string) => {
     await updateStatus.mutateAsync({ 
-      id: ticket.id, 
+      id: ticket!.id, 
       status: newStatus
     });
-    await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Status alterado para: ${statusLabels[newStatus] || newStatus}`, type: 'status_change' });
+    await addUpdate.mutateAsync({ ticket_id: ticket!.id, content: `Status alterado para: ${statusLabels[newStatus] || newStatus}`, type: 'status_change' });
+  };
+
+  const onSelectStatusChange = (newStatus: string) => {
+    if (newStatus === 'resolved') {
+      setResolveDialogOpen(true);
+      return;
+    }
+    if (newStatus === 'cancelled') {
+      setCancelDialogOpen(true);
+      return;
+    }
+    handleStatusChange(newStatus);
   };
 
   const handleAssignmentChange = async (technicianName: string) => {
@@ -484,11 +514,7 @@ const TicketDetails: React.FC = () => {
   const isActuallyLoading = isResolving || (!!validId && (ticketLoading || updatesLoading));
 
   if (isActuallyLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <TicketDetailSkeleton />;
   }
 
   if (!ticket && !isResolving) {
@@ -742,7 +768,7 @@ const TicketDetails: React.FC = () => {
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Progresso do Fluxo</label>
-                    <Select value={ticket.status} onValueChange={handleStatusChange}>
+                    <Select value={ticket.status} onValueChange={onSelectStatusChange}>
                       <SelectTrigger className="h-11 bg-background border-border/50 font-medium">
                         <SelectValue />
                       </SelectTrigger>
@@ -1000,6 +1026,31 @@ const TicketDetails: React.FC = () => {
         currentPriority={ticket.priority}
         currentAssignee={ticket.assigned_to}
       />
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar cancelamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O chamado será marcado como cancelado. Esta ação encerrará o atendimento e o solicitante será notificado. Tem certeza que deseja prosseguir?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updateStatus.isPending}>Voltar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                executeStatusChange('cancelled');
+                setCancelDialogOpen(false);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={updateStatus.isPending}
+            >
+              Cancelar Chamado
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -3,6 +3,14 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 import { useUserRole, UserRole } from '@/hooks/useUserRole';
+import { toast } from 'sonner';
+
+const RedirectWithToast = () => {
+  useEffect(() => {
+    toast.error('Você não tem permissão para acessar essa área.');
+  }, []);
+  return <Navigate to={{ pathname: "/", search: window.location.search }} replace />;
+};
 
 export const ProtectedRoute = ({ 
   children, 
@@ -38,7 +46,7 @@ export const ProtectedRoute = ({
     console.log("ProtectedRoute RBAC check:", { role, allowedRoles });
     if (!role || !allowedRoles.includes(role)) {
       console.log("Redirecionando! Usuário não tem permissão.");
-      return <Navigate to={{ pathname: "/", search: window.location.search }} replace />;
+      return <RedirectWithToast />;
     }
   }
 
