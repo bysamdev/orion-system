@@ -41,7 +41,7 @@ const PatchManagement: React.FC = () => {
   const handleDelete = (id: string) => {
     deleteMutation.mutate(id, {
       onSuccess: () => toast({ title: 'Pacote removido' }),
-      onError: (err: any) => toast({ title: 'Erro ao remover', description: err.message, variant: 'destructive' }),
+      onError: (err: Error) => toast({ title: 'Erro ao remover', description: err.message, variant: 'destructive' }),
     });
   };
 

@@ -52,7 +52,7 @@ export const TemplatesTab: React.FC<Props> = ({ companyId }) => {
           setDialogOpen(false);
           resetForm();
         },
-        onError: (err: any) => toast({ title: err.message ?? 'Erro', variant: 'destructive' }),
+        onError: (err: Error) => toast({ title: err.message ?? 'Erro', variant: 'destructive' }),
       },
     );
   };

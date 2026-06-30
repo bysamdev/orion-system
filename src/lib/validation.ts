@@ -18,7 +18,7 @@ export const ticketUpdateTypeSchema = z.enum(['comment', 'status_change', 'assig
 });
 
 // Regex seguro que bloqueia caracteres de controle, Unicode invisível e potencialmente perigosos
-const safeTextRegex = /^[a-zA-Z0-9\s\-_.áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ!?,;:()\[\]{}@#$%&*+='"\/\\]+$/;
+const safeTextRegex = /^[a-zA-Z0-9\s\-_.áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ!?,;:()[\]{}@#$%&*+='"/\\]+$/;
 
 export const companyNameSchema = z.string()
   .trim()
@@ -77,7 +77,7 @@ export const ticketCreationSchema = z.object({
   department: z.string()
     .trim()
     .max(50, 'Departamento deve ter no máximo 50 caracteres')
-    .regex(/^[a-zA-Z0-9\s\-_.áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ!?,;:()\[\]{}@#$%&*+='"\/\\]*$/, 'O departamento contém caracteres inválidos')
+    .regex(/^[a-zA-Z0-9\s\-_.áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ!?,;:()[\]{}@#$%&*+='"/\\]*$/, 'O departamento contém caracteres inválidos')
     .optional()
     .or(z.literal(''))
 });

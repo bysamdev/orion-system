@@ -22,7 +22,7 @@ export const ResolutionChecklistManagement = () => {
   const queryClient = useQueryClient();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingChecklist, setEditingChecklist] = useState<any>(null);
+  const [editingChecklist, setEditingChecklist] = useState<{ id: string; category: string; items: string[]; is_active: boolean } | null>(null);
   
   const [category, setCategory] = useState('');
   const [items, setItems] = useState<string[]>(['']);
@@ -45,7 +45,7 @@ export const ResolutionChecklistManagement = () => {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (checklistData: any) => {
+    mutationFn: async (checklistData: { id?: string; category: string; items: string[]; isActive: boolean }) => {
       const payload = {
         company_id: profile?.company_id,
         category: checklistData.category,
@@ -90,7 +90,7 @@ export const ResolutionChecklistManagement = () => {
     setIsActive(true);
   };
 
-  const handleEdit = (checklist: any) => {
+  const handleEdit = (checklist: { id: string; category: string; items: string[]; is_active: boolean }) => {
     setEditingChecklist(checklist);
     setCategory(checklist.category);
     setItems(checklist.items.length ? checklist.items : ['']);
@@ -245,7 +245,7 @@ export const ResolutionChecklistManagement = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              checklists.map((checklist: any) => (
+              checklists.map((checklist: { id: string; category: string; items: string[]; is_active: boolean }) => (
                 <TableRow key={checklist.id}>
                   <TableCell className="pl-6 font-bold">{checklist.category}</TableCell>
                   <TableCell>

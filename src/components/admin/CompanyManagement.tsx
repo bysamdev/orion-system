@@ -60,7 +60,7 @@ export const CompanyManagement = () => {
     queryFn: async () => {
       if (!tokenCompanyId) return [];
       const { data, error } = await supabase
-        .from('api_keys' as any)
+        .from('api_keys' as unknown as 'companies')
         .select('*')
         .eq('company_id', tokenCompanyId)
         .order('created_at', { ascending: false });
@@ -81,12 +81,12 @@ export const CompanyManagement = () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Não autenticado');
 
-      const { error } = await supabase.from('api_keys' as any).insert({
+      const { error } = await (supabase.from as (t: string) => ReturnType<typeof supabase.from>)('api_keys').insert({
         company_id: companyId,
         user_id: userData.user.id,
         key_value: result,
         label: `Gerada manualmente em ${formatDate(new Date())}`
-      } as any);
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -100,7 +100,7 @@ export const CompanyManagement = () => {
 
   const deleteTokenMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('api_keys' as any).delete().eq('id', id);
+      const { error } = await (supabase.from as (t: string) => ReturnType<typeof supabase.from>)('api_keys').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -121,7 +121,6 @@ export const CompanyManagement = () => {
         cnpj: data.cnpj.trim() || null,
         phone: data.phone.trim() || null,
         address: data.address.trim() || null,
-        domain: (data as any).domain?.trim().toLowerCase() || null,
       };
 
       if (data.id) {
@@ -167,7 +166,7 @@ export const CompanyManagement = () => {
     setShowDialog(true);
   };
 
-  const openEdit = (company: any) => {
+  const openEdit = (company: { id: string; name: string | null; cnpj: string | null; phone: string | null; address: string | null }) => {
     setFormData({
       name: company.name || '',
       cnpj: company.cnpj || '',
@@ -225,7 +224,7 @@ export const CompanyManagement = () => {
                     </div>
                   </TableCell>
                   <TableCell className="text-primary font-mono text-xs">
-                    {(company as any).domain ? `@${(company as any).domain}` : '—'}
+                    {'—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {company.cnpj || '—'}
@@ -298,7 +297,7 @@ export const CompanyManagement = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {companyTokens?.map((tk: any) => (
+                  {companyTokens?.map((tk: Record<string, string>) => (
                     <TableRow key={tk.id} className="text-xs">
                       <TableCell>
                         <div className="space-y-1">
