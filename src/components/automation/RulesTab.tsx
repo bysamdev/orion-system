@@ -57,7 +57,7 @@ export const RulesTab: React.FC<Props> = ({ companyId }) => {
   const openEdit = (r: RoutingRule) => { setEditing(r); setDialogOpen(true); };
   const closeDialog = () => { setDialogOpen(false); setEditing(null); };
 
-  const handleSave = (data: any) => {
+  const handleSave = (data: Partial<RoutingRule> & { id?: string }) => {
     saveMutation.mutate(data, {
       onSuccess: () => { toast({ title: 'Regra salva!' }); closeDialog(); },
       onError: () => toast({ title: 'Erro ao salvar regra', variant: 'destructive' }),

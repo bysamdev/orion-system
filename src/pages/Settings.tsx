@@ -33,9 +33,9 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Estados para notificações
-  const [emailNotifications, setEmailNotifications] = useState(profile?.email_notifications ?? true);
-  const [pushNotifications, setPushNotifications] = useState(profile?.push_notifications ?? true);
+  // Estados para notificações (local only — not persisted to DB profiles table)
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [pushNotifications, setPushNotifications] = useState(true);
 
   // Estados para integração
   const [copiedWebhook, setCopiedWebhook] = useState(false);
@@ -75,8 +75,7 @@ export default function Settings() {
     if (profile) {
       setFullName(profile.full_name || '');
       setDepartment(profile.department || '');
-      setEmailNotifications(profile.email_notifications ?? true);
-      setPushNotifications(profile.push_notifications ?? true);
+      // notification prefs are local-only state
     }
   }, [profile]);
 
@@ -94,9 +93,12 @@ export default function Settings() {
         return;
       }
 
+      // Only update fields that exist in the profiles DB schema
+      const { email_notifications: _en, push_notifications: _pn, ...dbPayload } = validationResult.data;
+
       const { error } = await supabase
         .from('profiles')
-        .update(validationResult.data)
+        .update(dbPayload)
         .eq('id', profile?.id);
 
       if (error) throw error;

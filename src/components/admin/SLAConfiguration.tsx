@@ -34,10 +34,32 @@ export const SLAConfiguration: React.FC = () => {
   });
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<any>(null);
+  const [formData, setFormData] = useState<{
+    id?: string;
+    company_id: string;
+    name: string;
+    business_hours_only: boolean;
+    business_start: string;
+    business_end: string;
+    urgent_hours: number;
+    high_hours: number;
+    medium_hours: number;
+    low_hours: number;
+  } | null>(null);
 
   const saveMutation = useMutation({
-    mutationFn: async (payload: any) => {
+    mutationFn: async (payload: {
+      id?: string;
+      company_id: string;
+      name: string;
+      business_hours_only: boolean;
+      business_start: string;
+      business_end: string;
+      urgent_hours: number;
+      high_hours: number;
+      medium_hours: number;
+      low_hours: number;
+    }) => {
       if (payload.id) {
         const { error } = await supabase.from('sla_configs').update(payload).eq('id', payload.id);
         if (error) throw error;
@@ -52,7 +74,7 @@ export const SLAConfiguration: React.FC = () => {
       setEditingId(null);
       setFormData(null);
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
     }
   });
@@ -68,7 +90,7 @@ export const SLAConfiguration: React.FC = () => {
     }
   });
 
-  const handleEdit = (sla: any) => {
+  const handleEdit = (sla: typeof formData) => {
     setEditingId(sla.id);
     setFormData({ ...sla });
   };
@@ -202,7 +224,7 @@ export const SLAConfiguration: React.FC = () => {
       )}
 
       <div className="grid gap-4">
-        {slaConfigs.map((sla: any) => (
+        {slaConfigs.map((sla: { id: string; name: string; business_hours_only: boolean; business_start: string | null; business_end: string | null; urgent_hours: number; high_hours: number; medium_hours: number; low_hours: number }) => (
           <Card key={sla.id} className="hover:border-primary/50 transition-colors">
             <CardContent className="p-6">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">

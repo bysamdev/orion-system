@@ -14,7 +14,7 @@ window.addEventListener("unhandledrejection", (event) => {
 });
 
 // Força o reload da página quando o Vite falha em carregar um chunk JS antigo
-(window as any).addEventListener("vite:preloadError", () => {
+(window as EventTarget).addEventListener("vite:preloadError", () => {
   window.location.reload();
 });
 
