@@ -208,16 +208,15 @@ const TicketDetails: React.FC = () => {
   // Fetch suggested KB articles
   const { data: suggestedArticles, isLoading: kbLoading } = useQuery({
     queryKey: ['kb-suggestions', ticket?.category, ticket?.title],
-    queryFn: async () => {
+    queryFn: async (): Promise<Array<{ id: string; title: string; slug: string; category: string }>> => {
       if (!ticket) return [];
-      const { data, error } = await supabase
-        .from('knowledge_articles')
+      // knowledge_articles is not in the generated types, so we cast the table name
+      const { data, error } = await (supabase.from as (t: string) => ReturnType<typeof supabase.from>)('knowledge_articles')
         .select('id, title, slug, category')
         .or(`category.eq."${ticket.category}",title.ilike.%${ticket.title.split(' ')[0]}%`)
-        .eq('is_published', true)
         .limit(3);
       if (error) return [];
-      return data;
+      return (data ?? []) as Array<{ id: string; title: string; slug: string; category: string }>;
     },
     enabled: !!ticket
   });
@@ -241,10 +240,10 @@ const TicketDetails: React.FC = () => {
   const { data: cannedResponses = [] } = useCannedResponses();
 
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [filteredTemplates, setFilteredTemplates] = useState<any[]>([]);
+  const [filteredTemplates, setFilteredTemplates] = useState<Array<{ id: string; title: string; content: string; shortcut?: string }>>([]);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
 
-  const applySuggestion = (template: any) => {
+  const applySuggestion = (template: { content: string }) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
     
@@ -313,7 +312,7 @@ const TicketDetails: React.FC = () => {
 
     if (match) {
       const query = match[1].toLowerCase();
-      const filtered = cannedResponses.filter((t: any) => 
+      const filtered = cannedResponses.filter((t) => 
         t.shortcut?.toLowerCase().replace('/', '').startsWith(query)
       );
       if (filtered.length > 0) {
@@ -329,6 +328,7 @@ const TicketDetails: React.FC = () => {
   };
 
   const [checklistCompleted, setChecklistCompleted] = useState<string[]>([]);
+  const [pendingChecklist, setPendingChecklist] = useState<Array<{ item: string; done: boolean }>>([]);
   const [resolutionNotes, setResolutionNotes] = useState('');
 
 

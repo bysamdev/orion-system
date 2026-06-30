@@ -195,7 +195,7 @@ export const useUpdateTicketStatus = () => {
       }
 
       // Build update object
-      const updateData: Database['public']['Tables']['tickets']['Update'] = { status: validationResult.data as any };
+      const updateData: Database['public']['Tables']['tickets']['Update'] = { status: validationResult.data as Database['public']['Tables']['tickets']['Update']['status'] };
       
       // Add assignment fields if provided
       if (assigned_to !== undefined) {

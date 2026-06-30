@@ -22,7 +22,7 @@ export const RoutingRulesManagement = () => {
   const queryClient = useQueryClient();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState<any>(null);
+  const [editingRule, setEditingRule] = useState<{ id: string; name: string; description: string | null; priority: number; conditions: { field: string; operator: string; value: string } | null; actions: { type: string; target: string } | null; is_active: boolean } | null>(null);
   
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -51,7 +51,7 @@ export const RoutingRulesManagement = () => {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (ruleData: any) => {
+    mutationFn: async (ruleData: { id?: string; name: string; description: string; priorityOrder: number; conditionField: string; conditionOperator: string; conditionValue: string; actionType: string; actionTarget: string; isActive: boolean }) => {
       const payload = {
         company_id: profile?.company_id,
         name: ruleData.name,
@@ -105,7 +105,7 @@ export const RoutingRulesManagement = () => {
     setIsActive(true);
   };
 
-  const handleEdit = (rule: any) => {
+  const handleEdit = (rule: { id: string; name: string; description: string | null; priority: number; conditions: Record<string, string> | null; actions: Record<string, string> | null; is_active: boolean }) => {
     setEditingRule(rule);
     setName(rule.name);
     setDescription(rule.description || '');
@@ -129,7 +129,7 @@ export const RoutingRulesManagement = () => {
         .eq('company_id', profile.company_id)
         .in('user_roles.role', ['technician', 'admin', 'developer']);
       if (error) throw error;
-      return (data as any[]) || [];
+      return (data as Array<{ id: string; full_name: string }>) || [];
     },
     enabled: !!profile?.company_id,
   });
@@ -222,7 +222,7 @@ export const RoutingRulesManagement = () => {
                     <Select value={conditionValue} onValueChange={setConditionValue}>
                       <SelectTrigger><SelectValue placeholder="Selecione empresa..." /></SelectTrigger>
                       <SelectContent>
-                        {companies.map((c: any) => (
+                        {companies.map((c: { id: string; name: string | null }) => (
                           <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -260,7 +260,7 @@ export const RoutingRulesManagement = () => {
                     <Select value={actionTarget} onValueChange={setActionTarget}>
                       <SelectTrigger><SelectValue placeholder="Selecione técnico..." /></SelectTrigger>
                       <SelectContent>
-                        {technicians.map((t: any) => (
+                        {technicians.map((t: { id: string; full_name: string }) => (
                           <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -343,7 +343,7 @@ export const RoutingRulesManagement = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              rules.map((rule: any) => (
+              rules.map((rule: { id: string; name: string; priority: number; description: string | null; conditions: Record<string, string> | null; actions: Record<string, string> | null; is_active: boolean }) => (
                 <TableRow key={rule.id}>
                   <TableCell className="text-center font-bold text-muted-foreground">{rule.priority}</TableCell>
                   <TableCell className="font-bold">{rule.name}</TableCell>

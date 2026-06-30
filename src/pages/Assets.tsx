@@ -46,7 +46,7 @@ interface Asset {
   hostname: string | null;
 }
 
-const typeIcons: Record<string, any> = {
+const typeIcons: Record<string, React.ElementType> = {
   'Hardware': Laptop,
   'Software': ShieldCheck,
   'License': Key,
@@ -99,7 +99,7 @@ const Assets = () => {
         .order('name');
       
       if (error) throw error;
-      return data.map((a: any) => ({
+      return data.map((a) => ({
         ...a,
         company_name: a.companies?.name
       })) as Asset[];
@@ -122,7 +122,7 @@ const Assets = () => {
   });
 
   const createAsset = useMutation({
-    mutationFn: async (newAsset: any) => {
+    mutationFn: async (newAsset: Omit<Asset, 'id' | 'company_name' | 'created_at'>) => {
       const { data, error } = await supabase.from('assets').insert([newAsset]).select().single();
       if (error) throw error;
       return data;
@@ -136,7 +136,7 @@ const Assets = () => {
   });
 
   const updateAsset = useMutation({
-    mutationFn: async ({ id, ...updates }: any) => {
+    mutationFn: async ({ id, ...updates }: Partial<Asset> & { id: string }) => {
       const { data, error } = await supabase.from('assets').update(updates).eq('id', id).select().single();
       if (error) throw error;
       return data;
@@ -585,7 +585,7 @@ const Assets = () => {
                 </div>
               ) : assetTickets && assetTickets.length > 0 ? (
                 <div className="space-y-4">
-                  {assetTickets.map((ticket: any) => (
+                  {assetTickets.map((ticket: { id: string; title: string; status: string; created_at: string; priority: string | null }) => (
                     <div 
                       key={ticket.id} 
                       className="group flex items-start gap-4 p-4 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/30 transition-all cursor-pointer"
