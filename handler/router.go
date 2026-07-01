@@ -89,6 +89,11 @@ func buildRouter() http.Handler {
 	r.Get("/api/monitoring/cron/mark-offline", cronMarkOffline)
 	r.Get("/api/monitoring/alerts/critical", monitoringCriticalAlerts)
 
+	// Web Monitoring (UptimeRobot)
+	r.Post("/api/monitoring/web/endpoints", monitoringCreateWebEndpoint)
+	r.Get("/api/monitoring/web/endpoints", monitoringListWebEndpoints)
+	r.Delete("/api/monitoring/web/endpoints/{id}", monitoringDeleteWebEndpoint)
+
 	// Management
 	r.Post("/api/monitoring/machines/{id}/update", monitoringUpdateMachine)
 	r.Post("/api/monitoring/groups", monitoringCreateGroup)

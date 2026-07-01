@@ -105,8 +105,17 @@ export const RoutingRulesManagement = () => {
     setIsActive(true);
   };
 
-  const handleEdit = (rule: { id: string; name: string; description: string | null; priority: number; conditions: Record<string, string> | null; actions: Record<string, string> | null; is_active: boolean }) => {
-    setEditingRule(rule);
+  const handleEdit = (rule: {
+    id: string;
+    name: string;
+    description: string | null;
+    priority: number;
+    conditions: Record<string, string> | null;
+    actions: Record<string, string> | null;
+    is_active: boolean;
+  }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setEditingRule(rule as any);
     setName(rule.name);
     setDescription(rule.description || '');
     setPriorityOrder(rule.priority);
@@ -343,7 +352,8 @@ export const RoutingRulesManagement = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              rules.map((rule: { id: string; name: string; priority: number; description: string | null; conditions: Record<string, string> | null; actions: Record<string, string> | null; is_active: boolean }) => (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (rules as any[]).map((rule: { id: string; name: string; priority: number; description: string | null; conditions: Record<string, string> | null; actions: Record<string, string> | null; is_active: boolean }) => (
                 <TableRow key={rule.id}>
                   <TableCell className="text-center font-bold text-muted-foreground">{rule.priority}</TableCell>
                   <TableCell className="font-bold">{rule.name}</TableCell>

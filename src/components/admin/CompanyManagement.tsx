@@ -59,13 +59,13 @@ export const CompanyManagement = () => {
     queryKey: ['company-tokens', tokenCompanyId],
     queryFn: async () => {
       if (!tokenCompanyId) return [];
-      const { data, error } = await supabase
+      const { data, error } = await (supabase
         .from('api_keys' as unknown as 'companies')
-        .select('*')
+        .select('*') as unknown as ReturnType<typeof supabase.from>)
         .eq('company_id', tokenCompanyId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return data as unknown as Array<{ id: string; key_value: string; label: string; last_used_at: string | null }>;
     },
     enabled: !!tokenCompanyId
   });
@@ -166,7 +166,7 @@ export const CompanyManagement = () => {
     setShowDialog(true);
   };
 
-  const openEdit = (company: { id: string; name: string | null; cnpj: string | null; phone: string | null; address: string | null }) => {
+  const openEdit = (company: { id: string; name: string | null; cnpj: string | null; phone: string | null; address: string | null; domain?: string | null }) => {
     setFormData({
       name: company.name || '',
       cnpj: company.cnpj || '',
@@ -297,7 +297,7 @@ export const CompanyManagement = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {companyTokens?.map((tk: Record<string, string>) => (
+                  {(companyTokens as Array<{ id: string; key_value: string; label: string; last_used_at: string | null }> | undefined)?.map((tk) => (
                     <TableRow key={tk.id} className="text-xs">
                       <TableCell>
                         <div className="space-y-1">

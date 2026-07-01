@@ -16,10 +16,11 @@ import {
   Bell,
   Activity,
   Settings,
+  Globe,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useUserRole } from '@/hooks/useUserRole';
+import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -55,8 +56,9 @@ const navGroups: NavGroup[] = [
     name: 'Infraestrutura',
     items: [
       { icon: Activity,      label: 'Sistemas e Alertas', path: '/sistemas', roles: ['admin', 'developer', 'technician'] },
-      { icon: Layers,        label: 'Patches & Updates', path: '/patches',   roles: ['admin', 'developer', 'technician'] },
+      { icon: Layers,        label: 'Instaladores & Updates', path: '/patches',   roles: ['admin', 'developer', 'technician'] },
       { icon: Cpu,           label: 'Ativos (CMDB)',    path: '/assets',     roles: ['admin', 'technician', 'developer'] },
+      { icon: Globe,         label: 'Monitoramento Web', path: '/monitoramento-web', roles: ['admin', 'technician', 'developer'] },
     ],
   },
   {
@@ -79,8 +81,16 @@ export const Sidebar: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) =
   const navigate  = useNavigate();
   const location  = useLocation();
   const { data: role } = useUserRole();
+  const { data: profile } = useUserProfile();
   const { toast } = useToast();
   const { unreadCount } = useNotifications();
+
+  const roleLabel: Record<string, string> = {
+    customer: 'Cliente',
+    technician: 'Técnico',
+    admin: 'Admin',
+    developer: 'Desenvolvedor',
+  };
 
   const go = (path: string) => {
     navigate(path);
@@ -143,9 +153,11 @@ export const Sidebar: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) =
           onClick={() => navigate('/')}
           className="flex items-center gap-3 px-5 py-5 cursor-pointer group border-b border-sidebar-border/40"
         >
-          <div className="min-w-0">
-            <p className="text-sm font-black text-sidebar-foreground tracking-tight leading-none">Orion System</p>
-            <p className="text-[10px] text-sidebar-foreground/60 mt-0.5 uppercase tracking-widest">Painel de Controle</p>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-sidebar-foreground">{profile?.full_name || 'Carregando...'}</span>
+            <span className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide">
+              {role ? roleLabel[role] : '...'}
+            </span>
           </div>
         </div>
 
@@ -175,45 +187,6 @@ export const Sidebar: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) =
         {/* ── Bottom: Notifications + Settings + Logout ── */}
         <div className="border-t border-sidebar-border/40 px-3 py-3 flex flex-col gap-1">
           {bottomItems.map(renderItem)}
-
-          {/* Notificações como item de navegação padrão */}
-          <button
-            onClick={() => { navigate('/notificacoes'); onNavigate?.(); }}
-            className={cn(
-              'group w-full flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 active:scale-[0.98] relative outline-none',
-              location.pathname === '/notificacoes'
-                ? 'bg-purple-600'
-                : 'hover:bg-purple-500/10'
-            )}
-          >
-            <div className="relative flex items-center justify-center">
-              <Bell
-                className={cn(
-                  'w-4 h-4 shrink-0 transition-colors duration-200',
-                  location.pathname === '/notificacoes' ? 'text-white' : 'text-gray-400 group-hover:text-purple-400'
-                )}
-              />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full px-0.5">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </div>
-            <span
-              className={cn(
-                'truncate text-sm font-medium transition-colors duration-200 flex-1 text-left',
-                location.pathname === '/notificacoes' ? 'text-white' : 'text-gray-400 group-hover:text-purple-300'
-              )}
-              title="Notificações"
-            >
-              Notificações
-            </span>
-            {unreadCount > 0 && location.pathname !== '/notificacoes' && (
-              <span className="ml-auto text-[9px] font-bold bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
 
           {/* Logout */}
           <button

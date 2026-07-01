@@ -63,7 +63,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant =
     <button 
       onClick={onClick}
       className={cn(
-        "relative group text-left p-6 rounded-3xl transition-all duration-300 overflow-hidden glass-card",
+        "relative group text-left p-6 rounded-3xl transition-all duration-300 overflow-hidden glass-card h-full w-full",
         active 
           ? cn("ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02]", glows[variant])
           : "hover:scale-[1.01] hover:border-primary/30"
@@ -252,7 +252,7 @@ export const TechnicianDashboard: React.FC = () => {
         />
         <Tooltip>
             <TooltipTrigger asChild>
-              <div className="w-full">
+              <div className="w-full h-full">
                 <StatCard
                   title="SLA Crítico"
                   value={stats?.slaAtRisk || 0}

@@ -9,6 +9,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Ticket } from '@/hooks/useTickets';
+import { NotificationsPopover } from '@/components/dashboard/NotificationsPopover';
 
 export const TopBar: React.FC = () => {
   const navigate = useNavigate();
@@ -139,6 +140,7 @@ export const TopBar: React.FC = () => {
 
       {/* Ações globais */}
       <div className="flex items-center gap-2 shrink-0">
+        <NotificationsPopover />
         <ThemeToggle />
 
         <Tooltip>

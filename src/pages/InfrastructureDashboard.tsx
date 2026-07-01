@@ -41,7 +41,7 @@ export default function InfrastructureDashboard() {
           </div>
           <div>
             <h1 className="text-3xl font-black tracking-tight text-foreground">
-              Infraestrutura & NOC
+              Sistemas e Alertas
             </h1>
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
               Monitoramento Global e Alertas

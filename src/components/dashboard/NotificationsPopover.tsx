@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Check, CheckCheck, MessageSquare } from 'lucide-react';
+import { Bell, CheckCheck, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -38,7 +38,7 @@ const NotificationItem: React.FC<{
       <div className="flex items-start gap-3">
         <div
           className={cn(
-            'p-2 rounded-full',
+            'p-2 rounded-full flex-shrink-0',
             notification.is_read ? 'bg-muted' : 'bg-primary/10'
           )}
         >
@@ -81,7 +81,7 @@ const NotificationItem: React.FC<{
 export const NotificationsPopover: React.FC = () => {
   const navigate = useNavigate();
   const {
-    unread,
+    all,
     unreadCount,
     isLoading,
     markAsRead,
@@ -96,22 +96,23 @@ export const NotificationsPopover: React.FC = () => {
     setOpen(false);
   };
 
+  const recentNotifications = all.slice(0, 5);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="group w-full flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-purple-500/10 transition-all duration-200 active:scale-[0.98] relative outline-none">
-          <div className="relative flex items-center justify-center">
-            <Bell className="w-4 h-4 shrink-0 text-gray-400 group-hover:text-purple-400 transition-colors duration-200" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full px-0.5">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </div>
-          <span className="text-sm font-medium text-gray-400 group-hover:text-purple-300 transition-colors duration-200">
-            Notificações
-          </span>
-        </button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hover:bg-primary/10 relative text-muted-foreground hover:text-primary transition-colors focus-visible:ring-0 focus-visible:ring-offset-0"
+        >
+          <Bell className="w-5 h-5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center bg-destructive text-destructive-foreground text-[9px] font-black rounded-full px-0.5 animate-in zoom-in-50 duration-200">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between p-4 border-b border-border">
@@ -121,26 +122,26 @@ export const NotificationsPopover: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={() => markAllAsRead()}
-              className="text-xs h-7 text-primary hover:text-primary"
+              className="text-xs h-7 text-primary hover:text-primary hover:bg-transparent p-0"
             >
               <CheckCheck className="w-3.5 h-3.5 mr-1" />
               Marcar todas como lidas
             </Button>
           )}
         </div>
-        <ScrollArea className="h-[320px]">
+        <ScrollArea className="max-h-[320px]">
           {isLoading ? (
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
             </div>
-          ) : unread.length === 0 ? (
+          ) : recentNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
               <Bell className="w-8 h-8 mb-2 opacity-50" />
               <p className="text-sm">Nenhuma notificação</p>
             </div>
           ) : (
             <div className="p-2">
-              {unread.map((notification) => (
+              {recentNotifications.map((notification) => (
                 <NotificationItem
                   key={notification.id}
                   notification={notification}
@@ -151,6 +152,19 @@ export const NotificationsPopover: React.FC = () => {
             </div>
           )}
         </ScrollArea>
+        <div className="p-2 border-t border-border bg-muted/20 text-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs font-bold text-primary hover:text-primary hover:bg-primary/5"
+            onClick={() => {
+              navigate('/notificacoes');
+              setOpen(false);
+            }}
+          >
+            Ver mais
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );

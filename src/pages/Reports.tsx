@@ -15,8 +15,8 @@ import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
 import { calculateSlaStatus } from '@/lib/ticket-helpers';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Loader2, ArrowLeft, BarChart3, Clock, CheckCircle2, AlertTriangle, TrendingUp, ShieldAlert, Download, Printer } from 'lucide-react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { Loader2, ArrowLeft, BarChart3, Clock, CheckCircle2, AlertTriangle, TrendingUp, ShieldAlert, Download, Printer, Repeat } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend } from 'recharts';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -200,7 +200,62 @@ const Reports: React.FC = () => {
       color: name === 'urgent' ? '#ef4444' : name === 'high' ? '#f97316' : name === 'medium' ? '#eab308' : '#22c55e'
     })).filter(d => d.value > 0);
 
-    return { statusData, slaData, trendData, priorityChartData, technicianData, companyData, categoryData };
+    // ── NOVOS GRÁFICOS ──────────────────────────────────────────────────────
+
+    // 8. MTTR por Categoria (tempo médio de resolução em horas)
+    const mttrMap: Record<string, { totalMs: number; count: number }> = {};
+    tickets.forEach(t => {
+      if (!t.resolved_at || !t.created_at) return;
+      const cat = t.category || 'Sem Categoria';
+      const ms = new Date(t.resolved_at).getTime() - new Date(t.created_at).getTime();
+      if (!mttrMap[cat]) mttrMap[cat] = { totalMs: 0, count: 0 };
+      mttrMap[cat].totalMs += ms;
+      mttrMap[cat].count++;
+    });
+    const mttrByCategoryData = Object.entries(mttrMap)
+      .map(([name, { totalMs, count }]) => ({
+        name,
+        horas: Math.round((totalMs / count / 3_600_000) * 10) / 10,
+      }))
+      .sort((a, b) => b.horas - a.horas)
+      .slice(0, 8);
+
+    // 9. Taxa de Reabertura por Técnico
+    const reopenMap: Record<string, { total: number; reopened: number }> = {};
+    tickets.forEach(t => {
+      const tech = t.assigned_to || 'Sem Atribuição';
+      if (!reopenMap[tech]) reopenMap[tech] = { total: 0, reopened: 0 };
+      reopenMap[tech].total++;
+      if (t.status === 'reopened') reopenMap[tech].reopened++;
+    });
+    const reopenRateByTechData = Object.entries(reopenMap)
+      .filter(([, v]) => v.total >= 2)
+      .map(([name, { total, reopened }]) => ({
+        name: name.length > 18 ? name.slice(0, 18) + '…' : name,
+        taxa: Math.round((reopened / total) * 100),
+        total,
+      }))
+      .sort((a, b) => b.taxa - a.taxa)
+      .slice(0, 7);
+
+    // 10. SLA cumprido vs estourado ao longo do tempo (por semana)
+    const slaWeekMap: Record<string, { ok: number; breached: number; attention: number }> = {};
+    tickets.forEach(t => {
+      if (!t.created_at || !t.sla_status) return;
+      const d = new Date(t.created_at);
+      const startOfWeek = new Date(d);
+      startOfWeek.setDate(d.getDate() - d.getDay());
+      const weekKey = startOfWeek.toISOString().split('T')[0];
+      if (!slaWeekMap[weekKey]) slaWeekMap[weekKey] = { ok: 0, breached: 0, attention: 0 };
+      if (t.sla_status === 'ok') slaWeekMap[weekKey].ok++;
+      else if (t.sla_status === 'breached') slaWeekMap[weekKey].breached++;
+      else if (t.sla_status === 'attention') slaWeekMap[weekKey].attention++;
+    });
+    const slaTrendData = Object.entries(slaWeekMap)
+      .map(([week, counts]) => ({ week: week.substring(5).replace('-', '/'), ...counts }))
+      .sort((a, b) => a.week.localeCompare(b.week));
+
+    return { statusData, slaData, trendData, priorityChartData, technicianData, companyData, categoryData, mttrByCategoryData, reopenRateByTechData, slaTrendData };
   }, [tickets, metrics, dateFrom, dateTo]);
 
   const exportToCSV = () => {
@@ -457,6 +512,99 @@ const Reports: React.FC = () => {
                      {d.name}
                    </div>
                  ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Novos Gráficos Analíticos ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 print:break-inside-avoid">
+          {/* MTTR por Categoria */}
+          <Card className="shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Clock className="w-4 h-4" /> Tempo Médio de Resolução por Categoria
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[280px] w-full">
+                {chartData.mttrByCategoryData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData.mttrByCategoryData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis type="number" tick={{ fontSize: 10 }} unit="h" />
+                      <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 9 }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }}
+                        formatter={(val: number) => [`${val}h`, 'Tempo Médio']}
+                      />
+                      <Bar dataKey="horas" fill="hsl(var(--warning))" radius={[0, 4, 4, 0]} barSize={18} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Sem tickets resolvidos no período</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Taxa de Reabertura por Técnico */}
+          <Card className="shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Repeat className="w-4 h-4" /> Taxa de Reabertura por Técnico
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[280px] w-full">
+                {chartData.reopenRateByTechData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData.reopenRateByTechData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis type="number" tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
+                      <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 9 }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }}
+                        formatter={(val: number, _: string, props: { payload?: { total: number } }) => [
+                          `${val}% (${props.payload?.total ?? 0} tickets)`,
+                          'Taxa de Reabertura'
+                        ]}
+                      />
+                      <Bar dataKey="taxa" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={18} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Dados insuficientes (&lt;2 tickets/técnico)</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SLA Cumprido vs Estourado ao Longo do Tempo */}
+          <Card className="col-span-full shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4" /> SLA Cumprido vs. Estourado ao Longo do Tempo
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[260px] w-full">
+                {chartData.slaTrendData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData.slaTrendData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
+                      <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                      <Area type="monotone" dataKey="ok" name="No Prazo" stackId="1" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} strokeWidth={2} />
+                      <Area type="monotone" dataKey="attention" name="Atenção" stackId="1" stroke="#eab308" fill="#eab308" fillOpacity={0.3} strokeWidth={2} />
+                      <Area type="monotone" dataKey="breached" name="Estourado" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.4} strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Sem dados de SLA no período</div>
+                )}
               </div>
             </CardContent>
           </Card>

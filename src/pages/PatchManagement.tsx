@@ -61,7 +61,7 @@ const PatchManagement: React.FC = () => {
         </div>
         <h2 className="text-2xl font-bold">Acesso Restrito</h2>
         <p className="text-muted-foreground text-center max-w-md">
-          O Gerenciamento de Patches requer privilégios de Administrador, Desenvolvedor ou Técnico.
+          O gerenciamento de Instaladores & Updates requer privilégios de Administrador, Desenvolvedor ou Técnico.
         </p>
       </div>
     );
@@ -78,7 +78,7 @@ const PatchManagement: React.FC = () => {
               <Package className="w-7 h-7" />
             </div>
             <div>
-              <h1 className="text-2xl font-black tracking-tight">Gerenciamento de Patches</h1>
+              <h1 className="text-2xl font-black tracking-tight">Instaladores & Updates</h1>
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
                 Scripts · Instaladores · Implantação Remota
               </p>

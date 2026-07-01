@@ -56,6 +56,8 @@ func NewDB(databaseURL string) (*DB, error) {
 
 func (d *DB) Close() { d.pool.Close() }
 
+func (d *DB) Pool() *pgxpool.Pool { return d.pool }
+
 // ─── Auth / Profile ─────────────────────────────────────────────────────────
 
 func (d *DB) RoleByUserID(ctx context.Context, userID string) (string, error) {
@@ -68,6 +70,12 @@ func (d *DB) CompanyExists(ctx context.Context, companyID string) (bool, error) 
 	var exists bool
 	err := d.pool.QueryRow(ctx, `select exists(select 1 from public.companies where id = $1)`, companyID).Scan(&exists)
 	return exists, err
+}
+
+func (d *DB) CompanyByUserID(ctx context.Context, userID string) (*string, error) {
+	var companyID *string
+	err := d.pool.QueryRow(ctx, `select company_id::text from public.profiles where id = $1 limit 1`, userID).Scan(&companyID)
+	return companyID, err
 }
 
 type ProfileUpdate struct {
