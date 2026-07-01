@@ -9,6 +9,7 @@ type Config struct {
 	SupabaseAnonKey    string
 	SupabaseServiceKey string
 	AgentKey           string
+	UptimeRobotKey     string
 	ResendAPIKey       string
 	ResendFrom         string
 	LoginURL           string
@@ -27,6 +28,7 @@ func LoadConfig() Config {
 		SupabaseAnonKey:    supabaseAnonKey,
 		SupabaseServiceKey: supabaseServiceKey,
 		AgentKey:           os.Getenv("AGENT_KEY"),
+		UptimeRobotKey:     os.Getenv("UPTIMEROBOT_API_KEY"),
 		ResendAPIKey:       os.Getenv("RESEND_API_KEY"),
 		ResendFrom:         envOr("RESEND_FROM", "Orion System <no-reply@orion.local>"),
 		LoginURL:           envOr("LOGIN_URL", "https://orion.bysam.dev/auth"),
