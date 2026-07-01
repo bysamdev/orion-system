@@ -90,9 +90,9 @@ export const SLAConfiguration: React.FC = () => {
     }
   });
 
-  const handleEdit = (sla: typeof formData) => {
-    setEditingId(sla.id);
-    setFormData({ ...sla });
+  const handleEdit = (sla: { id?: string; name: string; business_hours_only: boolean; business_start: string; business_end: string; urgent_hours: number; high_hours: number; medium_hours: number; low_hours: number }) => {
+    setEditingId(sla.id ?? null);
+    setFormData({ company_id: companyId, ...sla });
   };
 
   const handleCreate = () => {

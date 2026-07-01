@@ -32,6 +32,7 @@ const ClientPortal = lazy(() => import("./pages/ClientPortal"));
 const Automacoes = lazy(() => import("./pages/Automacoes"));
 const PatchManagement = lazy(() => import("./pages/PatchManagement"));
 const Notifications = lazy(() => import("./pages/Notifications"));
+const WebMonitoring = lazy(() => import("./pages/WebMonitoring"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,6 +84,7 @@ const App = () => (
               <Route path="/historico" element={<AppRoute><TicketHistory /></AppRoute>} />
               <Route path="/knowledge" element={<AppRoute><KnowledgeBase /></AppRoute>} />
               <Route path="/assets" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><Assets /></AppRoute>} />
+              <Route path="/monitoramento-web" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><WebMonitoring /></AppRoute>} />
               <Route path="/portal" element={<AppRoute><ClientPortal /></AppRoute>} />
               <Route path="/debug-tools" element={<AppRoute><DebugTools /></AppRoute>} />
               <Route path="/automacoes" element={<AppRoute allowedRoles={['admin', 'developer']}><Automacoes /></AppRoute>} />
