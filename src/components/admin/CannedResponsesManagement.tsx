@@ -12,8 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { EmptyState } from '@/components/shared/EmptyState';
+import {
+
   Table,
   TableBody,
   TableCell,
@@ -218,15 +224,18 @@ export const CannedResponsesManagement: React.FC = () => {
       
       <CardContent>
         {responses.length === 0 ? (
-          <div className="text-center py-12">
-            <Zap className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground mb-4">
-              Nenhuma resposta pronta cadastrada
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Crie respostas prontas para agilizar o atendimento aos chamados
-            </p>
-          </div>
+          <EmptyState
+            icon={Zap}
+            title="Nenhuma resposta pronta cadastrada"
+            description="Crie respostas prontas para agilizar o atendimento aos chamados."
+            action={{
+              label: "Nova Resposta",
+              onClick: () => {
+                resetForm();
+                setDialogOpen(true);
+              }
+            }}
+          />
         ) : (
           <div className="rounded-md border">
             <Table>
@@ -258,23 +267,34 @@ export const CannedResponsesManagement: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(response)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setSelectedResponse(response.id);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditDialog(response)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Editar resposta</TooltipContent>
+                        </Tooltip>
+                        
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setSelectedResponse(response.id);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Excluir resposta</TooltipContent>
+                        </Tooltip>
                       </div>
                     </TableCell>
                   </TableRow>
