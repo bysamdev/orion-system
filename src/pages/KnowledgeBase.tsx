@@ -16,6 +16,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
+import { EmptyState } from '@/components/shared/EmptyState';
+
 
 interface Article {
   id: string;
@@ -355,13 +357,16 @@ export default function KnowledgeBase() {
                 ))}
               </div>
             ) : filteredArticles?.length === 0 ? (
-              <div className="text-center py-32 bg-muted/5 rounded-[40px] border-2 border-dashed border-border/40">
-                <div className="w-20 h-20 bg-background rounded-3xl flex items-center justify-center mx-auto mb-6 border border-border/40 shadow-xl">
-                  <Book className="w-10 h-10 text-muted-foreground/30" />
-                </div>
-                <h3 className="text-2xl font-black">Nenhum artigo encontrado</h3>
-                <p className="text-muted-foreground text-lg">Tente buscar por termos diferentes ou navegue por outra categoria.</p>
-              </div>
+              <EmptyState
+                icon={Book}
+                title="Nenhum artigo encontrado"
+                description={searchQuery || activeCategory !== 'all'
+                  ? 'Tente buscar por termos diferentes ou navegue por outra categoria.'
+                  : 'A base de conhecimento está vazia. Crie o primeiro artigo.'}
+                size="lg"
+                className="bg-muted/5 rounded-[40px] border-2 border-dashed border-border/40"
+              />
+
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredArticles?.map(article => (

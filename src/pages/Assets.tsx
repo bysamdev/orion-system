@@ -23,6 +23,8 @@ import { Label } from '@/components/ui/label';
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
+import { EmptyState } from '@/components/shared/EmptyState';
+
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatDate } from '@/lib/utils';
@@ -534,26 +536,21 @@ const Assets = () => {
                 ))}
                 {filteredAssets?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-[400px] text-center">
-                      <div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-500">
-                        <div className="p-6 bg-primary/5 rounded-full ring-8 ring-primary/5">
-                          <HardDrive className="w-16 h-16 text-primary opacity-40" />
-                        </div>
-                        <div className="space-y-2 max-w-sm mx-auto">
-                          <h3 className="text-2xl font-black text-foreground">Nenhuma máquina cadastrada</h3>
-                          <p className="text-muted-foreground font-medium">
-                            Adicione a primeira máquina monitorada do seu cliente para gerenciar incidentes e inventário.
-                          </p>
-                        </div>
-                        <ButtonPrimary 
-                          onClick={() => setIsDialogOpen(true)}
-                          className="h-12 px-8 rounded-xl font-bold shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
-                          icon={<Plus className="w-5 h-5" />}
-                        >
-                          Adicionar Máquina
-                        </ButtonPrimary>
-                      </div>
+                    <TableCell colSpan={6} className="h-[400px] p-0">
+                      <EmptyState
+                        icon={HardDrive}
+                        title="Nenhuma máquina cadastrada"
+                        description={searchQuery || filterStatus !== 'all' || filterType !== 'all'
+                          ? 'Nenhum ativo corresponde aos filtros aplicados. Tente ajustar a busca.'
+                          : 'Adicione a primeira máquina monitorada do seu cliente para gerenciar incidentes e inventário.'}
+                        action={(!searchQuery && filterStatus === 'all' && filterType === 'all') ? {
+                          label: 'Adicionar Máquina',
+                          onClick: () => setIsDialogOpen(true),
+                          variant: 'default'
+                        } : undefined}
+                      />
                     </TableCell>
+
                   </TableRow>
                 )}
               </TableBody>
@@ -611,13 +608,13 @@ const Assets = () => {
                   ))}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-64 text-center space-y-3 opacity-40">
-                  <Activity className="w-12 h-12" />
-                  <div className="space-y-1">
-                    <p className="text-lg font-black">Nenhum chamado vinculado</p>
-                    <p className="text-sm">Este ativo ainda não possui histórico de incidentes.</p>
-                  </div>
-                </div>
+                <EmptyState
+                  icon={Activity}
+                  title="Nenhum chamado vinculado"
+                  description="Este ativo ainda não possui histórico de incidentes."
+                  className="h-64"
+                />
+
               )}
             </div>
             

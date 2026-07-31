@@ -6,7 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { StatusBadge } from '@/components/shared/StatusBadge';
-import { Search, History, Filter, X, ArrowRight, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { Search, History, Filter, X, ArrowRight, Loader2, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
+
 import { useQuery } from '@tanstack/react-query';
 import { supabaseRead } from '@/integrations/supabase/read-client';
 import { useNavigate, Navigate } from 'react-router-dom'; // Added Navigate import
@@ -173,9 +175,15 @@ export default function TicketHistory() {
                 {/* ── Mobile Card List (< md) ── */}
                 <div className="md:hidden divide-y divide-border/40">
                   {filteredTickets.length === 0 ? (
-                    <p className="text-center text-muted-foreground text-sm p-12 font-medium">
-                      Nenhum ticket encontrado.
-                    </p>
+                    <EmptyState
+                      icon={Inbox}
+                      title="Nenhum chamado encontrado"
+                      description={debouncedSearch || statusFilter !== 'all' || priorityFilter !== 'all'
+                        ? 'Nenhum chamado corresponde aos filtros aplicados. Tente ajustar a busca.'
+                        : 'Nenhum chamado resolvido ou fechado ainda.'}
+                      className="px-4"
+                      size="sm"
+                    />
                   ) : filteredTickets.map(t => (
                     <button
                       key={t.id}
@@ -212,8 +220,14 @@ export default function TicketHistory() {
                     <TableBody>
                       {filteredTickets.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="h-48 text-center text-muted-foreground text-sm font-medium">
-                            Nenhum ticket histórico encontrado com estes filtros.
+                          <TableCell colSpan={6} className="p-0">
+                            <EmptyState
+                              icon={Inbox}
+                              title="Nenhum chamado encontrado"
+                              description={debouncedSearch || statusFilter !== 'all' || priorityFilter !== 'all'
+                                ? 'Nenhum chamado corresponde aos filtros aplicados. Tente ajustar a busca.'
+                                : 'Nenhum chamado resolvido ou fechado ainda.'}
+                            />
                           </TableCell>
                         </TableRow>
                       ) : (

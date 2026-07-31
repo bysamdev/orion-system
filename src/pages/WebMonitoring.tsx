@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Label } from '@/components/ui/label';
 import { Globe, Plus, Trash2, Activity, AlertCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/shared/EmptyState';
+
 
 export default function WebMonitoring() {
   const { data: endpoints, isLoading } = useWebEndpoints();
@@ -148,10 +150,13 @@ export default function WebMonitoring() {
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Carregando monitores...</div>
           ) : endpoints?.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground flex flex-col items-center">
-              <Globe className="w-12 h-12 opacity-20 mb-4" />
-              Nenhum monitor configurado. Adicione o seu primeiro site!
-            </div>
+            <EmptyState
+              icon={Globe}
+              title="Nenhum monitor configurado"
+              description="Adicione o seu primeiro site para começar o monitoramento!"
+              action={{ label: "Adicionar Endpoint", onClick: () => setIsOpen(true) }}
+            />
+
           ) : (
             <div className="space-y-4">
               {endpoints?.map(endpoint => (
