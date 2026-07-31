@@ -7,11 +7,20 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 )
+
+func getUptimeRobotKey() string {
+	if key := os.Getenv("UPTIMEROBOT_API_KEY"); key != "" {
+		return key
+	}
+	return cfg.UptimeRobotKey
+}
+
 
 type createEndpointReq struct {
 	Name string `json:"name"`
@@ -44,7 +53,8 @@ type uptimeResponse struct {
 }
 
 func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
-	if cfg.UptimeRobotKey == "" {
+	apiKey := getUptimeRobotKey()
+	if apiKey == "" {
 		http.Error(w, "UPTIMEROBOT_API_KEY not configured", http.StatusInternalServerError)
 		return
 	}
@@ -74,14 +84,16 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 		monitorType = "3"
 	}
 
-	// Call UptimeRobot API
+	// Call UptimeRobot API — only Free-plan-allowed fields
 	apiURL := "https://api.uptimerobot.com/v2/newMonitor"
 	data := url.Values{}
-	data.Set("api_key", cfg.UptimeRobotKey)
+	data.Set("api_key", apiKey)
 	data.Set("format", "json")
 	data.Set("type", monitorType)
 	data.Set("url", req.URL)
 	data.Set("friendly_name", req.Name)
+	data.Set("interval", "300") // 5 min — Free plan minimum
+
 
 	resp, err := http.PostForm(apiURL, data)
 	if err != nil {
@@ -185,10 +197,11 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Fetch statuses from UptimeRobot if we have monitors and API key
-	if len(monitorIDs) > 0 && cfg.UptimeRobotKey != "" {
+	apiKey := getUptimeRobotKey()
+	if len(monitorIDs) > 0 && apiKey != "" {
 		apiURL := "https://api.uptimerobot.com/v2/getMonitors"
 		data := url.Values{}
-		data.Set("api_key", cfg.UptimeRobotKey)
+		data.Set("api_key", apiKey)
 		data.Set("format", "json")
 		data.Set("monitors", strings.Join(monitorIDs, "-"))
 
@@ -243,7 +256,8 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 }
 
 func monitoringDeleteWebEndpoint(w http.ResponseWriter, r *http.Request) {
-	if cfg.UptimeRobotKey == "" {
+	apiKey := getUptimeRobotKey()
+	if apiKey == "" {
 		http.Error(w, "UPTIMEROBOT_API_KEY not configured", http.StatusInternalServerError)
 		return
 	}
@@ -282,7 +296,7 @@ func monitoringDeleteWebEndpoint(w http.ResponseWriter, r *http.Request) {
 	if urID != "" {
 		apiURL := "https://api.uptimerobot.com/v2/deleteMonitor"
 		data := url.Values{}
-		data.Set("api_key", cfg.UptimeRobotKey)
+		data.Set("api_key", apiKey)
 		data.Set("format", "json")
 		data.Set("id", urID)
 		
