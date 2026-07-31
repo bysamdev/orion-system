@@ -43,6 +43,8 @@ import { Server, HardDrive, Cpu, MemoryStick, Activity, Bell, Terminal } from 'l
 import { useSLAConfigs } from '@/hooks/useSLAConfigs';
 
 
+import { isUUID, isTicketNumber } from '@/lib/uuid';
+
 const ticketUpdateSchema = z.object({
   content: z.string().trim().min(1, 'O comentário não pode estar vazio').max(5000, 'O comentário não pode ter mais de 5000 caracteres')
 });
@@ -134,13 +136,13 @@ const TicketDetails: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
-  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
-  const isNumber = /^\d+$/.test(id || '');
-  // isResolving: true enquanto buscamos o UUID a partir do número — evita query prematura
-  const [isResolving, setIsResolving] = useState(isNumber);
+  // isResolving starts as `true` when the id looks like a ticket_number
+  // so we never fire a query with an empty validId before the redirect completes.
+  const [isResolving, setIsResolving] = useState(() => isTicketNumber(id || ''));
+
 
   React.useEffect(() => {
-    if (isNumber) {
+    if (isTicketNumber(id || '')) {
       setIsResolving(true);
       const fetchUUID = async () => {
         try {
@@ -174,8 +176,9 @@ const TicketDetails: React.FC = () => {
     }
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Só passa o UUID se for realmente um UUID válido E não estamos no meio de um redirect
-  const validId = (isUUID && !isResolving) ? (id || '') : '';
+  // validId is only non-empty when we have a confirmed UUID and are not mid-redirect
+  const validId = (isUUID(id || '') && !isResolving) ? (id || '') : '';
+
 
   const { data: ticket, isLoading: ticketLoading } = useTicket(validId);
   const { data: updates = [], isLoading: updatesLoading } = useTicketUpdates(validId);
