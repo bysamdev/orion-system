@@ -15,7 +15,18 @@ import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
 import { calculateSlaStatus } from '@/lib/ticket-helpers';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Loader2, ArrowLeft, BarChart3, Clock, CheckCircle2, AlertTriangle, TrendingUp, ShieldAlert, Download, Printer, Repeat } from 'lucide-react';
+import { Download, Filter, FileSpreadsheet, ShieldAlert, BarChart3, TrendingUp, Clock, AlertTriangle, Users, Target, Loader2, ArrowLeft, Printer, Repeat } from 'lucide-react';
+
+// Exported for testing
+export const sanitizeCSV = (val: any) => {
+  if (!val) return '""';
+  let str = String(val);
+  if (/^[=+\-@\t]/.test(str)) {
+    str = "'" + str;
+  }
+  return `"${str.replace(/"/g, '""')}"`;
+};
+
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend } from 'recharts';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -260,16 +271,17 @@ const Reports: React.FC = () => {
 
   const exportToCSV = () => {
     if (tickets.length === 0) return;
+
     const headers = ['ID', 'Título', 'Empresa', 'Solicitante', 'Prioridade', 'Status', 'SLA', 'Técnico', 'Criado Em', 'Resolvido Em'];
     const rows = tickets.map(t => [
       t.ticket_number,
-      `"${t.title.replace(/"/g, '""')}"`,
-      `"${t.company_name}"`,
-      `"${t.requester_name}"`,
+      sanitizeCSV(t.title),
+      sanitizeCSV(t.company_name),
+      sanitizeCSV(t.requester_name),
       t.priority,
       t.status,
       t.sla_status || 'N/A',
-      `"${t.assigned_to || ''}"`,
+      sanitizeCSV(t.assigned_to || ''),
       t.created_at,
       t.resolved_at || ''
     ]);

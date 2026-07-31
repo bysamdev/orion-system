@@ -18,7 +18,7 @@ export const ticketUpdateTypeSchema = z.enum(['comment', 'status_change', 'assig
 });
 
 // Regex seguro que bloqueia caracteres de controle, Unicode invisível e potencialmente perigosos
-const safeTextRegex = /^[a-zA-Z0-9\s\-_.áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ!?,;:()[\]{}@#$%&*+='"/\\]+$/;
+
 
 export const companyNameSchema = z.string()
   .trim()
@@ -60,21 +60,18 @@ export const ticketCreationSchema = z.object({
   title: z.string()
     .trim()
     .min(5, 'Título deve ter no mínimo 5 caracteres')
-    .max(200, 'Título deve ter no máximo 200 caracteres')
-    .regex(safeTextRegex, 'O título contém caracteres inválidos'),
+    .max(200, 'Título deve ter no máximo 200 caracteres'),
   description: z.string()
     .trim()
     .min(20, 'Descrição deve ter no mínimo 20 caracteres')
     .max(5000, 'Descrição deve ter no máximo 5000 caracteres')
-    .regex(safeTextRegex, 'A descrição contém caracteres inválidos')
     .refine(
       (val) => !val.includes('[preencher]'),
       { message: 'Parece que você não preencheu todos os campos do template — revise antes de enviar.' }
     ),
   category: z.string()
     .trim()
-    .min(1, 'Categoria é obrigatória')
-    .regex(safeTextRegex, 'A categoria contém caracteres inválidos'),
+    .min(1, 'Categoria é obrigatória'),
   priority: ticketPrioritySchema,
   department: z.string()
     .trim()
