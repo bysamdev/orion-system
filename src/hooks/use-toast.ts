@@ -3,7 +3,8 @@ import * as React from "react";
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 1;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_REMOVE_DELAY = 5000; // auto-dismiss after 5s
+
 
 type ToasterToast = ToastProps & {
   id: string;
@@ -174,7 +175,9 @@ function useToast() {
         listeners.splice(index, 1);
       }
     };
-  }, [state]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // [] — register listener once on mount; re-registering on every state update causes listener accumulation
+
 
   return {
     ...state,

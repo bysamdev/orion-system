@@ -49,10 +49,12 @@ export const ticketUpdateSchema = z.object({
   content: z.string()
     .trim()
     .min(1, 'Conteúdo é obrigatório')
-    .max(5000, 'Conteúdo deve ter no máximo 5000 caracteres')
-    .regex(safeTextRegex, 'O conteúdo contém caracteres inválidos'),
+    .max(5000, 'Conteúdo deve ter no máximo 5000 caracteres'),
+  // NOTE: safeTextRegex removed — it rejected valid emoji and Unicode input.
+  // HTML-escaping and injection prevention are handled server-side (Go handlers).
   type: ticketUpdateTypeSchema
 });
+
 
 export const ticketCreationSchema = z.object({
   title: z.string()

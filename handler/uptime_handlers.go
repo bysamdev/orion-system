@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -94,6 +95,17 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 	data.Set("friendly_name", req.Name)
 	data.Set("interval", "300") // 5 min — Free plan minimum
 
+
+	// TODO(debug): remove after confirming payload — see Vercel Function logs
+	debugData := url.Values{}
+	for k, v := range data {
+		if k == "api_key" {
+			debugData[k] = []string{"***"}
+		} else {
+			debugData[k] = v
+		}
+	}
+	log.Printf("[UptimeRobot] payload: %s", debugData.Encode())
 
 	resp, err := http.PostForm(apiURL, data)
 	if err != nil {
