@@ -26,7 +26,7 @@ export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
 
   React.useEffect(() => {
-    if (open) {
+    if (!open) {
       setNotes('');
       setSendSurvey(true);
       setCheckedItems(new Set());

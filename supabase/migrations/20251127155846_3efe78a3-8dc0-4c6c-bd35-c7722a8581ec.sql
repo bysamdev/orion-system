@@ -157,10 +157,9 @@ TO authenticated
 USING (
   bucket_id = 'ticket-files' AND
   EXISTS (
-    SELECT 1 FROM ticket_attachments ta
-    JOIN tickets t ON t.id = ta.ticket_id
-    WHERE ta.file_url LIKE '%' || storage.objects.name || '%'
-    AND (
+    SELECT 1 FROM tickets t 
+    WHERE (t.id::text = split_part(storage.objects.name, '/', 1)) AND 
+    (
       t.user_id = auth.uid() OR
       (has_role(auth.uid(), 'technician'::app_role) AND ticket_belongs_to_user_company(t.id, auth.uid())) OR
       (has_role(auth.uid(), 'admin'::app_role) AND ticket_belongs_to_user_company(t.id, auth.uid())) OR

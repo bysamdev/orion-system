@@ -15,7 +15,7 @@ import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
 import { calculateSlaStatus } from '@/lib/ticket-helpers';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Download, Filter, FileSpreadsheet, ShieldAlert, BarChart3, TrendingUp, Clock, AlertTriangle, Users, Target, Loader2, ArrowLeft, Printer, Repeat } from 'lucide-react';
+import { Download, Filter, FileSpreadsheet, ShieldAlert, BarChart3, TrendingUp, Clock, AlertTriangle, Users, Target, Loader2, ArrowLeft, Printer, Repeat, CheckCircle2 } from 'lucide-react';
 
 // Exported for testing
 export const sanitizeCSV = (val: any) => {

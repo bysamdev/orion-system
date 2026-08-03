@@ -462,9 +462,10 @@ const TicketDetails: React.FC = () => {
   };
 
   const handleResolveConfirm = async (notes: string, _sendSurvey: boolean) => {
+    console.log('handleResolveConfirm called with:', { type: typeof notes, isArray: Array.isArray(notes), value: notes });
     if (!ticket) return;
 
-    if (!notes.trim()) {
+    if (!notes || typeof notes !== 'string' || !notes.trim()) {
       toast({
         title: 'Erro',
         description: 'Preencha a solução.',

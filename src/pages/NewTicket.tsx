@@ -223,6 +223,7 @@ const NewTicket = () => {
       queryClient.invalidateQueries({ queryKey: ['technician-stats'] });
       queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
       queryClient.invalidateQueries({ queryKey: ['team-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['meus-tickets'] });
       
       setCreatedTicket({
         id: ticket.id,
