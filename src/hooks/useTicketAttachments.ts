@@ -46,6 +46,11 @@ export const useUploadAttachment = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
       
+      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error('O arquivo excede o limite de 10MB');
+      }
+      
       // Gerar nome único para o arquivo
       const fileExt = file.name.split('.').pop();
       const fileName = `${ticketId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
