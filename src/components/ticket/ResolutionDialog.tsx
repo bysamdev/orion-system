@@ -11,6 +11,7 @@ interface ResolutionDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (notes: string, sendSurvey: boolean) => void;
   isPending?: boolean;
+  checklistItems?: string[];
 }
 
 export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
@@ -18,16 +19,34 @@ export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
   onOpenChange,
   onConfirm,
   isPending = false,
+  checklistItems = [],
 }) => {
   const [notes, setNotes] = useState('');
   const [sendSurvey, setSendSurvey] = useState(true);
+  const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
+
+  React.useEffect(() => {
+    if (open) {
+      setNotes('');
+      setSendSurvey(true);
+      setCheckedItems(new Set());
+    }
+  }, [open]);
 
   const handleConfirm = () => {
     if (!notes.trim()) return;
+    if (checklistItems.length > 0 && checkedItems.size < checklistItems.length) return;
     onConfirm(notes.trim(), sendSurvey);
-    setNotes('');
-    setSendSurvey(true);
   };
+
+  const handleCheckItem = (index: number, checked: boolean) => {
+    const next = new Set(checkedItems);
+    if (checked) next.add(index);
+    else next.delete(index);
+    setCheckedItems(next);
+  };
+
+  const isChecklistValid = checklistItems.length === 0 || checkedItems.size === checklistItems.length;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -43,6 +62,32 @@ export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
         </AlertDialogHeader>
 
         <div className="space-y-4">
+          {checklistItems.length > 0 && (
+            <div className="space-y-3 bg-muted/30 p-4 rounded-lg border border-border">
+              <Label className="text-sm font-semibold">
+                Checklist Obrigatório <span className="text-destructive">*</span>
+              </Label>
+              <div className="space-y-2.5">
+                {checklistItems.map((item, index) => (
+                  <div key={index} className="flex items-start space-x-2">
+                    <Checkbox
+                      id={`checklist-item-${index}`}
+                      checked={checkedItems.has(index)}
+                      onCheckedChange={(checked) => handleCheckItem(index, checked === true)}
+                      className="mt-0.5"
+                    />
+                    <Label
+                      htmlFor={`checklist-item-${index}`}
+                      className="text-sm leading-snug cursor-pointer font-medium"
+                    >
+                      {item}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <Label htmlFor="resolution-notes" className="text-sm font-medium">
               Notas de Resolução <span className="text-destructive">*</span>
@@ -77,7 +122,7 @@ export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
           </AlertDialogCancel>
           <Button
             onClick={handleConfirm}
-            disabled={!notes.trim() || isPending}
+            disabled={!notes.trim() || !isChecklistValid || isPending}
             className="gap-2"
           >
             <CheckCircle2 className="w-4 h-4" />

@@ -327,7 +327,6 @@ const TicketDetails: React.FC = () => {
     }
   };
 
-  const [checklistCompleted, setChecklistCompleted] = useState<string[]>([]);
   const [pendingChecklist, setPendingChecklist] = useState<Array<{ item: string; done: boolean }>>([]);
   const [resolutionNotes, setResolutionNotes] = useState('');
 
@@ -465,12 +464,10 @@ const TicketDetails: React.FC = () => {
   const handleResolveConfirm = async (notes: string, _sendSurvey: boolean) => {
     if (!ticket) return;
 
-    const isChecklistValid = !resolutionChecklist || (resolutionChecklist && resolutionChecklist.items && checklistCompleted.length === resolutionChecklist.items.length);
-
-    if (!notes.trim() || !isChecklistValid) {
+    if (!notes.trim()) {
       toast({
-        title: 'Atenção',
-        description: 'Preencha a solução e marque todos os itens do checklist (se houver).',
+        title: 'Erro',
+        description: 'Preencha a solução.',
         variant: 'destructive',
       });
       return;
@@ -487,7 +484,7 @@ const TicketDetails: React.FC = () => {
     await addUpdate.mutateAsync({ ticket_id: ticket.id, content: resolutionContent, type: 'comment' });
     setResolveDialogOpen(false);
     setResolutionNotes('');
-    setChecklistCompleted([]);
+    setResolveDialogOpen(false);
   };
 
   const handleReopenTicket = async () => {
@@ -1015,6 +1012,7 @@ const TicketDetails: React.FC = () => {
         onOpenChange={setResolveDialogOpen}
         onConfirm={handleResolveConfirm}
         isPending={updateStatus.isPending}
+        checklistItems={resolutionChecklist?.items}
       />
 
       <EscalateDialog
