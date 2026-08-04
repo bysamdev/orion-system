@@ -4,7 +4,7 @@ import { supabaseRead } from '@/integrations/supabase/read-client';
  * Enriches a list of tickets with company_name by batch-fetching
  * profiles and companies. Replaces 5 duplicated implementations.
  */
-export async function enrichTicketsWithCompany<T extends { user_id?: string; sla_due_date?: string | null; created_at?: string | null; sla_status?: string | null }>(
+export async function enrichTicketsWithCompany<T extends { user_id?: string; sla_due_date?: string | null; created_at?: string | null; resolved_at?: string | null; sla_status?: string | null }>(
   tickets: T[]
 ): Promise<(T & { company_name: string | null })[]> {
   if (!tickets || tickets.length === 0) return [];
@@ -30,7 +30,7 @@ export async function enrichTicketsWithCompany<T extends { user_id?: string; sla
   return tickets.map(ticket => {
     const profile = ticket.user_id ? profileMap.get(ticket.user_id) : null;
     const company = profile?.company_id ? companyMap.get(profile.company_id) : null;
-    const dynamicSlaStatus = ticket.sla_due_date ? calculateSlaStatus(ticket.sla_due_date, ticket.created_at) : ticket.sla_status;
+    const dynamicSlaStatus = ticket.sla_due_date ? calculateSlaStatus(ticket.sla_due_date, ticket.created_at, ticket.resolved_at) : ticket.sla_status;
     return { ...ticket, company_name: company?.name || null, sla_status: dynamicSlaStatus };
   });
 }
@@ -87,14 +87,18 @@ export const CATEGORY_LABELS: Record<string, string> = {
  * - ATENÇÃO (warning): <= 25% do tempo restante
  * - NO PRAZO (ok): > 25% do tempo restante
  */
-export function calculateSlaStatus(slaDueDate: string | null, createdAt?: string | null): 'ok' | 'warning' | 'attention' | 'breached' | null {
+export function calculateSlaStatus(slaDueDate: string | null, createdAt?: string | null, resolvedAt?: string | null): 'ok' | 'warning' | 'attention' | 'breached' | null {
   if (!slaDueDate) return null;
   
-  const now = new Date();
+  const referenceTime = resolvedAt ? new Date(resolvedAt) : new Date();
   const dueDate = new Date(slaDueDate);
   
-  if (now > dueDate) {
+  if (referenceTime > dueDate) {
     return 'breached';
+  }
+
+  if (resolvedAt) {
+    return 'ok';
   }
   
   let slaPolicyMs = 0;
@@ -108,7 +112,7 @@ export function calculateSlaStatus(slaDueDate: string | null, createdAt?: string
     slaPolicyMs = 24 * 60 * 60 * 1000;
   }
   
-  const msRemaining = dueDate.getTime() - now.getTime();
+  const msRemaining = dueDate.getTime() - referenceTime.getTime();
   const percentualRestante = (msRemaining / slaPolicyMs) * 100;
   
   if (percentualRestante <= 10 || msRemaining <= 2 * 60 * 60 * 1000) return 'attention';

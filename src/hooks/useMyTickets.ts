@@ -48,7 +48,7 @@ export const useSLAAtRiskTickets = () => {
       
       return enrichedTickets.filter(ticket => {
         if (!ticket.sla_due_date) return false;
-        const status = calculateSlaStatus(ticket.sla_due_date, ticket.created_at);
+        const status = calculateSlaStatus(ticket.sla_due_date, ticket.created_at, ticket.resolved_at);
         return status === 'warning' || status === 'attention' || status === 'breached';
       });
     },

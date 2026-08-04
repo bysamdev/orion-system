@@ -120,7 +120,7 @@ export const useTicket = (id: string) => {
       // Limpa o objeto aninhado para não poluir o estado
       const { profiles, ...cleanedTicket } = ticket as typeof ticket & { profiles?: unknown };
 
-      const dynamicSlaStatus = ticket.sla_due_date ? calculateSlaStatus(ticket.sla_due_date, ticket.created_at) : ticket.sla_status;
+      const dynamicSlaStatus = ticket.sla_due_date ? calculateSlaStatus(ticket.sla_due_date, ticket.created_at, ticket.resolved_at) : ticket.sla_status;
       return { ...cleanedTicket, company_name: companyName, sla_status: dynamicSlaStatus } as Ticket;
     },
     enabled: !!id,

@@ -1271,6 +1271,61 @@ export type Database = {
     }
     Functions: {
       auto_close_resolved_tickets: { Args: never; Returns: number }
+      get_reports_created_in_period: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_company_id?: string | null
+          p_tech_id?: string | null
+        }
+        Returns: Json
+      }
+      get_reports_active_in_period: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_company_id?: string | null
+          p_tech_id?: string | null
+        }
+        Returns: Json
+      }
+      get_reports_tickets: {
+        Args: {
+          p_mode: string
+          p_start_date: string
+          p_end_date: string
+          p_company_id?: string | null
+          p_tech_id?: string | null
+        }
+        Returns: {
+          id: string
+          ticket_number: number
+          title: string
+          description: string
+          requester_name: string
+          category: string
+          priority: string
+          status: string
+          assigned_to: string | null
+          assigned_to_user_id: string | null
+          company_id: string
+          created_at: string
+          updated_at: string
+          sla_due_date: string | null
+          sla_status: string | null
+          resolved_at: string | null
+          first_response_at: string | null
+          operator_name: string | null
+          department: string | null
+          remote_id: string | null
+          remote_password: string | null
+          sla_paused_at: string | null
+          sla_accumulated_pause_minutes: number | null
+          contract_id: string | null
+          asset_id: string | null
+          metadata: Json | null
+        }[]
+      }
       calculate_sla_due_date: {
         Args: { ticket_created_at: string; ticket_priority: string }
         Returns: string

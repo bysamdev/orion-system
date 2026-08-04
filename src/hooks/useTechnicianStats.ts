@@ -47,7 +47,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
       let slaBreachedCount = 0;
 
       activeTickets?.forEach(ticket => {
-        const status = calculateSlaStatus(ticket.sla_due_date, ticket.created_at);
+        const status = calculateSlaStatus(ticket.sla_due_date, ticket.created_at, ticket.resolved_at);
         if (status === 'breached') {
           slaBreachedCount++;
         } else if (status === 'warning' || status === 'attention') {

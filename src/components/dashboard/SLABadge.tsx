@@ -10,6 +10,7 @@ interface SLABadgeProps {
   slaStatus: 'ok' | 'warning' | 'attention' | 'breached' | string | null;
   slaDueDate: string | null;
   createdAt?: string | null;
+  resolvedAt?: string | null;
   variant?: 'default' | 'compact';
   className?: string;
 }
@@ -25,10 +26,11 @@ export const SLABadge: React.FC<SLABadgeProps> = ({
   slaStatus, 
   slaDueDate,
   createdAt,
+  resolvedAt,
   variant = 'default',
   className 
 }) => {
-  const dynamicStatus = calculateSlaStatus(slaDueDate, createdAt) || slaStatus;
+  const dynamicStatus = calculateSlaStatus(slaDueDate, createdAt, resolvedAt) || slaStatus;
 
   if (!dynamicStatus) {
     return null;

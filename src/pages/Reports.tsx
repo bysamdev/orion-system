@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { supabaseRead } from '@/integrations/supabase/read-client';
-import { useTickets } from '@/hooks/useTickets';
+import { useReportMetrics, type ReportMode } from '@/hooks/useReportMetrics';
+import { useReportTickets } from '@/hooks/useReportTickets';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -13,9 +13,8 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
-import { calculateSlaStatus } from '@/lib/ticket-helpers';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Download, Filter, FileSpreadsheet, ShieldAlert, BarChart3, TrendingUp, Clock, AlertTriangle, Users, Target, Loader2, ArrowLeft, Printer, Repeat, CheckCircle2 } from 'lucide-react';
+import { Download, ShieldAlert, BarChart3, TrendingUp, Clock, AlertTriangle, Loader2, ArrowLeft, Printer, Repeat, CheckCircle2, Calendar, Activity } from 'lucide-react';
 
 // Exported for testing
 export const sanitizeCSV = (val: any) => {
@@ -38,6 +37,9 @@ const Reports: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Modo de visualização
+  const [reportMode, setReportMode] = useState<ReportMode>('created');
+
   // Filtros
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
@@ -47,6 +49,9 @@ const Reports: React.FC = () => {
   const [dateTo, setDateTo] = useState(() => new Date().toISOString().split('T')[0]);
   const [companyFilter, setCompanyFilter] = useState<string>('all');
   const [techFilter, setTechFilter] = useState<string>('all');
+
+  const companyId = companyFilter !== 'all' ? companyFilter : null;
+  const techId = techFilter !== 'all' ? techFilter : null;
 
   // Buscar empresas para filtro
   const { data: companies } = useQuery({
@@ -72,86 +77,57 @@ const Reports: React.FC = () => {
     },
   });
 
-  // Buscar tickets através da fonte unificada (useTickets)
-  const { data: allTickets = [], isLoading: ticketsLoading } = useTickets();
+  // ── KPIs via RPC (banco) ────────────────────────────────────────────────
+  const { data: kpis, isLoading: kpisLoading } = useReportMetrics({
+    mode: reportMode,
+    dateFrom,
+    dateTo,
+    companyId,
+    techId,
+  });
 
-  // Filtragem no client-side para manter a consistência com o Dashboard
-  const tickets = useMemo(() => {
-    return allTickets.filter(t => {
-      // Filtros de empresa e técnico
-      if (companyFilter !== 'all' && t.company_id !== companyFilter) return false;
-      if (techFilter !== 'all' && t.assigned_to_user_id !== techFilter) return false;
+  // ── Lista de tickets via RPC (banco) — usada nos gráficos e CSV ────────
+  const { data: tickets = [], isLoading: ticketsLoading } = useReportTickets({
+    mode: reportMode,
+    dateFrom,
+    dateTo,
+    companyId,
+    techId,
+  });
 
-      // Status ativo
-      const isOpen = ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'].includes(t.status);
-
-      // Tratamento para tickets sem data de criação válida
-      if (!t.created_at && isOpen) return true;
-      if (!t.created_at) return false;
-
-      const createdDate = t.created_at.split('T')[0];
-      const isCreatedInPeriod = createdDate >= dateFrom && createdDate <= dateTo;
-
-      let isResolvedInPeriod = false;
-      if (t.resolved_at) {
-        const resolvedDate = t.resolved_at.split('T')[0];
-        isResolvedInPeriod = resolvedDate >= dateFrom && resolvedDate <= dateTo;
-      }
-
-      // Ticket é relevante se foi criado, resolvido ou continua ativo no período
-      return isCreatedInPeriod || isResolvedInPeriod || isOpen;
-    });
-  }, [allTickets, dateFrom, dateTo, companyFilter, techFilter]);
-
-  // Calcular métricas
-  const metrics = useMemo(() => {
-    const open = tickets.filter(t => ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'].includes(t.status)).length;
-    const resolved = tickets.filter(t => t.status === 'resolved').length;
-    const closed = tickets.filter(t => ['closed', 'cancelled'].includes(t.status)).length;
-
-    // Tempo médio de resolução (em horas)
-    const resolvedTickets = tickets.filter(t => t.resolved_at && t.created_at);
-    let avgResolutionHours = 0;
-    if (resolvedTickets.length > 0) {
-      const totalMs = resolvedTickets.reduce((acc, t) => {
-        return acc + (new Date(t.resolved_at!).getTime() - new Date(t.created_at).getTime());
-      }, 0);
-      avgResolutionHours = Math.round((totalMs / resolvedTickets.length / 3600000) * 10) / 10;
-    }
-
-    // SLA compliance
-    const withSla = tickets.filter(t => t.sla_status);
-    const slaOk = withSla.filter(t => t.sla_status === 'ok').length;
-    const slaAttention = withSla.filter(t => t.sla_status === 'attention').length;
-    const slaBreached = withSla.filter(t => t.sla_status === 'breached').length;
-
-    // Rankings
+  // Rankings derivados da lista de tickets (client-side, apenas ordenação/slice)
+  const rankings = useMemo(() => {
     const techRanking = tickets.reduce((acc: Record<string, number>, t) => {
-      if (t.assigned_to) {
-        acc[t.assigned_to] = (acc[t.assigned_to] || 0) + 1;
-      }
+      if (t.assigned_to) acc[t.assigned_to] = (acc[t.assigned_to] || 0) + 1;
       return acc;
     }, {});
-
     const companyRanking = tickets.reduce((acc: Record<string, number>, t) => {
-      if (t.company_name) {
-        acc[t.company_name] = (acc[t.company_name] || 0) + 1;
-      }
+      if (t.company_name) acc[t.company_name] = (acc[t.company_name] || 0) + 1;
       return acc;
     }, {});
-
     const categoryRanking = tickets.reduce((acc: Record<string, number>, t) => {
       const cat = t.category || 'Sem Categoria';
       acc[cat] = (acc[cat] || 0) + 1;
       return acc;
     }, {});
-
-    return { 
-      open, resolved, closed, total: tickets.length, 
-      avgResolutionHours, slaOk, slaAttention, slaBreached,
-      techRanking, companyRanking, categoryRanking
-    };
+    return { techRanking, companyRanking, categoryRanking };
   }, [tickets]);
+
+  // Aliases para compatibilidade com o JSX existente
+  const metrics = {
+    total: kpis?.total ?? 0,
+    open: kpis?.abertos ?? 0,
+    resolved: kpis?.resolvidos ?? 0,
+    closed: kpis?.cancelados ?? 0,
+    avgResolutionHours: kpis?.tempoMedioHoras ?? 0,
+    slaBreached: kpis?.slaEstourado ?? 0,
+    // SLA ok/attention derivados da lista de tickets
+    slaOk: tickets.filter(t => t.sla_status === 'ok').length,
+    slaAttention: tickets.filter(t => t.sla_status === 'attention').length,
+    techRanking: rankings.techRanking,
+    companyRanking: rankings.companyRanking,
+    categoryRanking: rankings.categoryRanking,
+  };
 
   // Transformar dados para os gráficos
   const chartData = useMemo(() => {
@@ -349,6 +325,33 @@ const Reports: React.FC = () => {
             <p className="text-muted-foreground mt-1">Métricas, análise de desempenho e exportação de dados</p>
           </div>
           <div className="flex items-center gap-3">
+            {/* Toggle de modo */}
+            <div className="flex items-center rounded-lg border border-border bg-muted p-1 gap-1" role="group" aria-label="Modo de relatório">
+              <button
+                id="report-mode-created"
+                onClick={() => setReportMode('created')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  reportMode === 'created'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                Criados no Período
+              </button>
+              <button
+                id="report-mode-active"
+                onClick={() => setReportMode('active')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  reportMode === 'active'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5" />
+                Ativos no Período
+              </button>
+            </div>
             <Button variant="outline" onClick={exportToCSV} className="bg-background" disabled={tickets.length === 0}>
               <Download className="w-4 h-4 mr-2" /> Exportar Planilha
             </Button>
@@ -413,7 +416,7 @@ const Reports: React.FC = () => {
                   <BarChart3 className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.total}</p>
+                  {kpisLoading ? <div className="h-7 w-10 rounded bg-muted animate-pulse" /> : <p className="text-2xl font-bold text-foreground">{metrics.total}</p>}
                   <p className="text-xs text-muted-foreground">Total no Período</p>
                 </div>
               </div>
@@ -426,7 +429,7 @@ const Reports: React.FC = () => {
                   <Clock className="h-5 w-5 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.open}</p>
+                  {kpisLoading ? <div className="h-7 w-10 rounded bg-muted animate-pulse" /> : <p className="text-2xl font-bold text-foreground">{metrics.open}</p>}
                   <p className="text-xs text-muted-foreground">Abertos/Ativos</p>
                 </div>
               </div>
@@ -439,7 +442,7 @@ const Reports: React.FC = () => {
                   <CheckCircle2 className="h-5 w-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.resolved + metrics.closed}</p>
+                  {kpisLoading ? <div className="h-7 w-10 rounded bg-muted animate-pulse" /> : <p className="text-2xl font-bold text-foreground">{metrics.resolved + metrics.closed}</p>}
                   <p className="text-xs text-muted-foreground">Resolvidos/Fechados</p>
                 </div>
               </div>
@@ -452,7 +455,7 @@ const Reports: React.FC = () => {
                   <TrendingUp className="h-5 w-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.avgResolutionHours}h</p>
+                  {kpisLoading ? <div className="h-7 w-16 rounded bg-muted animate-pulse" /> : <p className="text-2xl font-bold text-foreground">{metrics.avgResolutionHours != null ? `${metrics.avgResolutionHours}h` : '—'}</p>}
                   <p className="text-xs text-muted-foreground">Tempo Médio Resolução</p>
                 </div>
               </div>
@@ -465,7 +468,7 @@ const Reports: React.FC = () => {
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.slaBreached}</p>
+                  {kpisLoading ? <div className="h-7 w-10 rounded bg-muted animate-pulse" /> : <p className="text-2xl font-bold text-foreground">{metrics.slaBreached}</p>}
                   <p className="text-xs text-muted-foreground">SLA Estourado</p>
                 </div>
               </div>
