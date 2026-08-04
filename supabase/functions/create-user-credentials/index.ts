@@ -119,40 +119,39 @@ serve(async (req) => {
     const userId = createUserData.user.id;
     console.log('Usuário criado com sucesso. User ID:', userId);
 
-    // Aguardar trigger handle_new_user completar
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Passo 2: Atualizar perfil nas tabelas profiles e user_roles
-    console.log('=== Passo 2: Atualizando perfil do usuário ===');
+    // Passo 2: Atualizar perfil nas tabelas profiles e user_roles (usando upsert)
+    console.log('=== Passo 2: Upsert no perfil do usuário ===');
 
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .update({
+      .upsert({
+        id: userId,
         full_name: full_name,
         department: department,
         company_id: company_id,
-      })
-      .eq('id', userId);
+      }, { onConflict: 'id' });
 
     if (profileError) {
       console.error('Erro ao atualizar profile:', profileError);
       throw new Error(`Erro ao atualizar perfil: ${profileError.message}`);
     }
 
-    console.log('Profile atualizado com sucesso');
+    console.log('Profile atualizado com sucesso via upsert');
 
     if (role !== 'customer') {
       const { error: roleUpdateError } = await supabaseAdmin
         .from('user_roles')
-        .update({ role: role })
-        .eq('user_id', userId);
+        .upsert({
+          user_id: userId,
+          role: role
+        }, { onConflict: 'user_id' });
 
       if (roleUpdateError) {
         console.error('Erro ao definir role:', roleUpdateError);
         throw new Error(`Erro ao definir função: ${roleUpdateError.message}`);
       }
 
-      console.log('Role atualizada para:', role);
+      console.log('Role atualizada para:', role, 'via upsert');
     } else {
       console.log('Role padrão mantida: customer');
     }
