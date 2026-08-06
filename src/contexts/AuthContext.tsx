@@ -38,18 +38,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (new URLSearchParams(window.location.search).get('testAuth')) {
-        const testUserId = new URLSearchParams(window.location.search).get('testUserId') || 'test-user';
-        setSession({ access_token: 'test', user: { id: testUserId, email: 'test@orion.com' } } as any);
-        setUser({ id: testUserId, email: 'test@orion.com' } as any);
-        setLoading(false);
-        return;
-      }
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          // ⚠️ Somente em ambiente de desenvolvimento
+          if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('testAuth')) {
+            const testUserId = new URLSearchParams(window.location.search).get('testUserId') || 'test-user';
+            setSession({ access_token: 'test', user: { id: testUserId, email: 'test@orion.com' } } as any);
+            setUser({ id: testUserId, email: 'test@orion.com' } as any);
+            setLoading(false);
+            return;
+          }
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        });
 
     return () => subscription.unsubscribe();
   }, []);

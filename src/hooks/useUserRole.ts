@@ -17,10 +17,10 @@ export const useUserRole = () => {
       if (!user?.id) return null;
 
       // Mock para ambiente de teste via URL
-      const testRole = new URLSearchParams(window.location.search).get('testRole');
-      if (testRole) {
-        return testRole as UserRole;
-      }
+            const testRole = new URLSearchParams(window.location.search).get('testRole');
+            if (testRole && import.meta.env.DEV) {
+              return testRole as UserRole;
+            }
 
       // Consultamos a tabela user_roles associada ao ID do Supabase Auth.
       const { data, error } = await supabase
@@ -49,21 +49,21 @@ export const useUserProfile = () => {
       if (!user?.id) return null;
 
       // Mock para ambiente de teste via URL
-      const testRole = new URLSearchParams(window.location.search).get('testRole');
-      if (testRole) {
-        return { 
-          id: user.id, 
-          full_name: 'Usuário Teste',
-          email: user.email || '',
-          company_id: '',
-          department: 'Geral',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          last_assigned_at: null,
-          email_notifications: true,
-          push_notifications: true
-        } as Database['public']['Tables']['profiles']['Row'];
-      }
+            const testRole = new URLSearchParams(window.location.search).get('testRole');
+            if (testRole && import.meta.env.DEV) {
+              return { 
+                id: user.id, 
+                full_name: 'Usuário Teste',
+                email: user.email || '',
+                company_id: '',
+                department: 'Geral',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                last_assigned_at: null,
+                email_notifications: true,
+                push_notifications: true
+              } as Database['public']['Tables']['profiles']['Row'];
+            }
 
       // O perfil guarda informações adicionais que não estão no Auth nativo do Supabase.
       const { data, error } = await supabase

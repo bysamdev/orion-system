@@ -354,11 +354,12 @@ export const TechnicianDashboard: React.FC = () => {
             <div className="relative w-full md:max-w-md group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
               <Input
-                placeholder="Busque por #número, título ou cliente..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-2xl transition-all"
-              />
+                              autoComplete="off"
+                              placeholder="Busque por #número, título ou cliente..."
+                              value={searchTerm}
+                              onChange={e => setSearchTerm(e.target.value)}
+                              className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-2xl transition-all"
+                            />
               {searchTerm && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-tighter text-primary bg-primary/10 px-2 py-0.5 rounded-full">
