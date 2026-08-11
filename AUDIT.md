@@ -12,23 +12,25 @@ seção **"Log de implementação"** logo após o resumo executivo para a lista
 completa de commits e métricas antes/depois.
 
 ⚠️ Este documento deixou de ser "somente leitura": dos 19 itens listados na
-seção 0, **11 foram corrigidos por completo** e **1 parcialmente**. Os
-demais foram **deliberadamente pulados** — 4 porque exigiam editar arquivos
-que já tinham mudanças não commitadas de fora desta sessão (`AuthContext.tsx`,
-`useUserRole.ts`, `useMyTickets.ts`, `useTickets.ts`, `TicketDetails.tsx`,
-`NewTicket.tsx`, `TicketHistory.tsx`, `PriorityBadge.tsx` — em especial o
-bypass de autenticação descrito no achado crítico abaixo, que segue **sem
-correção**, intocado por segurança), e 2 por estarem fora de escopo de
-código (decisão de produto/processo, não uma linha pra mudar).
+seção 0, **13 foram corrigidos por completo** e **1 parcialmente**. Isso
+inclui o achado crítico de segurança (bypass de autenticação), fechado por
+um `/security-review` formal depois que a correção de `escalate_manager`
+liberou `AuthContext.tsx`/`useUserRole.ts` de mudanças locais não
+commitadas. Os itens restantes seguem **deliberadamente pulados** — 3 porque
+`useMyTickets.ts`/`TicketDetails.tsx` ainda têm mudanças locais não
+commitadas de fora desta sessão (dados mock de desenvolvimento e ajustes de
+UI, respectivamente), e 2 por estarem fora de escopo de código (decisão de
+produto/processo, não uma linha pra mudar).
 
 ---
 
-## ⚠️ Achado crítico adicional (working tree não commitada, fora da varredura original)
+## ✅ Achado crítico adicional — RESOLVIDO (`decee6c`)
 
-Entre a versão original desta auditoria e agora, `AuthContext.tsx` e `useUserRole.ts`
-foram alterados no working tree (ainda não commitados — ver `git diff`). O bypass de
-autenticação de desenvolvimento, que antes só ativava com `?testAuth=1` explícito na
-URL, agora ativa **incondicionalmente sempre que `import.meta.env.DEV === true`**:
+Entre a versão original desta auditoria e a implementação, `AuthContext.tsx` e
+`useUserRole.ts` tinham sido alterados no working tree (fora da varredura
+original, não commitados ainda). O bypass de autenticação de desenvolvimento,
+que antes só ativava com `?testAuth=1` explícito na URL, tinha passado a
+ativar **incondicionalmente sempre que `import.meta.env.DEV === true`**:
 
 - [`src/contexts/AuthContext.tsx:41-53`](src/contexts/AuthContext.tsx#L41) — não checa
   mais `testAuth`, só `import.meta.env.DEV`. Cria uma sessão fake
@@ -52,11 +54,20 @@ segredo/flag explícito (ex.: `import.meta.env.VITE_ENABLE_AUTH_BYPASS === 'true
 setado só em `.env.development.local`, nunca em CI/build de homolog), e nunca usar só
 `import.meta.env.DEV` como guarda, já que `build:dev` também seta essa flag como `true`.
 
-**Status: ❌ NÃO CORRIGIDO.** Deliberadamente não tocado nesta sessão de
-implementação — o código do bypass vive em `AuthContext.tsx`/`useUserRole.ts`,
-que já tinham mudanças locais não commitadas antes desta sessão começar (é o
-"stand-in de login" do ambiente de homolog). Continua sendo o item de maior
-risco em aberto no repositório.
+**Status: ✅ Corrigido — `decee6c`.** Achado (de novo, independentemente) por
+um `/security-review` formal rodado sobre o diff. A verificação confirmou um
+detalhe importante sobre o impacto real: `setSession`/`setUser` no
+`AuthContext` são `useState` local, não `supabase.auth.setSession(...)` — a
+sessão fabricada nunca chega no SDK real do Supabase, então as chamadas
+`supabase.from(...)` continuam sujeitas a RLS normalmente. Ou seja, o bug era
+**spoofing de estado de autorização no cliente** (expõe a UI inteira de
+admin — gestão de usuários, regras de roteamento, config de SLA — pra
+qualquer visitante não autenticado), não um caminho direto pra leitura/escrita
+real no banco. Ainda assim, real e válido de corrigir: restaurado o
+requisito de dois fatores que existia antes dessas mudanças locais (`DEV` +
+`?testAuth=1`/`?testRole=<role>` explícito na URL, sem default pra `'admin'`).
+Zero mudança de comportamento pra usuário real; o teste de homolog via
+parâmetro de URL continua funcionando exatamente como antes.
 
 ---
 
@@ -64,7 +75,7 @@ risco em aberto no repositório.
 
 | # | Item | Categoria | Impacto | Esforço | Status |
 |---|------|-----------|---------|---------|--------|
-| 0 | Bypass de auth ativa sem parâmetro de URL, default role `admin`, vaza para `build:dev` | **Segurança** | **Crítico** | Trivial | ❌ Não corrigido (arquivo com mudanças locais não commitadas) |
+| 0 | Bypass de auth ativa sem parâmetro de URL, default role `admin`, vaza para `build:dev` | **Segurança** | **Crítico** | Trivial | ✅ `decee6c` |
 | 1 | Notificação de mudança de status não persiste (só toast local) | Fluxo de chamados | **Alto** | Baixo (1 migration) | ✅ `800b65c` |
 | 2 | `useHistoricalStats.ts` faz 60–180 queries sequenciais (N+1 real) | Queries N+1 | **Alto** | Baixo–médio (1-2h) | ✅ `7b52d66` — também corrigido bug de range de data invertido (ver nota) |
 | 3 | `recharts` (112 KB gzip) carregado no dashboard padrão de todo usuário | Bundle | **Alto** | Médio (2-4h) | ✅ `2615fa0` |
@@ -73,7 +84,7 @@ risco em aberto no repositório.
 | 6 | Status/Priority badges reimplementados de forma divergente em 2 telas | Componentes duplicados | Alto | 2h | ✅ `1f71ee2` |
 | 7 | `companies` buscado sob 6 chaves de cache diferentes (sem dedupe) | Cache/API | Médio–Alto | Baixo | ✅ `e085ee1` + `2b5e09c` — achada uma 7ª duplicata no caminho |
 | 8 | Polling (30-60s) redundante com realtime já invalidando as mesmas queries | Cache/API | Médio–Alto | Baixo | ⏭️ Pulado — `useMyTickets.ts` tem mudanças locais não commitadas |
-| 9 | `AuthContext` recria o value object a cada render (sem `useMemo`) | Estado | Médio | Baixo | ⏭️ Pulado — `AuthContext.tsx` tem mudanças locais não commitadas |
+| 9 | `AuthContext` recria o value object a cada render (sem `useMemo`) | Estado | Médio | Baixo | ✅ `5104eb3` — desbloqueado depois que `decee6c` deixou o arquivo limpo |
 | 10 | `enrichTicketsWithCompany` refaz fetch de profiles/companies sem cache, 3-4x por ciclo de poll | Cache/API | Médio | Médio | ⏭️ Pulado — consumidores estão em `useMyTickets.ts` (não commitado) |
 | 11 | Card/lista (`MachineCard`, `TicketRow`) sem `React.memo` sob polling/realtime | Estado | Médio | Médio | ✅ `abd7e73` |
 | 12 | Notificação/card de notificação duplicado (popover vs página) | Componentes duplicados | Médio | 1.5h | ✅ `419f3be` |
@@ -88,10 +99,10 @@ risco em aberto no repositório.
 
 ## Log de implementação (2026-08-11)
 
-13 commits, um item por commit, cada um testado antes de commitar (type-check
+16 commits, um item por commit, cada um testado antes de commitar (type-check
 completo + build; mudanças de banco testadas ao vivo no Supabase via
 transação com `ROLLBACK` antes de aplicar de verdade). Os 2 primeiros foram
-aplicados/publicados durante a sessão; os 11 seguintes ficaram como commits
+aplicados/publicados durante a sessão; os demais ficaram como commits
 locais para revisão antes do push.
 
 | Commit | O que fez | Métrica antes → depois |
@@ -108,6 +119,9 @@ locais para revisão antes do push.
 | `7b26b5f` | Remove dependência `next-themes` (zero imports) | Build verificado limpo pós-remoção |
 | `8655a1c` | Remove `useStats.ts`, `useDashboardStats.ts`, `useUnassignedTickets` (código morto) | 287 linhas removidas |
 | `2b5e09c` | Padroniza `supabaseRead` para SELECTs puros; consolida uma 7ª duplicata de `companies` achada no caminho (`useManagementCompanies`) | 4 hooks migrados; mutations continuam no client de escrita, corretamente |
+| `672fae6` | Atualiza este documento com status de implementação (não é código) | — |
+| `decee6c` | `/security-review` formal no diff → corrige o bypass de autenticação (achado crítico) | Bypass zero-clique (`DEV` sozinho, default `admin`) → dois fatores exigidos de novo (`DEV` + `?testAuth=1`/`?testRole=<role>`) |
+| `5104eb3` | `AuthContext` memoiza o `value` do provider (desbloqueado pelo commit anterior) | Objeto recriado a cada render → `useMemo` estável |
 
 **Achado que não estava na auditoria original — corrigido em `80862ae`:**
 A auditoria original (seção 6, item 2 abaixo) descrevia `fn_auto_route_ticket()`
@@ -301,9 +315,10 @@ consomem `useAuth()` (`ProtectedRoute.tsx:22`, `TicketDetails.tsx:40`,
 entre outros); sem seletor de contexto, todo consumidor re-renderiza a cada
 render do `AuthProvider`. Fix: `useMemo(() => ({ user, session, loading }), [...])`.
 
-⏭️ **Pulado.** `AuthContext.tsx` já tinha mudanças locais não commitadas
-antes desta sessão (o bypass de autenticação descrito no achado crítico do
-topo) — evitado por completo, sem exceção, por segurança.
+✅ **Corrigido — `5104eb3`.** Ficou pendente enquanto `AuthContext.tsx` tinha
+o bypass de autenticação não commitado (achado crítico do topo); desbloqueado
+assim que `decee6c` corrigiu e commitou esse arquivo. `value` agora vem de
+`useMemo(() => ({ user, session, loading }), [user, session, loading])`.
 
 **3.2 — Card/linha de lista sem `React.memo` sob polling/realtime** — Médio, esforço médio
 `MachineCard.tsx` (`Monitoring.tsx:232`) e `TicketRow`
