@@ -14,10 +14,11 @@ import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
-  useMachineDetail, useMachineAlerts, useManagementCompanies,
+  useMachineDetail, useMachineAlerts,
   useUpdateMachine, useMonitoringGroups, pct,
 } from '@/hooks/useMonitoring';
 import type { MetricPeriod, MachineWithMetric } from '@/hooks/useMonitoring';
+import { useCompanies } from '@/hooks/useCompanies';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { PerformanceChart } from './PerformanceChart';
 import { InventoryTab } from './InventoryTab';
@@ -48,7 +49,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
   const { data: alerts = [], isLoading: alertsLoading } = useMachineAlerts(machineId);
   const { data: role } = useUserRole();
   const { data: profile } = useUserProfile();
-  const { data: companies = [] } = useManagementCompanies();
+  const { data: companies = [] } = useCompanies();
   const { data: groups = [] } = useMonitoringGroups();
   const updateMachine = useUpdateMachine();
 

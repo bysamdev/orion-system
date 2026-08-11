@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabaseRead } from '@/integrations/supabase/read-client';
 import { startOfDay } from 'date-fns';
 import { calculateSlaStatus } from '@/lib/ticket-helpers';
 
@@ -16,7 +16,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
       const today = startOfDay(now);
 
       // 1. Em Atendimento (tickets in-progress atribuídos ao técnico)
-      const { data: inProgressTickets, error: inProgressError } = await supabase
+      const { data: inProgressTickets, error: inProgressError } = await supabaseRead
         .from('tickets')
         .select('id')
         .eq('status', 'in-progress')
@@ -25,7 +25,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
       if (inProgressError) throw inProgressError;
 
       // 2. Resolvidos Hoje (tickets resolvidos pelo técnico nas últimas 24h)
-      const { data: resolvedToday, error: resolvedError } = await supabase
+      const { data: resolvedToday, error: resolvedError } = await supabaseRead
         .from('tickets')
         .select('id')
         .in('status', ['resolved', 'closed'])
@@ -35,7 +35,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
       if (resolvedError) throw resolvedError;
 
       // 3. SLA em Risco e Breached
-      const { data: activeTickets, error: activeError } = await supabase
+      const { data: activeTickets, error: activeError } = await supabaseRead
         .from('tickets')
         .select('id, sla_due_date, created_at')
         .eq('assigned_to_user_id', userId)
@@ -56,7 +56,7 @@ export const useTechnicianStats = (userId: string | undefined) => {
       });
 
       // 4. Meus Pendentes (tickets abertos atribuídos ao técnico)
-      const { data: pendingTickets, error: pendingError } = await supabase
+      const { data: pendingTickets, error: pendingError } = await supabaseRead
         .from('tickets')
         .select('id')
         .eq('assigned_to_user_id', userId)
@@ -85,7 +85,7 @@ export const useTechnicianWorkload = (userId: string | undefined) => {
     queryFn: async () => {
       if (!userId) return null;
 
-      const { data: tickets, error } = await supabase
+      const { data: tickets, error } = await supabaseRead
         .from('tickets')
         .select('status')
         .eq('assigned_to_user_id', userId)
@@ -130,7 +130,7 @@ export const useTeamWorkload = (companyId: string | undefined) => {
     queryFn: async () => {
       if (!companyId) return [];
       
-      const { data, error } = await supabase.rpc('get_technician_workload', {
+      const { data, error } = await supabaseRead.rpc('get_technician_workload', {
         p_company_id: companyId
       });
       

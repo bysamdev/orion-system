@@ -36,9 +36,9 @@ import {
   useCreateGroup,
   useUpdateGroup,
   useDeleteGroup,
-  useManagementCompanies,
 } from '@/hooks/useMonitoring';
 import type { MachineGroup, MachineWithMetric } from '@/hooks/useMonitoring';
+import { useCompanies } from '@/hooks/useCompanies';
 import { MachineCard, MachineCardSkeleton } from '@/components/monitoring/MachineCard';
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 import { useQueryClient } from '@tanstack/react-query';
@@ -258,7 +258,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
 
   const { data: dashboard } = useMonitoringDashboard();
   const { data: groups, isLoading: groupsLoading } = useMonitoringGroups();
-  const { data: companies = [] } = useManagementCompanies();
+  const { data: companies = [] } = useCompanies();
   
   const createGroup = useCreateGroup();
   const updateGroup = useUpdateGroup();

@@ -38,11 +38,6 @@ async function apiPost<T>(path: string, body: any): Promise<T> {
   return res.json();
 }
 
-export interface Company {
-  id: string;
-  name: string;
-}
-
 // ─── Types ───────────────────────────────────────────────
 export interface MachineGroup {
   id: string;
@@ -245,22 +240,6 @@ export function useMachineCommands(machine_id: string | null) {
       }
       return 10000;
     },
-  });
-}
-
-export function useManagementCompanies() {
-  return useQuery<Company[]>({
-    queryKey: ['management', 'companies'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('id, name')
-        .order('name');
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutos
-    gcTime: 10 * 60 * 1000, // 10 minutos
   });
 }
 

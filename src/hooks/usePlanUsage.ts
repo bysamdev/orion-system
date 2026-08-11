@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabaseRead } from '@/integrations/supabase/read-client';
 
 interface PlanUsage {
   plan_name: string;
@@ -12,7 +12,7 @@ export const usePlanUsage = () => {
   return useQuery({
     queryKey: ['plan-usage'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_company_plan_usage');
+      const { data, error } = await supabaseRead.rpc('get_company_plan_usage');
       
       if (error) throw error;
       

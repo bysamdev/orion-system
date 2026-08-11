@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { supabaseRead } from '@/integrations/supabase/read-client';
 import { useAuth } from '@/contexts/AuthContext';
 
 export interface Notification {
@@ -22,7 +23,7 @@ export const useNotifications = () => {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseRead
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
