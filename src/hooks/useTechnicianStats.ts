@@ -122,28 +122,6 @@ export const useTechnicianWorkload = (userId: string | undefined) => {
 };
 
 /**
- * Hook para buscar tickets não atribuídos (fila geral)
- */
-export const useUnassignedTickets = () => {
-  return useQuery({
-    queryKey: ['unassigned-tickets'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tickets')
-        .select('id, ticket_number, title, priority, created_at, category, requester_name')
-        .eq('status', 'open')
-        .is('assigned_to_user_id', null)
-        .order('created_at', { ascending: true })
-        .limit(5);
-
-      if (error) throw error;
-      return data;
-    },
-    refetchInterval: 30000,
-  });
-};
-
-/**
  * Hook to fetch team workload (for admins/managers)
  */
 export const useTeamWorkload = (companyId: string | undefined) => {
