@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserRole';
+import { useCompanies } from '@/hooks/useCompanies';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -143,14 +144,7 @@ export const RoutingRulesManagement = () => {
     enabled: !!profile?.company_id,
   });
 
-  const { data: companies = [] } = useQuery({
-    queryKey: ['admin-companies'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('companies').select('id, name');
-      if (error) throw error;
-      return data || [];
-    }
-  });
+  const { data: companies = [] } = useCompanies();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

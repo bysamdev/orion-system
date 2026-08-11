@@ -17,6 +17,7 @@ import type { UserRole } from '@/hooks/useUserRole';
 import { userRoleSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCompanies } from '@/hooks/useCompanies';
 import { PlanUsageCard } from './PlanUsageCard';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { invokeOrionFunction } from '@/lib/orion-functions';
@@ -78,17 +79,7 @@ export const UserManagement = () => {
   });
 
   // Buscar todas as empresas para o select de edição
-  const { data: allCompanies } = useQuery({
-    queryKey: ['all-companies'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('id, name')
-        .order('name');
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { data: allCompanies } = useCompanies();
 
   // Buscar company_id do admin atual
   const { data: currentUserProfile } = useQuery({

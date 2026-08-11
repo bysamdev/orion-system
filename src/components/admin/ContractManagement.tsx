@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ButtonPrimary } from '@/components/ui/button-primary';
@@ -18,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Loader2, Trash2, Pencil, FileText, AlertTriangle } from 'lucide-react';
 import { useContracts, useCreateContract, useUpdateContract, useDeleteContract, type Contract } from '@/hooks/useContracts';
+import { useCompanies } from '@/hooks/useCompanies';
 import { cn, formatDate } from '@/lib/utils';
 
 interface ContractForm {
@@ -54,14 +53,7 @@ export const ContractManagement = () => {
   const deleteContract = useDeleteContract();
 
   // Buscar empresas para o select
-  const { data: companies } = useQuery({
-    queryKey: ['companies'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('companies').select('id, name').order('name');
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { data: companies } = useCompanies();
 
   const openCreate = () => {
     setFormData(emptyForm);

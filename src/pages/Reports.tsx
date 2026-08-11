@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { supabaseRead } from '@/integrations/supabase/read-client';
 import { useTickets } from '@/hooks/useTickets';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +14,7 @@ import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
 import { calculateSlaStatus } from '@/lib/ticket-helpers';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useCompanies } from '@/hooks/useCompanies';
 import { Loader2, ArrowLeft, BarChart3, Clock, CheckCircle2, AlertTriangle, TrendingUp, ShieldAlert, Download, Printer, Repeat } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend } from 'recharts';
 import { useNavigate, Navigate } from 'react-router-dom';
@@ -38,14 +38,7 @@ const Reports: React.FC = () => {
   const [techFilter, setTechFilter] = useState<string>('all');
 
   // Buscar empresas para filtro
-  const { data: companies } = useQuery({
-    queryKey: ['companies-list'],
-    queryFn: async () => {
-      const { data, error } = await supabaseRead.from('companies').select('id, name').order('name');
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { data: companies } = useCompanies();
 
   // Buscar técnicos para filtro
   const { data: technicians } = useQuery({

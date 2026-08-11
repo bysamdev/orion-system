@@ -41,12 +41,6 @@ export interface Technician {
   full_name: string;
 }
 
-export interface Company {
-  id: string;
-  name: string;
-  is_vip: boolean;
-}
-
 // ── Constants (shared with UI components) ────────────────────
 export const CONDITION_FIELDS = [
   { value: 'category', label: 'Categoria' },
@@ -94,15 +88,6 @@ export const useTechnicians = (companyId: string) =>
       return (data as any[]) || [];
     },
     enabled: !!companyId,
-  });
-
-export const useAllCompanies = () =>
-  useQuery<Company[]>({
-    queryKey: ['all-companies'],
-    queryFn: async () => {
-      const { data } = await supabase.from('companies').select('id, name, is_vip');
-      return (data as any[]) || [];
-    },
   });
 
 export const useCannedResponseRefs = (companyId: string) =>

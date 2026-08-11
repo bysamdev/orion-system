@@ -10,10 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
   CONDITION_FIELDS, ACTION_TYPES,
-  useRoutingRules, useTechnicians, useAllCompanies, useCannedResponseRefs,
+  useRoutingRules, useTechnicians, useCannedResponseRefs,
   useSaveRule, useDeleteRule, useToggleRule,
   type RoutingRule,
 } from '@/hooks/useAutomation';
+import { useCompanies } from '@/hooks/useCompanies';
 import { RuleForm } from './RuleForm';
 
 const ACTION_ICONS: Record<string, React.ElementType> = {
@@ -46,7 +47,7 @@ export const RulesTab: React.FC<Props> = ({ companyId }) => {
 
   const { data: rules = [], isLoading } = useRoutingRules(companyId);
   const { data: technicians = [] } = useTechnicians(companyId);
-  const { data: companies = [] } = useAllCompanies();
+  const { data: companies = [] } = useCompanies();
   const { data: cannedResponses = [] } = useCannedResponseRefs(companyId);
 
   const saveMutation = useSaveRule(companyId);

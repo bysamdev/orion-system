@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
+import { useCompanies } from '@/hooks/useCompanies';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -79,14 +80,7 @@ const Assets = () => {
     model: ''
   });
 
-  const { data: companies } = useQuery({
-    queryKey: ['companies'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('companies').select('id, name').order('name');
-      if (error) throw error;
-      return data;
-    }
-  });
+  const { data: companies } = useCompanies();
 
   const { data: assets, isLoading: assetsLoading } = useQuery({
     queryKey: ['assets'],
