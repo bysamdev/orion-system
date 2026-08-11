@@ -12,7 +12,7 @@ import { pct, hasDiskAlert } from '@/hooks/useMonitoring';
 
 interface MachineCardProps {
   machine: MachineWithMetric;
-  onClick: () => void;
+  onSelect: (machine: MachineWithMetric) => void;
 }
 
 function StatusDot({ status, hasAlert }: { status: string; hasAlert: boolean }) {
@@ -61,7 +61,7 @@ function MetricBar({
   );
 }
 
-export const MachineCard: React.FC<MachineCardProps> = ({ machine, onClick }) => {
+export const MachineCard: React.FC<MachineCardProps> = React.memo(({ machine, onSelect }) => {
   const isOnline = machine.status === 'online';
   const offlineMinutes = !isOnline && machine.last_seen ? Math.floor((Date.now() - new Date(machine.last_seen).getTime()) / 60000) : 0;
   const isOfflineLongAlert = !isOnline && offlineMinutes >= 30;
@@ -78,7 +78,7 @@ export const MachineCard: React.FC<MachineCardProps> = ({ machine, onClick }) =>
 
   return (
     <Card
-      onClick={onClick}
+      onClick={() => onSelect(machine)}
       className={cn(
         'cursor-pointer transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-1 relative overflow-hidden',
         'glass-card group',
@@ -160,7 +160,8 @@ export const MachineCard: React.FC<MachineCardProps> = ({ machine, onClick }) =>
       </CardContent>
     </Card>
   );
-};
+});
+MachineCard.displayName = 'MachineCard';
 
 export const MachineCardSkeleton: React.FC = () => (
   <Card>

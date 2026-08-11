@@ -103,7 +103,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant =
 };
 
 // ──── Linha de ticket na tabela (Revitalizada) ────
-const TicketRow: React.FC<{ ticket: Ticket; onAction: () => void }> = ({ ticket, onAction }) => {
+const TicketRow: React.FC<{ ticket: Ticket }> = React.memo(({ ticket }) => {
   const navigate = useNavigate();
   return (
     <TableRow
@@ -144,7 +144,8 @@ const TicketRow: React.FC<{ ticket: Ticket; onAction: () => void }> = ({ ticket,
       </TableCell>
     </TableRow>
   );
-};
+});
+TicketRow.displayName = 'TicketRow';
 
 export const TechnicianDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -516,7 +517,7 @@ export const TechnicianDashboard: React.FC = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredMyTickets.map(t => <TicketRow key={t.id} ticket={t} onAction={() => {}} />)
+                        filteredMyTickets.map(t => <TicketRow key={t.id} ticket={t} />)
                       )}
                     </TableBody>
                   </Table>
