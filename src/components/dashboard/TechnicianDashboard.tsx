@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Suspense, lazy } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,13 +24,16 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { SLABadge } from './SLABadge';
 import { cn } from '@/lib/utils';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { Ticket } from '@/hooks/useTickets';
+
+// Carregado sob demanda: recharts só entra no bundle quando este
+// widget é de fato renderizado, não no chunk padrão do dashboard.
+const WorkloadChart = lazy(() => import('./WorkloadChart'));
 
 // ──── Componente StatCard (Revitalizado) ────
 interface StatCardProps {
@@ -597,23 +600,9 @@ export const TechnicianDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               {workload && workload.length > 0 ? (
-                <div className="h-[240px] relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={workload} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value">
-                        {workload.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />)}
-                      </Pie>
-                      <RechartsTooltip 
-                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '16px', fontSize: '12px' }} 
-                        itemStyle={{ fontWeight: 'bold' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-3xl font-black tracking-tighter">{workload.reduce((a, b) => a + b.value, 0)}</span>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Tickets</span>
-                  </div>
-                </div>
+                <Suspense fallback={<div className="h-[240px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground/40" /></div>}>
+                  <WorkloadChart workload={workload} />
+                </Suspense>
               ) : (
                 <div className="text-center py-12 space-y-4">
                   <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto">

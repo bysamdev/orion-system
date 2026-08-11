@@ -35,7 +35,13 @@ export default defineConfig(({ mode }) => ({
           'vendor-query': ['@tanstack/react-query'],
           'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-slot', '@radix-ui/react-toast', 'class-variance-authority', 'tailwind-merge', 'clsx', 'lucide-react'],
           'vendor-supabase': ['@supabase/supabase-js'],
-          'charts': ['recharts']
+          // 'recharts' NÃO entra mais aqui: um manualChunks nomeado faz o Vite
+          // injetar <link rel="modulepreload"> desse chunk em todo carregamento
+          // (index.html), mesmo quando todo import de recharts no código está
+          // atrás de um React.lazy(). Sem essa entrada, o Rollup separa
+          // 'recharts' automaticamente em chunk(s) próprios só pros pontos que
+          // ainda o importam estaticamente (Reports.tsx, PerformanceChart.tsx),
+          // e o WorkloadChart.tsx (lazy) fica de fato sob demanda.
         }
       },
     },
