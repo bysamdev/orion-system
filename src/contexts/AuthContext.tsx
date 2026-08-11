@@ -39,7 +39,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // THEN check for existing session
         supabase.auth.getSession().then(({ data: { session } }) => {
-          // ⚠️ Somente em ambiente de desenvolvimento
+          // ⚠️ Somente em ambiente de desenvolvimento, e só com ?testAuth=1
+          // explícito na URL. NUNCA usar só import.meta.env.DEV como guarda:
+          // o script "build:dev" (vite build --mode development) gera um
+          // bundle de PRODUÇÃO com DEV=true, e sem esse segundo fator
+          // qualquer visitante de um deploy feito com esse script ganharia
+          // sessão fake automaticamente, sem precisar de parâmetro nenhum.
           if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('testAuth')) {
             const testUserId = new URLSearchParams(window.location.search).get('testUserId') || 'test-user';
             setSession({ access_token: 'test', user: { id: testUserId, email: 'test@orion.com' } } as any);
