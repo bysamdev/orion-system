@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { ArrowLeft, Play, Zap, Clock, FileText, RefreshCw, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -351,16 +352,6 @@ const DebugTools = () => {
     }
   };
 
-  const getPriorityBadge = (priority: string) => {
-    const colors: Record<string, string> = {
-      urgent: 'bg-red-500',
-      high: 'bg-orange-500',
-      medium: 'bg-yellow-500',
-      low: 'bg-green-500',
-    };
-    return <Badge className={colors[priority]}>{priority}</Badge>;
-  };
-
   if (roleLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -453,7 +444,7 @@ const DebugTools = () => {
                   {slaResults.map((result) => (
                     <TableRow key={result.id}>
                       <TableCell>#{result.ticket_number}</TableCell>
-                      <TableCell>{getPriorityBadge(result.priority)}</TableCell>
+                      <TableCell><PriorityBadge priority={result.priority} /></TableCell>
                       <TableCell>{formatDate(result.created_at, 'dd/MM HH:mm:ss')}</TableCell>
                       <TableCell>{formatDate(result.sla_due_date, 'dd/MM HH:mm:ss')}</TableCell>
                       <TableCell>{result.expected_hours}h</TableCell>

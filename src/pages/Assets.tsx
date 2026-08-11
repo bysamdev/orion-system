@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   Plus, Search, Laptop, Smartphone, Server as ServerIcon, 
@@ -591,11 +592,6 @@ const Assets = () => {
                       className="group flex items-start gap-4 p-4 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/30 transition-all cursor-pointer"
                       onClick={() => navigate(`/tickets/${ticket.id}`)}
                     >
-                      <div className={cn(
-                        "mt-1 w-2 h-2 rounded-full",
-                        ticket.status === 'open' ? "bg-blue-500" :
-                        ticket.status === 'resolved' ? "bg-green-500" : "bg-muted-foreground"
-                      )} />
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm font-bold text-foreground">#{ticket.ticket_number} — {ticket.title}</span>
@@ -603,7 +599,7 @@ const Assets = () => {
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
                         <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="outline" className="text-[9px] uppercase font-black tracking-tighter px-1.5 h-4">{ticket.status}</Badge>
+                          <StatusBadge status={ticket.status} className="text-[9px] px-1.5 h-4" />
                           <Badge variant="outline" className="text-[9px] uppercase font-black tracking-tighter px-1.5 h-4 opacity-70">{ticket.category}</Badge>
                         </div>
                       </div>
