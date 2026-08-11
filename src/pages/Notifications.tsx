@@ -1,10 +1,8 @@
 import React, { useState } from "react";
-import { BellOff, MessageSquare, CheckCheck } from "lucide-react";
+import { BellOff, CheckCheck } from "lucide-react";
 import { useNotifications, Notification } from "@/hooks/useNotifications";
+import { NotificationItem } from "@/components/shared/NotificationItem";
 import { useNavigate } from "react-router-dom";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const Notifications = () => {
@@ -77,56 +75,11 @@ const Notifications = () => {
       ) : (
         <div className="space-y-3">
           {displayNotifications.map((notification) => (
-            <button
+            <NotificationItem
               key={notification.id}
+              notification={notification}
               onClick={() => handleNotificationClick(notification)}
-              className={cn(
-                "w-full text-left p-4 rounded-xl transition-colors border",
-                notification.is_read
-                  ? "bg-card border-border/40 hover:bg-muted/50"
-                  : "bg-primary/5 border-primary/20 hover:bg-primary/10"
-              )}
-            >
-              <div className="flex items-start gap-4">
-                <div
-                  className={cn(
-                    "p-3 rounded-full mt-1",
-                    notification.is_read ? "bg-muted" : "bg-primary/10"
-                  )}
-                >
-                  <MessageSquare
-                    className={cn(
-                      "w-5 h-5",
-                      notification.is_read ? "text-muted-foreground" : "text-primary"
-                    )}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p
-                      className={cn(
-                        "text-base font-semibold truncate",
-                        notification.is_read ? "text-foreground/80" : "text-foreground"
-                      )}
-                    >
-                      {notification.title}
-                    </p>
-                    {!notification.is_read && (
-                      <span className="w-2.5 h-2.5 bg-primary rounded-full flex-shrink-0" />
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground break-words mb-2">
-                    {notification.message}
-                  </p>
-                  <p className="text-xs font-medium text-muted-foreground/70">
-                    {formatDistanceToNow(new Date(notification.created_at), {
-                      addSuffix: true,
-                      locale: ptBR,
-                    })}
-                  </p>
-                </div>
-              </div>
-            </button>
+            />
           ))}
         </div>
       )}

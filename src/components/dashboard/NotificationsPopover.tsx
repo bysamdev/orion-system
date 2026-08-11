@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, CheckCheck, MessageSquare } from 'lucide-react';
+import { Bell, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -8,75 +8,8 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNotifications, Notification } from '@/hooks/useNotifications';
+import { NotificationItem } from '@/components/shared/NotificationItem';
 import { useNavigate } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
-
-const NotificationItem: React.FC<{
-  notification: Notification;
-  onMarkAsRead: (id: string) => void;
-  onClick: () => void;
-}> = ({ notification, onMarkAsRead, onClick }) => {
-  const handleClick = () => {
-    if (!notification.is_read) {
-      onMarkAsRead(notification.id);
-    }
-    onClick();
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      className={cn(
-        'w-full text-left p-3 rounded-lg transition-colors border-b border-border last:border-b-0',
-        notification.is_read
-          ? 'bg-background hover:bg-muted/50'
-          : 'bg-primary/5 hover:bg-primary/10'
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <div
-          className={cn(
-            'p-2 rounded-full flex-shrink-0',
-            notification.is_read ? 'bg-muted' : 'bg-primary/10'
-          )}
-        >
-          <MessageSquare
-            className={cn(
-              'w-4 h-4',
-              notification.is_read ? 'text-muted-foreground' : 'text-primary'
-            )}
-          />
-        </div>
-        <div className="flex-1 min-w-0 overflow-hidden">
-          <div className="flex items-center gap-2">
-            <p
-              className={cn(
-                'text-sm font-medium truncate flex-1 min-w-0',
-                notification.is_read ? 'text-muted-foreground' : 'text-foreground'
-              )}
-            >
-              {notification.title}
-            </p>
-            {!notification.is_read && (
-              <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 break-words">
-            {notification.message}
-          </p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            {formatDistanceToNow(new Date(notification.created_at), {
-              addSuffix: true,
-              locale: ptBR,
-            })}
-          </p>
-        </div>
-      </div>
-    </button>
-  );
-};
 
 export const NotificationsPopover: React.FC = () => {
   const navigate = useNavigate();
@@ -90,6 +23,9 @@ export const NotificationsPopover: React.FC = () => {
   const [open, setOpen] = React.useState(false);
 
   const handleNotificationClick = (notification: Notification) => {
+    if (!notification.is_read) {
+      markAsRead(notification.id);
+    }
     if (notification.link) {
       navigate(notification.link);
     }
@@ -145,7 +81,7 @@ export const NotificationsPopover: React.FC = () => {
                 <NotificationItem
                   key={notification.id}
                   notification={notification}
-                  onMarkAsRead={markAsRead}
+                  size="sm"
                   onClick={() => handleNotificationClick(notification)}
                 />
               ))}
