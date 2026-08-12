@@ -231,7 +231,7 @@ Adicionalmente, trocar `wg.Wait()` por espera com timeout global, para que uma
 partição travada degrade a coleta em vez de matá-la.
 **Risco:** baixo. Pior caso, uma partição lenta fica de fora daquele ciclo.
 
-### O2 — `cpu.Percent` não-bloqueante · **Risco: baixo-médio · Ganho medido: −1000 ms de parede/coleta**
+### O2 ✅ IMPLEMENTADO (item B.6 do IMPROVEMENT_PLAN.md) — `cpu.Percent` não-bloqueante · **Risco: baixo-médio · Ganho medido: −1000 ms de parede/coleta**
 ```go
 // Uma vez, na inicialização do serviço: cpu.Percent(0, false)  // amostra inicial
 // Em cada tick:

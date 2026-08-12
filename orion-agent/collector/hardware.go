@@ -142,8 +142,33 @@ func Collect() (*Payload, error) {
 		return nil, fmt.Errorf("Erro ao ler informações do host: %w", err)
 	}
 
-	// 2. Uso de CPU — Fazemos uma média rápida durante 1 segundo
-	cpuPcts, err := cpu.Percent(1*time.Second, false)
+	// 2. Uso de CPU — não-bloqueante (correção B.6)
+	//
+	// MUDANÇA DE SEMÂNTICA DA MÉTRICA cpu_usage, documentada aqui de propósito:
+	// cpu.Percent(1*time.Second, false) bloqueava Collect() por 1s inteiro a cada
+	// coleta — medido em PERFORMANCE.md §3.1 como 88,7% do tempo de parede de uma
+	// coleta (1,0s de 1,13s total), sem consumir CPU real (é um time.Sleep interno
+	// do gopsutil, não trabalho de CPU). Com interval(0, false), o gopsutil calcula
+	// o percentual desde a ÚLTIMA chamada a cpu.Percent neste processo (estado
+	// interno do próprio pacote gopsutil, não gerenciado por nós) — não-bloqueante,
+	// e com o intervalo de heartbeat em produção (30s/agent.yaml), o valor reportado
+	// passa a ser a média do INTERVALO INTEIRO entre heartbeats, em vez de uma
+	// amostra instantânea de 1s a cada 30s.
+	//
+	// Isso é estritamente melhor para tendência/alerta (uma janela de 30s é mais
+	// representativa que 1s a cada 30s), mas os dois regimes não são diretamente
+	// comparáveis ponto a ponto — um histórico antigo (amostra de 1s) não deve ser
+	// comparado lado a lado com o novo (média de 30s) sem essa ressalva. O único
+	// consumidor server-side hoje é o alerta de CPU > 85% (lib/monitoring.go,
+	// CriticalAlerts) — o alerta continua funcionando com o novo valor, só passa a
+	// reagir a uma média de janela maior em vez de um pico instantâneo de 1s.
+	//
+	// PRIMEIRA CHAMADA DO PROCESSO: sem uma amostra anterior, o gopsutil calcula o
+	// percentual desde o boot do sistema (não desde o início do processo do
+	// agente) — um valor menos representativo, mas inofensivo: autocorrige no
+	// próximo heartbeat, 30s depois, quando já existe uma amostra anterior deste
+	// mesmo processo para comparar.
+	cpuPcts, err := cpu.Percent(0, false)
 	var cpuUsage float64
 	if err == nil && len(cpuPcts) > 0 {
 		cpuUsage = cpuPcts[0]

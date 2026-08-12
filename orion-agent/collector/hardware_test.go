@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // -----------------------------------------------------------------------------
@@ -379,5 +380,30 @@ func TestPrimaryIPEPrimeiroIPv4NaoLoopback_Concordam(t *testing.T) {
 
 	if viaSnapshot != viaPrimaryIP {
 		t.Errorf("primeiroIPv4NaoLoopback(snapshot) = %q diverge de primaryIP() = %q", viaSnapshot, viaPrimaryIP)
+	}
+}
+
+// -----------------------------------------------------------------------------
+// E) Collect() não pode mais bloquear por 1s — correção B.6
+// -----------------------------------------------------------------------------
+
+// TestCollect_NaoBloqueiaPorUmSegundo é o teste de regressão da correção B.6:
+// antes, cpu.Percent(1*time.Second, false) sozinho já garantia que Collect()
+// nunca terminava em menos de 1s (medido em PERFORMANCE.md §3.1: 1,0s de 1,13s
+// de tempo de parede total, 88,7%). Com cpu.Percent(0, false) (não-bloqueante),
+// uma coleta completa — incluindo host.Info, disco, rede — deveria terminar bem
+// abaixo de 1s. O teto de 500ms dá margem para máquinas mais lentas sem deixar
+// passar uma reintrodução do bloqueio de 1s.
+func TestCollect_NaoBloqueiaPorUmSegundo(t *testing.T) {
+	inicio := time.Now()
+	if _, err := Collect(); err != nil {
+		t.Skipf("Collect() indisponível neste ambiente: %v", err)
+	}
+	decorrido := time.Since(inicio)
+
+	const teto = 500 * time.Millisecond
+	if decorrido >= teto {
+		t.Errorf("Collect() levou %v — esperado bem abaixo de %v; "+
+			"possível regressão para cpu.Percent(1*time.Second, false) bloqueante (ver B.6)", decorrido, teto)
 	}
 }
