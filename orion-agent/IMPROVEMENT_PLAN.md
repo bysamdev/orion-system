@@ -106,7 +106,7 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 
 | # | Item | IDs | Esforço | Risco | Observação |
 |---|---|---|---|---|---|
-| A.1 | Rotacionar `agent_key`; remover do histórico do git; migrar para chaves por empresa | C1 | médio | **baixo** | Não muda código; é operação de credencial + deploy. Fazer primeiro |
+| A.1 ⚠️ | Rotacionar `agent_key`; remover do histórico do git; migrar para chaves por empresa | C1 | médio | **baixo** | **Parcialmente feito**: chave rotacionada no Vercel (valor novo fora do repo), placeholder no `agent.yaml`, docs redigidos. **Falta**: reescrita de histórico do git (destrutiva, não solicitada) e migração para chaves por empresa via `api_keys` (arquitetura, não feita) |
 | A.2 | Exigir credencial em `machine-login` | C2 | baixo | médio | Backend. Quebra o atalho `.url` atual até A.6 — coordenar |
 | A.3 | Rate limiting + alerta em `machine-login` e `heartbeat` | C2 | médio | baixo | Mitigação enquanto A.6 não sai |
 | A.4 | Reduzir privilégio do serviço (conta virtual em vez de `LocalSystem`) | C4 | médio | **alto** | Pode quebrar coleta que dependa de SYSTEM. Exige teste em máquina real |
@@ -137,7 +137,7 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 | B.11 ✅ | Tratar erro de decode em `doPost` | M10 | **baixo** | baixo | Implementado e testado |
 | B.12 ✅ | `TrimSpace` no `LoadToken` + trocar `io/ioutil` | B2, B5 | **baixo** | baixo | Implementado e testado |
 | B.13 | `KnownFields(true)` no parse do YAML | M12 | baixo | médio | Typos passam a ser erro — é o desejado, mas pode quebrar config existente |
-| B.14 | Stub `shortcut_other.go` para destravar CI em Linux | M11 | baixo | baixo | Habilita CI e `-race` em runner Linux |
+| B.14 ✅ | Stub `shortcut_other.go` para destravar CI em Linux | M11 | baixo | baixo | Implementado e verificado por cross-compile (`GOOS=linux`) dos 5 pacotes com teste. `main`/`tray` continuam presos ao Windows por causa do `systray` (exige cgo) — fora de escopo deste item. B.4 segue **não verificado com `-race`**: WSL disponível nesta máquina, mas sem toolchain Go/gcc instalado |
 | B.15 | Usar ou remover `cfg.LogFile`; corrigir default de `APIURL` | B3, B4 | baixo | baixo | |
 | B.16 | Certificate pinning | B1 | médio | médio | Defesa em profundidade; opcional |
 
