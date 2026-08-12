@@ -300,3 +300,84 @@ func TestCollect_IPEInterfacesConsistentes(t *testing.T) {
 		t.Errorf("DiskTotal = 0 para a raiz %q", diskRoot())
 	}
 }
+
+// -----------------------------------------------------------------------------
+// D) modeloDaCPU() e primeiroIPv4NaoLoopback() — correção B.7
+//
+// Antes desta correção, Collect() chamava cpu.Info() (WMI) e net.Interfaces()
+// duas vezes cada coleta, para dados que ou são estáticos (modelo da CPU) ou já
+// tinham sido obtidos no mesmo ciclo (lista de interfaces). Medido em
+// PERFORMANCE.md §3.1: ~44 ms + ~82 ms desperdiçados por coleta.
+// -----------------------------------------------------------------------------
+
+// TestModeloDaCPU_EhConsistenteEntreChamadas garante que múltiplas chamadas
+// devolvem o mesmo valor — é o contrato externo do cache (sync.Once), já que
+// não dá para observar de fora se cpu.Info() foi chamado 1 ou N vezes.
+func TestModeloDaCPU_EhConsistenteEntreChamadas(t *testing.T) {
+	primeiro := modeloDaCPU()
+	for i := 0; i < 20; i++ {
+		if atual := modeloDaCPU(); atual != primeiro {
+			t.Fatalf("modeloDaCPU() não é estável: chamada %d devolveu %q, esperado %q", i, atual, primeiro)
+		}
+	}
+}
+
+// TestModeloDaCPU_ConcorrenciaSemPanic exercita o sync.Once em paralelo — não
+// prova ausência de data race sozinho (esta máquina não tem toolchain C para
+// -race, ver IMPROVEMENT_PLAN.md B.4), mas pelo menos garante que chamadas
+// concorrentes não corrompem o valor cacheado nem entram em pânico.
+func TestModeloDaCPU_ConcorrenciaSemPanic(t *testing.T) {
+	const goroutines = 16
+	resultados := make([]string, goroutines)
+	done := make(chan int, goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		go func(idx int) {
+			resultados[idx] = modeloDaCPU()
+			done <- idx
+		}(i)
+	}
+	for i := 0; i < goroutines; i++ {
+		<-done
+	}
+
+	esperado := resultados[0]
+	for i, r := range resultados {
+		if r != esperado {
+			t.Errorf("goroutine %d obteve %q, esperado %q (todas deveriam ver o mesmo valor cacheado)", i, r, esperado)
+		}
+	}
+}
+
+// TestPrimeiroIPv4NaoLoopback_ListaVaziaRetornaVazio cobre o caminho seguro
+// com entrada vazia — não é possível construir net.Interface sintéticas com
+// endereços fake sem uma abstração sobre Addrs() (método, não campo, resolvido
+// via consulta ao SO pelo índice da interface), então a cobertura de
+// filtragem por IP real já é feita indiretamente por
+// TestCollect_IPEInterfacesConsistentes e TestPrimaryIP_FormatoEValidade.
+func TestPrimeiroIPv4NaoLoopback_ListaVaziaRetornaVazio(t *testing.T) {
+	if got := primeiroIPv4NaoLoopback(nil); got != "" {
+		t.Errorf("primeiroIPv4NaoLoopback(nil) = %q, esperado \"\"", got)
+	}
+	if got := primeiroIPv4NaoLoopback([]net.Interface{}); got != "" {
+		t.Errorf("primeiroIPv4NaoLoopback([]) = %q, esperado \"\"", got)
+	}
+}
+
+// TestPrimaryIPEPrimeiroIPv4NaoLoopback_Concordam garante que os dois caminhos
+// de código (primaryIP, que faz sua própria net.Interfaces(), e a extração
+// usada por Collect() a partir de um snapshot já obtido) continuam
+// concordando após a refatoração do B.7.
+func TestPrimaryIPEPrimeiroIPv4NaoLoopback_Concordam(t *testing.T) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		t.Skipf("não foi possível enumerar interfaces neste ambiente: %v", err)
+	}
+
+	viaSnapshot := primeiroIPv4NaoLoopback(ifaces)
+	viaPrimaryIP := primaryIP()
+
+	if viaSnapshot != viaPrimaryIP {
+		t.Errorf("primeiroIPv4NaoLoopback(snapshot) = %q diverge de primaryIP() = %q", viaSnapshot, viaPrimaryIP)
+	}
+}

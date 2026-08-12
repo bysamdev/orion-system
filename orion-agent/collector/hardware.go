@@ -69,11 +69,26 @@ func diskRoot() string {
 }
 
 // primaryIP tenta identificar o IP principal da máquina (ignora loopback).
+//
+// Faz sua própria chamada a net.Interfaces() — mantido assim para não quebrar
+// quem chama esta função isoladamente (inclusive os testes). Collect() NÃO usa
+// esta função: para evitar enumerar as interfaces de rede duas vezes por
+// coleta (medido em ~82 ms, quase 65 % do tempo de CPU real de uma coleta —
+// ver PERFORMANCE.md §3.1), Collect() faz uma única chamada a net.Interfaces()
+// e deriva tanto a lista de interfaces quanto o IP principal do mesmo
+// snapshot, via primeiroIPv4NaoLoopback.
 func primaryIP() string {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return ""
 	}
+	return primeiroIPv4NaoLoopback(ifaces)
+}
+
+// primeiroIPv4NaoLoopback varre um snapshot já obtido de interfaces e devolve
+// o primeiro endereço IPv4 não-loopback de uma interface ativa. Extraída de
+// primaryIP para que Collect() possa reusar um único net.Interfaces().
+func primeiroIPv4NaoLoopback(ifaces []net.Interface) string {
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
 			continue
@@ -98,6 +113,25 @@ func primaryIP() string {
 	return ""
 }
 
+// cpuModelUmaVez cacheia o modelo do processador (cpu.Info) — dado estático
+// que não muda durante a vida do processo. Antes desta correção, Collect()
+// consultava cpu.Info() (WMI, ~44 ms medidos) a cada coleta, para um valor
+// que nunca varia. Ver PERFORMANCE.md §3.1/O3.
+var (
+	cpuModelUmaVez sync.Once
+	cpuModelCache  string
+)
+
+func modeloDaCPU() string {
+	cpuModelUmaVez.Do(func() {
+		cpuInfos, err := cpu.Info()
+		if err == nil && len(cpuInfos) > 0 {
+			cpuModelCache = strings.TrimSpace(cpuInfos[0].ModelName)
+		}
+	})
+	return cpuModelCache
+}
+
 // Collect faz uma varredura completa no sistema para extrair métricas de hardware atuais.
 func Collect() (*Payload, error) {
 	hostname, _ := os.Hostname()
@@ -115,12 +149,8 @@ func Collect() (*Payload, error) {
 		cpuUsage = cpuPcts[0]
 	}
 
-	// 3. Modelo do Processador
-	var cpuModel string
-	cpuInfos, err := cpu.Info()
-	if err == nil && len(cpuInfos) > 0 {
-		cpuModel = strings.TrimSpace(cpuInfos[0].ModelName)
-	}
+	// 3. Modelo do Processador (cacheado — é estático, ver modeloDaCPU)
+	cpuModel := modeloDaCPU()
 
 	// 4. Memória RAM (Total vs Usada)
 	vm, err := mem.VirtualMemory()
@@ -194,9 +224,16 @@ func Collect() (*Payload, error) {
 	}
 
 	// 7. Adaptadores de Rede e Endereços IP
+	//
+	// Uma única chamada a net.Interfaces() alimenta tanto a lista de interfaces
+	// abaixo quanto o IP principal (ip, calculado logo adiante) — antes eram duas
+	// chamadas separadas (aqui e dentro de primaryIP()), medidas em ~82 ms cada
+	// coleta. Ver primeiroIPv4NaoLoopback.
 	var interfaces []NetworkInterface
+	var ip string
 	ifaces, err := net.Interfaces()
 	if err == nil {
+		ip = primeiroIPv4NaoLoopback(ifaces)
 		for _, iface := range ifaces {
 			if iface.Flags&net.FlagUp == 0 {
 				continue
@@ -238,7 +275,7 @@ func Collect() (*Payload, error) {
 	return &Payload{
 		MachineUUID: hi.HostID,
 		Hostname:   hostname,
-		IP:         primaryIP(),
+		IP:         ip,
 		OS:         osName,
 		OSVersion:  hi.PlatformVersion,
 		CPUUsage:   cpuUsage,
