@@ -1,7 +1,6 @@
 import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpers';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { supabase } from '@/integrations/supabase/client';
 import { Ticket } from './useTickets';
 import { MOCK_TICKETS, getMockTicketsByStatus } from '@/mocks/tickets';
 
