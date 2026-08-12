@@ -316,8 +316,11 @@ por nenhum script de build/deploy/CI encontrado no repo. Parece código morto
 esquecido, coexistindo de forma confusa com `orion-agent/`.
 
 ### 6.2 Segredo de produção commitado em texto plano
-`orion-agent/agent.yaml` está versionado no git com
-`agent_key: ***CHAVE-ROTACIONADA-VER-SECURITY-md***` — a mesma chave que, no backend, precisa
+`orion-agent/agent.yaml` estava versionado no git com um valor real de
+`agent_key` em texto plano (redigido aqui após a rotação — ver
+`IMPROVEMENT_PLAN.md` A.1; o arquivo atual usa o placeholder
+`COLOQUE_SUA_CHAVE_AQUI`, e o valor antigo continua no **histórico** do git
+até uma reescrita explícita) — a mesma chave que, no backend, precisa
 bater com a variável de ambiente `AGENT_KEY` (`lib/config.go`) para validar
 **qualquer** heartbeat/poll/resposta de comando quando nenhuma chave dinâmica
 por empresa está configurada. Qualquer pessoa com acesso de leitura ao

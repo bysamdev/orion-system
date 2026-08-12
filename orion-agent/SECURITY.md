@@ -173,9 +173,10 @@ func executeCommand(commandID string) (string, error) {
 
 ### F3 — Crítico: `agent_key` em texto plano, commitada no git
 
-`orion-agent/agent.yaml`:
+`orion-agent/agent.yaml` continha (valor redigido aqui após a rotação — ver
+`IMPROVEMENT_PLAN.md` A.1):
 ```yaml
-agent_key: ***CHAVE-ROTACIONADA-VER-SECURITY-md***
+agent_key: [REDIGIDO — chave rotacionada, valor antigo ainda no histórico do git]
 ```
 Arquivo versionado no repositório (histórico completo do git, não só o
 `HEAD`), copiado sem alteração para `C:\Program Files\OrionAgent\agent.yaml`

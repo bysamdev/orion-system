@@ -36,11 +36,12 @@ qual usuário. É simétrico (mesma chave usada por todos os agentes daquela
 empresa/globalmente) e estático (sem expiração, sem rotação automática, sem
 escopo por dispositivo).
 
-**Achado crítico:** essa chave global está commitada em texto plano em
-`orion-agent/agent.yaml` (`agent_key: ***CHAVE-ROTACIONADA-VER-SECURITY-md***`) — qualquer
-pessoa com acesso de leitura ao git tem essa chave. Já reportado no
-`ARCHITECTURE.md` (seção 6.2); repetido aqui porque é a peça central desta
-análise.
+**Achado crítico:** essa chave global estava commitada em texto plano em
+`orion-agent/agent.yaml` — qualquer pessoa com acesso de leitura ao git tinha
+essa chave. Valor redigido aqui após a rotação (`IMPROVEMENT_PLAN.md` A.1);
+o antigo continua no **histórico** do git até uma reescrita explícita. Já
+reportado no `ARCHITECTURE.md` (seção 6.2); repetido aqui porque é a peça
+central desta análise.
 
 ### 1.2 `machine_token` — "isto é *esta* máquina"
 

@@ -115,7 +115,7 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 | A.7 ✅ | Enforcement de `https://` em `config.Load` | A3 | **baixo** | baixo | Implementado e testado |
 | A.8 ✅ | Redigir token de logs e da URL logada | A4 | **baixo** | baixo | Implementado e testado (`redigirQuery` em `main.go`) |
 | A.9 | Remover fallback "primeira empresa do banco" | A11 | baixo | médio | Backend. Máquinas órfãs passam a falhar visivelmente (é o desejado) |
-| A.10 | Validar hash/Authenticode no script de GPO | M1 | baixo | baixo | Só o `.ps1` |
+| A.10 ✅ | Validar hash/Authenticode no script de GPO | M1 | baixo | baixo | Implementado via hash SHA-256 (manifesto `.sha256` publicado ao lado do `.exe`/`.yaml` no share); Authenticode **não** incluído — o binário não é assinado hoje, exigir assinatura quebraria todo deploy. Achado lateral corrigido: o script tinha um bug de encoding real (UTF-8 sem BOM é mal interpretado pelo Windows PowerShell 5.1 sob codepage não-inglês, corrompendo os `—`/acentos e quebrando o parsing) |
 | A.11 | Não logar texto integral de comandos RMM | M2 | baixo | baixo | |
 | A.12 | Enrollment com certificado por máquina (mTLS) | C3, C5 | **alto** | **alto** | Projeto próprio. Depende de A.6 |
 | A.13 | SID do usuário via API do Windows em vez de `os.Getenv` | C5 | alto | médio | Depende de decidir o modelo de identidade |
@@ -167,7 +167,8 @@ lógica de backend":
    **Feito.** Todos implementados e testados.
 2. ✅ **Identidade da máquina** — A.6 + B.5, implementados juntos conforme exigido
    (mesmo commit/diff, migração de tokens legados incluída). **Feito.**
-3. **Operacional, sem código** — A.1 (rotação de chave), A.10 (GPO). Ainda pendente.
+3. **Operacional, sem código** — A.1 (rotação de chave, pendente — precisa de
+   decisão sua, ver §5) · A.10 (GPO) ✅ **feito**.
 4. **Infra de teste** — B.14, para destravar CI em Linux e finalmente rodar `-race`,
    confirmando B.4 empiricamente.
 5. **Performance com mudança de semântica** — B.6, B.7, B.8, B.9, cada um em commit
@@ -206,6 +207,21 @@ de credencial (A.7, A.8).
 migração para a frota já instalada — conforme exigido antes de qualquer um dos
 dois entrar em código. Detalhes das opções avaliadas e da decisão em
 `MACHINE-IDENTITY-OPTIONS.md`.
+
+**A.10 (implementado):** verificação de hash SHA-256 no script de GPO.
+
+**A.1 (rotação da `agent_key` vazada) — parcialmente fora do meu alcance,
+precisa de decisão sua:** consegui fazer a parte de código (gerar uma chave
+nova, forte, para substituir o placeholder), mas três partes ficam fora do
+que eu consigo executar sozinho: (1) atualizar a variável de ambiente
+`AGENT_KEY` no Vercel — não tenho acesso ao painel; (2) remover o valor
+vazado do **histórico** do git (`git filter-repo`/BFG) — é reescrita de
+histórico com force-push, destrutiva por natureza, e as regras deste projeto
+exigem pedido explícito antes de qualquer operação assim; (3) redistribuir a
+nova chave para a frota já instalada. Antes de eu gerar a chave nova, me diga
+como quer conduzir: só a parte de código agora (e você cuida do resto
+manualmente), ou também quer que eu prepare os comandos de reescrita de
+histórico para sua revisão (sem executar)?
 
 **Ainda sem aprovação:** todo o restante do plano — seções 2 e 3 seguem
 descrevendo o que falta e a sequência sugerida.
