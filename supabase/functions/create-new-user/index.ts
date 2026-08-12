@@ -116,6 +116,7 @@ serve(async (req) => {
       email_confirm: true, // Confirma o email automaticamente
       user_metadata: {
         full_name: body.full_name,
+        company_id: body.company_id,
       }
     });
 
@@ -139,6 +140,7 @@ serve(async (req) => {
       .from('profiles')
       .update({
         company_id: body.company_id,
+        email: body.email,
         department: body.department,
       })
       .eq('id', newUserId);

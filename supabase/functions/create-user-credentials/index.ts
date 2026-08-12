@@ -108,12 +108,20 @@ serve(async (req) => {
       email_confirm: true, // Confirma automaticamente para login direto
       user_metadata: {
         full_name: full_name,
+        company_id: company_id,
       },
     });
 
     if (createUserError || !createUserData.user) {
       console.error('Erro ao criar usuário:', createUserError);
-      throw new Error(`Erro ao criar usuário: ${createUserError?.message || 'Desconhecido'}`);
+      let errorMessage = 'Erro ao criar usuário';
+      if (createUserError?.message?.includes('already registered')) {
+        errorMessage = 'Este e-mail já está cadastrado no sistema';
+      }
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const userId = createUserData.user.id;
@@ -129,6 +137,7 @@ serve(async (req) => {
       .from('profiles')
       .update({
         full_name: full_name,
+        email: email,
         department: department,
         company_id: company_id,
       })
@@ -136,7 +145,11 @@ serve(async (req) => {
 
     if (profileError) {
       console.error('Erro ao atualizar profile:', profileError);
-      throw new Error(`Erro ao atualizar perfil: ${profileError.message}`);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return new Response(
+        JSON.stringify({ error: `Erro ao atualizar perfil: ${profileError.message}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Profile atualizado com sucesso');
@@ -149,7 +162,11 @@ serve(async (req) => {
 
       if (roleUpdateError) {
         console.error('Erro ao definir role:', roleUpdateError);
-        throw new Error(`Erro ao definir função: ${roleUpdateError.message}`);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+        return new Response(
+          JSON.stringify({ error: `Erro ao definir função: ${roleUpdateError.message}` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       console.log('Role atualizada para:', role);
@@ -163,7 +180,15 @@ serve(async (req) => {
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     
     if (!resendApiKey) {
-      throw new Error('RESEND_API_KEY não configurada');
+      console.warn('RESEND_API_KEY não configurada');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Usuário criado com sucesso! Credenciais provisórias: ${tempPassword} (E-mail não enviado: chave Resend ausente).`,
+          user_id: userId,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const loginUrl = 'https://orionsystem.bysam.dev/auth';
@@ -226,37 +251,43 @@ serve(async (req) => {
       </html>
     `;
 
-    const emailResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Orion System <orionsystem@bysam.dev>',
-        to: [email],
-        subject: 'Bem-vindo ao Orion System - Suas Credenciais',
-        html: emailHtml,
-      }),
-    });
+    let emailData: any = null;
+    try {
+      const emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Orion System <orionsystem@bysam.dev>',
+          to: [email],
+          subject: 'Bem-vindo ao Orion System - Suas Credenciais',
+          html: emailHtml,
+        }),
+      });
 
-    if (!emailResponse.ok) {
-      const errorData = await emailResponse.text();
-      console.error('Erro ao enviar e-mail via Resend:', errorData);
-      throw new Error(`Erro ao enviar e-mail: ${emailResponse.statusText}`);
+      if (emailResponse.ok) {
+        emailData = await emailResponse.json();
+        console.log('E-mail enviado com sucesso. ID:', emailData?.id);
+      } else {
+        const errorData = await emailResponse.text();
+        console.error('Erro ao enviar e-mail via Resend:', errorData);
+      }
+    } catch (e) {
+      console.error('Erro na requisição Resend:', e);
     }
 
-    const emailData = await emailResponse.json();
-
-    console.log('E-mail enviado com sucesso. ID:', emailData?.id);
     console.log('=== Processo concluído com sucesso ===');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Usuário criado e credenciais enviadas para ${email}`,
+        message: emailData?.id 
+          ? `Usuário criado e credenciais enviadas para ${email}`
+          : `Usuário criado com sucesso (senha: ${tempPassword}).`,
         user_id: userId,
-        email_id: emailData?.id,
+        email_id: emailData?.id || null,
       }),
       {
         status: 200,

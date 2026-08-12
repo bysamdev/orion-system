@@ -282,6 +282,12 @@ const TicketDetails: React.FC = () => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      handleAddUpdate();
+      return;
+    }
+
     if (showSuggestions && filteredTemplates.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
