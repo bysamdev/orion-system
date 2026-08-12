@@ -318,24 +318,27 @@ Se sua internet funciona para a maioria das páginas mas falha em um site espec�
   -- 10. VPN não conecta
   INSERT INTO public.knowledge_base_articles (title, content, category_id, company_id, is_public, status, tags, created_by)
   VALUES (
-    'VPN corporativa não conecta: o que verificar',
-    '# VPN corporativa não conecta: o que verificar
+    'VPN corporativa (OpenVPN) não conecta: o que verificar',
+    '# VPN corporativa (OpenVPN) não conecta: o que verificar
 
-A VPN garante acesso seguro aos arquivos da empresa em Home Office. Se não estiver conectando, verifique:
+O **OpenVPN (Community Edition)** é a nossa ferramenta padrão para conexão segura à rede e servidores da empresa em trabalho remoto.
 
-### Passo a passo para solução:
+### Passo a passo para solução (OpenVPN Community):
 
-1. **Internet residencial ativa:** Confirme que a internet de casa está funcionando abrindo um site qualquer.
-2. **Credenciais e MFA:** Verifique usuário, senha (cuidado com Caps Lock) e o código token do celular.
-3. **Endereço do servidor:** Confirme se o gateway está preenchido como `vpn.orionsystem.com.br`.
-4. **Reiniciar cliente VPN:** Clique com o botão direito no ícone da VPN perto do relógio, selecione Sair e abra novamente.
-5. **Reiniciar o roteador:** Desligue o roteador residencial da tomada por 30 segundos.
+1. **Internet residencial ativa:** Confirme que a internet de casa está funcionando antes de conectar a VPN.
+2. **Ícone na barra de tarefas:** Clique na setinha perto do relógio do Windows e localize o ícone do **OpenVPN GUI** (computador com cadeado).
+3. **Conectar e Autenticar:** Clique com o botão direito no ícone do OpenVPN GUI, escolha o perfil `.ovpn` da empresa e clique em *Conectar*. Insira seu usuário e senha se solicitado.
+4. **Verificar cor do status:**
+   - 🟢 **Verde:** Conectado e funcionando.
+   - 🟡 **Amarelo:** Conectando/autenticando.
+   - 🔴 **Vermelho:** Desconectado ou com erro.
+5. **Reiniciar o OpenVPN GUI:** Clique com o botão direito no ícone > *Sair*. Abra novamente o OpenVPN GUI pelo Menu Iniciar como Administrador.
 
-[PRINT: Tela de login da VPN destacando os campos de usuário e MFA]
+[PRINT: Ícone do OpenVPN GUI verde perto do relógio do Windows]
 
 > [!WARNING]  
-> Se o problema persistir após estes passos, clique em **+ Novo Ticket** para abrir um chamado.',
-    v_cat_rede, v_company_id, true, 'published', ARRAY['vpn', 'home-office', 'autenticacao-vpn', 'erro-vpn'], v_user_id
+> Se o OpenVPN apresentar erro de certificado ou chave expirada, clique em **+ Novo Ticket** para abrir um chamado.',
+    v_cat_rede, v_company_id, true, 'published', ARRAY['vpn', 'openvpn', 'home-office', 'autenticacao-vpn', 'erro-vpn'], v_user_id
   ) ON CONFLICT DO NOTHING;
 
   -- 11. Pasta de rede compartilhada

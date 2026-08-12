@@ -255,37 +255,45 @@ Lentidão extrema pode ocorrer devido ao acúmulo de processos no sistema ou fal
   },
   {
     id: 'default-7',
-    title: 'VPN corporativa não conecta: o que verificar',
-    slug: 'vpn-corporativa-nao-conecta-o-que-verificar',
+    title: 'VPN corporativa (OpenVPN) não conecta: o que verificar',
+    slug: 'vpn-corporativa-openvpn-nao-conecta-o-que-verificar',
     category_id: null,
     category: 'Segurança',
     status: 'published',
     is_public: true,
-    tags: ['vpn', 'seguranca', 'home office', 'conexao'],
+    tags: ['vpn', 'openvpn', 'seguranca', 'home office', 'conexao'],
     created_at: new Date().toISOString(),
     read_time: '2 min de leitura',
-    excerpt: 'Checklist de verificação de credenciais, conexão local e revalidação de certificados de segurança da VPN.',
-    content: `# VPN corporativa não conecta: o que verificar
+    excerpt: 'Passo a passo para conectar e resolver problemas no OpenVPN Community (arquivo .ovpn, credenciais e ícone na barra de tarefas).',
+    content: `# VPN corporativa (OpenVPN) não conecta: o que verificar
 
-A VPN é necessária para acessar sistemas e arquivos internos quando você está trabalhando remotamente.
+O **OpenVPN (Community Edition)** é a nossa ferramenta oficial para estabelecer conexões seguras e criptografadas à rede e servidores da empresa durante o trabalho remoto ou externo.
 
 ---
 
-### Passo a Passo para Solução
+### Passo a Passo para Solução (OpenVPN Community)
 
-1. **Verifique sua Conexão Local**:
-   - Garanta que sua internet residencial/local esteja funcionando normalmente antes de tentar conectar à VPN.
-2. **Conferir Usuário e Senha**:
-   - Certifique-se de que sua senha de rede não expirou. Digite a senha atentamente.
-3. **Reiniciar o Cliente VPN**:
-   - Feche completamente o aplicativo da VPN (FortiClient, Cisco AnyConnect, GlobalProtect, etc.) na barra de ferramentas perto do relógio e abra-o novamente.
-4. **Verificar Dupla Autenticação (MFA)**:
-   - Se sua conta utiliza autenticação em dois fatores, aprovação no aplicativo no celular deve ser confirmada a tempo.
+1. **Verifique sua Conexão Local de Internet**:
+   - Garanta que sua internet residencial ou Wi-Fi esteja funcionando normalmente antes de tentar conectar a VPN.
+2. **Localize o Ícone do OpenVPN GUI**:
+   - No canto inferior direito da tela (na barra de tarefas do Windows, próximo ao relógio), clique na setinha de ícones ocultos (\`^\`).
+   - Procure o ícone do **OpenVPN GUI** (representado por um computador com um pequeno cadeado).
+3. **Conectar à VPN**:
+   - Clique com o **botão direito** no ícone do OpenVPN GUI.
+   - Selecione o perfil corporativo (\`.ovpn\`) e clique em **Conectar**.
+   - Se solicitado, insira seu Usuário e Senha corporativos.
+4. **Verifique a Cor do Ícone de Status**:
+   - 🟢 **Verde**: Conectado com sucesso! Seus acessos aos servidores, sistemas e pastas da empresa estão liberados.
+   - 🟡 **Amarelo**: Conectando ou autenticando credenciais.
+   - 🔴 **Vermelho / Cinza**: Desconectado ou com erro de conexão/autenticação.
+5. **Reiniciar o Cliente OpenVPN**:
+   - Clique com o botão direito no ícone do OpenVPN GUI perto do relógio e escolha **Sair**.
+   - Abra o **OpenVPN GUI** novamente pelo Menu Iniciar (se necessário, clique com o botão direito no atalho e selecione *Executar como Administrador*).
 
 ---
 
 > [!IMPORTANT]
-> Se a mensagem de erro citar *Certificado Inválido* ou *Gateway Inalcançável*, contate o suporte para atualização de perfil VPN.`
+> Se o ícone do OpenVPN exibir mensagens como *TLS Error*, *AUTH_FAILED* ou *Certificate Expired*, abra um chamado no Orion System anexando o print do erro para atualização da sua chave de acesso .ovpn.`
   },
   {
     id: 'default-8',
@@ -582,7 +590,6 @@ export default function KnowledgeBase() {
                         </span>
                         <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Padrão Corporativo</span>
                       </div>
-                      <span className="text-[11px] text-muted-foreground font-medium">AnyDesk como alternativa</span>
                     </div>
 
                     <div className="space-y-2">
@@ -600,7 +607,7 @@ export default function KnowledgeBase() {
                         <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-none font-bold">Obrigatório</Badge>
                       </div>
                       <p className="text-xs text-foreground/90 font-medium">
-                        Abra o <strong>TeamViewer</strong> pré-instalado na máquina e passe sua <strong>ID</strong>/<strong>Senha</strong> no chamado (AnyDesk incluso como opção secundária).
+                        Abra o <strong>TeamViewer</strong> pré-instalado na máquina e informe sua <strong>ID</strong> e <strong>Senha</strong> no chamado.
                       </p>
                     </div>
                   </CardContent>
