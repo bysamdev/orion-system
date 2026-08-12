@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchWithTimeout } from '@/lib/fetch-client';
 
 // Falls back to empty string → relative URL /api/monitoring/... (same Vercel domain)
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
@@ -7,11 +8,12 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\
 async function apiGet<T>(path: string): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetchWithTimeout(`${API_URL}${path}`, {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+    timeoutMs: 15000,
   });
   if (!res.ok) {
     const text = await res.text();
@@ -23,7 +25,7 @@ async function apiGet<T>(path: string): Promise<T> {
 async function apiPost<T>(path: string, body: any): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetchWithTimeout(`${API_URL}${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -283,11 +285,12 @@ export function useDeleteGroup() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/monitoring/groups/${id}`, {
+      const response = await fetchWithTimeout(`${import.meta.env.VITE_API_URL}/api/monitoring/groups/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        }
+        },
+        timeoutMs: 15000,
       });
       if (!response.ok) throw new Error('Erro ao deletar grupo');
       return response.json();

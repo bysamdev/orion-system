@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 import { useTickets } from '@/hooks/useTickets';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,7 +44,7 @@ const Reports: React.FC = () => {
   const { data: technicians } = useQuery({
     queryKey: ['technicians-list'],
     queryFn: async () => {
-      const { data, error } = await supabaseRead
+      const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, user_roles!inner(role)')
         .in('user_roles.role', ['technician', 'admin', 'developer'])

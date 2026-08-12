@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useSLAConfigs = () => {
   return useQuery({
@@ -9,7 +9,7 @@ export const useSLAConfigs = () => {
       // A RLS garante que só registros da mesma empresa sejam retornados.
       // Usamos .order('created_at', ascending: true) para pegar o registro
       // mais antigo (geralmente o "Padrão") como referência dos dropdowns.
-      const { data, error } = await supabaseRead
+      const { data, error } = await supabase
         .from('sla_configs')
         .select('*')
         .order('created_at', { ascending: true })

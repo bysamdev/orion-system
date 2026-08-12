@@ -15,7 +15,7 @@ const priorityConfig: Record<string, { label: string; className: string }> = {
   },
   high: {
     label: 'Alta',
-    className: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
+    className: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30',
   },
   medium: {
     label: 'Média',

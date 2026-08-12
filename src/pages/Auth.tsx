@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from '@/lib/useErrorHandler';
 import { Loader2 } from 'lucide-react';
+import { fetchWithTimeout } from '@/lib/fetch-client';
 
 
 import orionLogo from '@/assets/orion-logo.png';
@@ -32,7 +33,7 @@ const Auth = () => {
     const detectAgent = async () => {
       setIsDetectingAgent(true);
       try {
-        const response = await fetch('http://127.0.0.1:8081/token');
+        const response = await fetchWithTimeout('http://127.0.0.1:8081/token', { timeoutMs: 5000 });
         if (response.ok) {
           const data = await response.json();
           setMachineToken(data.machine_token);

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface CompanyOption {
   id: string;
@@ -27,7 +27,7 @@ export const useCompanies = () => {
   return useQuery({
     queryKey: ['company-options'],
     queryFn: async (): Promise<CompanyOption[]> => {
-      const { data, error } = await supabaseRead
+      const { data, error } = await supabase
         .from('companies')
         .select('id, name, settings')
         .order('name');

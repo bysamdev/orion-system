@@ -8,7 +8,7 @@ import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Search, History, Filter, X, ArrowRight, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, Navigate } from 'react-router-dom'; // Added Navigate import
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { ptBR } from 'date-fns/locale';
@@ -99,7 +99,7 @@ export default function TicketHistory() {
           </div>
         </div>
 
-        <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-visible bg-card/50 backdrop-blur-sm">
+        <Card className="border-border/40 shadow-xl shadow-primary/5 overflow-visible bg-card/50 backdrop-blur-sm">
           <CardHeader className="border-b border-border/40 pb-6">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
               <div className="relative w-full md:max-w-md group">
@@ -204,7 +204,7 @@ export default function TicketHistory() {
                         <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-14 pl-6">Nº</TableHead>
                         <TableHead className="text-[10px] font-black uppercase tracking-widest h-14">Ticket</TableHead>
                         <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-14">Prioridade</TableHead>
-                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-14 text-center">Situação Final</TableHead>
+                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-14">Situação Final</TableHead>
                         <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-14">Modificado em</TableHead>
                         <TableHead className="w-[80px] h-14"></TableHead>
                       </TableRow>
@@ -239,7 +239,7 @@ export default function TicketHistory() {
                       size="sm"
                       onClick={() => setPage(p => Math.max(0, p - 1))}
                       disabled={page === 0}
-                      className="h-8 px-2"
+                      className="w-9 p-0"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </Button>
@@ -251,7 +251,7 @@ export default function TicketHistory() {
                       size="sm"
                       onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                       disabled={page >= totalPages - 1}
-                      className="h-8 px-2"
+                      className="w-9 p-0"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </Button>
@@ -287,7 +287,7 @@ const TicketHistoryRow = React.memo(({ ticket, onClick }: TicketHistoryRowProps)
       <TableCell className="py-4">
         <PriorityBadge priority={ticket.priority} size="sm" />
       </TableCell>
-      <TableCell className="py-4 text-center">
+      <TableCell className="py-4">
         <StatusBadge status={ticket.status} />
       </TableCell>
       <TableCell className="py-4">

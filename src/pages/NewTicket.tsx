@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSLAConfigs } from '@/hooks/useSLAConfigs';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +18,7 @@ import {
   ChevronRight, ChevronLeft, ShieldCheck, AlertCircle
 } from 'lucide-react';
 import { FileUpload } from '@/components/ticket/FileUpload';
+import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -249,6 +250,17 @@ const NewTicket = () => {
     }
   };
 
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    stepHeadingRef.current?.focus();
+  }, [step]);
+
   const nextStep = async () => {
     const fieldsToValidate = step === 1 ? ['category', 'title'] : ['description', 'priority', 'department'];
     const isValid = await form.trigger(fieldsToValidate as (keyof TicketFormValues)[]);
@@ -318,10 +330,10 @@ const NewTicket = () => {
         </div>
 
         <div className="space-y-1">
-          <h1 className="text-3xl font-black tracking-tighter text-foreground">Abrir Novo Chamado</h1>
-          <p className="text-muted-foreground font-medium">Passo {step} de 3 — {
-            step === 1 ? "Identificação do problema" : 
-            step === 2 ? "Detalhes e priorização" : 
+          <h1 ref={stepHeadingRef} tabIndex={-1} className="text-3xl font-black tracking-tighter text-foreground outline-none">Abrir Novo Chamado</h1>
+          <p className="text-muted-foreground font-medium" aria-live="polite">Passo {step} de 3 — {
+            step === 1 ? "Identificação do problema" :
+            step === 2 ? "Detalhes e priorização" :
             "Anexos e finalização"
           }</p>
         </div>
@@ -627,17 +639,7 @@ const NewTicket = () => {
                           </div>
                           <div className="flex justify-between items-center text-xs">
                             <span className="text-muted-foreground font-bold uppercase tracking-tighter">Prioridade:</span>
-                            <span className={cn(
-                              "font-bold px-2 py-0.5 rounded-md border",
-                              form.getValues('priority') === 'urgent' ? "text-rose-600 bg-rose-500/10 border-rose-500/20" :
-                              form.getValues('priority') === 'high' ? "text-orange-600 bg-orange-500/10 border-orange-500/20" :
-                              form.getValues('priority') === 'medium' ? "text-amber-600 bg-amber-500/10 border-amber-500/20" :
-                              "text-emerald-600 bg-emerald-500/10 border-emerald-500/20"
-                            )}>
-                              {form.getValues('priority') === 'urgent' ? 'Urgente' :
-                               form.getValues('priority') === 'high' ? 'Alta' :
-                               form.getValues('priority') === 'medium' ? 'Média' : 'Baixa'}
-                            </span>
+                            <PriorityBadge priority={form.getValues('priority')} size="sm" />
                           </div>
                           <div className="flex justify-between items-center text-xs">
                             <span className="text-muted-foreground font-bold uppercase tracking-tighter">Depto:</span>

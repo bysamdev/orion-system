@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 import { subDays, startOfDay, addDays, format } from 'date-fns';
 
 export interface HistoricalDataPoint {
@@ -18,11 +18,11 @@ export const useHistoricalStats = (days: number = 7) => {
       // Uma ida ao banco por métrica (não uma por dia): busca tudo que cai
       // na janela de uma vez e distribui por dia no cliente.
       const [openedResult, solvedResult] = await Promise.all([
-        supabaseRead
+        supabase
           .from('tickets')
           .select('created_at')
           .gte('created_at', rangeStart.toISOString()),
-        supabaseRead
+        supabase
           .from('tickets')
           .select('updated_at')
           .in('status', ['resolved', 'closed'])

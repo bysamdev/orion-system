@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,7 +18,7 @@ export default function Avaliacao() {
   const { data: ticket, isLoading: ticketLoading } = useQuery({
     queryKey: ['ticket-basic', id],
     queryFn: async () => {
-      const { data, error } = await supabaseRead
+      const { data, error } = await supabase
         .from('tickets')
         .select('id, ticket_number, title, status')
         .eq('id', id!)

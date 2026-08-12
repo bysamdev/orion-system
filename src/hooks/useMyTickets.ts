@@ -1,8 +1,9 @@
 import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpers';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 import { Ticket } from './useTickets';
+import { MOCK_TICKETS, getMockTicketsByStatus } from '@/mocks/tickets';
 
 /**
  * Hook para buscar tickets atribuídos ao técnico logado (ativos)
@@ -13,7 +14,11 @@ export const useMyActiveTickets = (userId: string | undefined) => {
     queryFn: async () => {
       if (!userId) return [];
 
-      const { data: tickets, error } = await supabaseRead
+      if (import.meta.env.DEV) {
+        return getMockTicketsByStatus(['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party']) as unknown as Promise<Ticket[]>;
+      }
+
+      const { data: tickets, error } = await supabase
         .from('tickets')
         .select('*')
         .eq('assigned_to_user_id', userId)
@@ -36,7 +41,11 @@ export const useSLAAtRiskTickets = () => {
   return useQuery({
     queryKey: ['sla-at-risk-tickets'],
     queryFn: async () => {
-      const { data: tickets, error } = await supabaseRead
+      if (import.meta.env.DEV) {
+        return MOCK_TICKETS.filter(ticket => ticket.sla_status === 'warning' || ticket.sla_status === 'attention' || ticket.sla_status === 'breached') as unknown as Ticket[];
+      }
+
+      const { data: tickets, error } = await supabase
         .from('tickets')
         .select('*')
         .not('status', 'in', '("resolved","closed","cancelled")')
@@ -64,7 +73,11 @@ export const useUnassignedTicketsEnhanced = () => {
   return useQuery({
     queryKey: ['unassigned-tickets-enhanced'],
     queryFn: async () => {
-      const { data: tickets, error } = await supabaseRead
+      if (import.meta.env.DEV) {
+        return getMockTicketsByStatus(['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party']).filter(t => !t.assigned_to) as unknown as Promise<Ticket[]>;
+      }
+
+      const { data: tickets, error } = await supabase
         .from('tickets')
         .select('*')
         .in('status', ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'])
@@ -89,7 +102,11 @@ export const useMyRecentClosedTickets = (userId: string | undefined) => {
     queryFn: async () => {
       if (!userId) return [];
 
-      const { data, error } = await supabaseRead
+      if (import.meta.env.DEV) {
+        return getMockTicketsByStatus(['resolved', 'closed']) as unknown as any[];
+      }
+
+      const { data, error } = await supabase
         .from('tickets')
         .select('id, ticket_number, title, status, category, assigned_to, updated_at, resolved_at, requester_name')
         .eq('assigned_to_user_id', userId)
@@ -115,7 +132,7 @@ export const useActiveAgentsCount = (companyId: string | undefined) => {
       if (!companyId) return 0;
       
       // @ts-expect-error - RPC not yet in generated types
-      const { data, error } = await supabaseRead.rpc('count_company_active_agents', { 
+      const { data, error } = await supabase.rpc('count_company_active_agents', { 
         p_company_id: companyId 
       });
 
@@ -148,7 +165,27 @@ export const useMeusTickets = (userId: string | undefined, role: string | undefi
     queryFn: async () => {
       if (role === 'customer' && !userId) return { data: [], count: 0 };
 
-      let query = supabaseRead
+      if (import.meta.env.DEV) {
+        let mockData = MOCK_TICKETS;
+        
+        if (options.statusIn && options.statusIn.length > 0) {
+          mockData = mockData.filter(t => options.statusIn?.includes(t.status));
+        } else if (options.statusFilter && options.statusFilter !== 'all') {
+          if (options.statusFilter === 'open') {
+            mockData = mockData.filter(t => ['open', 'reopened'].includes(t.status));
+          } else if (options.statusFilter === 'in-progress') {
+            mockData = mockData.filter(t => ['in-progress', 'awaiting-customer', 'awaiting-third-party'].includes(t.status));
+          } else if (options.statusFilter === 'resolved') {
+            mockData = mockData.filter(t => ['resolved', 'closed', 'cancelled'].includes(t.status));
+          } else {
+            mockData = mockData.filter(t => t.status === options.statusFilter);
+          }
+        }
+        
+        return { data: mockData as unknown as Ticket[], count: mockData.length };
+      }
+
+      let query = supabase
         .from('tickets')
         .select('*', options.page !== undefined ? { count: 'exact' } : undefined);
 

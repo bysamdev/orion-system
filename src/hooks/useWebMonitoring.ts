@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchWithTimeout } from '@/lib/fetch-client';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
 
@@ -19,7 +20,7 @@ async function apiRequest<T>(path: string, method: string = 'GET', body?: any): 
     options.body = JSON.stringify(body);
   }
 
-  const res = await fetch(`${API_URL}${path}`, options);
+  const res = await fetchWithTimeout(`${API_URL}${path}`, { ...options, timeoutMs: 15000 });
   
   if (res.status === 204) {
     return {} as T;

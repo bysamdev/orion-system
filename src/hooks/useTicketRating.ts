@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 export interface TicketRating {
@@ -16,7 +16,7 @@ export const useTicketRating = (ticketId: string) => {
   return useQuery({
     queryKey: ['ticket-rating', ticketId],
     queryFn: async () => {
-      const { data, error } = await (supabaseRead
+      const { data, error } = await (supabase
         .from('ticket_ratings' as any)
         .select('*')
         .eq('ticket_id', ticketId)

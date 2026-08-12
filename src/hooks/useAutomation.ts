@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 
 // ── Types ─────────────────────────────────────────────────────
 export interface RoutingRule {
@@ -65,7 +65,7 @@ export const useRoutingRules = (companyId: string) =>
   useQuery<RoutingRule[]>({
     queryKey: ['routing-rules', companyId],
     queryFn: async () => {
-      const { data, error } = await supabaseRead
+      const { data, error } = await supabase
         .from('routing_rules')
         .select('*')
         .eq('company_id', companyId)
@@ -107,7 +107,7 @@ export const useCannedResponses = (companyId: string) =>
   useQuery<CannedResponseFull[]>({
     queryKey: ['canned-responses-full', companyId],
     queryFn: async () => {
-      const { data, error } = await supabaseRead
+      const { data, error } = await supabase
         .from('canned_responses')
         .select('*')
         .eq('company_id', companyId)
@@ -122,7 +122,7 @@ export const useAutomationLogs = () =>
   useQuery<AutomationLog[]>({
     queryKey: ['automation-logs'],
     queryFn: async () => {
-      const { data, error } = await (supabaseRead as any)
+      const { data, error } = await (supabase as any)
         .from('automation_logs')
         .select('*')
         .order('created_at', { ascending: false })

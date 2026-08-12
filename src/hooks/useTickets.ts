@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Database } from '@/integrations/supabase/types';
 import { ticketStatusSchema, ticketUpdateSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
 import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpers';
+import { MOCK_TICKETS, getMockTicketsByStatus } from '@/mocks/tickets';
 
 export interface Ticket {
   id: string;
@@ -53,8 +54,12 @@ export const useTickets = (status?: string) => {
   return useQuery({
     queryKey: ['tickets', status],
     queryFn: async () => {
+      if (import.meta.env.DEV) {
+        return getMockTicketsByStatus(status) as unknown as Promise<Ticket[]>;
+      }
+      
       // Use read client for queries
-      let query = supabaseRead
+      let query = supabase
         .from('tickets')
         .select('*')
         .order('created_at', { ascending: false });
@@ -87,10 +92,15 @@ export const useTicket = (id: string) => {
   return useQuery({
     queryKey: ['ticket', id],
     queryFn: async () => {
+      if (import.meta.env.DEV) {
+        const mockTicket = MOCK_TICKETS.find(t => t.id === id) || MOCK_TICKETS[0];
+        return mockTicket as Ticket;
+      }
+
       console.log('[useTicket] Buscando ticket com id:', id);
       // Busca o ticket com o nome do operador via FK explícita (evita PGRST201)
       // Não usamos join aninhado profiles→companies pois há múltiplas FKs e gera ambiguidade.
-      const { data: ticket, error } = await supabaseRead
+      const { data: ticket, error } = await supabase
         .from('tickets')
         .select(`
           *,
@@ -109,7 +119,7 @@ export const useTicket = (id: string) => {
       // Busca o nome da empresa separadamente usando o company_id do próprio ticket
       let companyName: string | null = null;
       if (ticket.company_id) {
-        const { data: company } = await supabaseRead
+        const { data: company } = await supabase
           .from('companies')
           .select('name')
           .eq('id', ticket.company_id)
@@ -133,7 +143,7 @@ export const useTicketUpdates = (ticketId: string) => {
     queryKey: ['ticket-updates', ticketId],
     queryFn: async () => {
       // Fetch updates and associated author profiles in a single query using joins
-      const { data: updates, error } = await supabaseRead
+      const { data: updates, error } = await supabase
         .from('ticket_updates')
         .select(`
           *,

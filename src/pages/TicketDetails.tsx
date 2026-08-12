@@ -31,7 +31,7 @@ import { useCannedResponses } from '@/hooks/useCannedResponses';
 import { useTicketAttachments, useUploadAttachment } from '@/hooks/useTicketAttachments';
 import { useTicketTimeEntries } from '@/hooks/useTimeEntries';
 import { supabase } from '@/integrations/supabase/client';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow, differenceInHours, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { z } from 'zod';
@@ -74,10 +74,23 @@ const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
     { key: 'closed', label: 'Concluído', icon: Lock },
   ];
 
+  if (currentStatus === 'cancelled') {
+    return (
+      <div className="w-full py-6 px-4 mb-6 bg-muted/20 border border-border/50 rounded-xl relative flex items-center gap-3">
+        <div className="w-12 h-12 rounded-full flex items-center justify-center border-2 bg-destructive/10 border-destructive/40 text-destructive shrink-0">
+          <Lock className="w-6 h-6" />
+        </div>
+        <div>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status Atual</p>
+          <p className="text-sm font-black uppercase tracking-widest text-destructive">Cancelado</p>
+        </div>
+      </div>
+    );
+  }
+
   const getStatusIndex = (status: string) => {
     if (status === 'reopened') return 1;
     if (status === 'awaiting-customer' || status === 'awaiting-third-party') return 1;
-    if (status === 'cancelled') return -1;
     return steps.findIndex(s => s.key === status);
   };
 
@@ -145,7 +158,7 @@ const TicketDetails: React.FC = () => {
       const fetchUUID = async () => {
         try {
           console.log('[TicketDetails] Resolvendo número de chamado:', id);
-          const { data, error } = await supabaseRead
+          const { data, error } = await supabase
             .from('tickets')
             .select('id')
             .eq('ticket_number', parseInt(id || '0', 10))
@@ -191,7 +204,7 @@ const TicketDetails: React.FC = () => {
   const { data: statusHistory = [] } = useQuery({
     queryKey: ['ticket-status-history', validId],
     queryFn: async () => {
-      const { data, error } = await supabaseRead
+      const { data, error } = await supabase
         .from('ticket_status_history')
         .select('*')
         .eq('ticket_id', validId!)
@@ -342,7 +355,7 @@ const TicketDetails: React.FC = () => {
 
       if (!companyId) return null;
 
-      const { data, error } = await supabaseRead
+      const { data, error } = await supabase
         .from('resolution_checklists')
         .select('*')
         .eq('company_id', companyId)
@@ -1071,7 +1084,7 @@ const RemoteField = ({ label, value, onCopy }: { label: string; value?: string; 
         <p className="text-[9px] font-bold text-muted-foreground uppercase leading-none mb-1">{label}</p>
         <p className="font-mono text-xs font-bold truncate">{value}</p>
       </div>
-      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 hover:bg-background" onClick={onCopy}>
+      <Button variant="ghost" size="icon" aria-label={`Copiar ${label}`} className="h-6 w-6 shrink-0 hover:bg-background" onClick={onCopy}>
         <Copy className="w-3 h-3 text-muted-foreground" />
       </Button>
     </div>
@@ -1175,36 +1188,36 @@ const TicketAssetContext = ({ assetId }: { assetId: string }) => {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
               onClick={() => handleQuickAction('ping 8.8.8.8', 'Ping 8.8.8.8')}
               disabled={createCommand.isPending}
             >
               Ping Test
             </Button>
             <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
               onClick={() => handleQuickAction('ipconfig /flushdns', 'Flush DNS')}
               disabled={createCommand.isPending}
             >
               Flush DNS
             </Button>
             <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
               onClick={() => handleQuickAction('net stop spooler & net start spooler', 'Reiniciar Spooler')}
               disabled={createCommand.isPending}
             >
               Reset Spooler
             </Button>
             <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs bg-muted/30 border-border/40 hover:bg-primary/10 hover:border-primary/30"
               onClick={() => handleQuickAction('del /q /f /s %temp%\\*', 'Limpar Temp')}
               disabled={createCommand.isPending}
             >
@@ -1216,7 +1229,7 @@ const TicketAssetContext = ({ assetId }: { assetId: string }) => {
         <Button 
           variant="outline" 
           size="sm" 
-          className="w-full text-xs h-8 mt-2"
+          className="w-full text-xs h-9 mt-2"
           onClick={() => navigate('/sistemas')}
         >
           <Activity className="w-3 h-3 mr-2" />

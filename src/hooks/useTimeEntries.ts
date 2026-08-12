@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 export interface TimeEntry {
@@ -21,7 +21,7 @@ export const useTicketTimeEntries = (ticketId: string) => {
   return useQuery({
     queryKey: ['time-entries', ticketId],
     queryFn: async () => {
-      const { data, error } = await supabaseRead
+      const { data, error } = await supabase
         .from('time_entries')
         .select('*')
         .eq('ticket_id', ticketId)
@@ -39,7 +39,7 @@ export const useActiveTimer = (userId: string | undefined) => {
     queryKey: ['active-timer', userId],
     queryFn: async () => {
       if (!userId) return null;
-      const { data, error } = await supabaseRead
+      const { data, error } = await supabase
         .from('time_entries')
         .select('*, tickets(ticket_number)')
         .eq('user_id', userId)
@@ -90,7 +90,7 @@ export const useStopTimer = () => {
     mutationFn: async ({ entryId }: { entryId: string }) => {
       const now = new Date();
       // Primeiro buscar o start_time
-      const { data: entry } = await supabaseRead
+      const { data: entry } = await supabase
         .from('time_entries')
         .select('start_time')
         .eq('id', entryId)
