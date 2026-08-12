@@ -205,16 +205,14 @@ const NewTicket = () => {
           const fileName = `${ticket.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
           const { error: uploadError } = await supabase.storage.from('ticket-files').upload(fileName, file);
           if (uploadError) continue;
-          const { data: urlData } = await supabase.storage.from('ticket-files').createSignedUrl(fileName, 60 * 60 * 24);
-          if (urlData?.signedUrl) {
-            await supabase.from('ticket_attachments').insert({
-              ticket_id: ticket.id,
-              file_name: file.name,
-              file_url: urlData.signedUrl,
-              file_type: file.type,
-              uploaded_by: user.id
-            });
-          }
+
+          await supabase.from('ticket_attachments').insert({
+            ticket_id: ticket.id,
+            file_name: file.name,
+            file_url: fileName,
+            file_type: file.type,
+            uploaded_by: user.id
+          });
         }
       }
 

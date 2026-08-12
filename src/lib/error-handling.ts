@@ -57,6 +57,10 @@ export function mapDatabaseError(error: unknown): string {
   // Check for specific error message patterns (case-insensitive)
   const message = dbError.message?.toLowerCase() || '';
   
+  if (message.includes('concorrência') || message.includes('concurrency')) {
+    return dbError.message || 'Conflito de concorrência: O registro foi alterado por outro usuário.';
+  }
+  
   if (message.includes('permission denied') || message.includes('rls')) {
     return 'Você não tem permissão para realizar esta operação';
   }

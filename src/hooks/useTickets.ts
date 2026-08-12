@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Database } from '@/integrations/supabase/types';
-import { ticketStatusSchema, ticketUpdateSchema } from '@/lib/validation';
+import { ticketStatusSchema, ticketPrioritySchema, ticketUpdateSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
 import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpers';
 import { MOCK_TICKETS, getMockTicketsByStatus } from '@/mocks/tickets';
@@ -177,6 +177,22 @@ export const useTicketUpdates = (ticketId: string) => {
   });
 };
 
+export interface UpdateTicketStatusParams {
+  id: string;
+  status: string;
+  last_updated_at?: string | null;
+  expected_status?: string | null;
+  assigned_to?: string | null;
+  assigned_to_user_id?: string | null;
+  sla_paused_at?: string | null;
+  sla_accumulated_pause_minutes?: number | null;
+  resolution_notes?: string | null;
+  updateContent?: string;
+  updateType?: 'comment' | 'status_change' | 'assignment' | 'priority_change';
+  previousStatus?: string;
+  is_internal?: boolean;
+}
+
 export const useUpdateTicketStatus = () => {
   const queryClient = useQueryClient();
 
@@ -184,18 +200,18 @@ export const useUpdateTicketStatus = () => {
     mutationFn: async ({ 
       id, 
       status, 
+      last_updated_at,
+      expected_status,
       assigned_to, 
       assigned_to_user_id,
       sla_paused_at,
-      sla_accumulated_pause_minutes
-    }: { 
-      id: string; 
-      status: string;
-      assigned_to?: string;
-      assigned_to_user_id?: string;
-      sla_paused_at?: string | null;
-      sla_accumulated_pause_minutes?: number | null;
-    }) => {
+      sla_accumulated_pause_minutes,
+      resolution_notes,
+      updateContent,
+      updateType = 'status_change',
+      previousStatus,
+      is_internal = false,
+    }: UpdateTicketStatusParams) => {
       // Validate status before sending to database
       const validationResult = ticketStatusSchema.safeParse(status);
       
@@ -204,9 +220,10 @@ export const useUpdateTicketStatus = () => {
       }
 
       // Build update object
-      const updateData: Database['public']['Tables']['tickets']['Update'] = { status: validationResult.data as Database['public']['Tables']['tickets']['Update']['status'] };
+      const updateData: Database['public']['Tables']['tickets']['Update'] = { 
+        status: validationResult.data as Database['public']['Tables']['tickets']['Update']['status'] 
+      };
       
-      // Add assignment fields if provided
       if (assigned_to !== undefined) {
         updateData.assigned_to = assigned_to;
       }
@@ -219,23 +236,69 @@ export const useUpdateTicketStatus = () => {
       if (sla_accumulated_pause_minutes !== undefined) {
         updateData.sla_accumulated_pause_minutes = sla_accumulated_pause_minutes;
       }
+      if (resolution_notes !== undefined) {
+        updateData.resolution_notes = resolution_notes;
+      }
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('tickets')
         .update(updateData)
-        .eq('id', id)
+        .eq('id', id);
+
+      if (last_updated_at) {
+        query = query.eq('updated_at', last_updated_at);
+      }
+      if (expected_status) {
+        query = query.eq('status', expected_status);
+      }
+
+      const { data: ticketData, error: updateError } = await query
         .select()
         .single();
 
-      if (error) throw error;
-      return data;
+      if (updateError) {
+        if (updateError.code === 'PGRST116') {
+          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+        }
+        throw updateError;
+      }
+
+      // Safe timeline update
+      if (updateContent) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Usuário não autenticado');
+
+        const { error: timelineError } = await supabase
+          .from('ticket_updates')
+          .insert([{
+            ticket_id: id,
+            content: updateContent,
+            type: updateType,
+            author: '',
+            author_id: user.id,
+            is_internal
+          }]);
+
+        if (timelineError) {
+          // Revert status on tickets table if timeline update fails
+          if (previousStatus) {
+            try {
+              await supabase.from('tickets').update({ status: previousStatus }).eq('id', id);
+            } catch (revertErr) {
+              console.error('[useUpdateTicketStatus] Falha ao reverter status:', revertErr);
+            }
+          }
+          throw new Error(`Falha ao registrar histórico na timeline: ${timelineError.message}. Operação cancelada e revertida.`);
+        }
+      }
+
+      return ticketData;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-updates', data.id] });
       
-      // Mensagem customizada baseada no que foi atualizado
-      const messages = [];
       if (data.status === 'in-progress' && data.assigned_to) {
         toast({
           title: 'Atendimento iniciado',
@@ -248,47 +311,452 @@ export const useUpdateTicketStatus = () => {
         });
       }
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       logError('useUpdateTicketStatus', error);
       toast({
-        title: 'Erro',
+        title: 'Erro de atualização',
         description: mapDatabaseError(error),
         variant: 'destructive',
       });
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket'] });
     },
   });
 };
+
+export interface UpdateAssignmentParams {
+  id: string;
+  assigned_to: string | null;
+  assigned_to_user_id?: string | null;
+  last_updated_at?: string | null;
+  previousAssignedTo?: string | null;
+  updateContent?: string;
+}
 
 export const useUpdateTicketAssignment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, assigned_to }: { id: string; assigned_to: string }) => {
-      const { data, error } = await supabase
+    mutationFn: async ({ 
+      id, 
+      assigned_to,
+      assigned_to_user_id,
+      last_updated_at,
+      previousAssignedTo,
+      updateContent
+    }: UpdateAssignmentParams) => {
+      const updateData: Database['public']['Tables']['tickets']['Update'] = { assigned_to };
+      if (assigned_to_user_id !== undefined) {
+        updateData.assigned_to_user_id = assigned_to_user_id;
+      }
+
+      let query = supabase
         .from('tickets')
-        .update({ assigned_to })
-        .eq('id', id)
+        .update(updateData)
+        .eq('id', id);
+
+      if (last_updated_at) {
+        query = query.eq('updated_at', last_updated_at);
+      }
+
+      const { data, error } = await query
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST116') {
+          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+        }
+        throw error;
+      }
+
+      if (updateContent) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Usuário não autenticado');
+
+        const { error: timelineError } = await supabase
+          .from('ticket_updates')
+          .insert([{
+            ticket_id: id,
+            content: updateContent,
+            type: 'assignment',
+            author: '',
+            author_id: user.id,
+            is_internal: false
+          }]);
+
+        if (timelineError) {
+          if (previousAssignedTo !== undefined) {
+            try {
+              await supabase.from('tickets').update({ assigned_to: previousAssignedTo }).eq('id', id);
+            } catch (revertErr) {
+              console.error('[useUpdateTicketAssignment] Falha ao reverter atribuição:', revertErr);
+            }
+          }
+          throw new Error(`Falha ao registrar histórico de atribuição: ${timelineError.message}. Operação cancelada.`);
+        }
+      }
+
       return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-updates', data.id] });
       toast({
         title: 'Técnico atribuído',
         description: 'O técnico foi atribuído ao chamado com sucesso.',
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       logError('useUpdateTicketAssignment', error);
       toast({
-        title: 'Erro',
+        title: 'Erro ao atribuir técnico',
         description: mapDatabaseError(error),
         variant: 'destructive',
       });
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket'] });
+    },
+  });
+};
+
+export interface UpdatePriorityParams {
+  id: string;
+  priority: string;
+  last_updated_at?: string | null;
+  previousPriority?: string;
+  updateContent?: string;
+}
+
+export const useUpdateTicketPriority = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      priority,
+      last_updated_at,
+      previousPriority,
+      updateContent
+    }: UpdatePriorityParams) => {
+      const validated = ticketPrioritySchema.safeParse(priority);
+      if (!validated.success) {
+        throw new Error(validated.error.errors[0].message);
+      }
+
+      let query = supabase
+        .from('tickets')
+        .update({ priority: validated.data })
+        .eq('id', id);
+
+      if (last_updated_at) {
+        query = query.eq('updated_at', last_updated_at);
+      }
+
+      const { data, error } = await query
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+        }
+        throw error;
+      }
+
+      if (updateContent) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Usuário não autenticado');
+
+        const { error: timelineError } = await supabase
+          .from('ticket_updates')
+          .insert([{
+            ticket_id: id,
+            content: updateContent,
+            type: 'priority_change',
+            author: '',
+            author_id: user.id,
+            is_internal: false
+          }]);
+
+        if (timelineError) {
+          if (previousPriority) {
+            try {
+              await supabase.from('tickets').update({ priority: previousPriority }).eq('id', id);
+            } catch (revertErr) {
+              console.error('[useUpdateTicketPriority] Revert failed:', revertErr);
+            }
+          }
+          throw new Error(`Falha ao registrar histórico de prioridade: ${timelineError.message}. Operação cancelada.`);
+        }
+      }
+
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-updates', data.id] });
+      toast({
+        title: 'Prioridade alterada',
+        description: 'A prioridade do chamado foi atualizada com sucesso.',
+      });
+    },
+    onError: (error: Error) => {
+      logError('useUpdateTicketPriority', error);
+      toast({
+        title: 'Erro ao alterar prioridade',
+        description: mapDatabaseError(error),
+        variant: 'destructive',
+      });
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket'] });
+    },
+  });
+};
+
+export interface ResolveTicketParams {
+  id: string;
+  notes: string;
+  resolutionContent: string;
+  last_updated_at?: string | null;
+  previousStatus?: string;
+}
+
+export const useResolveTicket = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      notes,
+      resolutionContent,
+      last_updated_at,
+      previousStatus = 'in-progress'
+    }: ResolveTicketParams) => {
+      let query = supabase
+        .from('tickets')
+        .update({
+          status: 'resolved',
+          resolution_notes: notes
+        })
+        .eq('id', id);
+
+      if (last_updated_at) {
+        query = query.eq('updated_at', last_updated_at);
+      }
+
+      const { data: updatedTicket, error: updateError } = await query
+        .select()
+        .single();
+
+      if (updateError) {
+        if (updateError.code === 'PGRST116') {
+          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+        }
+        throw updateError;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const updatesToInsert = [
+        {
+          ticket_id: id,
+          content: 'Status alterado para: Resolvido',
+          type: 'status_change' as const,
+          author: '',
+          author_id: user.id,
+          is_internal: false
+        },
+        {
+          ticket_id: id,
+          content: resolutionContent,
+          type: 'comment' as const,
+          author: '',
+          author_id: user.id,
+          is_internal: false
+        }
+      ];
+
+      const { error: timelineError } = await supabase
+        .from('ticket_updates')
+        .insert(updatesToInsert);
+
+      if (timelineError) {
+        try {
+          await supabase
+            .from('tickets')
+            .update({ status: previousStatus, resolution_notes: null })
+            .eq('id', id);
+        } catch (revertErr) {
+          console.error('[useResolveTicket] Falha ao reverter resolução:', revertErr);
+        }
+        throw new Error(`Falha ao registrar histórico de resolução: ${timelineError.message}. Resolução cancelada e revertida.`);
+      }
+
+      return updatedTicket;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-updates', data.id] });
+      toast({
+        title: 'Chamado Resolvido',
+        description: 'O chamado foi resolvido com sucesso.',
+      });
+    },
+    onError: (error: Error) => {
+      logError('useResolveTicket', error);
+      toast({
+        title: 'Erro ao resolver chamado',
+        description: mapDatabaseError(error),
+        variant: 'destructive',
+      });
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket'] });
+    },
+  });
+};
+
+export interface EscalateTicketParams {
+  id: string;
+  technicianName: string;
+  technicianUserId?: string | null;
+  newPriority: string;
+  reason: string;
+  last_updated_at?: string | null;
+  currentPriority?: string;
+  currentAssignedTo?: string | null;
+}
+
+export const useEscalateTicket = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      technicianName,
+      technicianUserId,
+      newPriority,
+      reason,
+      last_updated_at,
+      currentPriority,
+      currentAssignedTo,
+    }: EscalateTicketParams) => {
+      const targetAssignedTo = technicianName === 'unassigned' ? null : technicianName;
+      const priorityChanged = newPriority !== currentPriority;
+      const assignmentChanged = targetAssignedTo !== currentAssignedTo;
+
+      const updateData: Database['public']['Tables']['tickets']['Update'] = {};
+      if (priorityChanged) updateData.priority = newPriority;
+      if (assignmentChanged) {
+        updateData.assigned_to = targetAssignedTo;
+        if (technicianUserId !== undefined) {
+          updateData.assigned_to_user_id = technicianUserId;
+        }
+      }
+
+      let updatedTicket = null;
+      if (Object.keys(updateData).length > 0) {
+        let query = supabase
+          .from('tickets')
+          .update(updateData)
+          .eq('id', id);
+
+        if (last_updated_at) {
+          query = query.eq('updated_at', last_updated_at);
+        }
+
+        const { data, error } = await query
+          .select()
+          .single();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+          }
+          throw error;
+        }
+        updatedTicket = data;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const updatesToInsert = [];
+
+      if (priorityChanged) {
+        updatesToInsert.push({
+          ticket_id: id,
+          content: `Prioridade escalada para: ${newPriority}`,
+          type: 'priority_change' as const,
+          author: '',
+          author_id: user.id,
+          is_internal: false,
+        });
+      }
+
+      if (assignmentChanged) {
+        updatesToInsert.push({
+          ticket_id: id,
+          content: `Chamado escalado para: ${technicianName === 'unassigned' ? 'Fila Geral' : technicianName}`,
+          type: 'assignment' as const,
+          author: '',
+          author_id: user.id,
+          is_internal: false,
+        });
+      }
+
+      updatesToInsert.push({
+        ticket_id: id,
+        content: `[ESCALAÇÃO] Motivo: ${reason}`,
+        type: 'comment' as const,
+        author: '',
+        author_id: user.id,
+        is_internal: true,
+      });
+
+      const { error: timelineError } = await supabase
+        .from('ticket_updates')
+        .insert(updatesToInsert);
+
+      if (timelineError) {
+        if (Object.keys(updateData).length > 0) {
+          try {
+            const revertData: Database['public']['Tables']['tickets']['Update'] = {};
+            if (priorityChanged && currentPriority) revertData.priority = currentPriority;
+            if (assignmentChanged) revertData.assigned_to = currentAssignedTo;
+            await supabase.from('tickets').update(revertData).eq('id', id);
+          } catch (revertErr) {
+            console.error('[useEscalateTicket] Falha ao reverter escalação:', revertErr);
+          }
+        }
+        throw new Error(`Falha ao registrar histórico de escalação: ${timelineError.message}. Escalação cancelada e revertida.`);
+      }
+
+      return updatedTicket;
+    },
+    onSuccess: (data, variables) => {
+      const ticketId = data?.id || variables.id;
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-updates', ticketId] });
+      toast({
+        title: 'Chamado Escalado',
+        description: 'O chamado foi escalado com sucesso e o histórico registrado.',
+      });
+    },
+    onError: (error: Error) => {
+      logError('useEscalateTicket', error);
+      toast({
+        title: 'Erro ao escalar chamado',
+        description: mapDatabaseError(error),
+        variant: 'destructive',
+      });
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket'] });
     },
   });
 };
@@ -298,14 +766,12 @@ export const useAddTicketUpdate = () => {
   
   return useMutation({
     mutationFn: async (update: { ticket_id: string; content: string; type: string; is_internal?: boolean }) => {
-      // Validate input before sending to database
       const validationResult = ticketUpdateSchema.safeParse(update);
       
       if (!validationResult.success) {
         throw new Error(validationResult.error.errors[0].message);
       }
 
-      // Get current user ID for author_id
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
       
@@ -316,7 +782,7 @@ export const useAddTicketUpdate = () => {
           ticket_id: validData.ticket_id,
           content: validData.content,
           type: validData.type,
-          author: '', // Placeholder - trigger will set display name
+          author: '',
           author_id: user.id,
           is_internal: update.is_internal || false
         }])

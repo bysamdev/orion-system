@@ -25,12 +25,11 @@ import { TimeTracker } from '@/components/ticket/TimeTracker';
 import { SatisfactionSurvey } from '@/components/ticket/SatisfactionSurvey';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useAddTicketUpdate } from '@/hooks/useTickets';
+import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useUpdateTicketPriority, useResolveTicket, useEscalateTicket, useAddTicketUpdate } from '@/hooks/useTickets';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useCannedResponses } from '@/hooks/useCannedResponses';
 import { useTicketAttachments, useUploadAttachment } from '@/hooks/useTicketAttachments';
 import { useTicketTimeEntries } from '@/hooks/useTimeEntries';
-import { supabase } from '@/integrations/supabase/client';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow, differenceInHours, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -197,6 +196,9 @@ const TicketDetails: React.FC = () => {
   const { data: activeSla } = useSLAConfigs();
   const updateStatus = useUpdateTicketStatus();
   const updateAssignment = useUpdateTicketAssignment();
+  const updatePriority = useUpdateTicketPriority();
+  const resolveTicket = useResolveTicket();
+  const escalateTicket = useEscalateTicket();
   const addUpdate = useAddTicketUpdate();
   const { data: timeEntries = [] } = useTicketTimeEntries(validId);
 
@@ -425,16 +427,23 @@ const TicketDetails: React.FC = () => {
 
   const handleStatusChange = async (newStatus: string) => {
     if (!ticket || !canManageTickets) return;
-
     await executeStatusChange(newStatus);
   };
 
   const executeStatusChange = async (newStatus: string) => {
-    await updateStatus.mutateAsync({ 
-      id: ticket!.id, 
-      status: newStatus
-    });
-    await addUpdate.mutateAsync({ ticket_id: ticket!.id, content: `Status alterado para: ${statusLabels[newStatus] || newStatus}`, type: 'status_change' });
+    if (!ticket) return;
+    try {
+      await updateStatus.mutateAsync({ 
+        id: ticket.id, 
+        status: newStatus,
+        last_updated_at: ticket.updated_at,
+        previousStatus: ticket.status,
+        updateContent: `Status alterado para: ${statusLabels[newStatus] || newStatus}`,
+        updateType: 'status_change',
+      });
+    } catch {
+      // Error handled by mutation onError
+    }
   };
 
   const onSelectStatusChange = (newStatus: string) => {
@@ -451,34 +460,40 @@ const TicketDetails: React.FC = () => {
 
   const handleAssignmentChange = async (technicianName: string) => {
     if (!ticket || !canManageTickets) return;
-    await updateAssignment.mutateAsync({ id: ticket.id, assigned_to: technicianName });
-    await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Chamado atribuído para: ${technicianName}`, type: 'assignment' });
+    try {
+      const selectedTech = technicians.find(t => t.full_name === technicianName);
+      const targetAssignedTo = technicianName === 'unassigned' ? null : technicianName;
+      await updateAssignment.mutateAsync({ 
+        id: ticket.id, 
+        assigned_to: targetAssignedTo,
+        assigned_to_user_id: selectedTech?.id,
+        last_updated_at: ticket.updated_at,
+        previousAssignedTo: ticket.assigned_to,
+        updateContent: `Chamado atribuído para: ${targetAssignedTo || 'Fila Geral'}`,
+      });
+    } catch {
+      // Error handled by mutation onError
+    }
   };
 
   const handleEscalateConfirm = async (technicianName: string, newPriority: string, reason: string) => {
     if (!ticket) return;
-    
-    // Atualizar atribuição e prioridade
-    const { error: prioError } = await supabase.from('tickets').update({ priority: newPriority }).eq('id', ticket.id);
-    if (!prioError && newPriority !== ticket.priority) {
-       await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Prioridade escalada para: ${newPriority}`, type: 'priority_change' });
+    try {
+      const selectedTech = technicians.find(t => t.full_name === technicianName);
+      await escalateTicket.mutateAsync({
+        id: ticket.id,
+        technicianName,
+        technicianUserId: selectedTech?.id,
+        newPriority,
+        reason,
+        last_updated_at: ticket.updated_at,
+        currentPriority: ticket.priority,
+        currentAssignedTo: ticket.assigned_to,
+      });
+      setEscalateDialogOpen(false);
+    } catch {
+      // Error handled by mutation onError
     }
-    
-    if (technicianName !== ticket.assigned_to) {
-       await updateAssignment.mutateAsync({ id: ticket.id, assigned_to: technicianName === 'unassigned' ? null : technicianName });
-       await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Chamado escalado para: ${technicianName === 'unassigned' ? 'Fila Geral' : technicianName}`, type: 'assignment' });
-    }
-
-    // Adicionar comentário de escalação como nota interna
-    await addUpdate.mutateAsync({ 
-      ticket_id: ticket.id, 
-      content: `[ESCALAÇÃO] Motivo: ${reason}`, 
-      type: 'comment', 
-      is_internal: true 
-    });
-
-    setEscalateDialogOpen(false);
-    toast({ title: 'Chamado Escalado', description: 'O chamado foi escalado com sucesso e todos foram notificados.' });
   };
 
   const handleResolveConfirm = async (notes: string, _sendSurvey: boolean) => {
@@ -495,28 +510,40 @@ const TicketDetails: React.FC = () => {
       return;
     }
 
-    await supabase.from('tickets').update({ resolution_notes: notes }).eq('id', ticket.id);
-    await handleStatusChange('resolved');
-    
     let resolutionContent = `Resolução: ${notes}`;
     if (resolutionChecklist && resolutionChecklist.items && resolutionChecklist.items.length > 0) {
       resolutionContent += `\n\nChecklist de Resolução:\n${resolutionChecklist.items.map(item => `- [x] ${item}`).join('\n')}`;
     }
 
-    await addUpdate.mutateAsync({ ticket_id: ticket.id, content: resolutionContent, type: 'comment' });
-    setResolveDialogOpen(false);
-    setResolutionNotes('');
-    setChecklistCompleted([]);
+    try {
+      await resolveTicket.mutateAsync({
+        id: ticket.id,
+        notes,
+        resolutionContent,
+        last_updated_at: ticket.updated_at,
+        previousStatus: ticket.status,
+      });
+      setResolveDialogOpen(false);
+      setResolutionNotes('');
+      setChecklistCompleted([]);
+    } catch {
+      // Error handled by mutation onError
+    }
   };
 
   const handleReopenTicket = async () => {
     if (!ticket) return;
     try {
-      await updateStatus.mutateAsync({ id: ticket.id, status: 'reopened' });
-      await addUpdate.mutateAsync({ ticket_id: ticket.id, content: 'Chamado reaberto pelo usuário', type: 'status_change' });
-      toast({ title: 'Chamado reaberto', description: 'O chamado foi reaberto com sucesso.' });
+      await updateStatus.mutateAsync({ 
+        id: ticket.id, 
+        status: 'reopened',
+        last_updated_at: ticket.updated_at,
+        previousStatus: ticket.status,
+        updateContent: 'Chamado reaberto pelo usuário',
+        updateType: 'status_change',
+      });
     } catch {
-      toast({ title: 'Erro', description: 'Não foi possível reabrir o chamado.', variant: 'destructive' });
+      // Error handled by mutation onError
     }
   };
 
@@ -827,12 +854,18 @@ const TicketDetails: React.FC = () => {
                     <Select
                       value={ticket.priority}
                       onValueChange={async (val) => {
-                         const validated = ticketPrioritySchema.safeParse(val);
-                         if (!validated.success) return;
-                         const { error } = await supabase.from('tickets').update({ priority: validated.data }).eq('id', ticket.id);
-                         if (error) return;
-                         await addUpdate.mutateAsync({ ticket_id: ticket.id, content: `Prioridade alterada para: ${val}`, type: 'priority_change' });
-                         toast({ title: 'Prioridade alterada' });
+                         if (!ticket) return;
+                         try {
+                           await updatePriority.mutateAsync({
+                             id: ticket.id,
+                             priority: val,
+                             last_updated_at: ticket.updated_at,
+                             previousPriority: ticket.priority,
+                             updateContent: `Prioridade alterada para: ${val}`,
+                           });
+                         } catch {
+                           // Error handled by mutation onError
+                         }
                       }}
                     >
                       <SelectTrigger className="h-11 bg-background border-border/50 font-medium">
@@ -1033,14 +1066,14 @@ const TicketDetails: React.FC = () => {
         open={resolveDialogOpen}
         onOpenChange={setResolveDialogOpen}
         onConfirm={handleResolveConfirm}
-        isPending={updateStatus.isPending}
+        isPending={resolveTicket.isPending}
       />
 
       <EscalateDialog
         open={escalateDialogOpen}
         onOpenChange={setEscalateDialogOpen}
         onConfirm={handleEscalateConfirm}
-        isPending={updateAssignment.isPending || addUpdate.isPending}
+        isPending={escalateTicket.isPending}
         technicians={technicians}
         currentPriority={ticket.priority}
         currentAssignee={ticket.assigned_to}

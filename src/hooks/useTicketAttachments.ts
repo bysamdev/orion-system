@@ -12,6 +12,33 @@ export interface TicketAttachment {
   created_at: string;
 }
 
+/**
+ * Extrai o caminho relativo no storage a partir de um file_url.
+ * Suporta caminhos relativos (armazenamento novo) e URLs completas de signed/public URL do Supabase (retrocompatibilidade).
+ */
+export const getStoragePath = (fileUrl: string): string | null => {
+  if (!fileUrl) return null;
+
+  if (!fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
+    return fileUrl;
+  }
+
+  try {
+    const urlObj = new URL(fileUrl);
+    const pathname = urlObj.pathname;
+    const bucketMarker = '/ticket-files/';
+    const index = pathname.indexOf(bucketMarker);
+    if (index !== -1) {
+      const extracted = pathname.substring(index + bucketMarker.length);
+      return decodeURIComponent(extracted);
+    }
+  } catch {
+    // URL inválida ou formato inesperado
+  }
+
+  return null;
+};
+
 export const useTicketAttachments = (ticketId: string) => {
   return useQuery({
     queryKey: ['ticket-attachments', ticketId],
@@ -25,7 +52,35 @@ export const useTicketAttachments = (ticketId: string) => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as TicketAttachment[];
+      if (!data || data.length === 0) return [];
+
+      const attachmentsWithSignedUrls = await Promise.all(
+        data.map(async (attachment) => {
+          const rawUrl = attachment.file_url;
+          const storagePath = getStoragePath(rawUrl);
+
+          if (storagePath) {
+            try {
+              const { data: urlData, error: signError } = await supabase.storage
+                .from('ticket-files')
+                .createSignedUrl(storagePath, 60 * 60 * 24);
+
+              if (!signError && urlData?.signedUrl) {
+                return {
+                  ...attachment,
+                  file_url: urlData.signedUrl
+                };
+              }
+            } catch (err) {
+              console.error('Erro ao gerar signed URL para anexo:', attachment.id, err);
+            }
+          }
+
+          return attachment as TicketAttachment;
+        })
+      );
+
+      return attachmentsWithSignedUrls as TicketAttachment[];
     },
     enabled: !!ticketId
   });
@@ -60,20 +115,13 @@ export const useUploadAttachment = () => {
       
       if (uploadError) throw uploadError;
       
-      // Gerar URL pública (signed URL para bucket privado) - 24h de validade
-      const { data: urlData } = await supabase.storage
-        .from('ticket-files')
-        .createSignedUrl(fileName, 60 * 60 * 24); // 24 horas - melhor segurança
-      
-      if (!urlData?.signedUrl) throw new Error('Erro ao gerar URL do arquivo');
-      
-      // Salvar referência no banco
+      // Salvar referência no banco armazenando o caminho relativo limpo
       const { data, error } = await supabase
         .from('ticket_attachments')
         .insert({
           ticket_id: ticketId,
           file_name: file.name,
-          file_url: urlData.signedUrl,
+          file_url: fileName,
           file_type: file.type,
           uploaded_by: user.id
         })
