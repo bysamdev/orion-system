@@ -62,13 +62,12 @@ serve(async (req) => {
     );
 
     // 5. Verificar se usuário chamador tem permissão (admin ou developer)
-    const { data: callerRole, error: roleError } = await supabaseAdmin
+    const { data: userRoles, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
-      .eq('user_id', callerUser.id)
-      .single();
+      .eq('user_id', callerUser.id);
 
-    if (roleError || !callerRole) {
+    if (roleError || !userRoles || userRoles.length === 0) {
       console.error('Erro ao buscar role do chamador:', roleError?.message);
       return new Response(
         JSON.stringify({ error: 'Não autorizado: Usuário sem permissão definida' }),
@@ -77,8 +76,9 @@ serve(async (req) => {
     }
 
     const allowedRoles = ['admin', 'developer'];
-    if (!allowedRoles.includes(callerRole.role)) {
-      console.error('Permissão negada. Role do chamador:', callerRole.role);
+    const hasPermission = userRoles.some(r => allowedRoles.includes(r.role));
+    if (!hasPermission) {
+      console.error('Permissão negada. Roles do chamador:', userRoles);
       return new Response(
         JSON.stringify({ error: 'Proibido: Apenas administradores e desenvolvedores podem atualizar usuários' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

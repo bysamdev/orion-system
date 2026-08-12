@@ -54,13 +54,12 @@ Deno.serve(async (req) => {
     }
 
     // Verificar se o usuário solicitante é admin ou developer
-    const { data: requestingUserRole, error: roleError } = await supabaseAdmin
+    const { data: userRoles, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
-      .eq('user_id', requestingUser.id)
-      .single();
+      .eq('user_id', requestingUser.id);
 
-    if (roleError || !requestingUserRole) {
+    if (roleError || !userRoles || userRoles.length === 0) {
       console.error('Role check error:', roleError);
       return new Response(
         JSON.stringify({ error: 'Erro ao verificar permissões' }),
@@ -68,8 +67,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!['admin', 'developer'].includes(requestingUserRole.role)) {
-      console.error('User does not have admin/developer role:', requestingUserRole.role);
+    const hasPermission = userRoles.some(r => ['admin', 'developer'].includes(r.role));
+    if (!hasPermission) {
+      console.error('User does not have admin/developer role:', userRoles);
       return new Response(
         JSON.stringify({ error: 'Apenas administradores podem excluir usuários' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -49,18 +49,18 @@ serve(async (req) => {
     console.log('Usuário autenticado:', user.id);
 
     // Verificar role do solicitante (admin ou developer)
-    const { data: roleData, error: roleError } = await supabaseClient
+    const { data: userRoles, error: roleError } = await supabaseClient
       .from('user_roles')
       .select('role')
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', user.id);
 
-    if (roleError || !roleData) {
+    if (roleError || !userRoles || userRoles.length === 0) {
       console.error('Erro ao buscar role:', roleError);
       throw new Error('Não foi possível verificar permissões');
     }
 
-    if (roleData.role !== 'admin' && roleData.role !== 'developer') {
+    const hasPermission = userRoles.some(r => r.role === 'admin' || r.role === 'developer');
+    if (!hasPermission) {
       throw new Error('Apenas administradores podem convidar usuários');
     }
 
