@@ -131,7 +131,7 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 | B.5 ✅ | Substituir `GenerateToken` (removida) por identidade aleatória persistida | A10, B6 | baixo | médio | **Implementado junto com A.6** — não foi "tornar determinístico", foi trocar o mecanismo por inteiro (ver Opção A de `MACHINE-IDENTITY-OPTIONS.md`). `Payload.GenerateToken` removida de `collector/hardware.go` |
 | B.6 | `cpu.Percent(0)` não-bloqueante | M3 | baixo | **médio** | **−1000 ms de parede/coleta.** Muda semântica da métrica — commit próprio |
 | B.7 ✅ | Cachear `cpu.Info` + `net.Interfaces` 1× por coleta | M4 | baixo | baixo | Implementado e testado. `cpu.Info` cacheado com `sync.Once`; `net.Interfaces()` chamado 1× por `Collect()`, alimentando IP principal e lista de interfaces do mesmo snapshot |
-| B.8 | Só reescrever atalho quando o conteúdo mudar | M5 | **baixo** | baixo | −2.880 gravações/dia |
+| B.8 ✅ | Só reescrever atalho quando o conteúdo mudar | M5 | **baixo** | baixo | Implementado e testado. Extraído `criarAtalhoEm` (caminho injetável) — pacote `shortcut` ganhou seu primeiro arquivo de teste |
 | B.9 | Backoff exponencial + jitter no retry | M6 | baixo | baixo | Evita bloqueio de 65 s e thundering herd |
 | B.10 | Named mutex (instância única) + saída limpa sem `os.Exit` | M7, A12 | baixo | médio | Elimina execução dobrada de comandos |
 | B.11 ✅ | Tratar erro de decode em `doPost` | M10 | **baixo** | baixo | Implementado e testado |
