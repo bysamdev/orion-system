@@ -133,7 +133,7 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 | B.7 ✅ | Cachear `cpu.Info` + `net.Interfaces` 1× por coleta | M4 | baixo | baixo | Implementado e testado. `cpu.Info` cacheado com `sync.Once`; `net.Interfaces()` chamado 1× por `Collect()`, alimentando IP principal e lista de interfaces do mesmo snapshot |
 | B.8 ✅ | Só reescrever atalho quando o conteúdo mudar | M5 | **baixo** | baixo | Implementado e testado. Extraído `criarAtalhoEm` (caminho injetável) — pacote `shortcut` ganhou seu primeiro arquivo de teste |
 | B.9 ✅ | Backoff exponencial + jitter no retry | M6 | baixo | baixo | Implementado e testado. `retryBaseDelay` virou `var` (era `const`) — os dois testes de retry que levavam ~20s/~10s reais agora rodam em ~0,02s/0,01s, sem precisar de `testing.Short()`/`ORION_TESTES_LENTOS` |
-| B.10 | Named mutex (instância única) + saída limpa sem `os.Exit` | M7, A12 | baixo | médio | Elimina execução dobrada de comandos |
+| B.10 ✅ | Named mutex (instância única) + saída limpa sem `os.Exit` | M7, A12 | baixo | médio | Implementado e testado. Mutex `Global\OrionAgentSingleInstance`; `Stop()` agora espera (com prazo de 5s, `var` injetável) o loop principal terminar antes de retornar; "Sair" da bandeja chama `svc.Stop(nil)` em vez de `os.Exit(0)` |
 | B.11 ✅ | Tratar erro de decode em `doPost` | M10 | **baixo** | baixo | Implementado e testado |
 | B.12 ✅ | `TrimSpace` no `LoadToken` + trocar `io/ioutil` | B2, B5 | **baixo** | baixo | Implementado e testado |
 | B.13 | `KnownFields(true)` no parse do YAML | M12 | baixo | médio | Typos passam a ser erro — é o desejado, mas pode quebrar config existente |
@@ -151,7 +151,7 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 | C.4 | Token efêmero de uso único, pré-emitido em background | A5, A1 | alto | **alto** | Depende de A.6/A.12. Mantém clique instantâneo |
 | C.5 | Reduzir latência server-side do `machine-login` (paralelizar queries, `UpdateProfile` em background) | M9 | médio | médio | Backend |
 | C.6 | Ícone definitivo do produto | B7 | baixo | baixo | Cosmético |
-| C.7 | Remover `systray-agent/` órfão | B8 | **baixo** | **baixo** | Confirmar que não há plano de retomada |
+| C.7 ✅ | Remover `systray-agent/` órfão | B8 | **baixo** | **baixo** | Removido — confirmado sem plano de retomada |
 
 **Decisão já tomada (TRAY-UX §4):** manter o **navegador padrão**, não migrar
 para webview embutida. Nenhum item acima depende de webview.

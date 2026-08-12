@@ -72,6 +72,20 @@ func main() {
 
 	default:
 		// Se não houver argumentos, estamos rodando o agente "de verdade".
+		//
+		// Instância única (correção B.10): o serviço Windows (SYSTEM) e uma
+		// execução interativa (usuário clicou no .exe) podem coexistir na
+		// mesma máquina — main() sempre sobe a mesma lógica de
+		// coleta+heartbeat+RMM em background nos dois casos. Sem esta
+		// checagem, comandos remotos podiam ser executados DUAS VEZES, uma
+		// por cada instância.
+		if unica, err := garantirInstanciaUnica(); err != nil {
+			logger.Printf("[AVISO] Não foi possível verificar instância única: %v — seguindo mesmo assim.", err)
+		} else if !unica {
+			logger.Println("[ERRO] Já existe uma instância do Orion Agent em execução nesta máquina. Encerrando.")
+			return
+		}
+
 		if !service.Interactive() {
 			// Execução silenciosa como serviço do Windows.
 			if err := s.Run(); err != nil {
@@ -125,8 +139,23 @@ func main() {
 			},
 			func() {
 				// Comando de saída finaliza o agente completamente.
+				//
+				// Antes, isso era os.Exit(0) — que pula TODOS os defer deste
+				// main() (inclusive logFile.Close()) e podia cortar uma
+				// escrita em andamento no arquivo de identidade
+				// (token.SaveToken) ou no atalho do Desktop no meio,
+				// deixando-os truncados ou corrompidos (correção B.10).
+				//
+				// svc.Stop cancela o contexto do loop principal e ESPERA
+				// (com prazo) ele terminar de verdade. Depois disso, só
+				// retornamos do callback: o systray já está encerrando
+				// sozinho (foi o clique em "Sair" que disparou isso — ver
+				// tray/tray.go), e quando t.Run() devolver o controle em
+				// main(), a função termina normalmente e os defer rodam.
 				logger.Println("[TRAY] Encerrando o agente Orion por solicitação do usuário.")
-				os.Exit(0)
+				if err := svc.Stop(nil); err != nil {
+					logger.Printf("[AVISO] Erro ao encerrar o loop principal: %v", err)
+				}
 			},
 		)
 		t.Run()

@@ -590,6 +590,71 @@ func TestStopChamadoDuasVezesNaoEntraEmPanico(t *testing.T) {
 	<-ctx.Done() // já cancelado; não deve bloquear
 }
 
+// TestStopEsperaOLoopPrincipalRealmenteEncerrar cobre a correção B.10: Stop()
+// não pode mais só disparar cancel() e retornar na hora — precisa esperar (com
+// prazo) a goroutine do loop principal fechar s.parado.
+//
+// Não chamamos Start() de propósito (dispararia tick() real, com I/O de disco
+// e rede) — injetamos cancel/parado do mesmo jeito que Start faria, com uma
+// goroutine simulando run() que só fecha parado depois de um atraso
+// proposital, provando que Stop() espera de verdade em vez de retornar
+// imediatamente.
+func TestStopEsperaOLoopPrincipalRealmenteEncerrar(t *testing.T) {
+	s := novoSvcDeTeste("https://orion.exemplo.test")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+	s.parado = make(chan struct{})
+
+	const atrasoSimulado = 100 * time.Millisecond
+	go func() {
+		<-ctx.Done()
+		time.Sleep(atrasoSimulado) // simula um tick() em andamento terminando de gravar
+		close(s.parado)
+	}()
+
+	inicio := time.Now()
+	if err := s.Stop(nil); err != nil {
+		t.Fatalf("Stop() retornou erro: %v", err)
+	}
+	decorrido := time.Since(inicio)
+
+	if decorrido < atrasoSimulado {
+		t.Errorf("Stop() retornou em %v, antes do loop simulado terminar (%v) — não está esperando de verdade", decorrido, atrasoSimulado)
+	}
+	if decorrido > tempoLimiteEncerramento {
+		t.Errorf("Stop() levou %v — mais que o próprio tempoLimiteEncerramento (%v), possível regressão", decorrido, tempoLimiteEncerramento)
+	}
+}
+
+// TestStopDesisteDeEsperarAposOTempoLimite garante que, se o loop principal
+// nunca fechar parado (travado — ex.: um comando RMM sem retorno, ainda que
+// isso já tenha seu próprio timeout via executeCommand), Stop() não bloqueia
+// para sempre: desiste após tempoLimiteEncerramento e retorna mesmo assim.
+func TestStopDesisteDeEsperarAposOTempoLimite(t *testing.T) {
+	original := tempoLimiteEncerramento
+	tempoLimiteEncerramento = 50 * time.Millisecond
+	t.Cleanup(func() { tempoLimiteEncerramento = original })
+
+	s := novoSvcDeTeste("https://orion.exemplo.test")
+	_, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+	s.parado = make(chan struct{}) // nunca fechado — simula o loop travado
+
+	inicio := time.Now()
+	if err := s.Stop(nil); err != nil {
+		t.Fatalf("Stop() retornou erro: %v", err)
+	}
+	decorrido := time.Since(inicio)
+
+	if decorrido < tempoLimiteEncerramento {
+		t.Errorf("Stop() desistiu cedo demais: %v, esperado ao menos %v", decorrido, tempoLimiteEncerramento)
+	}
+	if decorrido > 2*tempoLimiteEncerramento {
+		t.Errorf("Stop() levou %v — muito mais que tempoLimiteEncerramento (%v), possível regressão para espera sem prazo", decorrido, tempoLimiteEncerramento)
+	}
+}
+
 // pollAndExecuteCommands deve ser no-op enquanto o heartbeat ainda não devolveu
 // um machine_id — nenhuma requisição pode sair do agente nesse estado.
 func TestPollAndExecuteCommandsNaoChamaBackendSemMachineID(t *testing.T) {

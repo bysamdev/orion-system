@@ -17,11 +17,27 @@ import (
 	"orion-agent/token"
 )
 
+// tempoLimiteEncerramento é o prazo que Stop() espera o loop principal (run())
+// realmente terminar antes de desistir e retornar mesmo assim. É var, não
+// const, para que os testes possam reduzi-lo — mesmo padrão de
+// sender.retryBaseDelay (correção B.9).
+var tempoLimiteEncerramento = 5 * time.Second
+
 // Svc implementa a interface service.Interface necessária para rodar como serviço Windows.
 type Svc struct {
 	cfg    *config.Config
 	logger *log.Logger
 	cancel context.CancelFunc
+
+	// parado é fechado quando run() retorna, permitindo que Stop() espere o
+	// encerramento de verdade em vez de só disparar o cancelamento e seguir
+	// em frente (correção B.10). Antes, Stop() só chamava cancel() sem
+	// esperar nada — se o processo terminasse logo em seguida (ex.:
+	// os.Exit(0) no menu "Sair" da bandeja, também corrigido nesta mesma
+	// correção), um tick() em andamento podia ser cortado no meio de uma
+	// escrita (token.SaveToken, o atalho do Desktop), deixando o arquivo
+	// truncado ou corrompido.
+	parado chan struct{}
 
 	// mu protege machineID e machineToken. A corrida real e comprovada era em
 	// machineToken: escrito por tick() na goroutine do loop principal
@@ -70,14 +86,34 @@ func New(cfg *config.Config, logger *log.Logger) *Svc {
 func (s *Svc) Start(svc service.Service) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
-	go s.run(ctx) // A lógica real roda em uma goroutine separada
+	s.parado = make(chan struct{})
+	go func() {
+		defer close(s.parado)
+		s.run(ctx) // A lógica real roda em uma goroutine separada
+	}()
 	return nil
 }
 
-// Stop é chamado pelo Windows quando o serviço é encerrado.
+// Stop é chamado pelo Windows quando o serviço é encerrado — e, desde a
+// correção B.10, também diretamente pelo callback "Sair" da bandeja
+// (main.go), no lugar de um os.Exit(0) abrupto.
+//
+// Cancela o contexto que run() observa e ESPERA (com prazo) a goroutine do
+// loop principal realmente retornar antes de devolver o controle — sem essa
+// espera, o processo podia terminar com um tick() cortado no meio de uma
+// escrita em disco.
 func (s *Svc) Stop(svc service.Service) error {
 	if s.cancel != nil {
 		s.cancel()
+	}
+	if s.parado != nil {
+		select {
+		case <-s.parado:
+		case <-time.After(tempoLimiteEncerramento):
+			if s.logger != nil {
+				s.logger.Printf("[AVISO] Tempo esgotado (%s) esperando o loop principal encerrar; seguindo mesmo assim.", tempoLimiteEncerramento)
+			}
+		}
 	}
 	return nil
 }
