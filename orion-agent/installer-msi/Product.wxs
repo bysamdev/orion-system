@@ -17,6 +17,7 @@
   <Product Id="*"
            Name="Orion Agent"
            Language="1046"
+           Codepage="65001"
            Version="1.0.0"
            Manufacturer="Orion System"
            UpgradeCode="9839F87F-8876-44C2-B8B7-638EB769D950">
@@ -112,17 +113,18 @@
 
       <Component Id="AgentConfig" Guid="87619873-AE40-43E2-975F-6380319AC2B0">
         <!--
-          NeverOverwrite: numa atualização (MajorUpgrade) ou reparo, não
-          sobrescreve um agent.yaml que o técnico já editou com a agent_key
-          real da empresa — só grava o template na instalação limpa, quando
-          o arquivo ainda não existe. Mesma regra aplicada em
+          Condition amarrada à busca AGENTYAMLEXISTS acima: numa atualização
+          (MajorUpgrade) ou reparo, este componente só instala agent.yaml se
+          ele AINDA NÃO EXISTIR — não sobrescreve um arquivo que o técnico
+          já editou com a agent_key real da empresa. Só grava o template na
+          instalação limpa. Mesma regra aplicada em
           cmd/installer/main.go (instalar/configJaExiste).
         -->
+        <Condition>NOT AGENTYAMLEXISTS</Condition>
         <File Id="AgentYaml"
               Name="agent.yaml"
               Source="..\agent.yaml"
-              KeyPath="yes"
-              NeverOverwrite="yes" />
+              KeyPath="yes" />
       </Component>
     </DirectoryRef>
 
