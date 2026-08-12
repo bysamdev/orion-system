@@ -1,4 +1,4 @@
-import { supabaseRead } from '@/integrations/supabase/read-client';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Enriches a list of tickets with company_name by batch-fetching
@@ -13,7 +13,7 @@ export async function enrichTicketsWithCompany<T extends { user_id?: string; sla
   if (userIds.length === 0) return tickets.map(t => ({ ...t, company_name: null }));
 
   // Batch fetch profiles and companies in parallel where possible
-  const { data: profiles } = await supabaseRead
+  const { data: profiles } = await supabase
     .from('profiles')
     .select('id, full_name, company_id')
     .in('id', userIds);
@@ -21,7 +21,7 @@ export async function enrichTicketsWithCompany<T extends { user_id?: string; sla
   const companyIds = [...new Set(profiles?.map(p => p.company_id).filter(Boolean) || [])];
 
   const { data: companies } = companyIds.length > 0
-    ? await supabaseRead.from('companies').select('id, name').in('id', companyIds)
+    ? await supabase.from('companies').select('id, name').in('id', companyIds)
     : { data: [] };
 
   const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);

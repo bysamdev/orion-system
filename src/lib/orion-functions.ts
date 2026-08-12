@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { fetchWithTimeout } from '@/lib/fetch-client';
 
 type InvokeResult<T> = {
   data: T | null;
@@ -42,13 +43,14 @@ export async function invokeOrionFunction<T>(
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
 
-    const res = await fetch(`${API_URL}/functions/${name}`, {
+    const res = await fetchWithTimeout(`${API_URL}/functions/${name}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(body ?? {}),
+      timeoutMs: 15000,
     });
 
     const text = await res.text();

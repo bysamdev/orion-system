@@ -1,6 +1,5 @@
 import { z } from 'zod';
-
-/**
+import DOMPurify from 'dompurify';/**
  * Validation schemas for ticket operations
  * These schemas enforce input validation before database operations
  */
@@ -17,15 +16,13 @@ export const ticketUpdateTypeSchema = z.enum(['comment', 'status_change', 'assig
   errorMap: () => ({ message: 'Tipo de atualização inválido' })
 });
 
-// Regex seguro que bloqueia caracteres de controle, Unicode invisível e potencialmente perigosos
-const safeTextRegex = /^[a-zA-Z0-9\s\-_.áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ!?,;:()[\]{}@#$%&*+='"/\\]+$/;
+
 
 export const companyNameSchema = z.string()
   .trim()
   .min(1, 'Nome da empresa é obrigatório')
   .max(100, 'Nome da empresa deve ter no máximo 100 caracteres')
-  .regex(/^[a-zA-Z0-9\s\-_.áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+$/, 
-    'Nome da empresa contém caracteres inválidos');
+  .transform(val => DOMPurify.sanitize(val));
 
 export const userRoleSchema = z.enum(['customer', 'technician', 'admin', 'developer'], {
   errorMap: () => ({ message: 'Função de usuário inválida' })
@@ -50,7 +47,7 @@ export const ticketUpdateSchema = z.object({
     .trim()
     .min(1, 'Conteúdo é obrigatório')
     .max(5000, 'Conteúdo deve ter no máximo 5000 caracteres')
-    .regex(safeTextRegex, 'O conteúdo contém caracteres inválidos'),
+    .transform(val => DOMPurify.sanitize(val)),
   type: ticketUpdateTypeSchema
 });
 
@@ -59,25 +56,25 @@ export const ticketCreationSchema = z.object({
     .trim()
     .min(5, 'Título deve ter no mínimo 5 caracteres')
     .max(200, 'Título deve ter no máximo 200 caracteres')
-    .regex(safeTextRegex, 'O título contém caracteres inválidos'),
+    .transform(val => DOMPurify.sanitize(val)),
   description: z.string()
     .trim()
     .min(20, 'Descrição deve ter no mínimo 20 caracteres')
     .max(5000, 'Descrição deve ter no máximo 5000 caracteres')
-    .regex(safeTextRegex, 'A descrição contém caracteres inválidos')
     .refine(
       (val) => !val.includes('[preencher]'),
       { message: 'Parece que você não preencheu todos os campos do template — revise antes de enviar.' }
-    ),
+    )
+    .transform(val => DOMPurify.sanitize(val)),
   category: z.string()
     .trim()
     .min(1, 'Categoria é obrigatória')
-    .regex(safeTextRegex, 'A categoria contém caracteres inválidos'),
+    .transform(val => DOMPurify.sanitize(val)),
   priority: ticketPrioritySchema,
   department: z.string()
     .trim()
     .max(50, 'Departamento deve ter no máximo 50 caracteres')
-    .regex(/^[a-zA-Z0-9\s\-_.áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ!?,;:()[\]{}@#$%&*+='"/\\]*$/, 'O departamento contém caracteres inválidos')
+    .transform(val => val ? DOMPurify.sanitize(val) : val)
     .optional()
     .or(z.literal(''))
 });
