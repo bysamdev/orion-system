@@ -101,10 +101,5 @@ export function mapDatabaseError(error: unknown): string {
  * Safely logs errors with appropriate detail level based on environment
  */
 export function logError(context: string, error: unknown): void {
-  if (process.env.NODE_ENV === 'development') {
-    console.error(`[${context}]`, error);
-  } else {
-    // In production, log minimal information
-    console.error(`[${context}] Error occurred`);
-  }
+  console.error(`[${context}] Error occurred:`, error);
 }
