@@ -35,10 +35,12 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Lemos o destino desejado após o login (ex: /novo-ticket).
-	// Apenas caminhos relativos são permitidos para evitar redirecionamento aberto.
-	redirectTo := r.URL.Query().Get("redirect_to")
-	if redirectTo == "" || !strings.HasPrefix(redirectTo, "/") {
-		redirectTo = "/"
+	// Apenas caminhos relativos são permitidos na entrada — evita
+	// redirecionamento aberto via um valor de query totalmente controlado
+	// pelo chamador (ex.: "redirect_to=https://phishing.example").
+	redirectPath := r.URL.Query().Get("redirect_to")
+	if redirectPath == "" || !strings.HasPrefix(redirectPath, "/") {
+		redirectPath = "/"
 	}
 
 	if db == nil {
@@ -97,10 +99,25 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 
 	// 5. Geramos um "Link Mágico" (Magic Link) de uso único para logar o usuário automaticamente.
 	// Isso evita que o cliente precise digitar uma senha no navegador.
+	//
+	// Correção C.3: RedirectTo precisa ser uma URL ABSOLUTA — o GoTrue (Auth
+	// do Supabase) exige isso e valida contra a allowlist de redirect URLs
+	// configurada no projeto. Um caminho relativo como "/novo-ticket" era
+	// aceito sem erro aqui, mas rejeitado silenciosamente pelo GoTrue, que
+	// caía no SITE_URL padrão — na prática, "Abrir Chamado" na bandeja levava
+	// para a home em vez de /novo-ticket (achado documentado em
+	// orion-agent/TRAY-UX.md §1).
+	//
+	// IMPORTANTE, verificação que este código NÃO cobre: o GoTrue só aceita
+	// um redirect_to se ele estiver na allowlist configurada no painel do
+	// Supabase (Authentication > URL Configuration). Essa allowlist não é
+	// visível nem editável pelas ferramentas disponíveis aqui — confirmar
+	// manualmente que "https://<domínio>/novo-ticket" está cadastrado lá,
+	// senão o sintoma volta a aparecer mesmo com esta correção.
 	loginLink, err := sb.AdminGenerateLink(r.Context(), lib.GenerateLinkInput{
 		Type:       "magiclink",
 		Email:      machineEmail,
-		RedirectTo: redirectTo, // Redireciona para o destino solicitado (/ ou /novo-ticket)
+		RedirectTo: absoluteURL(r, redirectPath), // Redireciona para o destino solicitado (/ ou /novo-ticket)
 	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Falha ao gerar seu link de acesso rápido: %v", err), http.StatusInternalServerError)
@@ -110,4 +127,24 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 	// 6. Redirecionamento Final
 	// O navegador do usuário será levado para o portal Orion já autenticado.
 	http.Redirect(w, r, loginLink, http.StatusTemporaryRedirect)
+}
+
+// absoluteURL converte um caminho relativo (já validado como começando com
+// "/" pelo chamador) numa URL absoluta, usando o host da própria requisição.
+//
+// Não introduz uma nova variável de ambiente (ex.: SITE_URL) porque o
+// backend roda atrás do proxy da Vercel, que só encaminha requisições cujo
+// Host já corresponde a um domínio de fato configurado para este projeto —
+// nesse contexto de hospedagem, confiar em r.Host para montar o destino do
+// redirect é seguro, e evita duplicar o domínio como uma terceira constante
+// (já existem duas: lib.Config.LoginURL e InviteURL, ambas hardcoded para
+// "https://orion.bysam.dev").
+func absoluteURL(r *http.Request, path string) string {
+	scheme := "https"
+	if p := r.Header.Get("X-Forwarded-Proto"); p != "" {
+		scheme = p
+	} else if r.TLS == nil {
+		scheme = "http" // dev local, sem proxy nem TLS
+	}
+	return fmt.Sprintf("%s://%s%s", scheme, r.Host, path)
 }

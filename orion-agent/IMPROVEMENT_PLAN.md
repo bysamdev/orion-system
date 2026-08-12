@@ -147,7 +147,7 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 |---|---|---|---|---|---|
 | C.1 ✅ | Feedback quando `machineToken` está vazio (balão "aguardando primeiro check-in") | A13 | **baixo** | **baixo** | Implementado e testado |
 | C.2 | Ícone da bandeja refletir estado real (ok / sem conexão / inicializando) | B7 | médio | baixo | Resolve "bandeja diz Suporte Ativo com monitoramento morto" |
-| C.3 | Corrigir `redirect_to` para URL absoluta | M8 | baixo | baixo | Confirmar em homologação antes |
+| C.3 ✅ | Corrigir `redirect_to` para URL absoluta | M8 | baixo | baixo | Implementado e testado (`absoluteURL`, primeiro teste do pacote `handler`). **Verificação pendente fora do meu alcance**: o GoTrue só aceita o redirect se ele estiver na allowlist do painel Supabase (Authentication > URL Configuration) — não visível pelas ferramentas disponíveis aqui, precisa confirmação manual |
 | C.4 | Token efêmero de uso único, pré-emitido em background | A5, A1 | alto | **alto** | Depende de A.6/A.12. Mantém clique instantâneo |
 | C.5 | Reduzir latência server-side do `machine-login` (paralelizar queries, `UpdateProfile` em background) | M9 | médio | médio | Backend |
 | C.6 | Ícone definitivo do produto | B7 | baixo | baixo | Cosmético |
