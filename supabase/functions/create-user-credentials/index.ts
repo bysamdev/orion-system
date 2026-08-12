@@ -129,7 +129,7 @@ serve(async (req) => {
 
     if (createUserError || !createUserData.user) {
       console.error('Erro ao criar usuário:', createUserError);
-      let errorMessage = 'Erro ao criar usuário';
+      let errorMessage = createUserError?.message || 'Erro ao criar usuário';
       if (createUserError?.message?.includes('already registered')) {
         errorMessage = 'Este e-mail já está cadastrado no sistema';
       }
