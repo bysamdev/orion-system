@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"gopkg.in/yaml.v3"
 )
 
 // AVISO DE ESCOPO DESTE ARQUIVO DE TESTE
@@ -31,7 +29,11 @@ import (
 // essa divergencia que escondeu a falta de validacao de esquema da api_url.)
 
 // carregarDoDisco escreve o YAML em t.TempDir(), le de volta e roda parsing + defaults.
-// Espelha a sequencia de Load a partir do os.ReadFile.
+// Espelha a sequencia de Load a partir do os.ReadFile — usando parsearYAML, a
+// funcao real de producao (correcao B.13; antes replicava yaml.Unmarshal
+// diretamente aqui, o que teria escondido a falta de KnownFields(true) do
+// mesmo jeito que a replica de aplicarDefaultsEValidar escondeu a falta de
+// validacao de esquema da api_url, ate a correcao A.7).
 func carregarDoDisco(t *testing.T, yamlBruto string) (*Config, error) {
 	t.Helper()
 
@@ -45,14 +47,14 @@ func carregarDoDisco(t *testing.T, yamlBruto string) (*Config, error) {
 		t.Fatalf("preparacao falhou ao ler %s: %v", caminho, err)
 	}
 
-	var cfg Config
-	if err := yaml.Unmarshal(dados, &cfg); err != nil {
+	cfg, err := parsearYAML(dados)
+	if err != nil {
 		return nil, err
 	}
-	if err := aplicarDefaultsEValidar(&cfg, caminho); err != nil {
+	if err := aplicarDefaultsEValidar(cfg, caminho); err != nil {
 		return nil, err
 	}
-	return &cfg, nil
+	return cfg, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -220,9 +222,14 @@ func TestAgentKeyPreenchidaEhAceita(t *testing.T) {
 // TestDefaultYAMLEmbutidoEhRejeitadoPelaValidacao valida a constante REAL defaultYAML:
 // o arquivo que Load cria sozinho na primeira execucao precisa continuar sendo recusado,
 // senao o agente subiria com a chave de exemplo. Testa produto real, nao replica.
+//
+// Usa parsearYAML (nao mais yaml.Unmarshal direto) para tambem garantir, de
+// quebra, que o template embutido continua compativel com KnownFields(true)
+// (correcao B.13) — se algum dia alguem adicionar um campo ao template sem
+// que ele exista na struct Config, este teste falha aqui em vez de silenciar.
 func TestDefaultYAMLEmbutidoEhRejeitadoPelaValidacao(t *testing.T) {
-	var cfg Config
-	if err := yaml.Unmarshal([]byte(defaultYAML), &cfg); err != nil {
+	cfg, err := parsearYAML([]byte(defaultYAML))
+	if err != nil {
 		t.Fatalf("defaultYAML embutido nao e um YAML valido: %v", err)
 	}
 
@@ -236,7 +243,7 @@ func TestDefaultYAMLEmbutidoEhRejeitadoPelaValidacao(t *testing.T) {
 		t.Errorf("defaultYAML.log_file = %q, esperado agent.log", cfg.LogFile)
 	}
 
-	if err := aplicarDefaultsEValidar(&cfg, "agent.yaml"); err == nil {
+	if err := aplicarDefaultsEValidar(cfg, "agent.yaml"); err == nil {
 		t.Fatal("o agent.yaml gerado por padrao deveria ser REJEITADO pela validacao, mas foi aceito")
 	}
 }
@@ -301,29 +308,43 @@ func TestAPIURLHTTPEmLoopbackEhAceita(t *testing.T) {
 	}
 }
 
-// TestCampoComTypoEhIgnoradoSilenciosamente documenta outro achado: yaml.Unmarshal nao
-// e estrito (Load nao usa yaml.Decoder com KnownFields(true)). Um erro de digitacao em
-// api_url passa despercebido e o agente cai no default localhost — ou seja, um typo
-// converte silenciosamente um endpoint https de producao em http local.
-func TestCampoComTypoEhIgnoradoSilenciosamente(t *testing.T) {
+// TestCampoComTypoEhRejeitado cobre a correcao B.13: parsearYAML agora usa
+// yaml.Decoder com KnownFields(true). Antes, um erro de digitacao em api_url
+// (ex.: "api_urlx") passava despercebido e o agente caia no default
+// localhost — um typo convertia silenciosamente um endpoint https de
+// producao em http local, sem erro nem aviso. Agora falha alto, na
+// inicializacao, apontando para o campo desconhecido.
+func TestCampoComTypoEhRejeitado(t *testing.T) {
 	const bruto = `agent_key: chave-real
 api_urlx: https://orion.exemplo.local/api/heartbeat
 intervalo_segundos: 15
 `
 
+	_, err := carregarDoDisco(t, bruto)
+	if err == nil {
+		t.Fatal("agent.yaml com campo desconhecido (api_urlx) deveria falhar, nao foi rejeitado")
+	}
+	if !strings.Contains(err.Error(), "api_urlx") {
+		t.Errorf("erro %q nao menciona o campo desconhecido — dificulta o diagnostico pelo tecnico", err.Error())
+	}
+}
+
+// TestCampoConhecidoContinuaAceito garante que a correcao B.13 (KnownFields)
+// nao rejeita campos legitimos por engano — so os desconhecidos.
+func TestCampoConhecidoContinuaAceito(t *testing.T) {
+	const bruto = `agent_key: chave-real
+api_url: https://orion.exemplo.local
+interval_seconds: 15
+log_file: custom.log
+`
+
 	cfg, err := carregarDoDisco(t, bruto)
 	if err != nil {
-		t.Fatalf("comportamento mudou: parsing agora e estrito (%v) — atualize este teste", err)
+		t.Fatalf("agent.yaml só com campos conhecidos foi rejeitado: %v", err)
 	}
-
-	if cfg.APIURL != "http://localhost:8080" {
-		t.Fatalf("APIURL = %q; esperado o default (typo ignorado)", cfg.APIURL)
+	if cfg.APIURL != "https://orion.exemplo.local" || cfg.IntervalSeconds != 15 || cfg.LogFile != "custom.log" {
+		t.Errorf("campos conhecidos não foram preenchidos corretamente: %+v", cfg)
 	}
-	if cfg.IntervalSeconds != 60 {
-		t.Fatalf("IntervalSeconds = %d; esperado 60 (typo ignorado)", cfg.IntervalSeconds)
-	}
-
-	t.Log("ACHADO: campos desconhecidos sao ignorados; um typo em api_url degrada silenciosamente para o default http://localhost")
 }
 
 // ---------------------------------------------------------------------------

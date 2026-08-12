@@ -1,7 +1,10 @@
 package config
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -49,15 +52,46 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("erro ao ler agent.yaml: %w", err)
 	}
 
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	cfg, err := parsearYAML(data)
+	if err != nil {
 		return nil, fmt.Errorf("agent.yaml inválido: %w", err)
 	}
 
-	if err := aplicarDefaultsEValidar(&cfg, path); err != nil {
+	if err := aplicarDefaultsEValidar(cfg, path); err != nil {
 		return nil, err
 	}
 
+	return cfg, nil
+}
+
+// parsearYAML decodifica o conteúdo do agent.yaml com KnownFields(true).
+//
+// Correção B.13: antes, yaml.Unmarshal não era estrito — um campo desconhecido
+// (por exemplo, um typo "api_urlx" em vez de "api_url") era silenciosamente
+// ignorado e o campo real ficava com seu valor default, sem erro nem aviso.
+// Isso já foi documentado como achado real: um typo em api_url degradava
+// silenciosamente um endpoint de produção para o default localhost (ver
+// TestCampoComTypoEhRejeitado). Com KnownFields(true), esse mesmo typo agora
+// falha alto na inicialização, apontando exatamente para o problema.
+//
+// Está separada de Load para os testes exercitarem a decodificação real sem
+// depender do caminho fixo resolvido por os.Executable().
+func parsearYAML(data []byte) (*Config, error) {
+	var cfg Config
+
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	err := dec.Decode(&cfg)
+
+	// yaml.Decoder.Decode devolve io.EOF quando não há NENHUM documento no
+	// input (arquivo vazio ou só comentários) — diferente de yaml.Unmarshal,
+	// que trata a mesma entrada como sucesso (struct zerada). Sem tratar isso
+	// à parte, um agent.yaml vazio passaria a falhar com um "EOF" confuso em
+	// vez de cair na validação normal de agent_key ausente (mensagem clara:
+	// "configure o campo 'agent_key'...").
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
 	return &cfg, nil
 }
 
