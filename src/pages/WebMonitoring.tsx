@@ -167,7 +167,7 @@ export default function WebMonitoring() {
   const filteredNetworkLinks = useMemo(() => {
     if (!networkLinks) return [];
     if (selectedTypeFilter === 'all') return networkLinks;
-    return networkLinks.filter(link => {
+    return (networkLinks || []).filter(link => {
       const info = getLinkTypeInfo(link.type);
       return info.label.toLowerCase() === selectedTypeFilter.toLowerCase() ||
              link.type.toLowerCase().includes(selectedTypeFilter.toLowerCase());
@@ -536,7 +536,7 @@ export default function WebMonitoring() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredNetworkLinks.map(link => {
+                  {(filteredNetworkLinks || []).map(link => {
                     const typeInfo = getLinkTypeInfo(link.type);
                     const TypeIcon = typeInfo.icon;
                     return (

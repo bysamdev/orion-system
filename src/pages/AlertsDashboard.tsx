@@ -155,10 +155,10 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
   const [refreshing, setRefreshing] = React.useState(false);
 
   const grouped = useMemo(() => ({
-    offline: alerts.filter(a => a.alert_type === 'offline'),
-    disk: alerts.filter(a => a.alert_type === 'disk'),
-    cpu: alerts.filter(a => a.alert_type === 'cpu'),
-    alert: alerts.filter(a => a.alert_type === 'alert'),
+    offline: (alerts || []).filter(a => a.alert_type === 'offline'),
+    disk: (alerts || []).filter(a => a.alert_type === 'disk'),
+    cpu: (alerts || []).filter(a => a.alert_type === 'cpu'),
+    alert: (alerts || []).filter(a => a.alert_type === 'alert'),
   }), [alerts]);
 
   const handleRefresh = async () => {

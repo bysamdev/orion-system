@@ -126,7 +126,7 @@ const PatchManagement: React.FC = () => {
               </Card>
             ) : (
               <div className="space-y-3">
-                {packages.map(pkg => (
+                {(packages || []).map(pkg => (
                   <PackageCard key={pkg.id} pkg={pkg} onDeploy={setDeployingPkg} onDelete={handleDelete} />
                 ))}
               </div>
@@ -146,7 +146,7 @@ const PatchManagement: React.FC = () => {
               <ScrollArea className="h-[500px]">
                 {deplLoading ? (
                   <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary/50" /></div>
-                ) : deployments.length === 0 ? (
+                ) : (deployments || []).length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-40 gap-2 text-center p-4">
                     <Clock className="w-8 h-8 text-muted-foreground/20" />
                     <p className="text-xs text-muted-foreground">Nenhuma implantação realizada ainda</p>
@@ -161,7 +161,7 @@ const PatchManagement: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {deployments.map(dep => (
+                      {(deployments || []).map(dep => (
                         <TableRow key={dep.id} className="hover:bg-muted/10">
                           <TableCell className="text-xs font-semibold max-w-[120px] truncate">
                             {dep.software_packages?.name ?? '—'}

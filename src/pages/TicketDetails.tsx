@@ -395,7 +395,7 @@ const TicketDetails: React.FC = () => {
       const { data: roleData, error: roleError } = await supabase.from('user_roles').select('user_id').in('role', ['technician', 'admin']);
       if (roleError) throw roleError;
       if (!roleData?.length) return [];
-      const userIds = roleData.map(r => r.user_id);
+      const userIds = (roleData || []).map(r => r.user_id);
       const { data: profiles, error } = await supabase.from('profiles').select('id, full_name').in('id', userIds);
       if (error) throw error;
       return profiles || [];
@@ -522,8 +522,8 @@ const TicketDetails: React.FC = () => {
 
   const formatTimeAgo = (date: string | null | undefined) => { if (!date) return ""; const d = new Date(date); if (isNaN(d.getTime())) return ""; return formatDistanceToNow(d, { locale: ptBR, addSuffix: true }); };
 
-  const totalMinutes = timeEntries.reduce((sum, te) => sum + (te.duration_minutes || 0), 0);
-  const billableMinutes = timeEntries.filter(te => te.billable).reduce((sum, te) => sum + (te.duration_minutes || 0), 0);
+  const totalMinutes = (timeEntries || []).reduce((sum, te) => sum + (te.duration_minutes || 0), 0);
+  const billableMinutes = (timeEntries || []).filter(te => te.billable).reduce((sum, te) => sum + (te.duration_minutes || 0), 0);
   const formatMinutes = (m: number) => {
     const h = Math.floor(m / 60);
     const min = m % 60;
@@ -617,11 +617,11 @@ const TicketDetails: React.FC = () => {
               </div>
               <UnifiedTimeline
                 updates={updates}
-                statusHistory={statusHistory.map(sh => ({
+                statusHistory={(statusHistory || []).map(sh => ({
                   ...sh,
                   changed_by: technicians.find(t => t.id === sh.changed_by)?.full_name || sh.changed_by
                 }))}
-                timeEntries={timeEntries.map(te => ({
+                timeEntries={(timeEntries || []).map(te => ({
                   ...te,
                   user_id: technicians.find(t => t.id === te.user_id)?.full_name || te.user_id
                 }))}
@@ -815,7 +815,7 @@ const TicketDetails: React.FC = () => {
                         <SelectValue placeholder={techniciansLoading ? "..." : "Selecione..."} />
                       </SelectTrigger>
                       <SelectContent>
-                        {technicians.map(tech => (
+                        {(technicians || []).map(tech => (
                           <SelectItem key={tech.id} value={tech.full_name || ''}>{tech.full_name || 'Sem nome'}</SelectItem>
                         ))}
                       </SelectContent>
@@ -1178,7 +1178,7 @@ const TicketAssetContext = ({ assetId }: { assetId: string }) => {
               <span className="text-[10px] font-bold uppercase tracking-widest">Alertas Recentes</span>
             </div>
             <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1">
-              {alerts.slice(0, 3).map(alert => (
+              {(alerts || []).slice(0, 3).map(alert => (
                 <div key={alert.id} className="text-xs p-2 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-lg">
                   {alert.message}
                 </div>

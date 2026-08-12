@@ -189,7 +189,7 @@ function MachinesGrid({
 
   const filtered = useMemo(() => {
     if (!machines) return [];
-    return machines.filter((m) => {
+    return (machines || []).filter((m) => {
       if (statusFilter === 'online' && m.status !== 'online') return false;
       if (statusFilter === 'offline' && m.status !== 'offline') return false;
       if (statusFilter === 'alert' && !hasDiskAlert(m)) return false;
@@ -538,7 +538,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                           Nenhum grupo cadastrado
                         </p>
                       ) : (
-                        groups.map((g) => (
+                        (groups || []).map((g) => (
                           <GroupItem
                             key={g.id}
                             group={g}
@@ -626,7 +626,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma (Global)</SelectItem>
-                  {companies.map(c => (
+                  {(companies || []).map(c => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>

@@ -176,7 +176,7 @@ export default function TicketHistory() {
                     <p className="text-center text-muted-foreground text-sm p-12 font-medium">
                       Nenhum ticket encontrado.
                     </p>
-                  ) : filteredTickets.map(t => (
+                  ) : (filteredTickets || []).map(t => (
                     <button
                       key={t.id}
                       onClick={() => handleRowClick(t.id)}
@@ -217,7 +217,7 @@ export default function TicketHistory() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredTickets.map(t => (
+                        (filteredTickets || []).map(t => (
                           <TicketHistoryRow key={t.id} ticket={t} onClick={handleRowClick} />
                         ))
                       )}
