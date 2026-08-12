@@ -81,25 +81,36 @@ Abrir um chamado no Orion System é simples e garante que sua solicitação seja
     excerpt: 'Veja como localizar e repassar o ID e a Senha do TeamViewer para que a equipe de TI realize o acesso remoto seguro.',
     content: `# Como permitir acesso remoto via TeamViewer
 
-O **TeamViewer** é o software padrão utilizado pelo suporte técnico para acessar sua estação de trabalho remotamente.
+O **TeamViewer** é a ferramenta oficial e padrão utilizada pela equipe de suporte técnico para se conectar ao seu computador de forma prática e segura.
 
 ---
 
-### Passo a Passo
+### Passo a Passo (Ferramenta Principal: TeamViewer)
 
 1. **Abra o TeamViewer**:
-   - Procure pelo ícone do **TeamViewer** na sua área de trabalho ou no menu Iniciar do Windows.
+   - Procure pelo ícone do **TeamViewer** na sua área de trabalho ou no menu Iniciar do Windows (pré-instalado no seu computador).
 2. **Localize as Credenciais**:
-   - Na janela principal, localize os campos **Sua ID** (código de 9 ou 10 dígitos) e **Senha**.
+   - Na janela principal, sob a seção *Permitir Controle Remoto*, identifique os campos **Sua ID** (9 a 10 dígitos) e **Senha** temporária.
 3. **Informe ao Técnico**:
-   - Forneça o ID e a Senha para o técnico de suporte no chat ou no chamado em andamento.
+   - Forneça a ID e a Senha para o analista no seu chamado aberto, chat corporativo ou atendimento telefônico.
 4. **Mantenha o Aplicativo Aberto**:
-   - Não feche a janela do TeamViewer até que o técnico conclua a manutenção.
+   - Você poderá acompanhar toda a assistência em tempo real. A senha é alterada automaticamente ao fechar o programa.
+
+---
+
+### 🛡️ Opção de Contingência (AnyDesk)
+
+Caso o **TeamViewer** esteja indisponível, bloqueado pela rede ou não instalado na sua máquina, utilize o **AnyDesk** como alternativa secundária:
+
+1. **Abra o AnyDesk**: Inicie o programa pelo Menu Iniciar ou baixe pelo site oficial \`anydesk.com/pt\`.
+2. **Identifique o Código**: Na seção *Este Dispositivo*, copie o código numérico de 9 dígitos.
+3. **Informe ao Técnico**: Repasse esse código no seu chamado.
+4. **Autorize a Conexão**: Clique no botão verde **Aceitar** ao receber a notificação do suporte.
 
 ---
 
 > [!IMPORTANT]
-> O acesso só é permitido enquanto o programa estiver aberto. Assim que o suporte encerrar a conexão, a senha é alterada automaticamente para sua segurança.`
+> NUNCA forneça senhas ou códigos para desconhecidos fora dos canais oficiais de suporte do Orion System.`
   },
   {
     id: 'default-3',
@@ -513,7 +524,7 @@ export default function KnowledgeBase() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 {/* CARD 1 DESTAQUE: COMO ABRIR UM CHAMADO */}
                 <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-card to-card hover:border-emerald-500/40 transition-all shadow-md group relative overflow-hidden flex flex-col justify-between">
@@ -566,12 +577,15 @@ export default function KnowledgeBase() {
                   </div>
 
                   <CardContent className="p-6 space-y-4 relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/15 rounded-full border border-blue-500/30">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                      </span>
-                      <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Padrão Corporativo</span>
+                    <div className="flex items-center justify-between">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/15 rounded-full border border-blue-500/30">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                        </span>
+                        <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Padrão Corporativo</span>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground font-medium">AnyDesk como alternativa</span>
                     </div>
 
                     <div className="space-y-2">
@@ -589,7 +603,7 @@ export default function KnowledgeBase() {
                         <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-none font-bold">Obrigatório</Badge>
                       </div>
                       <p className="text-xs text-foreground/90 font-medium">
-                        Abra o <strong>TeamViewer</strong> pré-instalado na sua máquina e forneça seu <strong>ID</strong> e <strong>Senha</strong> ao técnico no chamado.
+                        Abra o <strong>TeamViewer</strong> pré-instalado na máquina e passe sua <strong>ID</strong>/<strong>Senha</strong> no chamado (AnyDesk incluso como opção secundária).
                       </p>
                     </div>
                   </CardContent>
@@ -600,41 +614,6 @@ export default function KnowledgeBase() {
                       onClick={() => openHighlightArticle(1)}
                     >
                       Como liberar acesso TeamViewer <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </Card>
-
-                {/* CARD 3 SECUNDÁRIO / CONTINGÊNCIA: ANYDESK */}
-                <Card className="border-amber-500/20 bg-card/60 hover:border-amber-500/40 transition-all shadow-sm group relative overflow-hidden flex flex-col justify-between">
-                  <CardContent className="p-6 space-y-4">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/15 rounded-full border border-amber-500/30">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                      <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Opção de Contingência</span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h3 className="text-xl font-bold text-foreground">
-                        Acesso Alternativo (AnyDesk)
-                      </h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Utilize o AnyDesk caso o TeamViewer não esteja instalado ou apresente bloqueios na sua rede corporativa.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2 pt-2 border-t border-border/40 text-xs text-muted-foreground">
-                      <p>
-                        Abra o AnyDesk e passe o <strong>Endereço de 9 dígitos</strong> exibido na tela inicial para o suporte.
-                      </p>
-                    </div>
-                  </CardContent>
-
-                  <div className="p-6 pt-0">
-                    <Button 
-                      variant="ghost" 
-                      className="w-full justify-between font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
-                      onClick={() => openHighlightArticle(2)}
-                    >
-                      Ver tutorial AnyDesk <ArrowRight className="w-4 h-4" />
                     </Button>
                   </div>
                 </Card>
