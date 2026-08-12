@@ -13,7 +13,26 @@ export default {
   		}
   	},
   	extend: {
+  		fontFamily: {
+  			sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif']
+  		},
   		colors: {
+  			// Escala completa do roxo da marca (matiz 283°, extraído da logo).
+  			// Uso pontual (ex: bg-brand-100, text-brand-700) fora dos tokens
+  			// semânticos acima, que já usam esse mesmo matiz via CSS vars.
+  			brand: {
+  				50: 'hsl(283 100% 97%)',
+  				100: 'hsl(283 92% 94%)',
+  				200: 'hsl(283 86% 87%)',
+  				300: 'hsl(283 82% 77%)',
+  				400: 'hsl(283 78% 65%)',
+  				500: 'hsl(283 75% 55%)',
+  				600: 'hsl(283 80% 45%)',
+  				700: 'hsl(283 85% 35%)',
+  				800: 'hsl(283 90% 24%)',
+  				900: 'hsl(283 94% 15%)',
+  				950: 'hsl(283 96% 9%)'
+  			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',

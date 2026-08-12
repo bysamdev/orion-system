@@ -9,7 +9,7 @@ export function ButtonPrimary({ children, icon, className, ...props }: ButtonPri
   return (
     <button
       className={cn(
-        "bg-purple-600 hover:bg-purple-700 text-white font-medium px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors active:scale-[0.98]",
+        "bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors active:scale-[0.98]",
         className
       )}
       {...props}

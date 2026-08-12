@@ -19,6 +19,8 @@ import {
   Globe,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import orionLogo from '@/assets/orion-logo.png';
+import orionLogoLight from '@/assets/orion-logo-light.png';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -144,9 +146,17 @@ export const AppSidebar: React.FC = () => {
   return (
     <Sidebar>
       <SidebarHeader>
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center px-3 pt-2 pb-3 cursor-pointer"
+        >
+          <img src={orionLogo} alt="Orion System" className="h-8 w-auto dark:hidden" />
+          <img src={orionLogoLight} alt="Orion System" className="h-8 w-auto hidden dark:block" />
+        </button>
+
         <div
           onClick={() => navigate('/')}
-          className="flex items-center gap-3 px-3 py-2 cursor-pointer group"
+          className="flex items-center gap-3 px-3 py-2 mx-1 mb-1 rounded-lg cursor-pointer group border-t border-sidebar-border/60 pt-3"
         >
           <div className="flex flex-col">
             <span className="text-sm font-medium">{profile?.full_name || 'Carregando...'}</span>

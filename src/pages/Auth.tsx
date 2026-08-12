@@ -11,6 +11,7 @@ import { fetchWithTimeout } from '@/lib/fetch-client';
 
 
 import orionLogo from '@/assets/orion-logo.png';
+import orionLogoLight from '@/assets/orion-logo-light.png';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -81,10 +82,15 @@ const Auth = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <img 
-              src={orionLogo} 
-              alt="Orion System Logo" 
-              className="h-20 w-auto"
+            <img
+              src={orionLogo}
+              alt="Orion System Logo"
+              className="h-20 w-auto dark:hidden"
+            />
+            <img
+              src={orionLogoLight}
+              alt="Orion System Logo"
+              className="h-20 w-auto hidden dark:block"
             />
           </div>
           <div className="space-y-2">

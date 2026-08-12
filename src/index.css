@@ -2,31 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
 All colors MUST be HSL.
+
+Brand: roxo extraído da logo Orion System (#280137 / hsl(283 96% 11%)).
+--primary/--accent/--ring usam esse matiz (283°) em ambos os temas: tom quase-preto
+no light mode (alto contraste com texto branco) e um roxo vívido no dark mode
+(para permanecer visível sobre o fundo escuro).
+
+Os neutros (background/card/border/secondary/muted/sidebar) também usam matiz 283°
+com saturação baixa, para que cinzas e superfícies tenham uma leve "temperatura"
+roxa coerente com a marca, em vez de cinza neutro genérico. A escala completa
+brand-50..950 (mesmo matiz) fica disponível no Tailwind (tailwind.config.ts)
+para uso pontual fora dos tokens semânticos. Cores semânticas (success/warning/
+destructive) permanecem com seus matizes próprios — não devem ser "roxeadas".
 */
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 240 10% 15%;
+    --background: 283 25% 98%;
+    --foreground: 283 15% 14%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 15%;
+    --card: 283 30% 99%;
+    --card-foreground: 283 15% 14%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 15%;
+    --popover: 283 30% 99%;
+    --popover-foreground: 283 15% 14%;
 
-    --primary: 263 70% 50%;
+    --primary: 283 94% 12%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 94%;
-    --secondary-foreground: 240 10% 20%;
+    --secondary: 283 20% 93%;
+    --secondary-foreground: 283 15% 18%;
 
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 5% 40%;
+    --muted: 283 18% 95%;
+    --muted-foreground: 283 8% 42%;
 
-    --accent: 263 70% 50%;
+    --accent: 283 94% 12%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -38,42 +50,42 @@ All colors MUST be HSL.
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 263 70% 50%;
+    --border: 283 20% 89%;
+    --input: 283 20% 89%;
+    --ring: 283 94% 12%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-background: 283 22% 97%;
+    --sidebar-foreground: 283 10% 30%;
+    --sidebar-primary: 283 94% 12%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 283 55% 95%;
+    --sidebar-accent-foreground: 283 94% 14%;
+    --sidebar-border: 283 18% 90%;
+    --sidebar-ring: 283 94% 12%;
   }
 
   .dark {
-    --background: 240 10% 10%;
-    --foreground: 0 0% 98%;
+    --background: 283 22% 9%;
+    --foreground: 283 10% 97%;
 
-    --card: 240 10% 13%;
-    --card-foreground: 0 0% 98%;
+    --card: 283 20% 12%;
+    --card-foreground: 283 10% 97%;
 
-    --popover: 240 10% 13%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 283 20% 12%;
+    --popover-foreground: 283 10% 97%;
 
-    --primary: 263 70% 50%;
+    --primary: 283 75% 58%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 8% 18%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 283 16% 17%;
+    --secondary-foreground: 283 10% 97%;
 
-    --muted: 240 8% 18%;
-    --muted-foreground: 240 5% 70%;
+    --muted: 283 16% 17%;
+    --muted-foreground: 283 10% 68%;
 
-    --accent: 263 70% 50%;
+    --accent: 283 75% 58%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -85,18 +97,18 @@ All colors MUST be HSL.
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 240 8% 20%;
-    --input: 240 8% 20%;
-    --ring: 263 70% 50%;
-    
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --border: 283 16% 21%;
+    --input: 283 16% 21%;
+    --ring: 283 75% 58%;
+
+    --sidebar-background: 283 20% 8%;
+    --sidebar-foreground: 283 10% 92%;
+    --sidebar-primary: 283 75% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 283 45% 22%;
+    --sidebar-accent-foreground: 283 85% 88%;
+    --sidebar-border: 283 16% 17%;
+    --sidebar-ring: 283 75% 58%;
   }
 }
 
@@ -106,7 +118,7 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
 @layer utilities {
@@ -131,10 +143,10 @@ All colors MUST be HSL.
   }
 
   .glow-primary {
-    box-shadow: 0 0 15px hsla(263, 70%, 50%, 0.3);
+    box-shadow: 0 0 15px hsla(283, 75%, 55%, 0.3);
   }
 
   .neon-border {
-    @apply border-primary/50 shadow-[0_0_15px_hsla(263,70%,50%,0.2)];
+    @apply border-primary/50 shadow-[0_0_15px_hsla(283,75%,55%,0.2)];
   }
 }
