@@ -1,0 +1,19 @@
+# Orion Agent Configuration
+# Edite este arquivo antes de iniciar o agente.
+
+# URL do endpoint de heartbeat no Vercel (mesmo domínio do frontend)
+# Substitua SEU-DOMINIO pelo domínio do seu projeto Vercel
+api_url: https://orion.bysam.dev
+
+# Chave de autenticação (deve ser igual ao AGENT_KEY configurado no Vercel).
+# NUNCA commite a chave real aqui — este arquivo é público no repositório.
+# A chave real fica só no compartilhamento de deploy (GPO) e na variável de
+# ambiente AGENT_KEY do Vercel. config.Load() recusa iniciar enquanto o valor
+# abaixo não for substituído (ver orion-agent/config/config.go).
+agent_key: COLOQUE_SUA_CHAVE_AQUI
+
+# Intervalo de envio em segundos (padrão: 60)
+interval_seconds: 30
+
+# Nome do arquivo de log (relativo ao diretório do .exe)
+log_file: agent.log

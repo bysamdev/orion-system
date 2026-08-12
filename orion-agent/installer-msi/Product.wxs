@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fonte WiX v3 do instalador MSI do Orion Agent.
+
+  Alternativa "nativa" ao instalador .exe em cmd/installer: em vez de um
+  binário Go que chama ShellExecute "runas" e depois roda
+  "orion-agent.exe install" via exec.Command, aqui o próprio Windows
+  Installer registra o serviço (elemento ServiceInstall) — é o mecanismo
+  esperado por ferramentas de distribuição de software corporativas
+  (Intune, SCCM, GPO com pacote .msi) que sabem inventariar, atualizar e
+  desinstalar um MSI de forma padronizada, coisa que um .exe solto não
+  oferece da mesma forma.
+
+  Build: ver build.ps1 nesta mesma pasta.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Name="Orion Agent"
+           Language="1046"
+           Version="1.0.0"
+           Manufacturer="Orion System"
+           UpgradeCode="9839F87F-8876-44C2-B8B7-638EB769D950">
+
+    <Package InstallerVersion="500"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="Orion Agent — Monitoramento e Suporte Remoto"
+             Comments="Instala o serviço OrionAgent em C:\Orion" />
+
+    <!--
+      MajorUpgrade: cada rebuild deste .wxs (ex.: novo release do agente)
+      deve subir Version acima e rodar o MSI de novo — o Windows Installer
+      desinstala a versão antiga (parando/removendo o serviço via
+      ServiceControl Remove="uninstall" abaixo) antes de instalar a nova,
+      preservando agent.yaml (ver NeverOverwrite no componente AgentConfig).
+    -->
+    <MajorUpgrade
+      DowngradeErrorMessage="Uma versão mais recente do Orion Agent já está instalada." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!--
+      INSTALLFOLDER com caminho absoluto fixo em C:\Orion — pedido explícito
+      de instalação na raiz do disco C:, em vez do padrão
+      %ProgramFiles%\Orion System\Orion Agent. A Property com o mesmo Id do
+      Directory é o jeito documentado do WiX de dar um default absoluto que
+      ignora a resolução usual via TARGETDIR/ROOTDRIVE (que nem sempre cai
+      em C:\ — depende de qual disco tem mais espaço livre).
+    -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="INSTALLFOLDER" Name="Orion" />
+    </Directory>
+    <Property Id="INSTALLFOLDER" Value="C:\Orion" />
+
+    <!--
+      AppSearch nativo (sem extensão): detecta, ANTES da instalação, se já
+      existe um C:\Orion\agent.yaml de uma instalação anterior — é a base da
+      condição que impede o componente AgentConfig de sobrescrever um
+      arquivo que o técnico já editou com a agent_key real (ver comentário
+      no componente AgentConfig abaixo; File não tem um atributo nativo de
+      "nunca sobrescrever", então a condição no Component é o mecanismo
+      padrão do Windows Installer para isso).
+    -->
+    <Property Id="AGENTYAMLEXISTS" Secure="yes">
+      <DirectorySearch Id="OrionFolderSearch" Path="C:\Orion">
+        <FileSearch Id="AgentYamlSearch" Name="agent.yaml" />
+      </DirectorySearch>
+    </Property>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="AgentExecutable" Guid="A2482BA1-AE16-48D3-AF3C-9579270785BC">
+        <File Id="OrionAgentExe"
+              Name="orion-agent.exe"
+              Source="..\orion-agent.exe"
+              KeyPath="yes" />
+
+        <!--
+          Mesma configuração de service/windows.go ServiceConfig(): mesmo
+          Name (id do serviço no SCM), DisplayName, Description e — decisivo
+          para a correção A.4 de privilégio mínimo (ver comentário em
+          ServiceConfig) — a mesma conta de serviço virtual
+          NT SERVICE\OrionAgent em vez de LocalSystem. Start="auto" replica
+          o default real do kardianos/service quando Option não define
+          StartType (ver github.com/kardianos/service@v1.2.2/service_windows.go:290).
+        -->
+        <ServiceInstall Id="OrionAgentServiceInstall"
+                         Type="ownProcess"
+                         Name="OrionAgent"
+                         DisplayName="Orion Monitoring Agent"
+                         Description="Coleta métricas de hardware e permite suporte remoto proativo via Orion System."
+                         Start="auto"
+                         ErrorControl="normal"
+                         Account="NT SERVICE\OrionAgent" />
+
+        <!--
+          Deliberadamente SEM Start="install": orion-agent.exe se recusa a
+          rodar enquanto agent.yaml tiver a agent_key placeholder (ver
+          config.Load()) — iniciar o serviço de forma síncrona durante a
+          instalação, numa máquina ainda não configurada, falharia e o
+          Windows Installer mostraria isso como erro da instalação. Com
+          Start="auto" acima, o Windows já tenta subir o serviço sozinho no
+          próximo boot (e a cada reboot subsequente); enquanto isso, o
+          técnico configura a chave real e roda "sc start OrionAgent"
+          manualmente — mesmo fluxo do instalador .exe em cmd/installer.
+        -->
+        <ServiceControl Id="OrionAgentServiceControl"
+                         Name="OrionAgent"
+                         Stop="both"
+                         Remove="uninstall"
+                         Wait="yes" />
+      </Component>
+
+      <Component Id="AgentConfig" Guid="87619873-AE40-43E2-975F-6380319AC2B0">
+        <!--
+          NeverOverwrite: numa atualização (MajorUpgrade) ou reparo, não
+          sobrescreve um agent.yaml que o técnico já editou com a agent_key
+          real da empresa — só grava o template na instalação limpa, quando
+          o arquivo ainda não existe. Mesma regra aplicada em
+          cmd/installer/main.go (instalar/configJaExiste).
+        -->
+        <File Id="AgentYaml"
+              Name="agent.yaml"
+              Source="..\agent.yaml"
+              KeyPath="yes"
+              NeverOverwrite="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="MainFeature" Title="Orion Agent" Level="1">
+      <ComponentRef Id="AgentExecutable" />
+      <ComponentRef Id="AgentConfig" />
+    </Feature>
+  </Product>
+</Wix>
