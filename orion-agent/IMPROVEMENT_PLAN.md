@@ -116,7 +116,7 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 | A.8 ✅ | Redigir token de logs e da URL logada | A4 | **baixo** | baixo | Implementado e testado (`redigirQuery` em `main.go`) |
 | A.9 | Remover fallback "primeira empresa do banco" | A11 | baixo | médio | Backend. Máquinas órfãs passam a falhar visivelmente (é o desejado) |
 | A.10 ✅ | Validar hash/Authenticode no script de GPO | M1 | baixo | baixo | Implementado via hash SHA-256 (manifesto `.sha256` publicado ao lado do `.exe`/`.yaml` no share); Authenticode **não** incluído — o binário não é assinado hoje, exigir assinatura quebraria todo deploy. Achado lateral corrigido: o script tinha um bug de encoding real (UTF-8 sem BOM é mal interpretado pelo Windows PowerShell 5.1 sob codepage não-inglês, corrompendo os `—`/acentos e quebrando o parsing) |
-| A.11 | Não logar texto integral de comandos RMM | M2 | baixo | baixo | |
+| A.11 ✅ | Não logar texto integral de comandos RMM | M2 | baixo | baixo | Implementado. Log agora só com `id=%s`, texto do comando some do `agent.log` |
 | A.12 | Enrollment com certificado por máquina (mTLS) | C3, C5 | **alto** | **alto** | Projeto próprio. Depende de A.6 |
 | A.13 | SID do usuário via API do Windows em vez de `os.Getenv` | C5 | alto | médio | Depende de decidir o modelo de identidade |
 
@@ -127,7 +127,7 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 | B.1 ✅ | Timeout nas goroutines de disco (`disk.UsageWithContext`) | A6 | **baixo** | baixo | Implementado e testado |
 | B.2 ✅ | Timeout no `executeCommand` (`exec.CommandContext`) | A7 | **baixo** | baixo | Implementado e testado |
 | B.3 ✅ | Corrigir `req, _ :=` e escapar `machineID` em `PollCommands` | A9 | **baixo** | baixo | Implementado e testado (`url.Values`) |
-| B.4 | Mutex/atomic em `Svc.machineToken` e `machineID` | A8 | baixo | baixo | Confirmar com `-race` em máquina com toolchain C. **Não aprovado ainda** |
+| B.4 ✅ | Mutex/atomic em `Svc.machineToken` e `machineID` | A8 | baixo | baixo | Implementado com `sync.RWMutex` + getters/setters. `-race` continua indisponível nesta máquina (sem toolchain C, WSL só tem Docker), mas a correção em si é inequívoca — os 3 testes de corrida (antes guardados com `t.Skip`) agora exercitam o caminho protegido e passam |
 | B.5 ✅ | Substituir `GenerateToken` (removida) por identidade aleatória persistida | A10, B6 | baixo | médio | **Implementado junto com A.6** — não foi "tornar determinístico", foi trocar o mecanismo por inteiro (ver Opção A de `MACHINE-IDENTITY-OPTIONS.md`). `Payload.GenerateToken` removida de `collector/hardware.go` |
 | B.6 ✅ | `cpu.Percent(0)` não-bloqueante | M3 | baixo | **médio** | Implementado e testado (teste de regressão de tempo). **Mudança de semântica documentada em código**: `cpu_usage` passa de amostra instantânea de 1s a cada 30s para média do intervalo inteiro entre heartbeats — melhor para tendência, mas históricos antigo/novo não são estritamente comparáveis. `lib/monitoring.go:CriticalAlerts` (alerta CPU > 85%) não foi tocado — não avaliei o impacto no lado do backend, fora do escopo desta correção no agente |
 | B.7 ✅ | Cachear `cpu.Info` + `net.Interfaces` 1× por coleta | M4 | baixo | baixo | Implementado e testado. `cpu.Info` cacheado com `sync.Once`; `net.Interfaces()` chamado 1× por `Collect()`, alimentando IP principal e lista de interfaces do mesmo snapshot |

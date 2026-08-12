@@ -341,15 +341,18 @@ func TestColetaRealSegueUsuarioMasHardwarePermaneceEstavel(t *testing.T) {
 // CONDIÇÕES DE CORRIDA no estado compartilhado do Svc
 // ─────────────────────────────────────────────────────────────
 
-// Reproduz o cenário real de main.go:
-//   - goroutine do serviço  (Start -> go s.run -> tick) ESCREVE s.machineToken
-//   - goroutine do systray  (callbacks da bandeja)      LÊ s.machineToken via GetPortalURL/GetTicketURL
+// CORRIGIDO (item B.4): Svc.machineToken agora é protegido por sync.RWMutex
+// (getMachineToken/setMachineToken, ver service/windows.go). Este teste
+// reproduz o cenário real de main.go pelo caminho protegido:
+//   - goroutine do serviço  (Start -> go s.run -> tick) ESCREVE via setMachineToken
+//   - goroutine do systray  (callbacks da bandeja)      LÊ via GetPortalURL/GetTicketURL
 //
-// Nenhum mutex/atomic protege o campo. Rodar com -race.
+// Antes da correção, este teste só provava ausência de PANIC/corrupção
+// observável nesta execução específica — não ausência de corrida (que exigia
+// -race, indisponível nesta máquina sem toolchain C). Agora ambos os lados
+// passam pelo mutex, então a corrida em si deixou de existir, não só de se
+// manifestar.
 func TestCorridaEntreTickEBandejaNoMachineToken(t *testing.T) {
-	pularSeBugConhecido(t, "data race em Svc.machineToken — escrito por tick() na goroutine de "+
-		"Start()->run() e lido por GetPortalURL()/GetTicketURL() na goroutine do systray, sem mutex/atomic")
-
 	s := novoSvcDeTeste("https://orion.exemplo.test")
 
 	const iteracoes = 5000
@@ -360,7 +363,7 @@ func TestCorridaEntreTickEBandejaNoMachineToken(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < iteracoes; i++ {
-			s.machineToken = fmt.Sprintf("token-do-tick-%d", i)
+			s.setMachineToken(fmt.Sprintf("token-do-tick-%d", i))
 		}
 	}()
 
@@ -382,42 +385,16 @@ func TestCorridaEntreTickEBandejaNoMachineToken(t *testing.T) {
 	wg.Wait()
 }
 
-// escreveTokenComoTick reproduz literalmente a atribuição de windows.go:110
-// ("s.machineToken = t"). O //go:noinline impede que o compilador elimine as
-// atribuições do laço do teste e preserva a mesma sequência de instruções da
-// produção: primeiro o COMPRIMENTO da string, depois o PONTEIRO.
-//
-//go:noinline
-func escreveTokenComoTick(s *Svc, t string) { s.machineToken = t }
-
-// PROVA DO DATA RACE SEM O DETECTOR DE CORRIDA.
-//
-// Nesta máquina não há toolchain C, então "go test -race" não roda
-// ("-race requires cgo"). A corrida foi provada por outro caminho, mais direto:
-//
-// Em Go uma string é um cabeçalho de DUAS palavras (ponteiro + comprimento).
-// O disassembly de windows.go:110 (go build -gcflags=-S) mostra que tick()
-// publica o token em DUAS instruções separadas, e na ordem perigosa:
-//
-//	MOVQ BX, 48(DX)   ; escreve primeiro o COMPRIMENTO
-//	CALL runtime.gcWriteBarrier2(SB)
-//	MOVQ AX, 40(DX)   ; só depois escreve o PONTEIRO
-//
-// Enquanto isso, GetPortalURL() testa o comprimento em windows.go:51
-// (CMPQ 48(AX), $0) e usa o ponteiro em windows.go:55. A goroutine do systray
-// pode, portanto, ver "comprimento já publicado, ponteiro ainda nulo" e
-// desreferenciar endereço zero DENTRO do fmt.Sprintf.
-//
-// Este teste dispara exatamente esse cenário e conta panics reais vindos do
-// código de produção. Um panic no callback da bandeja NÃO é recuperado em
-// main.go — ele derruba o agente inteiro.
-func TestCorridaMachineTokenDerrubaGetPortalURLComPanic(t *testing.T) {
-	pularSeBugConhecido(t, "Svc.machineToken e publicado em duas instrucoes (comprimento e depois "+
-		"ponteiro) por tick() e lido sem sincronizacao por GetPortalURL() na goroutine do systray; "+
-		"a leitura no meio da publicacao causa nil pointer dereference e derruba o agente")
-
-	// Pressão de GC: com o write barrier ligado, a janela entre a escrita do
-	// comprimento e a do ponteiro passa a conter uma chamada de função.
+// TestCorridaMachineTokenNaoDerrubaGetPortalURLComPanic é a versão adversarial
+// do teste acima: pressão de GC ativa (write barrier) + leitura concorrente
+// dentro de um recover(), exatamente o cenário que, antes da correção B.4,
+// podia observar "comprimento já publicado, ponteiro ainda nulo" (a string é
+// um cabeçalho de duas palavras, publicado em duas instruções separadas —
+// ver histórico deste arquivo). Com o mutex, o leitor nunca observa um
+// estado parcialmente publicado.
+func TestCorridaMachineTokenNaoDerrubaGetPortalURLComPanic(t *testing.T) {
+	// Pressão de GC: mantém o coletor mais agressivo, maximizando a chance de
+	// qualquer inconsistência remanescente se manifestar durante o teste.
 	defer debug.SetGCPercent(debug.SetGCPercent(1))
 
 	s := novoSvcDeTeste("https://orion.exemplo.test")
@@ -457,8 +434,8 @@ func TestCorridaMachineTokenDerrubaGetPortalURLComPanic(t *testing.T) {
 				return
 			default:
 			}
-			escreveTokenComoTick(s, "")          // estado inicial do Svc
-			escreveTokenComoTick(s, tokenValido) // publicação do token pelo tick()
+			s.setMachineToken("")          // estado inicial do Svc
+			s.setMachineToken(tokenValido) // publicação do token pelo tick()
 		}
 	}()
 
@@ -501,21 +478,17 @@ func TestCorridaMachineTokenDerrubaGetPortalURLComPanic(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	if panics > 0 || corrompid > 0 {
-		t.Fatalf("DATA RACE COMPROVADO em Svc.machineToken: %d panic(s) e %d URL(s) corrompida(s) "+
-			"vindos de GetPortalURL(). Primeiro panic: %s", panics, corrompid, primeiro)
+		t.Fatalf("Svc.machineToken ainda corrompeu GetPortalURL() mesmo com o mutex: %d panic(s) e "+
+			"%d URL(s) corrompida(s). Primeiro panic: %s", panics, corrompid, primeiro)
 	}
-	t.Log("nenhuma manifestação observada nesta execução — a corrida continua existindo " +
-		"(escrita e leitura concorrentes sem sincronização), apenas não se manifestou aqui")
 }
 
-// Mesmo problema no outro campo compartilhado: machineID é escrito por tick()
-// e lido por pollAndExecuteCommands() — que roda no mesmo loop, mas o campo
-// também fica exposto a qualquer outra goroutine sem sincronização.
-// Aqui o backend é simulado com httptest (nenhuma chamada externa).
+// CORRIGIDO (item B.4): machineID também passou a ser protegido pelo mesmo
+// mutex (getMachineID/setMachineID) — mesmo não sendo racy na prática hoje
+// (escritor e leitor rodavam na mesma goroutine do loop principal), fica
+// consistente com machineToken e não reabre a mesma classe de bug se um dia
+// um callback da bandeja passar a consultá-lo. Backend simulado com httptest.
 func TestCorridaEntreTickEPollNoMachineID(t *testing.T) {
-	pularSeBugConhecido(t, "data race em Svc.machineID — escrito por tick() e lido por "+
-		"pollAndExecuteCommands() sem mutex/atomic")
-
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Devolve lista vazia: nenhum comando é executado no host de teste.
 		w.Header().Set("Content-Type", "application/json")
@@ -524,7 +497,7 @@ func TestCorridaEntreTickEPollNoMachineID(t *testing.T) {
 	defer srv.Close()
 
 	s := novoSvcDeTeste(srv.URL)
-	s.machineID = "id-inicial"
+	s.setMachineID("id-inicial")
 
 	const iteracoes = 500
 	var wg sync.WaitGroup
@@ -533,7 +506,7 @@ func TestCorridaEntreTickEPollNoMachineID(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < iteracoes; i++ {
-			s.machineID = fmt.Sprintf("machine-%d", i) // papel do tick()
+			s.setMachineID(fmt.Sprintf("machine-%d", i)) // papel do tick()
 		}
 	}()
 

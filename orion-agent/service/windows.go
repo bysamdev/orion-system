@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"sync"
 	"time"
 
 	"github.com/kardianos/service"
@@ -18,11 +19,46 @@ import (
 
 // Svc implementa a interface service.Interface necessária para rodar como serviço Windows.
 type Svc struct {
-	cfg          *config.Config
-	logger       *log.Logger
-	cancel       context.CancelFunc
+	cfg    *config.Config
+	logger *log.Logger
+	cancel context.CancelFunc
+
+	// mu protege machineID e machineToken. A corrida real e comprovada era em
+	// machineToken: escrito por tick() na goroutine do loop principal
+	// (Start -> go s.run(ctx)) e lido por GetPortalURL/GetTicketURL na
+	// goroutine do systray, sem nenhuma sincronização — ver
+	// service/windows_test.go (TestCorridaMachineTokenDerrubaGetPortalURLComPanic).
+	// machineID hoje só é lido pela própria goroutine do loop
+	// (pollAndExecuteCommands), então não é racy na prática — mas fica sob o
+	// mesmo mutex por consistência, para não reabrir a mesma classe de bug se
+	// um dia um callback da bandeja passar a consultá-lo também.
+	mu           sync.RWMutex
 	machineID    string
 	machineToken string
+}
+
+func (s *Svc) getMachineToken() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.machineToken
+}
+
+func (s *Svc) setMachineToken(t string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.machineToken = t
+}
+
+func (s *Svc) getMachineID() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.machineID
+}
+
+func (s *Svc) setMachineID(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.machineID = id
 }
 
 // New cria uma nova instância do serviço com as dependências necessárias.
@@ -48,19 +84,21 @@ func (s *Svc) Stop(svc service.Service) error {
 
 // GetPortalURL gera a URL de acesso ao portal já autenticada para esta máquina específica.
 func (s *Svc) GetPortalURL() string {
-	if s.machineToken == "" {
+	token := s.getMachineToken()
+	if token == "" {
 		return ""
 	}
 	// Usamos o redirecionador de login automático para que o usuário não precise digitar senha.
-	return fmt.Sprintf("%s/api/auth/machine-login?token=%s", s.cfg.APIURL, s.machineToken)
+	return fmt.Sprintf("%s/api/auth/machine-login?token=%s", s.cfg.APIURL, token)
 }
 
 // GetTicketURL gera a URL que leva direto à página de abertura de chamado, já autenticada.
 func (s *Svc) GetTicketURL() string {
-	if s.machineToken == "" {
+	token := s.getMachineToken()
+	if token == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/api/auth/machine-login?token=%s&redirect_to=/novo-ticket", s.cfg.APIURL, s.machineToken)
+	return fmt.Sprintf("%s/api/auth/machine-login?token=%s&redirect_to=/novo-ticket", s.cfg.APIURL, token)
 }
 
 // run é o loop principal do agente: coleta dados → envia para o servidor → aguarda o próximo intervalo.
@@ -99,7 +137,12 @@ func (s *Svc) tick() {
 	// Gerenciamento de Identidade (Token)
 	// Se for o primeiro acesso, carregamos do disco ou geramos uma nova identidade
 	// aleatória (token.GenerateRandomIdentity — ver MACHINE-IDENTITY-OPTIONS.md).
-	if s.machineToken == "" {
+	//
+	// A checagem e a escrita aqui não precisam de sincronização ENTRE SI: tick()
+	// só roda nesta goroutine (o select de run()), nunca em paralelo consigo
+	// mesma. O mutex em setMachineToken/getMachineToken protege contra os
+	// LEITORES externos (GetPortalURL/GetTicketURL, na goroutine da bandeja).
+	if s.getMachineToken() == "" {
 		t, err := token.LoadToken()
 		if err != nil {
 			s.logger.Printf("[INFO] Identidade local não encontrada, gerando nova identidade de máquina.")
@@ -119,12 +162,13 @@ func (s *Svc) tick() {
 				return
 			}
 		}
-		s.machineToken = t
+		s.setMachineToken(t)
 	}
-	payload.MachineToken = s.machineToken
+	machineToken := s.getMachineToken()
+	payload.MachineToken = machineToken
 	
 	// Garantimos que o atalho de "Abrir Portal" esteja sempre presente no Desktop do usuário.
-	if err := shortcut.CreatePortalShortcut(s.cfg.APIURL, s.machineToken); err != nil {
+	if err := shortcut.CreatePortalShortcut(s.cfg.APIURL, machineToken); err != nil {
 		s.logger.Printf("[AVISO] Não foi possível atualizar o atalho no Desktop: %v", err)
 	}
 
@@ -134,7 +178,7 @@ func (s *Svc) tick() {
 		s.logger.Printf("[ERRO] Falha no check-in (Heartbeat): %v", err)
 		return
 	}
-	s.machineID = mID
+	s.setMachineID(mID)
 
 	// Log amigável do status atual da coleta.
 	s.logger.Printf("[OK] Check-in realizado — %s (%s) | CPU: %.1f%% | RAM: %dMB/%dMB",
@@ -148,18 +192,24 @@ func (s *Svc) tick() {
 
 // pollAndExecuteCommands busca e executa comandos pendentes enviados pelo painel de controle.
 func (s *Svc) pollAndExecuteCommands() {
-	if s.machineID == "" {
+	machineID := s.getMachineID()
+	if machineID == "" {
 		return
 	}
 
-	cmds, err := sender.PollCommands(s.cfg, s.machineID)
+	cmds, err := sender.PollCommands(s.cfg, machineID)
 	if err != nil {
 		s.logger.Printf("[ERRO] Falha ao buscar comandos remotos: %v", err)
 		return
 	}
 
 	for _, c := range cmds {
-		s.logger.Printf("[RMM] Executando comando remoto: %s", c.Command)
+		// Log só do ID, não do texto do comando (correção A.11): um técnico pode
+		// enviar um comando com um segredo embutido (ex.: credencial numa linha
+		// "net use"), e o texto completo entrando em agent.log duplicava essa
+		// exposição — o conteúdo já fica registrado no backend, sob controle de
+		// acesso por role, via RespondToCommand logo abaixo.
+		s.logger.Printf("[RMM] Executando comando remoto (id=%s)", c.ID)
 		output, err := executeCommand(c.Command)
 		status := "completed"
 		if err != nil {
