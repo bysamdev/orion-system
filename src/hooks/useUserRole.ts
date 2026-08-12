@@ -28,12 +28,20 @@ export const useUserRole = () => {
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
+        .eq('user_id', user.id);
 
       if (error) throw error;
       
-      return data?.role as UserRole | null;
+      if (!data || data.length === 0) return null;
+
+      const roles = data.map(r => r.role as UserRole);
+      
+      // Hierarquia de prioridade para a role ativa no frontend:
+      // developer > admin > technician > customer
+      if (roles.includes('developer')) return 'developer';
+      if (roles.includes('admin')) return 'admin';
+      if (roles.includes('technician')) return 'technician';
+      return roles[0] || 'customer';
     },
     enabled: !!user?.id, // Só executa se houver um usuário logado.
     staleTime: 5 * 60 * 1000, // 5 minutos

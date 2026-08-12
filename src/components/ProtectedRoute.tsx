@@ -31,7 +31,7 @@ export const ProtectedRoute = ({
 
   if (loading || isRoleLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -41,16 +41,11 @@ export const ProtectedRoute = ({
     return null;
   }
 
+  const effectiveRole = role || 'customer';
+
   if (allowedRoles && allowedRoles.length > 0) {
-    console.log("ProtectedRoute RBAC check:", { role, allowedRoles });
-    if (role === undefined) {
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      );
-    }
-    if (!role || !allowedRoles.includes(role)) {
+    console.log("ProtectedRoute RBAC check:", { role: effectiveRole, allowedRoles });
+    if (!allowedRoles.includes(effectiveRole)) {
       console.log("Redirecionando! Usuário não tem permissão.");
       return <RedirectWithToast />;
     }
