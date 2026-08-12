@@ -171,8 +171,10 @@ lógica de backend":
    decisão sua, ver §5) · A.10 (GPO) ✅ **feito**.
 4. **Infra de teste** — B.14, para destravar CI em Linux e finalmente rodar `-race`,
    confirmando B.4 empiricamente.
-5. **Performance com mudança de semântica** — B.6, B.7, B.8, B.9, cada um em commit
-   próprio, medindo antes/depois com o benchmark descrito em `PERFORMANCE.md` §6.
+5. ✅ **Performance com mudança de semântica** — B.6, B.7, B.8, B.9. **Feito**, cada
+   um em commit próprio. Suíte do `collector`/`sender` ficou sensivelmente mais
+   rápida como efeito colateral (testes que dependiam de espera real agora
+   rodam em milissegundos).
 6. **Decisões de produto/arquitetura restantes** — A.4, A.5, A.12, A.13, C.4.
    Nenhuma deve começar sem definição sua; A.12 agora pode se apoiar no enrollment
    de identidade já implementado em A.6.
