@@ -186,7 +186,7 @@ const Assets = () => {
 
   const handleOpenEdit = useCallback((device: DeviceItem) => {
     if (!device.raw_asset) {
-      toast.info('Este é um dispositivo monitorado automaticamente via agente RMM.');
+      toast.info('Este é um dispositivo monitorado automaticamente via agente Orion.');
       return;
     }
     setEditingAsset(device.raw_asset);
@@ -305,14 +305,14 @@ const Assets = () => {
                   <Laptop className="w-5 h-5 text-primary" />
                 </div>
                 <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-semibold uppercase tracking-widest text-[10px]">
-                  INVENTÁRIO RMM
+                  INVENTÁRIO COMPLETO
                 </Badge>
               </div>
               <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-foreground">
                 Inventário de Dispositivos
               </h1>
               <p className="text-sm text-muted-foreground font-medium">
-                Visão unificada de computadores, notebooks e servidores com estatísticas RMM em tempo real.
+                Visão unificada de computadores, notebooks e servidores com estatísticas em tempo real.
               </p>
             </div>
 
@@ -804,7 +804,7 @@ const Assets = () => {
                               {formatDate(device.last_seen, "dd/MM/yyyy HH:mm")}
                             </span>
                             <span className="text-[10px] text-muted-foreground font-medium">
-                              Sincronizado via RMM
+                              Sincronizado via Agente
                             </span>
                           </div>
                         </TableCell>
@@ -813,7 +813,7 @@ const Assets = () => {
                         <TableCell className="py-4 text-center align-middle">
                           <div className="flex items-center justify-center gap-1.5">
                             
-                            {/* Button Terminal RMM */}
+                            {/* Button Terminal */}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button 
@@ -825,7 +825,7 @@ const Assets = () => {
                                   <Terminal className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>Abrir Terminal RMM</TooltipContent>
+                              <TooltipContent>Abrir Terminal Remoto</TooltipContent>
                             </Tooltip>
 
                             {/* Button Force Refresh */}
@@ -943,10 +943,10 @@ const Assets = () => {
                   </div>
                   <div>
                     <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                      Terminal RMM — {terminalDevice?.hostname}
+                      Terminal Remoto — {terminalDevice?.hostname}
                     </DialogTitle>
                     <DialogDescription className="text-xs">
-                      Execução remota de comandos via agente Orion RMM ({terminalDevice?.company_name}).
+                      Execução remota de comandos via agente Orion ({terminalDevice?.company_name}).
                     </DialogDescription>
                   </div>
                 </div>
