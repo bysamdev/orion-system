@@ -29,3 +29,7 @@ backend-go/.env.*
 *.sln
 *.sw?
 .env.local
+
+# Graphify knowledge graph (não subir pro GitHub)
+graphify-out/
+.claude/skills/graphify/
