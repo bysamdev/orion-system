@@ -288,5 +288,27 @@ func ServiceConfig() *service.Config {
 		Name:        "OrionAgent",
 		DisplayName: "Orion Monitoring Agent",
 		Description: "Coleta métricas de hardware e permite suporte remoto proativo via Orion System.",
+
+		// Correção A.4: antes, UserName vazio fazia o Windows instalar o
+		// serviço como LocalSystem (kardianos/service, ServiceStartName=""),
+		// o nível de privilégio mais alto possível numa máquina Windows —
+		// desproporcional para um agente que só coleta métricas e executa
+		// comandos remotos. "NT SERVICE\OrionAgent" é uma conta de serviço
+		// VIRTUAL: o Windows a cria e gerencia automaticamente para qualquer
+		// serviço cujo Name bata (OrionAgent, acima) — não precisa de senha
+		// nem de registro prévio. Ela começa com privilégios mínimos, só o
+		// necessário para operação básica de serviço.
+		//
+		// IMPORTANTE, não verificado nesta sessão: esta mudança precisa ser
+		// validada numa instalação real antes de ir para produção — se
+		// alguma operação do agente hoje depender implicitamente de
+		// privilégio de SYSTEM (ex.: alguma chamada específica do gopsutil
+		// em determinada versão do Windows), a conta virtual pode não ter
+		// permissão suficiente e a coleta falhar silenciosamente. Testar
+		// especialmente: leitura de contadores de performance/WMI, e a
+		// migração de instalações já existentes (ver comentário em
+		// token/token.go:saveTokenTo sobre a ACL do diretório de identidade,
+		// já ajustada para acompanhar essa troca).
+		UserName: `NT SERVICE\OrionAgent`,
 	}
 }

@@ -97,12 +97,19 @@ func saveTokenTo(path, token string) error {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create token directory: %w", err)
 		}
-		// Só precisa rodar na criação: a ACL não herda mudanças de conteúdo, então
-		// endurecer uma vez é suficiente para todas as gravações seguintes no
-		// mesmo diretório.
-		if err := endurecerACLDoDiretorio(dir); err != nil {
-			return fmt.Errorf("endurecer permissões do diretório de identidade: %w", err)
-		}
+	}
+
+	// Reaplicada em toda gravação, não só na criação (correção A.4): a conta
+	// sob a qual o serviço roda pode mudar entre versões do agente — por
+	// exemplo, ao reduzir de LocalSystem para uma conta de serviço virtual
+	// (NT SERVICE\OrionAgent, ver ServiceConfig em service/windows.go). Uma
+	// instalação já existente, com o diretório criado sob a conta antiga,
+	// ficaria sem acesso ao próprio token se a ACL só fosse aplicada na
+	// criação. icacls /inheritance:r /grant:r é idempotente — reaplicar o
+	// mesmo estado não tem custo real (SaveToken só roda ~1x por processo,
+	// não é caminho quente).
+	if err := endurecerACLDoDiretorio(dir); err != nil {
+		return fmt.Errorf("endurecer permissões do diretório de identidade: %w", err)
 	}
 
 	if token == "" {
