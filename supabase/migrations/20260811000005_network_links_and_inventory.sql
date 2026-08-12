@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.network_links (
     company_id uuid REFERENCES public.companies(id) ON DELETE CASCADE,
     name text NOT NULL,
     link_type text NOT NULL DEFAULT 'starlink',
-    ip_or_hostname text NOT NULL,
+    ip_or_hostname text DEFAULT '',
     check_interval_seconds integer DEFAULT 300,
     status text DEFAULT 'pending',
     last_ping_ms integer,

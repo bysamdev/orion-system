@@ -1,0 +1,7 @@
+# Ignore agent binaries and non-web directories from Vercel deployment
+orion-agent
+systray-agent
+brain
+reports
+scratch
+.obsidian
