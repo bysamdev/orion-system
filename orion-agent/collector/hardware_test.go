@@ -12,13 +12,24 @@ import (
 // -----------------------------------------------------------------------------
 // A) DETECÇÃO DE USUÁRIO E DOMÍNIO
 //
-// ACHADO DE TESTABILIDADE (reportado): a cadeia de fallback de os.Getenv está
-// embutida em Collect(), que também faz I/O pesado de hardware (host.Info,
-// cpu.Percent com 1s de amostragem, mem.VirtualMemory, disk.Usage e enumeração
-// de partições em goroutines). Não existe função exportada nem interna do tipo
-// detectDomain()/detectUser() que possa ser testada isoladamente. Consequência:
-// para validar uma regra de 5 linhas somos obrigados a rodar a coleta inteira,
-// o que torna cada caso lento (>1s) e dependente da máquina real.
+// Correção A.13: Collect() passou a preferir a sessão de console ATIVA (via
+// WTS — ver session_windows.go/usuarioDaSessaoAtiva) às variáveis de
+// ambiente do processo. É isso que resolve corretamente o usuário quando o
+// agente roda como serviço (NT SERVICE\OrionAgent, correção A.4): antes,
+// os.Getenv("USERNAME") nesse contexto refletia a conta de serviço, não
+// quem estava de fato logado na tela.
+//
+// Consequência para os testes: numa máquina com sessão interativa real
+// (como esta, de desenvolvimento), USERDOMAIN/USERNAME deixam de ter efeito
+// sobre Collect() — a cadeia de fallback baseada em env var só entra em
+// jogo quando NÃO há sessão de console ativa para consultar (ex.: serviço
+// rodando sem ninguém logado). Essa cadeia de fallback foi isolada em
+// identidadeViaEnv (session.go) e é coberta exaustivamente, sem I/O de
+// hardware nem dependência do estado da máquina real, em session_test.go —
+// os antigos testes aqui (TestCollect_DeteccaoDeDominio_CadeiaDeFallback e
+// TestCollect_DeteccaoDeUsuario_CadeiaDeFallback, que manipulavam env vars
+// e esperavam vê-las refletidas em Collect()) ficaram obsoletos por essa
+// mudança de precedência e foram substituídos pela verificação abaixo.
 // -----------------------------------------------------------------------------
 
 // coletaOuPula executa Collect() e falha o teste se a coleta retornar erro.
@@ -35,93 +46,20 @@ func coletaOuFalha(t *testing.T) *Payload {
 	return p
 }
 
-// TestCollect_DeteccaoDeDominio_CadeiaDeFallback cobre a ordem de precedência
-// USERDOMAIN -> USERDNSDOMAIN -> "WORKGROUP".
-// Atenção: t.Setenv proíbe testes paralelos, por isso NÃO há t.Parallel aqui.
-func TestCollect_DeteccaoDeDominio_CadeiaDeFallback(t *testing.T) {
-	casos := []struct {
-		nome          string
-		userDomain    string
-		userDNSDomain string
-		esperado      string
-	}{
-		{
-			nome:          "USERDOMAIN presente tem prioridade sobre USERDNSDOMAIN",
-			userDomain:    "CORP-ORION",
-			userDNSDomain: "corp.orion.local",
-			esperado:      "CORP-ORION",
-		},
-		{
-			nome:          "USERDOMAIN vazio cai para USERDNSDOMAIN",
-			userDomain:    "",
-			userDNSDomain: "corp.orion.local",
-			esperado:      "corp.orion.local",
-		},
-		{
-			nome:          "ambos vazios cai para WORKGROUP",
-			userDomain:    "",
-			userDNSDomain: "",
-			esperado:      "WORKGROUP",
-		},
+// TestCollect_PreencheDominioEUsuario documenta que, com uma sessão de
+// console ativa (o caso desta máquina de desenvolvimento), Collect() resolve
+// Domain/CurrentUser via WTS — não fica vazio nem depende de env vars terem
+// sido setadas manualmente. A cadeia de fallback em si (USERDOMAIN ->
+// USERDNSDOMAIN -> WORKGROUP, USERNAME -> USER) é testada isoladamente em
+// session_test.go, sem depender do estado desta máquina.
+func TestCollect_PreencheDominioEUsuario(t *testing.T) {
+	p := coletaOuFalha(t)
+
+	if p.Domain == "" {
+		t.Error("Domain vazio; esperado domínio/hostname resolvido via sessão de console ativa")
 	}
-
-	for _, c := range casos {
-		t.Run(c.nome, func(t *testing.T) {
-			t.Setenv("USERDOMAIN", c.userDomain)
-			t.Setenv("USERDNSDOMAIN", c.userDNSDomain)
-
-			p := coletaOuFalha(t)
-
-			if p.Domain != c.esperado {
-				t.Errorf("Domain = %q; esperado %q (USERDOMAIN=%q, USERDNSDOMAIN=%q)",
-					p.Domain, c.esperado, c.userDomain, c.userDNSDomain)
-			}
-		})
-	}
-}
-
-// TestCollect_DeteccaoDeUsuario_CadeiaDeFallback cobre USERNAME -> USER.
-// Observação: quando ambos estão vazios o agente reporta usuário vazio — não há
-// fallback para "UNKNOWN" nem para o usuário real do SO (ver achado reportado).
-func TestCollect_DeteccaoDeUsuario_CadeiaDeFallback(t *testing.T) {
-	casos := []struct {
-		nome     string
-		username string
-		user     string
-		esperado string
-	}{
-		{
-			nome:     "USERNAME presente tem prioridade sobre USER",
-			username: "samuel.ti",
-			user:     "outro-usuario",
-			esperado: "samuel.ti",
-		},
-		{
-			nome:     "USERNAME vazio cai para USER",
-			username: "",
-			user:     "usuario-posix",
-			esperado: "usuario-posix",
-		},
-		{
-			nome:     "ambos vazios resulta em string vazia (sem fallback)",
-			username: "",
-			user:     "",
-			esperado: "",
-		},
-	}
-
-	for _, c := range casos {
-		t.Run(c.nome, func(t *testing.T) {
-			t.Setenv("USERNAME", c.username)
-			t.Setenv("USER", c.user)
-
-			p := coletaOuFalha(t)
-
-			if p.CurrentUser != c.esperado {
-				t.Errorf("CurrentUser = %q; esperado %q (USERNAME=%q, USER=%q)",
-					p.CurrentUser, c.esperado, c.username, c.user)
-			}
-		})
+	if p.CurrentUser == "" {
+		t.Error("CurrentUser vazio; esperado usuário resolvido via sessão de console ativa")
 	}
 }
 

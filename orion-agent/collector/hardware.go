@@ -58,6 +58,7 @@ type Payload struct {
 	Interfaces   []NetworkInterface `json:"interfaces"`
 	Domain       string             `json:"domain"`
 	CurrentUser  string             `json:"current_user"`
+	CurrentUserSID string           `json:"current_user_sid"`
 }
 
 // diskRoot define qual o caminho raiz para medição de disco principal (C: no Windows).
@@ -281,20 +282,14 @@ func Collect() (*Payload, error) {
 		osName = runtime.GOOS
 	}
 
-	// 8. Domínio ou Grupo de Trabalho
-	domain := os.Getenv("USERDOMAIN")
-	if domain == "" {
-		domain = os.Getenv("USERDNSDOMAIN")
-	}
-	if domain == "" {
-		domain = "WORKGROUP"
-	}
-
-	// 9. Identificamos qual usuário está logado no momento da coleta
-	currentUser := os.Getenv("USERNAME")
-	if currentUser == "" {
-		currentUser = os.Getenv("USER")
-	}
+	// 8/9. Domínio, usuário e SID (correção A.13) da sessão de console ativa.
+	// Preferimos a sessão interativa via WTS a os.Getenv: rodando como
+	// serviço (NT SERVICE\OrionAgent, ver A.4), as variáveis de ambiente do
+	// processo são as da conta de serviço, não as de quem está logado na
+	// tela — resolverIdentidadeDoUsuario cai para elas apenas quando não há
+	// sessão de console ativa para consultar (ex.: tela de logon, ou
+	// plataforma não-Windows).
+	domain, currentUser, currentUserSID := resolverIdentidadeDoUsuario()
 
 	// Montamos o relatório final (Payload)
 	return &Payload{
@@ -315,6 +310,7 @@ func Collect() (*Payload, error) {
 		Interfaces: interfaces,
 		Domain:     domain,
 		CurrentUser: currentUser,
+		CurrentUserSID: currentUserSID,
 	}, nil
 }
 

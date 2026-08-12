@@ -308,28 +308,32 @@ func TestTrocaRapidaDeUsuarioMantemEstadoDoSvcCoerente(t *testing.T) {
 // dados de hardware que antes alimentavam a identidade (MachineUUID, Hostname)
 // continuam estáveis — ainda que, desde a correção A.6/B.5, eles não sejam mais
 // usados para gerar identidade nenhuma (ver TestIdentidadeDaMaquinaNaoDependeDoUsuarioColetado).
+// Correção A.13: CurrentUser deixou de seguir USERNAME diretamente — Collect()
+// agora prefere a sessão de console ATIVA (via WTS) às variáveis de ambiente
+// do processo, exatamente para não depender mais de env vars (que, sob o
+// serviço NT SERVICE\OrionAgent, refletem a conta de serviço, não quem está
+// logado na tela). Nesta máquina, com uma sessão real, USUARIO_TESTE_A/B
+// setados via env não têm mais efeito sobre CurrentUser — por isso o teste
+// abaixo não afirma mais um valor específico ali, só que ele é estável (a
+// mesma sessão) entre chamadas, junto com a identidade de hardware.
 func TestColetaRealSegueUsuarioMasHardwarePermaneceEstavel(t *testing.T) {
 	if testing.Short() {
 		t.Skip("coleta real de hardware leva ~1s por chamada; pulado em -short")
 	}
 
-	t.Setenv("USERNAME", "USUARIO_TESTE_A")
 	primeira, err := collector.Collect()
 	if err != nil {
 		t.Skipf("collector.Collect() indisponível neste ambiente: %v", err)
 	}
 
-	t.Setenv("USERNAME", "USUARIO_TESTE_B")
 	segunda, err := collector.Collect()
 	if err != nil {
 		t.Skipf("collector.Collect() indisponível neste ambiente: %v", err)
 	}
 
-	if primeira.CurrentUser != "USUARIO_TESTE_A" {
-		t.Errorf("1ª coleta deveria reportar USUARIO_TESTE_A, obtive %q", primeira.CurrentUser)
-	}
-	if segunda.CurrentUser != "USUARIO_TESTE_B" {
-		t.Errorf("2ª coleta deveria reportar USUARIO_TESTE_B, obtive %q", segunda.CurrentUser)
+	if primeira.CurrentUser != segunda.CurrentUser {
+		t.Errorf("CurrentUser oscilou entre coletas sem mudança real de sessão: %q vs %q",
+			primeira.CurrentUser, segunda.CurrentUser)
 	}
 	if primeira.MachineUUID != segunda.MachineUUID || primeira.Hostname != segunda.Hostname {
 		t.Fatalf("identidade de hardware oscilou entre coletas: %q/%q vs %q/%q",
