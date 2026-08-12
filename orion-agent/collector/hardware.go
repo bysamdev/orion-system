@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"net"
@@ -15,6 +16,11 @@ import (
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
 )
+
+// tempoLimiteDisco é o prazo máximo para a varredura de partições. Existe para que
+// uma unidade de rede offline não congele a coleta — e, por consequência, o agente
+// inteiro — indefinidamente.
+const tempoLimiteDisco = 3 * time.Second
 
 // NetworkInterface representa um adaptador de rede físico ou virtual.
 type NetworkInterface struct {
@@ -129,20 +135,28 @@ func Collect() (*Payload, error) {
 		return nil, fmt.Errorf("Erro ao ler disco principal: %w", err)
 	}
 
-	// 6. Lista Geral de Discos e Partições (paralelo)
+	// 6. Lista Geral de Discos e Partições (paralelo, com prazo máximo)
+	//
+	// disk.Partitions inclui unidades de rede mapeadas. Se um compartilhamento SMB
+	// estiver fora do ar, disk.Usage naquele mountpoint pode bloquear indefinidamente:
+	// sem prazo, o wg.Wait() abaixo nunca retornava, Collect() nunca terminava e o
+	// agente parava de enviar heartbeat em silêncio, com as goroutines vazadas.
 	var disks []DiskInfo
 	parts, err := disk.Partitions(false)
 	if err == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), tempoLimiteDisco)
+		defer cancel()
+
 		var (
-			wg  sync.WaitGroup
-			mu  sync.Mutex
+			wg sync.WaitGroup
+			mu sync.Mutex
 		)
 		for _, p := range parts {
 			p := p // captura da variável de loop
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				d, err := disk.Usage(p.Mountpoint)
+				d, err := disk.UsageWithContext(ctx, p.Mountpoint)
 				if err == nil {
 					mu.Lock()
 					disks = append(disks, DiskInfo{
@@ -156,7 +170,28 @@ func Collect() (*Payload, error) {
 				}
 			}()
 		}
-		wg.Wait()
+
+		// Espera limitada: se o prazo estourar, seguimos com as partições que já
+		// responderam em vez de travar a coleta inteira. As goroutines restantes
+		// observam o cancelamento do contexto e terminam sozinhas.
+		concluido := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(concluido)
+		}()
+
+		select {
+		case <-concluido:
+		case <-ctx.Done():
+		}
+
+		// Cópia sob o mesmo mutex das goroutines: em caso de timeout ainda pode haver
+		// escrita concorrente em `disks`, então não podemos ler a slice diretamente.
+		mu.Lock()
+		parciais := make([]DiskInfo, len(disks))
+		copy(parciais, disks)
+		mu.Unlock()
+		disks = parciais
 	}
 
 	// 7. Adaptadores de Rede e Endereços IP

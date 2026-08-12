@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/getlantern/systray"
@@ -15,6 +16,12 @@ type TrayManager struct {
 	OnOpenPortal func()
 	OnOpenTicket func()
 	OnExit       func()
+
+	// mu protege o item de status, que é criado na goroutine do systray (onReady)
+	// e atualizado a partir dos callbacks de clique.
+	mu      sync.Mutex
+	mStatus *systray.MenuItem
+	status  string
 }
 
 // New constrói o gerenciador com as funções de callback para abertura de portal, abertura de chamado e encerramento.
@@ -36,6 +43,19 @@ func (tm *TrayManager) onReady() {
 	systray.SetIcon(DataIcon) // Ícone embutido no arquivo icon_data.go
 	systray.SetTitle("Orion Agent")
 	systray.SetTooltip("Orion System - Suporte Ativo")
+
+	// Linha de status no topo do menu. Fica desabilitada (não é clicável): serve
+	// apenas para o usuário enxergar o estado real do agente. Antes disso, clicar
+	// em "Abrir Portal" antes do primeiro check-in simplesmente não fazia nada,
+	// sem nenhuma indicação visual do porquê.
+	tm.mu.Lock()
+	tm.mStatus = systray.AddMenuItem("Status: iniciando…", "Estado atual do Orion Agent")
+	tm.mStatus.Disable()
+	if tm.status != "" {
+		tm.mStatus.SetTitle("Status: " + tm.status)
+	}
+	tm.mu.Unlock()
+	systray.AddSeparator()
 
 	// Itens do menu de contexto (clique direito no ícone)
 	mOpen := systray.AddMenuItem("Abrir Portal de Suporte", "Acessar o portal de chamados e suporte")
@@ -68,6 +88,21 @@ func (tm *TrayManager) onReady() {
 			}
 		}
 	}()
+}
+
+// SetStatus atualiza a linha de status do menu e o tooltip do ícone.
+//
+// É seguro chamar antes de Run(): o texto fica guardado e é aplicado quando o menu
+// é construído em onReady.
+func (tm *TrayManager) SetStatus(msg string) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	tm.status = msg
+	if tm.mStatus != nil {
+		tm.mStatus.SetTitle("Status: " + msg)
+	}
+	systray.SetTooltip("Orion System — " + msg)
 }
 
 // onExitInternal é executado quando o systray finaliza, garantindo que o agente limpe seus recursos.

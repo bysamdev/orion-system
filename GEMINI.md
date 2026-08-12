@@ -7,14 +7,17 @@ Espelho do `claude.md` para o fork Antigravity (base Gemini/Jetski).
 - Backend: Go
 - Banco de dados: Supabase (Postgres)
 
-## Knowledge Graph (Graphify) — contexto compartilhado
-Mesmo grafo do Claude Code, em `graphify-out/`. Antes de mexer em código
-desconhecido, consultar o grafo (economiza ~71x tokens por query):
-- `graphify-out/GRAPH_REPORT.md` — god nodes, comunidades, conexões surpreendentes
+## Knowledge Graph (Graphify) — contexto compartilhado [GEMINI ATIVO]
+Mesmo grafo do Claude Code, em `graphify-out/` (gerado com LLM Gemini).
+REGRA OBRIGATÓRIA: antes de qualquer tarefa de código, leia PRIMEIRO
+`graphify-out/GRAPH_REPORT.md` e use `graphify query` — NÃO leia arquivos crus
+para entender estrutura (economiza ~10-50x tokens por consulta):
+- `graphify-out/GRAPH_REPORT.md` — god nodes, comunidades nomeadas, conexões
 - `graphify query "<pergunta>"` — subgrafo focado
 - `graphify path "<A>" "<B>"` — caminho entre dois módulos/conceitos
 - `graphify explain "<conceito>"` — detalha um nó
-- Regenerar: `/graphify .` ou `graphify . --update` (AST, sem custo de API)
+- Vault Obsidian: `Documents/Obsidian/Orion System/Graphify-Report.md`
+- Regenerar após mexer em código: `graphify . --update` (AST, sem custo de API)
 - O grafo NÃO deve subir pro GitHub (já está no .gitignore)
 
 ## Regras de trabalho

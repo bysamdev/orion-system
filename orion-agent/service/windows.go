@@ -162,10 +162,25 @@ func (s *Svc) pollAndExecuteCommands() {
 	}
 }
 
+// tempoLimiteComando é o prazo máximo de execução de um comando remoto.
+//
+// Sem prazo, um único comando que não retorna (processo interativo esperando entrada,
+// acesso a share de rede fora do ar, loop infinito) congelava o loop principal do
+// agente para sempre: o heartbeat parava, o polling parava e a única saída era
+// reiniciar o serviço manualmente na máquina.
+const tempoLimiteComando = 5 * time.Minute
+
 // executeCommand roda um comando via CMD do Windows e captura a saída.
 func executeCommand(command string) (string, error) {
-	cmd := exec.Command("cmd", "/C", command)
+	ctx, cancel := context.WithTimeout(context.Background(), tempoLimiteComando)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "cmd", "/C", command)
 	out, err := cmd.CombinedOutput()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(out), fmt.Errorf("comando excedeu o tempo limite de %s e foi encerrado", tempoLimiteComando)
+	}
 	return string(out), err
 }
 

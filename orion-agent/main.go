@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -86,22 +87,37 @@ func main() {
 
 		// Gerenciador da bandeja do sistema (perto do relógio).
 		// Este bloco é bloqueante e mantém o processo vivo.
-		t := tray.New(
+		//
+		// t é declarado antes para que os callbacks possam atualizar o status da
+		// bandeja. Eles só executam depois de t.Run(), quando t já está atribuído.
+		var t *tray.TrayManager
+
+		// abrir centraliza o tratamento dos dois itens de menu que levam ao portal.
+		// Quando a URL está vazia (o agente ainda não concluiu o primeiro check-in),
+		// o clique antes não fazia absolutamente nada — sem erro, sem aviso, sem log
+		// visível ao usuário. Agora o motivo aparece na própria bandeja.
+		abrir := func(destino string, montarURL func() string) {
+			url := montarURL()
+			if url == "" {
+				logger.Printf("[TRAY] %s indisponível: aguardando o primeiro check-in com o servidor.", destino)
+				t.SetStatus("aguardando primeiro check-in…")
+				return
+			}
+			tray.OpenURL(url)
+			// A URL carrega o machine_token na query string; logá-la inteira gravava
+			// uma credencial de longa duração em texto plano no agent.log a cada clique.
+			logger.Printf("[TRAY] Abrindo %s: %s", destino, redigirQuery(url))
+			t.SetStatus("conectado")
+		}
+
+		t = tray.New(
 			func() {
 				// Ação de "Abrir Portal" detecta o token e abre no navegador.
-				url := svc.GetPortalURL()
-				if url != "" {
-					tray.OpenURL(url)
-					logger.Printf("[TRAY] Abrindo portal de suporte: %s", url)
-				}
+				abrir("portal de suporte", svc.GetPortalURL)
 			},
 			func() {
 				// Ação de "Abrir Chamado" leva direto à criação de ticket.
-				url := svc.GetTicketURL()
-				if url != "" {
-					tray.OpenURL(url)
-					logger.Printf("[TRAY] Abrindo página de novo chamado: %s", url)
-				}
+				abrir("página de novo chamado", svc.GetTicketURL)
 			},
 			func() {
 				// Comando de saída finaliza o agente completamente.
@@ -111,6 +127,24 @@ func main() {
 		)
 		t.Run()
 	}
+}
+
+// redigirQuery remove a query string de uma URL antes de registrá-la em log.
+//
+// As URLs do portal carregam o machine_token — credencial que concede sessão
+// autenticada sem senha — como parâmetro. Sem esta redação, cada clique na bandeja
+// gravava essa credencial em texto plano no agent.log, que fica na pasta do
+// executável e herda a ACL do diretório (legível por usuários comuns).
+func redigirQuery(bruta string) string {
+	u, err := url.Parse(bruta)
+	if err != nil {
+		return "[url inválida]"
+	}
+	if u.RawQuery == "" {
+		return u.String()
+	}
+	u.RawQuery = "[redigido]"
+	return u.String()
 }
 
 // setupLogger configura a escrita de logs para um arquivo local (agent.log) na mesma pasta do executável.

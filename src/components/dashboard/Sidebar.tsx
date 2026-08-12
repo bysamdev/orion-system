@@ -18,13 +18,24 @@ import {
   Settings,
   Globe,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNotifications } from '@/hooks/useNotifications';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from '@/components/ui/sidebar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,13 +88,14 @@ const bottomItems: NavItem[] = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export const Sidebar: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
+export const AppSidebar: React.FC = () => {
   const navigate  = useNavigate();
   const location  = useLocation();
   const { data: role } = useUserRole();
   const { data: profile } = useUserProfile();
   const { toast } = useToast();
-  const { unreadCount } = useNotifications();
+  const { setOpenMobile, isMobile } = useSidebar();
+  // const { unreadCount } = useNotifications();
 
   const roleLabel: Record<string, string> = {
     customer: 'Cliente',
@@ -94,7 +106,9 @@ export const Sidebar: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) =
 
   const go = (path: string) => {
     navigate(path);
-    onNavigate?.();
+    if (isMobile) {
+      setOpenMobile(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -113,93 +127,73 @@ export const Sidebar: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) =
       (item.matchPatterns?.some(pattern => location.pathname.startsWith(pattern)));
 
     return (
-      <button
-        key={item.path}
-        onClick={() => isAllowed && go(item.path)}
-        disabled={!isAllowed}
-        className={cn(
-          'group w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 relative',
-          'cursor-pointer active:scale-[0.98]',
-          isActive
-            ? 'bg-purple-600'
-            : 'hover:bg-purple-500/10'
-        )}
-        aria-label={item.label}
-      >
-        <item.icon
-          className={cn(
-            'w-4 h-4 shrink-0 transition-colors duration-200',
-            isActive ? 'text-white' : 'text-gray-400 group-hover:text-purple-400'
-          )}
-        />
-        <span
-          className={cn(
-            'truncate leading-none text-sm font-medium transition-colors duration-200 flex-1 text-left',
-            isActive ? 'text-white' : 'text-gray-400 group-hover:text-purple-300'
-          )}
-          title={item.label}
+      <SidebarMenuItem key={item.path}>
+        <SidebarMenuButton 
+          isActive={isActive} 
+          tooltip={item.label} 
+          onClick={() => isAllowed && go(item.path)}
+          disabled={!isAllowed}
         >
-          {item.label}
-        </span>
-      </button>
+          <item.icon />
+          <span>{item.label}</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
     );
   };
 
   return (
-    <nav className="bg-sidebar-background h-screen w-64 flex flex-col shrink-0 sticky top-0 border-r border-sidebar-border shadow-2xl z-50 overflow-hidden">
-
-        {/* ── Logo / Brand ── */}
+    <Sidebar>
+      <SidebarHeader>
         <div
           onClick={() => navigate('/')}
-          className="flex items-center gap-3 px-5 py-5 cursor-pointer group border-b border-sidebar-border/40"
+          className="flex items-center gap-3 px-3 py-2 cursor-pointer group"
         >
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-sidebar-foreground">{profile?.full_name || 'Carregando...'}</span>
-            <span className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wide">
+            <span className="text-sm font-medium">{profile?.full_name || 'Carregando...'}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
               {role ? roleLabel[role] : '...'}
             </span>
           </div>
         </div>
+      </SidebarHeader>
 
-        {/* ── Scrollable Nav ── */}
-        <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar px-3 py-4 gap-5">
-          {/* Top Isolated Item */}
-        <div className="flex flex-col gap-1 mb-4">
-        {renderItem({ icon: Home, label: 'Início', path: '/', matchPatterns: ['/ticket/'] })}
-        </div>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {renderItem({ icon: Home, label: 'Início', path: '/', matchPatterns: ['/ticket/'] })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-          {navGroups.map((group) => {
-            const allowedItems = group.items.filter(item => !item.roles || (role && item.roles.includes(role)));
-            if (allowedItems.length === 0) return null;
+        {navGroups.map((group) => {
+          const allowedItems = group.items.filter(item => !item.roles || (role && item.roles.includes(role)));
+          if (allowedItems.length === 0) return null;
 
-            return (
-              <div key={group.name} className="flex flex-col gap-1">
-                {/* Group label */}
-                <p className="px-3 mt-4 mb-2 text-xs font-semibold uppercase tracking-widest text-sidebar-foreground/75 select-none">
-                  {group.name}
-                </p>
-                {allowedItems.map(renderItem)}
-              </div>
-            );
-          })}
-        </div>
+          return (
+            <SidebarGroup key={group.name}>
+              <SidebarGroupLabel>{group.name}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {allowedItems.map(renderItem)}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          );
+        })}
+      </SidebarContent>
 
-        {/* ── Bottom: Notifications + Settings + Logout ── */}
-        <div className="border-t border-sidebar-border/40 px-3 py-3 flex flex-col gap-1">
+      <SidebarFooter>
+        <SidebarMenu>
           {bottomItems.map(renderItem)}
-
-          {/* Logout */}
-          <button
-            onClick={handleSignOut}
-            className="group w-full flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-purple-500/10 transition-all duration-200 active:scale-[0.98]"
-          >
-            <LogOut className="w-4 h-4 shrink-0 text-gray-400 group-hover:text-purple-400 transition-colors duration-200" />
-            <span className="truncate text-sm font-medium text-gray-400 group-hover:text-purple-300 transition-colors duration-200 flex-1 text-left" title="Sair do Sistema">
-              Sair do Sistema
-            </span>
-          </button>
-        </div>
-
-      </nav>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Sair do Sistema" onClick={handleSignOut}>
+              <LogOut />
+              <span>Sair do Sistema</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
   );
 };

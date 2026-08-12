@@ -3,7 +3,9 @@ package sender
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -74,7 +76,17 @@ func doPost(url, agentKey string, body []byte) (string, error) {
 	var res struct {
 		MachineID string `json:"machine_id"`
 	}
-	json.NewDecoder(resp.Body).Decode(&res)
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		// Corpo vazio é resposta legítima para endpoints que não devolvem machine_id
+		// (ex: /commands/respond), então io.EOF não é erro.
+		if errors.Is(err, io.EOF) {
+			return "", nil
+		}
+		// Já um corpo malformado é falha real: antes desta correção o erro era
+		// descartado e o agente seguia com machineID vazio, logando "[OK] Check-in
+		// realizado" enquanto o polling de comandos nunca mais rodava.
+		return "", fmt.Errorf("resposta do servidor não é JSON válido: %w", err)
+	}
 	return res.MachineID, nil
 }
 
@@ -91,8 +103,20 @@ func PollCommands(cfg *config.Config, machineID string) ([]Command, error) {
 	}
 	baseURL := strings.TrimSuffix(cfg.APIURL, "/api/monitoring/machines/heartbeat")
 	baseURL = strings.TrimSuffix(baseURL, "/")
-	url := fmt.Sprintf("%s/api/monitoring/commands/poll?machine_id=%s", baseURL, machineID)
-	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/monitoring/commands/poll", nil)
+	if err != nil {
+		// Antes desta correção o erro era descartado com `req, _ :=` e a linha seguinte
+		// (req.Header.Set) causava panic de nil pointer, derrubando o serviço inteiro.
+		return nil, fmt.Errorf("criar request de poll: %w", err)
+	}
+
+	// machineID vem do JSON do backend. Interpolá-lo cru na query permitia injeção de
+	// parâmetros (um '&' no valor virava parâmetro extra) e quebrava o parse da URL.
+	q := req.URL.Query()
+	q.Set("machine_id", machineID)
+	req.URL.RawQuery = q.Encode()
+
 	req.Header.Set("X-Agent-Key", cfg.AgentKey)
 
 	resp, err := httpClient.Do(req)

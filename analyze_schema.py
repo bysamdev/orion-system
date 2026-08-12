@@ -6,7 +6,7 @@ from collections import defaultdict
 sql_files = glob.glob('supabase/migrations/*.sql')
 content = ''
 for f in sorted(sql_files):
-    with open(f, 'r') as file:
+    with open(f, 'r', encoding='utf-8') as file:
         content += file.read() + '\n'
 
 # Find tables

@@ -19,15 +19,17 @@ Fora do escopo do MVP (não mexer sem autorização explícita):
 - Automações e regras de SLA
 - Integrações externas
 
-## Knowledge Graph (Graphify) — contexto compartilhado
-Há um grafo do projeto em `graphify-out/`. Antes de mexer em código desconhecido,
-consultar o grafo em vez de ler arquivos crus (economiza ~71x tokens por query):
-- `graphify-out/GRAPH_REPORT.md` — god nodes, comunidades, conexões surpreendentes
-- `graphify query "<pergunta>"` — subgrafo focado (menor que grep cru)
+## Knowledge Graph (Graphify) — contexto compartilhado [GEMINI ATIVO]
+Há um grafo completo do projeto em `graphify-out/` (gerado com LLM Gemini).
+REGRA OBRIGATÓRIA: antes de qualquer tarefa de código, leia PRIMEIRO
+`graphify-out/GRAPH_REPORT.md` e use `graphify query` — NÃO leia arquivos crus
+para entender estrutura (economiza ~10-50x tokens por consulta):
+- `graphify-out/GRAPH_REPORT.md` — god nodes, comunidades nomeadas, conexões
+- `graphify query "<pergunta>"` — subgrafo focado (ex: "onde está a lógica de SLA?")
 - `graphify path "<A>" "<B>"` — caminho entre dois módulos/conceitos
 - `graphify explain "<conceito>"` — detalha um nó
-- `graphify-out/wiki/index.md` — navegação ampla por comunidade
-- Regenerar: `/graphify .` (nos agentes) ou `graphify . --update` (AST, sem custo de API)
+- Vault Obsidian: `Documents/Obsidian/Orion System/Graphify-Report.md` (espelho)
+- Regenerar após mexer em código: `graphify . --update` (AST, sem custo de API)
 - O grafo NÃO deve subir pro GitHub (já está no .gitignore)
 
 ## Regras de trabalho

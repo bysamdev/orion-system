@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -52,6 +54,19 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("agent.yaml inválido: %w", err)
 	}
 
+	if err := aplicarDefaultsEValidar(&cfg, path); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
+// aplicarDefaultsEValidar preenche os valores padrão e valida a configuração.
+//
+// Está separada de Load porque Load resolve o caminho do arquivo via os.Executable(),
+// o que impede os testes de exercitá-la sem criar um agent.yaml ao lado do binário.
+// Com esta função os testes cobrem as regras reais de default e validação.
+func aplicarDefaultsEValidar(cfg *Config, path string) error {
 	// Apply defaults
 	if cfg.IntervalSeconds <= 0 {
 		cfg.IntervalSeconds = 60
@@ -64,8 +79,49 @@ func Load() (*Config, error) {
 	}
 
 	if cfg.AgentKey == "" || cfg.AgentKey == "COLOQUE_SUA_CHAVE_AQUI" {
-		return nil, fmt.Errorf("configure o campo 'agent_key' no arquivo %s", path)
+		return fmt.Errorf("configure o campo 'agent_key' no arquivo %s", path)
 	}
 
-	return &cfg, nil
+	if err := validarEsquemaAPIURL(cfg.APIURL); err != nil {
+		return fmt.Errorf("%w (arquivo %s)", err, path)
+	}
+
+	return nil
+}
+
+// validarEsquemaAPIURL exige HTTPS para qualquer destino que saia da máquina.
+//
+// Sem isso, um agent.yaml com "http://" é aceito silenciosamente e a agent_key —
+// credencial de longa duração, sem rotação — trafega em texto claro em todo heartbeat,
+// junto do machine_token e dos dados de inventário.
+//
+// Exceção deliberada: destinos de loopback (localhost/127.0.0.1/::1) continuam podendo
+// usar http, porque o tráfego não atravessa a rede e isso mantém o desenvolvimento local
+// viável. É o mesmo critério que os navegadores aplicam para "secure context".
+func validarEsquemaAPIURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("'api_url' inválida: %v", err)
+	}
+
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return nil
+	case "http":
+		if ehLoopback(u.Hostname()) {
+			return nil
+		}
+		return fmt.Errorf(
+			"'api_url' deve usar https:// — valor atual %q enviaria a agent_key em texto claro pela rede", raw)
+	default:
+		return fmt.Errorf("'api_url' deve usar https:// — valor atual %q não é uma URL http(s) válida", raw)
+	}
+}
+
+func ehLoopback(host string) bool {
+	switch strings.ToLower(host) {
+	case "localhost", "127.0.0.1", "::1":
+		return true
+	}
+	return false
 }
