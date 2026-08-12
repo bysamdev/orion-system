@@ -81,11 +81,24 @@ const Assets = () => {
 
   // Load Device Inventory from unified hook
   const { 
-    devices, 
-    summaryStats, 
+    data: devices = [], 
     isLoading: devicesLoading, 
     refetch: refetchInventory 
   } = useDeviceInventory();
+
+  // Compute summary stats safely from devices list
+  const summaryStats = useMemo(() => {
+    const list = Array.isArray(devices) ? devices : [];
+    return {
+      totalDevices: list.length,
+      desktopsCount: list.filter(d => d.device_type === 'desktop' || (d as any).type === 'Computador').length,
+      notebooksCount: list.filter(d => d.device_type === 'notebook' || (d as any).type === 'Notebook').length,
+      serversCount: list.filter(d => d.device_type === 'server' || (d as any).type === 'Servidor').length,
+      onlineCount: list.filter(d => d.status === 'online').length,
+      offlineCount: list.filter(d => d.status === 'offline').length,
+      alertCount: list.reduce((acc, d) => acc + (d.alerts_count || 0), 0),
+    };
+  }, [devices]);
 
   // Query tickets history for selected device
   const { data: deviceTickets, isLoading: deviceTicketsLoading } = useQuery({
@@ -219,18 +232,26 @@ const Assets = () => {
 
   // Filtered devices list
   const filteredDevices = useMemo(() => {
-    return devices.filter(d => {
+    const list = Array.isArray(devices) ? devices : [];
+    return list.filter(d => {
       const queryStr = search.toLowerCase();
+      const hostname = d.hostname || (d as any).name || '';
+      const localIp = d.local_ip || (d as any).ip_address || (d as any).internal_ip || '';
+      const mac = d.mac_address || (d as any).mac || '';
+      const serial = (d as any).serial_number || (d as any).serial || '';
+      const user = d.logged_in_user || (d as any).logged_user || (d as any).current_user || '';
+      const compName = d.company_name || '';
+
       const matchesSearch = 
-        d.hostname.toLowerCase().includes(queryStr) ||
-        (d.ip_address && d.ip_address.toLowerCase().includes(queryStr)) ||
-        (d.mac_address && d.mac_address.toLowerCase().includes(queryStr)) ||
-        (d.serial_number && d.serial_number.toLowerCase().includes(queryStr)) ||
-        (d.logged_user && d.logged_user.toLowerCase().includes(queryStr)) ||
-        (d.company_name && d.company_name.toLowerCase().includes(queryStr));
+        hostname.toLowerCase().includes(queryStr) ||
+        localIp.toLowerCase().includes(queryStr) ||
+        mac.toLowerCase().includes(queryStr) ||
+        serial.toLowerCase().includes(queryStr) ||
+        user.toLowerCase().includes(queryStr) ||
+        compName.toLowerCase().includes(queryStr);
 
       const matchesCompany = companyFilter === 'all' || d.company_id === companyFilter;
-      const matchesType = typeFilter === 'all' || d.device_type === typeFilter;
+      const matchesType = typeFilter === 'all' || d.device_type === typeFilter || (d as any).type === typeFilter;
       const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
 
       return matchesSearch && matchesCompany && matchesType && matchesStatus;
@@ -452,7 +473,7 @@ const Assets = () => {
               <CardContent className="p-5 flex items-center justify-between">
                 <div className="space-y-1">
                   <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Total Dispositivos</p>
-                  <p className="text-3xl font-black text-foreground">{summaryStats.totalDevices}</p>
+                  <p className="text-3xl font-black text-foreground">{summaryStats?.totalDevices ?? 0}</p>
                 </div>
                 <div className="p-3 bg-primary/10 text-primary rounded-2xl group-hover:scale-110 transition-transform">
                   <HardDrive className="w-6 h-6" />
@@ -467,7 +488,7 @@ const Assets = () => {
                   <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                     Computadores 💻
                   </p>
-                  <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{summaryStats.desktopsCount}</p>
+                  <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{summaryStats?.desktopsCount ?? 0}</p>
                 </div>
                 <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform">
                   <Monitor className="w-6 h-6" />
@@ -482,7 +503,7 @@ const Assets = () => {
                   <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                     Notebooks 💻
                   </p>
-                  <p className="text-3xl font-black text-sky-600 dark:text-sky-400">{summaryStats.notebooksCount}</p>
+                  <p className="text-3xl font-black text-sky-600 dark:text-sky-400">{summaryStats?.notebooksCount ?? 0}</p>
                 </div>
                 <div className="p-3 bg-sky-500/10 text-sky-600 rounded-2xl group-hover:scale-110 transition-transform">
                   <Laptop className="w-6 h-6" />
@@ -497,7 +518,7 @@ const Assets = () => {
                   <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                     Servidores 🖥️
                   </p>
-                  <p className="text-3xl font-black text-indigo-600 dark:text-indigo-400">{summaryStats.serversCount}</p>
+                  <p className="text-3xl font-black text-indigo-600 dark:text-indigo-400">{summaryStats?.serversCount ?? 0}</p>
                 </div>
                 <div className="p-3 bg-indigo-500/10 text-indigo-600 rounded-2xl group-hover:scale-110 transition-transform">
                   <ServerIcon className="w-6 h-6" />
@@ -512,15 +533,15 @@ const Assets = () => {
                 <div className="flex items-center justify-between text-xs font-bold pt-0.5">
                   <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {summaryStats.onlineCount} Online
+                    {summaryStats?.onlineCount ?? 0} Online
                   </span>
                   <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
                     <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                    {summaryStats.offlineCount} Offline
+                    {summaryStats?.offlineCount ?? 0} Offline
                   </span>
                   <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                    {summaryStats.alertCount} Alertas
+                    {summaryStats?.alertCount ?? 0} Alertas
                   </span>
                 </div>
               </CardContent>

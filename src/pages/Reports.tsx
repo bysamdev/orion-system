@@ -59,7 +59,7 @@ const Reports: React.FC = () => {
 
   // Filtragem no client-side para manter a consistência com o Dashboard
   const tickets = useMemo(() => {
-    return allTickets.filter(t => {
+    return (allTickets || []).filter(t => {
       // Filtros de empresa e técnico
       if (companyFilter !== 'all' && t.company_id !== companyFilter) return false;
       if (techFilter !== 'all' && t.assigned_to_user_id !== techFilter) return false;
@@ -749,7 +749,7 @@ const Reports: React.FC = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      tickets.map(ticket => (
+                      (tickets || []).map(ticket => (
                         <TableRow
                           key={ticket.id}
                           className="cursor-pointer hover:bg-muted/30"
