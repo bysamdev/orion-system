@@ -484,10 +484,7 @@ export default function KnowledgeBase() {
           <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-blue-500/10 rounded-full -ml-32 -mb-32 blur-3xl" />
           
           <div className="max-w-4xl mx-auto space-y-6 relative z-10 text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/15 rounded-full border border-primary/20 backdrop-blur-sm">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-xs font-bold uppercase tracking-wider text-primary">Centro de Ajuda Orion System</span>
-            </div>
+
 
             <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl">
               Como podemos <span className="text-primary">ajudar você hoje?</span>
