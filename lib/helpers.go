@@ -6,6 +6,7 @@ import (
 	"errors"
 	"html/template"
 	"math/big"
+	"net"
 	"net/http"
 	"strings"
 )
@@ -95,6 +96,21 @@ func NilIfEmpty(s string) any {
 	}
 	return s
 }
+// ClientIP devolve o endereço IP do cliente para fins de rate limiting.
+//
+// r.RemoteAddr já foi corrigido pelo middleware.RealIP (aplicado em
+// buildRouter, router.go) a partir de X-Forwarded-For/X-Real-IP quando o
+// request vem atrás do proxy da Vercel — mas o valor pode vir só como IP
+// (sem porta, quando derivado de header) ou como "ip:porta" (quando vem
+// direto de r.RemoteAddr sem reescrita). SplitHostPort trata os dois casos;
+// se falhar (nenhuma porta presente), o valor bruto já é o IP.
+func ClientIP(r *http.Request) string {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
+}
+
 // GenerateRandomPassword creates a secure random string of given length.
 func GenerateRandomPassword(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -183,6 +184,17 @@ type heartbeatReq struct {
 }
 
 func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
+	// Correção A.3: limite generoso e por IP — múltiplas máquinas de um mesmo
+	// escritório costumam sair pelo mesmo IP público (NAT), então um limite
+	// apertado aqui derrubaria heartbeats legítimos. O objetivo é conter uma
+	// chave vazada sendo usada para inundar o endpoint, não o uso normal.
+	ip := lib.ClientIP(r)
+	if !limiterHeartbeat.Permitir(ip) {
+		log.Printf("[ALERTA] heartbeat: limite de taxa excedido para IP %s", ip)
+		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "muitas requisições — aguarde e tente novamente"})
+		return
+	}
+
 	// Agent key can come via header OR JSON field – check header first
 	agentKeyHeader := r.Header.Get("X-Agent-Key")
 
@@ -228,14 +240,19 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// FALLBACK: Se ainda não tiver empresa (ex: instalação nova/geral), 
-	// vamos vincular à primeira empresa do banco para que não fique órfã
+	// Correção A.9: antes, se nenhuma empresa fosse resolvida (chave global
+	// sem domínio reconhecido, por exemplo), o heartbeat era silenciosamente
+	// vinculado à PRIMEIRA empresa do banco (db.FirstCompanyID) — quebra real
+	// de isolamento multi-tenant, sem log de erro nem rejeição visível.
+	// Agora a máquina fica sem check-in até a empresa poder ser determinada
+	// de verdade (chave específica por empresa, ou domínio já cadastrado).
 	if targetCompanyID == "" {
-		firstCID, _ := db.FirstCompanyID(ctx)
-		if firstCID != "" {
-			targetCompanyID = firstCID
-			fmt.Printf("[DEBUG] Heartbeat fallback: vinculando %s à empresa %s\n", req.Hostname, targetCompanyID)
+		msg := "não foi possível determinar a empresa desta máquina — configure uma chave de agente específica da empresa"
+		if req.Domain != "" {
+			msg += fmt.Sprintf(", ou cadastre o domínio %q para uma empresa", req.Domain)
 		}
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": msg})
+		return
 	}
 
 	if req.Hostname == "" {

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -12,6 +13,20 @@ import (
 // Este endpoint é chamado quando o usuário clica em "Abrir Portal" no menu da bandeja do Windows.
 // Rota: GET /api/auth/machine-login?token=<TOKEN_DA_MAQUINA>
 func machineLogin(w http.ResponseWriter, r *http.Request) {
+	// Correção A.3: este é o endpoint mais exposto do sistema — concede sessão
+	// autenticada sem exigir NENHUMA credencial além do token na query string
+	// (ver SECURITY-AUTO-PROVISIONING.md §1.3). Sem limite algum, é o alvo
+	// direto de um brute-force/scan tentando adivinhar tokens de máquinas já
+	// registradas. Checado antes de qualquer trabalho (parse, banco).
+	ip := lib.ClientIP(r)
+	if !limiterMachineLogin.Permitir(ip) {
+		log.Printf("[ALERTA] machine-login: limite de taxa excedido para IP %s", ip)
+		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{
+			"error": "muitas tentativas — aguarde um minuto e tente novamente",
+		})
+		return
+	}
+
 	// 1. Extraímos o token que identifica essa instalação específica do agente.
 	token := r.URL.Query().Get("token")
 	if token == "" {

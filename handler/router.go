@@ -5,9 +5,11 @@ package handler
 // All routes are handled by the chi router built in init().
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -24,6 +26,22 @@ var (
 	db     *lib.DB
 	sb     *lib.SupabaseClient
 	mailer *lib.ResendClient
+
+	// Rate limiters (correção A.3) — ver lib/ratelimit.go para a limitação
+	// importante de rodar em memória, por instância, num backend serverless.
+	//
+	// machine-login é o mais sensível: não exige nenhuma credencial (só o
+	// token da query string), então é o alvo mais direto para um
+	// brute-force/scan tentando adivinhar tokens de máquinas — limite
+	// apertado por IP.
+	//
+	// heartbeat exige X-Agent-Key, mas ainda assim se beneficia de um limite
+	// generoso: protege contra uma chave vazada sendo usada para inundar o
+	// endpoint. O limite é alto de propósito porque múltiplas máquinas de um
+	// mesmo escritório costumam sair pelo mesmo IP público (NAT) — um limite
+	// apertado aqui derrubaria heartbeats legítimos.
+	limiterMachineLogin = lib.NewRateLimiter(1*time.Minute, 20)
+	limiterHeartbeat    = lib.NewRateLimiter(1*time.Minute, 300)
 )
 
 func init() {
@@ -44,7 +62,26 @@ func init() {
 		}
 
 		router = buildRouter()
+		startNetworkPingWorker()
 	})
+}
+
+// startNetworkPingWorker runs a background ticker every 5 minutes to probe network_links targets.
+func startNetworkPingWorker() {
+	go func() {
+		time.Sleep(10 * time.Second)
+		ticker := time.NewTicker(300 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			if db != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+				_, _ = db.ProbeAllNetworkLinks(ctx)
+				cancel()
+			}
+			<-ticker.C
+		}
+	}()
 }
 
 // Handler is the Vercel Go serverless function entry point.
@@ -88,6 +125,15 @@ func buildRouter() http.Handler {
 	r.Post("/api/monitoring/commands/respond", monitoringCommandResponse)
 	r.Get("/api/monitoring/cron/mark-offline", cronMarkOffline)
 	r.Get("/api/monitoring/alerts/critical", monitoringCriticalAlerts)
+
+	// Network Links Monitoring
+	r.Get("/api/monitoring/network/links", monitoringListNetworkLinks)
+	r.Post("/api/monitoring/network/links", monitoringCreateNetworkLink)
+	r.Delete("/api/monitoring/network/links/{id}", monitoringDeleteNetworkLink)
+	r.Get("/api/monitoring/network-links", monitoringListNetworkLinks)
+	r.Post("/api/monitoring/network-links", monitoringCreateNetworkLink)
+	r.Delete("/api/monitoring/network-links/{id}", monitoringDeleteNetworkLink)
+	r.Get("/api/monitoring/cron/probe-network-links", cronProbeNetworkLinks)
 
 	// Web Monitoring (UptimeRobot)
 	r.Post("/api/monitoring/web/endpoints", monitoringCreateWebEndpoint)

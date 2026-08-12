@@ -198,14 +198,6 @@ func (d *DB) CompanyByDomain(ctx context.Context, domain string) (string, error)
 	return id, err
 }
 
-// FirstCompanyID returns the ID of the first company found in the database.
-// Used as a fallback when no specific company can be identified.
-func (d *DB) FirstCompanyID(ctx context.Context) (string, error) {
-	var id string
-	err := d.pool.QueryRow(ctx, `SELECT id::text FROM public.companies LIMIT 1`).Scan(&id)
-	return id, err
-}
-
 // MachineByToken retrieves machine details by its unique token.
 func (d *DB) MachineByToken(ctx context.Context, token string) (*MachineRow, string, error) {
 	var m MachineRow

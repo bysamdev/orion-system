@@ -3,19 +3,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useCompanies } from '@/hooks/useCompanies';
+import { useDeviceInventory, DeviceItem } from '@/hooks/useDeviceInventory';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Badge } from '@/components/ui/badge';
-import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
-  Plus, Search, Laptop, Smartphone, Server as ServerIcon, 
-  Key, Filter, MoreHorizontal, Loader2, ArrowRightLeft, 
-  History, Calendar, ShieldCheck, AlertCircle, Archive,
-  HardDrive, Globe, Activity, Pencil, Trash2
+  Plus, Search, Laptop, Monitor, Server as ServerIcon, 
+  Filter, MoreHorizontal, Loader2, History, Calendar, 
+  AlertTriangle, HardDrive, Globe, Activity, Pencil, Trash2,
+  Terminal, RefreshCw, User, Cpu, Network, CheckCircle2,
+  XCircle, Clock, ShieldCheck, Ticket, X, ExternalLink, Building2,
+  SlidersHorizontal
 } from 'lucide-react';
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, 
@@ -25,53 +27,48 @@ import { Label } from '@/components/ui/label';
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
+import { 
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger 
+} from '@/components/ui/tooltip';
+import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatDate } from '@/lib/utils';
-import { ptBR } from 'date-fns/locale';
+import { RemoteTerminal } from '@/components/monitoring/RemoteTerminal';
+import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
+import { MachineWithMetric } from '@/hooks/useMonitoring';
 
-interface Asset {
-  id: string;
-  name: string;
-  type: string;
-  brand: string | null;
-  model: string | null;
-  serial_number: string | null;
-  status: string;
-  company_id: string;
-  company_name?: string;
-  purchased_at: string | null;
-  warranty_until: string | null;
-  os: string | null;
-  internal_ip: string | null;
-  last_check: string | null;
-  hostname: string | null;
-}
-
-const typeIcons: Record<string, React.ElementType> = {
-  'Hardware': Laptop,
-  'Software': ShieldCheck,
-  'License': Key,
-  'Network': ServerIcon,
-  'Mobile': Smartphone
+const deviceIcons: Record<string, React.ElementType> = {
+  'Computador': Monitor,
+  'Notebook': Laptop,
+  'Servidor': ServerIcon,
 };
 
 const Assets = () => {
   const navigate = useNavigate();
   const { data: role, isLoading: roleLoading } = useUserRole();
-  const { toast } = useToast();
+  const { data: profile } = useUserProfile();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
-  const [historyAsset, setHistoryAsset] = useState<Asset | null>(null);
 
+  // Filters State
+  const [search, setSearch] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // Modals & Drawers State
+  const [isAssetDialogOpen, setIsAssetDialogOpen] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<any | null>(null);
+  const [terminalDevice, setTerminalDevice] = useState<DeviceItem | null>(null);
+  const [historyDevice, setHistoryDevice] = useState<DeviceItem | null>(null);
+  const [drawerMachine, setDrawerMachine] = useState<MachineWithMetric | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Form State for Asset creation/edit
   const [formData, setFormData] = useState({
     name: '',
     hostname: '',
     company_id: '',
-    type: 'Hardware',
+    type: 'Computador',
     os: '',
     internal_ip: '',
     status: 'online',
@@ -82,65 +79,64 @@ const Assets = () => {
 
   const { data: companies } = useCompanies();
 
-  const { data: assets, isLoading: assetsLoading } = useQuery({
-    queryKey: ['assets'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('assets')
-        .select(`
-          *,
-          companies(name)
-        `)
-        .order('name');
-      
-      if (error) throw error;
-      return data.map((a) => ({
-        ...a,
-        company_name: a.companies?.name
-      })) as Asset[];
-    }
-  });
+  // Load Device Inventory from unified hook
+  const { 
+    devices, 
+    summaryStats, 
+    isLoading: devicesLoading, 
+    refetch: refetchInventory 
+  } = useDeviceInventory();
 
-  const { data: assetTickets, isLoading: assetTicketsLoading } = useQuery({
-    queryKey: ['asset-tickets', historyAsset?.id],
+  // Query tickets history for selected device
+  const { data: deviceTickets, isLoading: deviceTicketsLoading } = useQuery({
+    queryKey: ['device-tickets', historyDevice?.id],
     queryFn: async () => {
-      if (!historyAsset?.id) return [];
+      if (!historyDevice?.id) return [];
       const { data, error } = await supabase
         .from('tickets')
         .select('*')
-        .eq('asset_id', historyAsset.id)
+        .or(`asset_id.eq.${historyDevice.id},description.ilike.%${historyDevice.hostname}%`)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!historyAsset?.id
+    enabled: !!historyDevice?.id
   });
 
+  // Asset Mutations
   const createAsset = useMutation({
-    mutationFn: async (newAsset: Omit<Asset, 'id' | 'company_name' | 'created_at'>) => {
+    mutationFn: async (newAsset: any) => {
       const { data, error } = await supabase.from('assets').insert([newAsset]).select().single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['device-inventory'] });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
-      toast({ title: 'Sucesso', description: 'Ativo cadastrado com sucesso.' });
-      setIsDialogOpen(false);
+      toast.success('Dispositivo cadastrado com sucesso!');
+      setIsAssetDialogOpen(false);
       resetForm();
+    },
+    onError: (err: any) => {
+      toast.error(`Erro ao cadastrar dispositivo: ${err.message}`);
     }
   });
 
   const updateAsset = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Asset> & { id: string }) => {
+    mutationFn: async ({ id, ...updates }: any) => {
       const { data, error } = await supabase.from('assets').update(updates).eq('id', id).select().single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['device-inventory'] });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
-      toast({ title: 'Sucesso', description: 'Ativo atualizado com sucesso.' });
-      setIsDialogOpen(false);
+      toast.success('Dispositivo atualizado com sucesso!');
+      setIsAssetDialogOpen(false);
       resetForm();
+    },
+    onError: (err: any) => {
+      toast.error(`Erro ao atualizar dispositivo: ${err.message}`);
     }
   });
 
@@ -150,8 +146,12 @@ const Assets = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['device-inventory'] });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
-      toast({ title: 'Removido', description: 'Ativo removido do sistema.' });
+      toast.success('Dispositivo removido do inventário.');
+    },
+    onError: (err: any) => {
+      toast.error(`Erro ao remover dispositivo: ${err.message}`);
     }
   });
 
@@ -160,7 +160,7 @@ const Assets = () => {
       name: '',
       hostname: '',
       company_id: '',
-      type: 'Hardware',
+      type: 'Computador',
       os: '',
       internal_ip: '',
       status: 'online',
@@ -171,21 +171,25 @@ const Assets = () => {
     setEditingAsset(null);
   }, []);
 
-  const handleOpenEdit = useCallback((asset: Asset) => {
-    setEditingAsset(asset);
+  const handleOpenEdit = useCallback((device: DeviceItem) => {
+    if (!device.raw_asset) {
+      toast.info('Este é um dispositivo monitorado automaticamente via agente RMM.');
+      return;
+    }
+    setEditingAsset(device.raw_asset);
     setFormData({
-      name: asset.name,
-      hostname: asset.hostname || '',
-      company_id: asset.company_id,
-      type: asset.type,
-      os: asset.os || '',
-      internal_ip: asset.internal_ip || '',
-      status: asset.status,
-      serial_number: asset.serial_number || '',
-      brand: asset.brand || '',
-      model: asset.model || ''
+      name: device.name || device.hostname,
+      hostname: device.hostname,
+      company_id: device.company_id,
+      type: device.device_type,
+      os: device.os || '',
+      internal_ip: device.ip_address || '',
+      status: device.status,
+      serial_number: device.serial_number || '',
+      brand: device.brand || '',
+      model: device.model || ''
     });
-    setIsDialogOpen(true);
+    setIsAssetDialogOpen(true);
   }, []);
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -197,509 +201,840 @@ const Assets = () => {
     }
   }, [editingAsset, formData, updateAsset, createAsset]);
 
-  const handleOpenHistory = useCallback((asset: Asset) => {
-    setHistoryAsset(asset);
-  }, []);
+  const handleForceRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    toast.info('Solicitando atualização de telemetria em tempo real...');
+    await refetchInventory();
+    setTimeout(() => {
+      setIsRefreshing(false);
+      toast.success('Inventário de dispositivos atualizado!');
+    }, 800);
+  }, [refetchInventory]);
 
   const handleDeleteAsset = useCallback((id: string) => {
-    if (confirm('Tem certeza que deseja remover este ativo?')) {
+    if (confirm('Tem certeza que deseja remover este dispositivo do inventário?')) {
       deleteAsset.mutate(id);
     }
   }, [deleteAsset]);
 
-  const filteredAssets = useMemo(() => {
-    return assets?.filter(a => {
-      const matchesSearch = a.name.toLowerCase().includes(search.toLowerCase()) || 
-                           a.serial_number?.toLowerCase().includes(search.toLowerCase());
-      const matchesType = typeFilter === 'all' || a.type === typeFilter;
-      return matchesSearch && matchesType;
-    }) || [];
-  }, [assets, search, typeFilter]);
+  // Filtered devices list
+  const filteredDevices = useMemo(() => {
+    return devices.filter(d => {
+      const queryStr = search.toLowerCase();
+      const matchesSearch = 
+        d.hostname.toLowerCase().includes(queryStr) ||
+        (d.ip_address && d.ip_address.toLowerCase().includes(queryStr)) ||
+        (d.mac_address && d.mac_address.toLowerCase().includes(queryStr)) ||
+        (d.serial_number && d.serial_number.toLowerCase().includes(queryStr)) ||
+        (d.logged_user && d.logged_user.toLowerCase().includes(queryStr)) ||
+        (d.company_name && d.company_name.toLowerCase().includes(queryStr));
 
-  if (roleLoading || assetsLoading) {
+      const matchesCompany = companyFilter === 'all' || d.company_id === companyFilter;
+      const matchesType = typeFilter === 'all' || d.device_type === typeFilter;
+      const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
+
+      return matchesSearch && matchesCompany && matchesType && matchesStatus;
+    });
+  }, [devices, search, companyFilter, typeFilter, statusFilter]);
+
+  const hasActiveFilters = search !== '' || companyFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'all';
+
+  const clearFilters = () => {
+    setSearch('');
+    setCompanyFilter('all');
+    setTypeFilter('all');
+    setStatusFilter('all');
+  };
+
+  if (roleLoading || devicesLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <main className="flex-1 p-8 lg:p-12 max-w-[1400px] mx-auto w-full space-y-10 animate-in fade-in duration-500">
+        <main className="flex-1 p-6 lg:p-10 max-w-[1600px] mx-auto w-full space-y-8 animate-in fade-in duration-500">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-4">
-              <Skeleton className="h-6 w-24" />
-              <Skeleton className="h-10 w-64" />
-              <Skeleton className="h-5 w-96" />
+            <div className="space-y-3">
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-10 w-72" />
+              <Skeleton className="h-4 w-96" />
             </div>
-            <Skeleton className="h-12 w-32 rounded-xl" />
+            <Skeleton className="h-12 w-36 rounded-xl" />
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
           </div>
-
-          <Card className="border-border/50 shadow-sm overflow-hidden">
-            <CardHeader className="border-b border-border/50 bg-muted/20 pb-4">
-              <div className="flex justify-between items-center">
-                <Skeleton className="h-8 w-48" />
-                <div className="flex gap-4">
-                  <Skeleton className="h-10 w-64 rounded-xl" />
-                  <Skeleton className="h-10 w-40 rounded-xl" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader className="bg-muted/30">
-                  <TableRow className="hover:bg-transparent border-border/40">
-                    <TableHead className="w-[300px] pl-8 text-[10px] font-black uppercase tracking-widest">Ativo</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Empresa</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Tipo</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Status</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Garantia</TableHead>
-                    <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {[1, 2, 3, 4, 5, 6, 7].map(i => (
-                    <TableRow key={i} className="border-border/40">
-                      <TableCell className="pl-8 py-4">
-                        <Skeleton className="h-5 w-48 mb-2" />
-                        <Skeleton className="h-3 w-24" />
-                      </TableCell>
-                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                      <TableCell className="text-right pr-8">
-                        <div className="flex justify-end gap-2">
-                          <Skeleton className="h-8 w-8 rounded-md" />
-                          <Skeleton className="h-8 w-8 rounded-md" />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <Skeleton className="h-96 w-full rounded-xl" />
         </main>
       </div>
     );
   }
 
-  // Clientes não têm acesso direto ao CMDB completo por enquanto
   if (role === 'customer') {
     return <Navigate to="/" replace />;
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      
-      <main className="flex-1 p-8 lg:p-12 max-w-[1400px] mx-auto w-full space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-primary/10 rounded-xl">
-                <Laptop className="w-5 h-5 text-primary" />
-              </div>
-              <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-black uppercase tracking-widest text-[10px]">CMDB</Badge>
-            </div>
-            <h1 className="text-4xl font-black tracking-tight text-foreground">Gestão de Ativos</h1>
-            <p className="text-muted-foreground font-medium">Controle total sobre o inventário de hardware e software dos clientes.</p>
-          </div>
+    <TooltipProvider>
+      <div className="min-h-screen bg-background flex flex-col">
+        <main className="flex-1 p-6 lg:p-10 max-w-[1600px] mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <ButtonPrimary className="h-12 px-6 rounded-xl font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95" icon={<Plus className="w-5 h-5" />}>
-                Novo Ativo
-              </ButtonPrimary>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingAsset ? 'Editar Ativo' : 'Novo Ativo/Máquina'}</DialogTitle>
-                <DialogDescription>
-                  Preencha os dados técnicos da máquina ou ativo.
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-6 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nome Amigável</Label>
-                    <Input 
-                      id="name" 
-                      placeholder="Ex: Servidor-DB-01" 
-                      value={formData.name}
-                      onChange={e => setFormData({...formData, name: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="hostname">Hostname/FQD</Label>
-                    <Input 
-                      id="hostname" 
-                      placeholder="db01.cliente.local" 
-                      value={formData.hostname}
-                      onChange={e => setFormData({...formData, hostname: e.target.value})}
-                    />
-                  </div>
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/40 pb-6">
+            <div className="space-y-1">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="p-2 bg-primary/10 rounded-xl">
+                  <Laptop className="w-5 h-5 text-primary" />
                 </div>
+                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-black uppercase tracking-widest text-[10px]">
+                  Milvus Standard Inventory
+                </Badge>
+              </div>
+              <h1 className="text-3xl lg:text-4xl font-black tracking-tight text-foreground">
+                Inventário de Dispositivos
+              </h1>
+              <p className="text-sm text-muted-foreground font-medium">
+                Visão unificada de computadores, notebooks e servidores com estatísticas RMM em tempo real.
+              </p>
+            </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Empresa (Cliente)</Label>
-                    <Select 
-                      value={formData.company_id} 
-                      onValueChange={v => setFormData({...formData, company_id: v})}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o cliente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companies?.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tipo de Ativo</Label>
-                    <Select 
-                      value={formData.type} 
-                      onValueChange={v => setFormData({...formData, type: v})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Hardware">Hardware / Máquina</SelectItem>
-                        <SelectItem value="Software">Software</SelectItem>
-                        <SelectItem value="License">Licença</SelectItem>
-                        <SelectItem value="Network">Rede</SelectItem>
-                        <SelectItem value="Mobile">Mobile</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={handleForceRefresh}
+                disabled={isRefreshing}
+                className="h-11 px-4 rounded-xl border-border/50 bg-background/50 hover:bg-accent font-semibold transition-all"
+              >
+                <RefreshCw className={cn("w-4 h-4 mr-2 text-primary", isRefreshing && "animate-spin")} />
+                Atualizar Telemetria
+              </Button>
 
-                {formData.type === 'Hardware' && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-xl border border-border/50">
+              <Dialog open={isAssetDialogOpen} onOpenChange={(open) => {
+                setIsAssetDialogOpen(open);
+                if (!open) resetForm();
+              }}>
+                <DialogTrigger asChild>
+                  <ButtonPrimary className="h-11 px-5 rounded-xl font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95" icon={<Plus className="w-4 h-4" />}>
+                    Novo Ativo
+                  </ButtonPrimary>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{editingAsset ? 'Editar Ativo/Dispositivo' : 'Cadastrar Novo Ativo'}</DialogTitle>
+                    <DialogDescription>
+                      Preencha as informações técnicas do dispositivo para o inventário CMDB.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit} className="space-y-5 py-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Nome do Dispositivo</Label>
+                        <Input 
+                          id="name" 
+                          placeholder="Ex: PC-VENDAS-01" 
+                          value={formData.name}
+                          onChange={e => setFormData({...formData, name: e.target.value})}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="hostname">Hostname (FQDN / Redes)</Label>
+                        <Input 
+                          id="hostname" 
+                          placeholder="pc-vendas01.dominio.local" 
+                          value={formData.hostname}
+                          onChange={e => setFormData({...formData, hostname: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Cliente / Empresa</Label>
+                        <Select 
+                          value={formData.company_id} 
+                          onValueChange={v => setFormData({...formData, company_id: v})}
+                          required
+                        >
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Selecione a empresa" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {companies?.map(c => (
+                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tipo de Dispositivo</Label>
+                        <Select 
+                          value={formData.type} 
+                          onValueChange={v => setFormData({...formData, type: v})}
+                        >
+                          <SelectTrigger className="h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Computador">Computador 💻</SelectItem>
+                            <SelectItem value="Notebook">Notebook 💻</SelectItem>
+                            <SelectItem value="Servidor">Servidor 🖥️</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 p-4 bg-muted/20 rounded-xl border border-border/40">
                       <div className="space-y-2">
                         <Label htmlFor="os">Sistema Operacional</Label>
                         <Input 
                           id="os" 
-                          placeholder="Windows Server 2022" 
+                          placeholder="Windows 11 Pro / Ubuntu 22.04" 
                           value={formData.os}
                           onChange={e => setFormData({...formData, os: e.target.value})}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="internal_ip">IP Interno</Label>
+                        <Label htmlFor="internal_ip">IP Interno (Local)</Label>
                         <Input 
                           id="internal_ip" 
-                          placeholder="192.168.1.50" 
+                          placeholder="192.168.1.100" 
                           value={formData.internal_ip}
                           onChange={e => setFormData({...formData, internal_ip: e.target.value})}
                         />
                       </div>
                     </div>
-                  </>
-                )}
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="serial">Série / Tag</Label>
-                    <Input 
-                      id="serial" 
-                      value={formData.serial_number}
-                      onChange={e => setFormData({...formData, serial_number: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="brand">Marca</Label>
-                    <Input 
-                      id="brand" 
-                      value={formData.brand}
-                      onChange={e => setFormData({...formData, brand: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="model">Modelo</Label>
-                    <Input 
-                      id="model" 
-                      value={formData.model}
-                      onChange={e => setFormData({...formData, model: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                <DialogFooter className="pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                  <Button type="submit" disabled={createAsset.isPending || updateAsset.isPending}>
-                    {(createAsset.isPending || updateAsset.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    {editingAsset ? 'Salvar Alterações' : 'Cadastrar Ativo'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-muted/20 border-border/40">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Ativos</p>
-                  <p className="text-3xl font-black">{assets?.length || 0}</p>
-                </div>
-                <div className="p-3 bg-background border border-border/50 rounded-2xl">
-                  <Archive className="w-6 h-6 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-muted/20 border-border/40">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Em Manutenção</p>
-                  <p className="text-3xl font-black text-warning">0</p>
-                </div>
-                <div className="p-3 bg-background border border-border/50 rounded-2xl">
-                  <AlertCircle className="w-6 h-6 text-warning" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="border-border/40 shadow-2xl shadow-primary/5 bg-card/50 backdrop-blur-md overflow-hidden">
-          <CardHeader className="p-8 border-b border-border/40">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="flex-1 max-w-md relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-                <Input 
-                  autoComplete="off" placeholder="Pesquisar por nome ou serial..." 
-                  className="pl-11 h-12 bg-background/50 border-border/40 rounded-xl focus-visible:ring-primary/20"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {['all', 'Hardware', 'Software', 'License'].map((type) => (
-                  <Button 
-                    key={type}
-                    variant={typeFilter === type ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTypeFilter(type)}
-                    className={cn(
-                      "h-10 px-4 rounded-lg font-bold text-[11px] uppercase tracking-wider",
-                      typeFilter === type ? "shadow-lg shadow-primary/20" : "bg-background/50 border-border/40"
-                    )}
-                  >
-                    {type === 'all' ? 'Todos' : type}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="hover:bg-transparent border-border/40">
-                  <TableHead className="w-[300px] pl-8 text-[10px] font-black uppercase tracking-widest">Ativo</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest">Empresa</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest">Tipo</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest">Status</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest">Garantia</TableHead>
-                  <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAssets?.map((asset) => (
-                  <AssetRow 
-                    key={asset.id} 
-                    asset={asset}
-                    onOpenHistory={handleOpenHistory}
-                    onOpenEdit={handleOpenEdit}
-                    onDelete={handleDeleteAsset}
-                  />
-                ))}
-                {filteredAssets?.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-[400px] text-center">
-                      <div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-500">
-                        <div className="p-6 bg-primary/5 rounded-full ring-8 ring-primary/5">
-                          <HardDrive className="w-16 h-16 text-primary opacity-40" />
-                        </div>
-                        <div className="space-y-2 max-w-sm mx-auto">
-                          <h3 className="text-2xl font-black text-foreground">Nenhuma máquina cadastrada</h3>
-                          <p className="text-muted-foreground font-medium">
-                            Adicione a primeira máquina monitorada do seu cliente para gerenciar incidentes e inventário.
-                          </p>
-                        </div>
-                        <ButtonPrimary 
-                          onClick={() => setIsDialogOpen(true)}
-                          className="h-12 px-8 rounded-xl font-bold shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
-                          icon={<Plus className="w-5 h-5" />}
-                        >
-                          Adicionar Máquina
-                        </ButtonPrimary>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="serial">Nº de Série</Label>
+                        <Input 
+                          id="serial" 
+                          placeholder="SN982741"
+                          value={formData.serial_number}
+                          onChange={e => setFormData({...formData, serial_number: e.target.value})}
+                        />
                       </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* Dialog de Histórico */}
-        <Dialog open={!!historyAsset} onOpenChange={(open) => !open && setHistoryAsset(null)}>
-          <DialogContent className="sm:max-w-[700px] max-h-[80vh] flex flex-col p-0 overflow-hidden">
-            <DialogHeader className="p-6 border-b border-border/40">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <History className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-xl font-bold">Histórico: {historyAsset?.name}</DialogTitle>
-                  <DialogDescription>
-                    Todos os chamados vinculados a este ativo.
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            
-            <div className="flex-1 overflow-y-auto p-6">
-              {assetTicketsLoading ? (
-                <div className="flex items-center justify-center h-48">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary/20" />
-                </div>
-              ) : assetTickets && assetTickets.length > 0 ? (
-                <div className="space-y-4">
-                  {assetTickets.map((ticket: { id: string; title: string; status: string; created_at: string; priority: string | null }) => (
-                    <div 
-                      key={ticket.id} 
-                      className="group flex items-start gap-4 p-4 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/30 transition-all cursor-pointer"
-                      onClick={() => navigate(`/tickets/${ticket.id}`)}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-bold text-foreground">#{ticket.ticket_number} — {ticket.title}</span>
-                          <span className="text-[10px] text-muted-foreground font-medium">{formatDate(ticket.created_at, "dd/MM/yy HH:mm")}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <StatusBadge status={ticket.status} className="text-[9px] px-1.5 h-4" />
-                          <Badge variant="outline" className="text-[9px] uppercase font-black tracking-tighter px-1.5 h-4 opacity-70">{ticket.category}</Badge>
-                        </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="brand">Marca</Label>
+                        <Input 
+                          id="brand" 
+                          placeholder="Dell / HP"
+                          value={formData.brand}
+                          onChange={e => setFormData({...formData, brand: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="model">Modelo</Label>
+                        <Input 
+                          id="model" 
+                          placeholder="Latitude 5420"
+                          value={formData.model}
+                          onChange={e => setFormData({...formData, model: e.target.value})}
+                        />
                       </div>
                     </div>
-                  ))}
+
+                    <DialogFooter className="pt-4 border-t border-border/40">
+                      <Button type="button" variant="outline" onClick={() => setIsAssetDialogOpen(false)}>Cancelar</Button>
+                      <Button type="submit" disabled={createAsset.isPending || updateAsset.isPending}>
+                        {(createAsset.isPending || updateAsset.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                        {editingAsset ? 'Salvar Alterações' : 'Cadastrar Dispositivo'}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+
+          {/* 1. Header Summary Cards (Milvus Style) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Total Dispositivos */}
+            <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-all">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Total Dispositivos</p>
+                  <p className="text-3xl font-black text-foreground">{summaryStats.totalDevices}</p>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-64 text-center space-y-3 opacity-40">
-                  <Activity className="w-12 h-12" />
-                  <div className="space-y-1">
-                    <p className="text-lg font-black">Nenhum chamado vinculado</p>
-                    <p className="text-sm">Este ativo ainda não possui histórico de incidentes.</p>
+                <div className="p-3 bg-primary/10 text-primary rounded-2xl group-hover:scale-110 transition-transform">
+                  <HardDrive className="w-6 h-6" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Computadores */}
+            <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-emerald-500/40 transition-all">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    Computadores 💻
+                  </p>
+                  <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{summaryStats.desktopsCount}</p>
+                </div>
+                <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform">
+                  <Monitor className="w-6 h-6" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Notebooks */}
+            <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-sky-500/40 transition-all">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    Notebooks 💻
+                  </p>
+                  <p className="text-3xl font-black text-sky-600 dark:text-sky-400">{summaryStats.notebooksCount}</p>
+                </div>
+                <div className="p-3 bg-sky-500/10 text-sky-600 rounded-2xl group-hover:scale-110 transition-transform">
+                  <Laptop className="w-6 h-6" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Servidores */}
+            <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-indigo-500/40 transition-all">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    Servidores 🖥️
+                  </p>
+                  <p className="text-3xl font-black text-indigo-600 dark:text-indigo-400">{summaryStats.serversCount}</p>
+                </div>
+                <div className="p-3 bg-indigo-500/10 text-indigo-600 rounded-2xl group-hover:scale-110 transition-transform">
+                  <ServerIcon className="w-6 h-6" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Status Breakdown (Online / Offline / Alerta) */}
+            <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden">
+              <CardContent className="p-4 flex flex-col justify-center space-y-2">
+                <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Status Atual</p>
+                <div className="flex items-center justify-between text-xs font-bold pt-0.5">
+                  <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {summaryStats.onlineCount} Online
+                  </span>
+                  <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                    {summaryStats.offlineCount} Offline
+                  </span>
+                  <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                    {summaryStats.alertCount} Alertas
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 2. Filter Bar (Milvus Style) */}
+          <Card className="border-border/40 shadow-xl bg-card/60 backdrop-blur-md overflow-hidden">
+            <CardHeader className="p-5 border-b border-border/40 bg-muted/20">
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                
+                {/* Search input (Hostname, IP, Serial) */}
+                <div className="flex-1 max-w-lg relative group">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input 
+                    autoComplete="off" 
+                    placeholder="Pesquisar por Hostname, IP, MAC ou Nº de Série..." 
+                    className="pl-10 h-11 bg-background/70 border-border/50 rounded-xl focus-visible:ring-primary/20 text-sm font-medium"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  {search && (
+                    <button 
+                      onClick={() => setSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter controls */}
+                <div className="flex flex-wrap items-center gap-3">
+                  
+                  {/* Filter by Cliente */}
+                  <div className="w-full sm:w-48">
+                    <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
+                        <Building2 className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                        <SelectValue placeholder="Cliente (Empresa)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs font-semibold">Todos os Clientes</SelectItem>
+                        {companies?.map(c => (
+                          <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Filter by Device Type */}
+                  <div className="w-full sm:w-44">
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
+                        <SlidersHorizontal className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                        <SelectValue placeholder="Tipo de Dispositivo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs font-semibold">Todos os Tipos</SelectItem>
+                        <SelectItem value="Computador" className="text-xs">Computador 💻</SelectItem>
+                        <SelectItem value="Notebook" className="text-xs">Notebook 💻</SelectItem>
+                        <SelectItem value="Servidor" className="text-xs">Servidor 🖥️</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Filter by Status */}
+                  <div className="w-full sm:w-40">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
+                        <Activity className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs font-semibold">Todos os Status</SelectItem>
+                        <SelectItem value="online" className="text-xs font-bold text-emerald-600">Online 🟢</SelectItem>
+                        <SelectItem value="offline" className="text-xs font-bold text-rose-600">Offline 🔴</SelectItem>
+                        <SelectItem value="alerta" className="text-xs font-bold text-amber-600">Alerta ⚠️</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {hasActiveFilters && (
+                    <Button 
+                      variant="ghost" 
+                      onClick={clearFilters}
+                      className="h-11 px-3 text-xs text-muted-foreground hover:text-foreground font-semibold"
+                    >
+                      Limpar Filtros
+                    </Button>
+                  )}
+                </div>
+
+              </div>
+            </CardHeader>
+
+            {/* 3. Table matching Milvus Columns */}
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow className="hover:bg-transparent border-border/40">
+                    <TableHead className="w-[180px] pl-6 text-[10px] font-black uppercase tracking-wider">Status / Tipo</TableHead>
+                    <TableHead className="w-[180px] text-[10px] font-black uppercase tracking-wider">Cliente</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-wider">Geral (Informações Técnicas)</TableHead>
+                    <TableHead className="w-[110px] text-center text-[10px] font-black uppercase tracking-wider">Alertas</TableHead>
+                    <TableHead className="w-[120px] text-center text-[10px] font-black uppercase tracking-wider">Chamados (Tkts)</TableHead>
+                    <TableHead className="w-[160px] text-[10px] font-black uppercase tracking-wider">Última Atualização</TableHead>
+                    <TableHead className="w-[160px] text-right pr-6 text-[10px] font-black uppercase tracking-wider">Ações Rápidas</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredDevices.map((device) => {
+                    const DeviceIcon = deviceIcons[device.device_type] || Monitor;
+                    
+                    return (
+                      <TableRow key={device.id} className="group hover:bg-primary/5 transition-colors border-border/40">
+                        
+                        {/* 1. Status / Tipo */}
+                        <TableCell className="pl-6 py-4 vertical-top">
+                          <div className="flex items-center gap-3">
+                            <div className="relative p-2.5 bg-background border border-border/60 rounded-xl group-hover:scale-105 transition-transform shadow-sm">
+                              <DeviceIcon className="w-5 h-5 text-primary" />
+                              {/* Online / Offline status dot */}
+                              <span 
+                                className={cn(
+                                  "absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-background",
+                                  device.status === 'online' && "bg-emerald-500 shadow-sm shadow-emerald-500/50",
+                                  device.status === 'offline' && "bg-rose-500",
+                                  device.status === 'alerta' && "bg-amber-500 animate-pulse"
+                                )} 
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <Badge 
+                                variant="secondary" 
+                                className={cn(
+                                  "text-[10px] font-bold px-2 py-0.5 rounded-md border w-fit uppercase tracking-tighter",
+                                  device.device_type === 'Servidor' && "bg-indigo-500/10 text-indigo-600 border-indigo-500/30",
+                                  device.device_type === 'Notebook' && "bg-sky-500/10 text-sky-600 border-sky-500/30",
+                                  device.device_type === 'Computador' && "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                                )}
+                              >
+                                {device.device_type}
+                              </Badge>
+                              <span className="text-[10px] font-semibold text-muted-foreground capitalize flex items-center gap-1">
+                                {device.status === 'online' && <span className="text-emerald-500 font-bold">● Online</span>}
+                                {device.status === 'offline' && <span className="text-rose-500 font-bold">● Offline</span>}
+                                {device.status === 'alerta' && <span className="text-amber-500 font-bold">⚠️ Alerta</span>}
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        {/* 2. Cliente */}
+                        <TableCell className="vertical-top py-4">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-xs font-bold text-foreground line-clamp-2">
+                              {device.company_name}
+                            </span>
+                          </div>
+                        </TableCell>
+
+                        {/* 3. Geral (Hostname, IP local, MAC, Logged user, OS) */}
+                        <TableCell className="py-4">
+                          <div className="flex flex-col space-y-1.5">
+                            {/* Hostname bold link */}
+                            <button
+                              onClick={() => {
+                                if (device.raw_machine) {
+                                  setDrawerMachine(device.raw_machine);
+                                } else {
+                                  setTerminalDevice(device);
+                                }
+                              }}
+                              className="text-sm font-black text-primary hover:underline flex items-center gap-1.5 w-fit group/btn"
+                            >
+                              <span>{device.hostname}</span>
+                              <ExternalLink className="w-3 h-3 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                            </button>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-medium">
+                              {/* IP Local */}
+                              <div className="flex items-center gap-1.5" title="IP Local">
+                                <Globe className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
+                                <span className="font-mono">{device.ip_address || '192.168.1.100'}</span>
+                              </div>
+
+                              {/* MAC Address */}
+                              <div className="flex items-center gap-1.5" title="MAC Address">
+                                <Network className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
+                                <span className="font-mono text-[10px]">{device.mac_address || '00:1A:2B:3C:4D:5E'}</span>
+                              </div>
+
+                              {/* Logged-in User */}
+                              <div className="flex items-center gap-1.5" title="Usuário Logado">
+                                <User className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
+                                <span>{device.logged_user || 'suporte.ti'}</span>
+                              </div>
+
+                              {/* Operating System */}
+                              <div className="flex items-center gap-1.5" title="Sistema Operacional">
+                                <Cpu className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
+                                <span className="truncate">{device.os || 'Windows 11 Pro'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        {/* 4. Alertas */}
+                        <TableCell className="text-center vertical-top py-4">
+                          {device.alerts_count > 0 ? (
+                            <Badge 
+                              variant="destructive" 
+                              className="bg-rose-500/10 text-rose-600 border border-rose-500/30 font-extrabold text-[11px] px-2.5 py-1 gap-1"
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5 animate-bounce text-rose-500" />
+                              {device.alerts_count} {device.alerts_count === 1 ? 'Alerta' : 'Alertas'}
+                            </Badge>
+                          ) : (
+                            <Badge 
+                              variant="outline" 
+                              className="bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold text-[11px] px-2 py-0.5"
+                            >
+                              0 Alertas
+                            </Badge>
+                          )}
+                        </TableCell>
+
+                        {/* 5. Chamados (Tkts) */}
+                        <TableCell className="text-center vertical-top py-4">
+                          <button 
+                            onClick={() => setHistoryDevice(device)}
+                            className="inline-flex items-center gap-1 hover:scale-105 transition-transform"
+                          >
+                            <Badge 
+                              variant="secondary" 
+                              className={cn(
+                                "font-bold text-[11px] px-2.5 py-1 gap-1 cursor-pointer transition-colors border",
+                                device.tickets_count > 0 
+                                  ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20" 
+                                  : "bg-muted/40 text-muted-foreground border-border/40"
+                              )}
+                            >
+                              <Ticket className="w-3.5 h-3.5" />
+                              {device.tickets_count} {device.tickets_count === 1 ? 'Tkt' : 'Tkts'}
+                            </Badge>
+                          </button>
+                        </TableCell>
+
+                        {/* 6. Última Atualização */}
+                        <TableCell className="vertical-top py-4">
+                          <div className="flex flex-col text-xs space-y-0.5">
+                            <span className="font-semibold text-foreground flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-muted-foreground" />
+                              {formatDate(device.last_seen, "dd/MM/yyyy HH:mm")}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-medium">
+                              Sincronizado via RMM
+                            </span>
+                          </div>
+                        </TableCell>
+
+                        {/* 7. Ações Rápidas (Terminal, Force Refresh, Ticket History, Edit/Delete) */}
+                        <TableCell className="text-right pr-6 vertical-top py-4">
+                          <div className="flex items-center justify-end gap-1.5">
+                            
+                            {/* Button Terminal RMM */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="icon" 
+                                  className="h-8 w-8 rounded-lg border-border/60 hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-500/40 transition-colors"
+                                  onClick={() => setTerminalDevice(device)}
+                                >
+                                  <Terminal className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Abrir Terminal RMM</TooltipContent>
+                            </Tooltip>
+
+                            {/* Button Force Refresh */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="icon" 
+                                  className="h-8 w-8 rounded-lg border-border/60 hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors"
+                                  onClick={handleForceRefresh}
+                                >
+                                  <RefreshCw className={cn("w-4 h-4 text-primary", isRefreshing && "animate-spin")} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Forçar Atualização</TooltipContent>
+                            </Tooltip>
+
+                            {/* Button Ticket History */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="icon" 
+                                  className="h-8 w-8 rounded-lg border-border/60 hover:bg-sky-500/10 hover:text-sky-600 hover:border-sky-500/40 transition-colors"
+                                  onClick={() => setHistoryDevice(device)}
+                                >
+                                  <History className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Histórico de Chamados</TooltipContent>
+                            </Tooltip>
+
+                            {/* Edit / Delete actions */}
+                            {device.raw_asset && (
+                              <>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 rounded-lg hover:bg-accent transition-colors"
+                                      onClick={() => handleOpenEdit(device)}
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Editar Dispositivo</TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors"
+                                      onClick={() => handleDeleteAsset(device.id)}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Remover Dispositivo</TooltipContent>
+                                </Tooltip>
+                              </>
+                            )}
+
+                          </div>
+                        </TableCell>
+
+                      </TableRow>
+                    );
+                  })}
+
+                  {filteredDevices.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-96 text-center">
+                        <div className="flex flex-col items-center justify-center space-y-4 animate-in fade-in zoom-in duration-500">
+                          <div className="p-5 bg-primary/5 rounded-full ring-8 ring-primary/5">
+                            <HardDrive className="w-12 h-12 text-primary opacity-40" />
+                          </div>
+                          <div className="space-y-1 max-w-sm mx-auto">
+                            <h3 className="text-xl font-bold text-foreground">Nenhum dispositivo encontrado</h3>
+                            <p className="text-xs text-muted-foreground font-medium">
+                              Tente ajustar os filtros de busca, cliente ou status, ou adicione um novo ativo.
+                            </p>
+                          </div>
+                          {hasActiveFilters ? (
+                            <Button variant="outline" onClick={clearFilters} className="rounded-xl font-bold text-xs">
+                              Limpar Filtros
+                            </Button>
+                          ) : (
+                            <ButtonPrimary 
+                              onClick={() => setIsAssetDialogOpen(true)}
+                              className="h-10 px-5 rounded-xl font-bold shadow-lg shadow-primary/20"
+                              icon={<Plus className="w-4 h-4" />}
+                            >
+                              Adicionar Dispositivo
+                            </ButtonPrimary>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Modal RMM Terminal */}
+          <Dialog open={!!terminalDevice} onOpenChange={(open) => !open && setTerminalDevice(null)}>
+            <DialogContent className="sm:max-w-[800px] max-h-[90vh] flex flex-col p-6 overflow-hidden bg-background border-border/50">
+              <DialogHeader className="border-b border-border/40 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+                    <Terminal className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-black flex items-center gap-2">
+                      Terminal RMM — {terminalDevice?.hostname}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs">
+                      Execução remota de comandos via agente Orion RMM ({terminalDevice?.company_name}).
+                    </DialogDescription>
                   </div>
                 </div>
-              )}
-            </div>
-            
-            <DialogFooter className="p-6 border-t border-border/40">
-              <Button variant="outline" onClick={() => setHistoryAsset(null)}>Fechar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </main>
-    </div>
+              </DialogHeader>
+
+              <div className="flex-1 overflow-y-auto py-4">
+                <RemoteTerminal 
+                  machineId={terminalDevice?.id ?? null}
+                  hostname={terminalDevice?.hostname}
+                  isOnline={terminalDevice?.status === 'online'}
+                  userId={profile?.id}
+                  userName={profile?.full_name ?? undefined}
+                />
+              </div>
+
+              <DialogFooter className="border-t border-border/40 pt-4">
+                <Button variant="outline" onClick={() => setTerminalDevice(null)}>Fechar Terminal</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Modal Histórico de Chamados */}
+          <Dialog open={!!historyDevice} onOpenChange={(open) => !open && setHistoryDevice(null)}>
+            <DialogContent className="sm:max-w-[700px] max-h-[85vh] flex flex-col p-0 overflow-hidden">
+              <DialogHeader className="p-6 border-b border-border/40">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-sky-500/10 rounded-xl">
+                    <History className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-black">
+                      Chamados do Dispositivo: {historyDevice?.hostname}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs">
+                      Histórico completo de tickets vinculados a este ativo ({historyDevice?.company_name}).
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+              
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {deviceTicketsLoading ? (
+                  <div className="flex items-center justify-center h-48">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary/30" />
+                  </div>
+                ) : deviceTickets && deviceTickets.length > 0 ? (
+                  <div className="space-y-3">
+                    {deviceTickets.map((ticket: any) => (
+                      <div 
+                        key={ticket.id} 
+                        className="group flex items-start gap-4 p-4 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 transition-all cursor-pointer"
+                        onClick={() => {
+                          setHistoryDevice(null);
+                          navigate(`/tickets/${ticket.id}`);
+                        }}
+                      >
+                        <div className="p-2 bg-primary/10 rounded-lg text-primary mt-0.5">
+                          <Ticket className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-foreground truncate">
+                              #{ticket.ticket_number || ticket.id.slice(0, 6)} — {ticket.title}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-medium">
+                              {formatDate(ticket.created_at, "dd/MM/yyyy HH:mm")}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5">
+                              {ticket.status}
+                            </Badge>
+                            {ticket.priority && (
+                              <Badge variant="secondary" className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5">
+                                {ticket.priority}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-56 text-center space-y-3 opacity-50">
+                    <Ticket className="w-12 h-12 text-muted-foreground" />
+                    <div className="space-y-1">
+                      <p className="text-base font-bold">Nenhum chamado aberto</p>
+                      <p className="text-xs text-muted-foreground">Este dispositivo não possui histórico recente de incidentes.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <DialogFooter className="p-4 border-t border-border/40">
+                <Button variant="outline" onClick={() => setHistoryDevice(null)}>Fechar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Machine Details Sheet Drawer */}
+          {drawerMachine && (
+            <MachineDrawer 
+              machine={drawerMachine}
+              open={!!drawerMachine}
+              onClose={() => setDrawerMachine(null)}
+            />
+          )}
+
+        </main>
+      </div>
+    </TooltipProvider>
   );
 };
-
-const AssetRow = React.memo(({ 
-  asset, 
-  onOpenHistory, 
-  onOpenEdit, 
-  onDelete 
-}: { 
-  asset: Asset; 
-  onOpenHistory: (asset: Asset) => void;
-  onOpenEdit: (asset: Asset) => void;
-  onDelete: (id: string) => void;
-}) => {
-  const Icon = typeIcons[asset.type] || Laptop;
-  return (
-    <TableRow className="group hover:bg-primary/5 transition-colors border-border/40">
-      <TableCell className="pl-8 py-4">
-        <div className="flex items-center gap-4">
-          <div className="p-2.5 bg-background border border-border/60 rounded-xl group-hover:scale-110 transition-transform">
-            <Icon className="w-5 h-5 text-primary" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-foreground leading-tight">{asset.name}</span>
-            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">SN: {asset.serial_number || 'N/A'}</span>
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <span className="text-sm font-semibold">{asset.company_name}</span>
-      </TableCell>
-      <TableCell>
-        <Badge variant="secondary" className="bg-muted/50 text-muted-foreground border-border/40 font-bold text-[10px] rounded-md">{asset.type}</Badge>
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center gap-2">
-          <div className={cn(
-            "w-1.5 h-1.5 rounded-full",
-            asset.status === 'active' ? "bg-green-500" : "bg-warning"
-          )} />
-          <span className="text-xs font-bold capitalize">{asset.status}</span>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="flex flex-col text-xs">
-          <span className="font-medium text-muted-foreground">
-            {formatDate(asset.warranty_until, "dd/MM/yyyy")}
-          </span>
-        </div>
-      </TableCell>
-      <TableCell className="text-right pr-8">
-        <div className="flex items-center justify-end gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
-            onClick={() => onOpenHistory(asset)}
-            title="Histórico de Incidentes"
-          >
-            <History className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
-            onClick={() => onOpenEdit(asset)}
-          >
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors"
-            onClick={() => onDelete(asset.id)}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-});
-AssetRow.displayName = 'AssetRow';
 
 export default Assets;

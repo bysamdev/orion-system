@@ -305,6 +305,11 @@ Não encontrei testes automatizados (`_test.go`) em nenhum pacote de
 Só descrição — nada foi corrigido.
 
 ### 6.1 `systray-agent/` é um protótipo órfão, não usado
+
+> ✅ **Removido (item C.7).** Confirmado sem plano de retomada; diretório
+> apagado do repositório. Descrição abaixo mantida como registro histórico do
+> achado.
+
 Diretório separado (`systray-agent/main.go`, 64 linhas), com `go.mod` próprio,
 adicionado em um único commit (`ed86fe0`, 2026-06-12, mensagem
 "ajuste front topzera demais" — sem relação aparente com o conteúdo). Contém
