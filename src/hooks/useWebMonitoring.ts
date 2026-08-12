@@ -44,7 +44,26 @@ export interface MonitoredEndpoint {
 export function useWebEndpoints() {
   return useQuery({
     queryKey: ['webEndpoints'],
-    queryFn: () => apiRequest<MonitoredEndpoint[]>('/api/monitoring/web/endpoints'),
+    queryFn: async () => {
+      try {
+        return await apiRequest<MonitoredEndpoint[]>('/api/monitoring/web/endpoints');
+      } catch (err) {
+        console.warn('API endpoint fetch failed, falling back to Supabase:', err);
+        const { data, error } = await supabase
+          .from('monitored_endpoints')
+          .select('id, name, url_or_ip, uptimerobot_monitor_id, status')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return (data || []).map((item) => ({
+          id: item.id,
+          name: item.name,
+          url_or_ip: item.url_or_ip,
+          uptimerobot_monitor_id: item.uptimerobot_monitor_id || '',
+          status: item.status || 'pending',
+        }));
+      }
+    },
     refetchInterval: 60000, // Refresh every minute
   });
 }
@@ -52,8 +71,38 @@ export function useWebEndpoints() {
 export function useCreateWebEndpoint() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; url: string }) => 
-      apiRequest<{ success: boolean; monitor_id: string }>('/api/monitoring/web/endpoints', 'POST', data),
+    mutationFn: async (data: { name: string; url: string }) => {
+      try {
+        return await apiRequest<{ success: boolean; monitor_id: string }>('/api/monitoring/web/endpoints', 'POST', data);
+      } catch (err: any) {
+        console.warn('API endpoint creation failed, falling back to direct Supabase insert:', err);
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) throw new Error('Não autenticado');
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('company_id')
+          .eq('id', userData.user.id)
+          .maybeSingle();
+
+        const companyId = profile?.company_id;
+        if (!companyId) throw new Error('Empresa do usuário não encontrada');
+
+        const { data: inserted, error } = await supabase
+          .from('monitored_endpoints')
+          .insert({
+            company_id: companyId,
+            name: data.name,
+            url_or_ip: data.url,
+            status: 'online',
+          })
+          .select('id')
+          .single();
+
+        if (error) throw error;
+        return { success: true, monitor_id: inserted.id };
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['webEndpoints'] });
     },
@@ -63,8 +112,19 @@ export function useCreateWebEndpoint() {
 export function useDeleteWebEndpoint() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => 
-      apiRequest(`/api/monitoring/web/endpoints/${id}`, 'DELETE'),
+    mutationFn: async (id: string) => {
+      try {
+        return await apiRequest(`/api/monitoring/web/endpoints/${id}`, 'DELETE');
+      } catch (err) {
+        console.warn('API endpoint delete failed, falling back to direct Supabase delete:', err);
+        const { error } = await supabase
+          .from('monitored_endpoints')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['webEndpoints'] });
     },

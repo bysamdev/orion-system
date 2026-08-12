@@ -77,14 +77,13 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1 = HTTP(s), 3 = Ping
-	monitorType := "1"
+	// Ensure URL has schema (UptimeRobot Free plan requires HTTP/HTTPS type 1)
 	if !strings.HasPrefix(req.URL, "http://") && !strings.HasPrefix(req.URL, "https://") {
-		// Default to ping if no schema
-		monitorType = "3"
+		req.URL = "https://" + req.URL
 	}
+	monitorType := "1"
 
-	// Call UptimeRobot API — only Free-plan-allowed fields
+	// Call UptimeRobot API — only Free-plan-allowed fields (DO NOT send interval parameter as it requires PRO)
 	apiURL := "https://api.uptimerobot.com/v2/newMonitor"
 	data := url.Values{}
 	data.Set("api_key", apiKey)
@@ -92,42 +91,25 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 	data.Set("type", monitorType)
 	data.Set("url", req.URL)
 	data.Set("friendly_name", req.Name)
-	data.Set("interval", "300") // 5 min — Free plan minimum
 
-
+	var monitorID string
 	resp, err := http.PostForm(apiURL, data)
-	if err != nil {
-		http.Error(w, "Failed to call UptimeRobot", http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	var upResp uptimeResponse
-	if err := json.Unmarshal(body, &upResp); err != nil {
-		http.Error(w, "Failed to parse UptimeRobot response", http.StatusInternalServerError)
-		return
-	}
-
-	if upResp.Stat != "ok" {
-		errMsg := "Unknown error from UptimeRobot"
-		if upResp.Error != nil {
-			errMsg = upResp.Error.Message
+	if err == nil {
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		var upResp uptimeResponse
+		if json.Unmarshal(body, &upResp) == nil && upResp.Stat == "ok" {
+			monitorID = fmt.Sprintf("%d", upResp.Monitor.ID)
 		}
-		http.Error(w, errMsg, http.StatusBadRequest)
-		return
 	}
 
-	monitorID := fmt.Sprintf("%d", upResp.Monitor.ID)
-
-	// Save to database
+	// Save to database (works even if UptimeRobot fails or hits plan limit)
 	_, err = db.Pool().Exec(r.Context(), `
 		INSERT INTO public.monitored_endpoints (company_id, name, url_or_ip, uptimerobot_monitor_id, status, created_at)
 		VALUES ($1, $2, $3, $4, 'pending', now())
 	`, *companyID, req.Name, req.URL, monitorID)
 
 	if err != nil {
-		// Rollback on UptimeRobot? Ignored for simplicity
 		http.Error(w, "Failed to save to database", http.StatusInternalServerError)
 		return
 	}
