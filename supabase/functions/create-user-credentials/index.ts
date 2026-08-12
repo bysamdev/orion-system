@@ -32,7 +32,10 @@ serve(async (req) => {
     // Autenticar requisição
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Cabeçalho de autorização ausente');
+      return new Response(
+        JSON.stringify({ error: 'Sua sessão expirou ou você não está autenticado. Faça login novamente.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabaseClient = createClient(
@@ -49,7 +52,10 @@ serve(async (req) => {
     
     if (authError || !user) {
       console.error('Erro de autenticação:', authError);
-      throw new Error('Não autorizado');
+      return new Response(
+        JSON.stringify({ error: 'Sua sessão expirou ou você não está autenticado. Faça login novamente.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Usuário autenticado:', user.id);
@@ -63,11 +69,17 @@ serve(async (req) => {
 
     if (roleError || !roleData) {
       console.error('Erro ao buscar role:', roleError);
-      throw new Error('Não foi possível verificar permissões');
+      return new Response(
+        JSON.stringify({ error: 'Não foi possível verificar suas permissões.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     if (roleData.role !== 'admin' && roleData.role !== 'developer') {
-      throw new Error('Apenas administradores podem criar usuários');
+      return new Response(
+        JSON.stringify({ error: 'Apenas administradores podem criar usuários.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Role verificada:', roleData.role);
@@ -80,7 +92,10 @@ serve(async (req) => {
 
     // Validação de input
     if (!email || !full_name || !role || !company_id) {
-      throw new Error('Dados obrigatórios ausentes: email, full_name, role, company_id');
+      return new Response(
+        JSON.stringify({ error: 'Campos obrigatórios ausentes: email, nome completo, função e empresa.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Cliente admin do Supabase (ignora RLS)

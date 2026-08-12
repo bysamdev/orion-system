@@ -36,7 +36,24 @@ export async function invokeOrionFunction<T>(
 ): Promise<InvokeResult<T>> {
   // fallback: mantém o sistema funcionando mesmo sem a API Go configurada
   if (!API_URL) {
-    return (await supabase.functions.invoke(name, { body })) as InvokeResult<T>;
+    const res = await supabase.functions.invoke(name, { body });
+    if (res.error) {
+      let message = res.error.message;
+      if (res.error.context && typeof (res.error.context as any).json === 'function') {
+        try {
+          const errBody = await (res.error.context as Response).clone().json();
+          if (errBody?.error) {
+            message = typeof errBody.error === 'string' ? errBody.error : JSON.stringify(errBody.error);
+          } else if (errBody?.message) {
+            message = typeof errBody.message === 'string' ? errBody.message : JSON.stringify(errBody.message);
+          }
+        } catch {
+          // fallback to default message
+        }
+      }
+      return { data: null, error: { message, context: res.error.context } };
+    }
+    return { data: res.data as T, error: null };
   }
 
   try {
