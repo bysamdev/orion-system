@@ -750,27 +750,11 @@ export default function KnowledgeBase() {
             <div className="flex-1 overflow-y-auto py-4 px-1 space-y-4">
               <ArticleMarkdownRenderer 
                 content={readingArticle?.content || ''} 
-                onOpenTicket={() => {
-                  setReadingArticle(null);
-                  toast({
-                    title: "Direcionando para abertura de chamado",
-                    description: "Preencha as informações do seu ticket de atendimento."
-                  });
-                }}
               />
             </div>
 
-            <DialogFooter className="border-t pt-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <DialogFooter className="border-t pt-4 flex justify-end">
               <Button variant="outline" onClick={() => setReadingArticle(null)}>Fechar</Button>
-              <Button 
-                onClick={() => { 
-                  const ticketArticle = combinedArticles.find(a => a.title.toLowerCase().includes('chamado')) || DEFAULT_ARTICLES[0];
-                  setReadingArticle(ticketArticle);
-                }}
-                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                <Ticket className="w-4 h-4" /> Guia de Abertura de Chamado
-              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

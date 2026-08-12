@@ -112,23 +112,14 @@ export const ArticleMarkdownRenderer: React.FC<ArticleMarkdownRendererProps> = (
       if (quoteText.includes('[!NOTE]') || quoteText.includes('Se o problema persistir') || quoteText.includes('Aviso de Suporte')) {
         const cleanMessage = quoteText.replace(/\[!NOTE\]|\*\*|\*/g, '').trim();
         elements.push(
-          <div key={`alert-note-${index}`} className="my-6 p-5 rounded-2xl bg-blue-500/10 border border-blue-500/20 space-y-3">
-            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-sm">
-              <Info className="w-5 h-5" />
-              <span>Precisa de atendimento da equipe de TI?</span>
+          <div key={`alert-note-${index}`} className="my-6 p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 space-y-1.5">
+            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-xs">
+              <Info className="w-4 h-4 shrink-0" />
+              <span>Nota de Suporte</span>
             </div>
             <p className="text-xs text-foreground/80 leading-relaxed">
               {cleanMessage || 'Se o problema persistir após estes passos, nossa equipe técnica está à disposição para ajudar você.'}
             </p>
-            {onOpenTicket && (
-              <button
-                onClick={onOpenTicket}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20"
-              >
-                <HelpCircle className="w-4 h-4" />
-                Abrir Chamado no Orion System
-              </button>
-            )}
           </div>
         );
         return;
