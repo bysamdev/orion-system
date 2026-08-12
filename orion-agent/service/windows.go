@@ -15,6 +15,7 @@ import (
 	"orion-agent/sender"
 	"orion-agent/shortcut"
 	"orion-agent/token"
+	"orion-agent/version"
 )
 
 // tempoLimiteEncerramento é o prazo que Stop() espera o loop principal (run())
@@ -169,6 +170,7 @@ func (s *Svc) tick() {
 		s.logger.Printf("[ERRO] Falha ao coletar dados de hardware: %v", err)
 		return
 	}
+	payload.AgentVersion = version.Version
 
 	// Gerenciamento de Identidade (Token)
 	// Se for o primeiro acesso, carregamos do disco ou geramos uma nova identidade

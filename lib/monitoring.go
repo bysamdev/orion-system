@@ -266,7 +266,7 @@ func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, com
 	return id, err
 }
 
-func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, currentUserSID, companyID string) (string, error) {
+func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, currentUserSID, companyID, deviceType, macAddress string) (string, error) {
 	var id string
 
 	// Format hostname as requested: Hostname - User - IP
@@ -278,16 +278,32 @@ func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, o
 		prettyHostname += " - " + ip
 	}
 
+	// device_type vem do agente com best-effort (WMI no Windows, /sys no
+	// Linux — ver orion-agent/collector/device_type_*.go); "desktop" é o
+	// mesmo default já usado pela coluna (migration 20260811000005) para
+	// não perder classificação em heartbeats de agentes antigos ou quando a
+	// detecção falha.
+	if deviceType == "" {
+		deviceType = "desktop"
+	}
+
+	// local_ip e logged_in_user duplicam, nas colunas dedicadas de
+	// inventário lidas por src/hooks/useDeviceInventory.ts, os mesmos
+	// valores já capturados em ip_address/"current_user" — não há um
+	// segundo dado independente vindo do agente para eles, então
+	// reaproveitamos $3 (ip) e $9 (currentUser) em vez de pedir ao agente
+	// para mandar os mesmos valores sob dois nomes de campo diferentes.
+	//
 	// current_user_sid (correção A.13): dado informativo de inventário —
 	// NilIfEmpty grava NULL quando o agente não conseguiu resolvê-lo (sem
 	// sessão de console ativa, ou versão do agente anterior a esta
 	// correção), em vez de string vazia.
 	err := d.pool.QueryRow(ctx, `
-INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id)
-VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11)
+INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type)
+VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13)
 ON CONFLICT (machine_token) DO UPDATE
-  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=$11
-RETURNING id::text`, groupID, prettyHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID)).Scan(&id)
+  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=$11, local_ip=$3, logged_in_user=$9, mac_address=$12, device_type=$13
+RETURNING id::text`, groupID, prettyHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID), NilIfEmpty(macAddress), deviceType).Scan(&id)
 	return id, err
 }
 

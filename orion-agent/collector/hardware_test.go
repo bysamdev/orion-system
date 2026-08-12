@@ -3,6 +3,7 @@ package collector
 import (
 	"net"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -344,4 +345,110 @@ func TestCollect_NaoBloqueiaPorUmSegundo(t *testing.T) {
 		t.Errorf("Collect() levou %v — esperado bem abaixo de %v; "+
 			"possível regressão para cpu.Percent(1*time.Second, false) bloqueante (ver B.6)", decorrido, teto)
 	}
+}
+
+// -----------------------------------------------------------------------------
+// F) device_type e mac_address — campos novos para a tela de Inventário de
+// Dispositivos (estilo Milvus). A lógica de detecção em si é específica por
+// plataforma (device_type_windows.go/device_type_other.go) e coberta à parte
+// nos arquivos *_test.go correspondentes; aqui verificamos só o contrato
+// exposto por Collect(): os campos existem, têm formato válido e são
+// consistentes com as funções que os alimentam.
+// -----------------------------------------------------------------------------
+
+var regexMACValido = regexp.MustCompile(`^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$`)
+
+// TestCollect_DeviceTypeEhUmValorValido garante que Collect() só devolve um
+// dos três valores que a tela de inventário (useDeviceInventory.ts,
+// resolveDeviceType) e a coluna machines.device_type sabem interpretar —
+// qualquer string fora desse conjunto cairia como "desconhecido" no
+// frontend ou seria normalizada silenciosamente para "desktop" no backend
+// (lib.UpsertMachine).
+func TestCollect_DeviceTypeEhUmValorValido(t *testing.T) {
+	p := coletaOuFalha(t)
+
+	switch p.DeviceType {
+	case "desktop", "notebook", "server":
+	default:
+		t.Errorf("Payload.DeviceType = %q; esperado um de \"desktop\", \"notebook\" ou \"server\"", p.DeviceType)
+	}
+}
+
+// TestCollect_DeviceTypeConcordaComTipoDoDispositivo garante que Collect()
+// não tem seu próprio caminho de decisão paralelo — ele sempre reflete o
+// mesmo valor cacheado que tipoDoDispositivo() devolve.
+func TestCollect_DeviceTypeConcordaComTipoDoDispositivo(t *testing.T) {
+	p := coletaOuFalha(t)
+
+	if p.DeviceType != tipoDoDispositivo() {
+		t.Errorf("Payload.DeviceType = %q diverge de tipoDoDispositivo() = %q", p.DeviceType, tipoDoDispositivo())
+	}
+}
+
+// TestTipoDoDispositivo_EhConsistenteEntreChamadas espelha
+// TestModeloDaCPU_EhConsistenteEntreChamadas: é o contrato externo do cache
+// (sync.Once) em device_type.go — não dá para observar de fora se
+// detectarTipoDispositivo() foi chamada 1 ou N vezes, só que o resultado não
+// muda.
+func TestTipoDoDispositivo_EhConsistenteEntreChamadas(t *testing.T) {
+	primeiro := tipoDoDispositivo()
+	for i := 0; i < 20; i++ {
+		if atual := tipoDoDispositivo(); atual != primeiro {
+			t.Fatalf("tipoDoDispositivo() não é estável: chamada %d devolveu %q, esperado %q", i, atual, primeiro)
+		}
+	}
+}
+
+// TestCollect_MacAddressFormatoValido garante que, quando preenchido,
+// MACAddress segue o formato AA:BB:CC:DD:EE:FF (contrato de
+// net.HardwareAddr.String() para Ethernet/Wi-Fi) — string vazia é aceitável
+// e esperada em ambientes sem interface física ativa (mesmo critério de
+// TestPrimaryIP_FormatoEValidade para o IP).
+func TestCollect_MacAddressFormatoValido(t *testing.T) {
+	p := coletaOuFalha(t)
+
+	if p.MACAddress == "" {
+		t.Skip("nenhuma interface de rede ativa não-loopback neste ambiente")
+	}
+	if !regexMACValido.MatchString(p.MACAddress) {
+		t.Errorf("Payload.MACAddress = %q não está no formato AA:BB:CC:DD:EE:FF", p.MACAddress)
+	}
+}
+
+// TestCollect_MacAddressPertenceAInterfaceDoIPPrincipal garante que o MAC
+// devolvido é realmente o da MESMA interface que forneceu o IP principal —
+// não o de uma interface física qualquer da máquina. Comparação feita
+// consultando net.Interfaces() de novo (independente da varredura interna de
+// Collect()), como já fazem os testes de primaryIP().
+func TestCollect_MacAddressPertenceAInterfaceDoIPPrincipal(t *testing.T) {
+	p := coletaOuFalha(t)
+
+	if p.IP == "" {
+		t.Skip("nenhum IP principal resolvido neste ambiente")
+	}
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		t.Skipf("não foi possível enumerar interfaces neste ambiente: %v", err)
+	}
+
+	for _, iface := range ifaces {
+		addrs, _ := iface.Addrs()
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip4 := ip.To4(); ip4 != nil && ip4.String() == p.IP {
+				if got := iface.HardwareAddr.String(); got != p.MACAddress {
+					t.Errorf("Payload.MACAddress = %q; interface %q dona do IP %q tem MAC %q", p.MACAddress, iface.Name, p.IP, got)
+				}
+				return
+			}
+		}
+	}
+	t.Errorf("nenhuma interface encontrada com o IP %q reportado em Payload.IP", p.IP)
 }

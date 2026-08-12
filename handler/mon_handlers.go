@@ -182,6 +182,8 @@ type heartbeatReq struct {
 	Disks        json.RawMessage   `json:"disks"`
 	Interfaces   json.RawMessage   `json:"interfaces"`
 	Domain       string            `json:"domain"`
+	MACAddress   string            `json:"mac_address"`
+	DeviceType   string            `json:"device_type"`
 }
 
 func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +276,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	machineID, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser, req.CurrentUserSID, targetCompanyID)
+	machineID, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser, req.CurrentUserSID, targetCompanyID, req.DeviceType, req.MACAddress)
 	if err != nil {
 		fmt.Println("Erro UpsertMachine:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar máquina: %v", err)})

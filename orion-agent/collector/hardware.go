@@ -59,6 +59,13 @@ type Payload struct {
 	Domain       string             `json:"domain"`
 	CurrentUser  string             `json:"current_user"`
 	CurrentUserSID string           `json:"current_user_sid"`
+	MACAddress   string             `json:"mac_address"`
+	DeviceType   string             `json:"device_type"`
+	// AgentVersion não é preenchida aqui: Collect() só lê o estado do
+	// sistema, e a versão do binário é responsabilidade da camada de
+	// serviço (mesmo motivo de MachineToken ficar de fora — ver
+	// service/windows.go tick() e version.Version).
+	AgentVersion string `json:"agent_version"`
 }
 
 // diskRoot define qual o caminho raiz para medição de disco principal (C: no Windows).
@@ -89,29 +96,43 @@ func primaryIP() string {
 // primeiroIPv4NaoLoopback varre um snapshot já obtido de interfaces e devolve
 // o primeiro endereço IPv4 não-loopback de uma interface ativa. Extraída de
 // primaryIP para que Collect() possa reusar um único net.Interfaces().
+//
+// Delega para primeiroIPv4EMacNaoLoopback só para não duplicar o critério de
+// varredura em dois lugares — mantida como função própria porque
+// primaryIP() e os testes existentes (hardware_test.go) só precisam do IP.
 func primeiroIPv4NaoLoopback(ifaces []net.Interface) string {
+	ip, _ := primeiroIPv4EMacNaoLoopback(ifaces)
+	return ip
+}
+
+// primeiroIPv4EMacNaoLoopback varre um snapshot de interfaces e devolve, de
+// uma vez só, o primeiro IPv4 não-loopback ativo E o endereço MAC da
+// interface física que o carrega — evita uma segunda varredura de
+// net.Interfaces() só para descobrir o MAC "principal" (mesma preocupação
+// de custo documentada acima para o IP, ver primaryIP).
+func primeiroIPv4EMacNaoLoopback(ifaces []net.Interface) (ip, mac string) {
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}
 		addrs, _ := iface.Addrs()
 		for _, addr := range addrs {
-			var ip net.IP
+			var addrIP net.IP
 			switch v := addr.(type) {
 			case *net.IPNet:
-				ip = v.IP
+				addrIP = v.IP
 			case *net.IPAddr:
-				ip = v.IP
+				addrIP = v.IP
 			}
-			if ip == nil || ip.IsLoopback() {
+			if addrIP == nil || addrIP.IsLoopback() {
 				continue
 			}
-			if ip4 := ip.To4(); ip4 != nil {
-				return ip4.String()
+			if ip4 := addrIP.To4(); ip4 != nil {
+				return ip4.String(), iface.HardwareAddr.String()
 			}
 		}
 	}
-	return ""
+	return "", ""
 }
 
 // cpuModelUmaVez cacheia o modelo do processador (cpu.Info) — dado estático
@@ -256,10 +277,10 @@ func Collect() (*Payload, error) {
 	// chamadas separadas (aqui e dentro de primaryIP()), medidas em ~82 ms cada
 	// coleta. Ver primeiroIPv4NaoLoopback.
 	var interfaces []NetworkInterface
-	var ip string
+	var ip, macAddress string
 	ifaces, err := net.Interfaces()
 	if err == nil {
-		ip = primeiroIPv4NaoLoopback(ifaces)
+		ip, macAddress = primeiroIPv4EMacNaoLoopback(ifaces)
 		for _, iface := range ifaces {
 			if iface.Flags&net.FlagUp == 0 {
 				continue
@@ -311,6 +332,8 @@ func Collect() (*Payload, error) {
 		Domain:     domain,
 		CurrentUser: currentUser,
 		CurrentUserSID: currentUserSID,
+		MACAddress: macAddress,
+		DeviceType: tipoDoDispositivo(),
 	}, nil
 }
 
