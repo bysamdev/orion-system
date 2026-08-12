@@ -304,11 +304,11 @@ const Assets = () => {
                 <div className="p-2 bg-primary/10 rounded-xl">
                   <Laptop className="w-5 h-5 text-primary" />
                 </div>
-                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-black uppercase tracking-widest text-[10px]">
-                  Milvus Standard Inventory
+                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-semibold uppercase tracking-widest text-[10px]">
+                  INVENTÁRIO RMM
                 </Badge>
               </div>
-              <h1 className="text-3xl lg:text-4xl font-black tracking-tight text-foreground">
+              <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-foreground">
                 Inventário de Dispositivos
               </h1>
               <p className="text-sm text-muted-foreground font-medium">
@@ -394,9 +394,9 @@ const Assets = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Computador">Computador 💻</SelectItem>
-                            <SelectItem value="Notebook">Notebook 💻</SelectItem>
-                            <SelectItem value="Servidor">Servidor 🖥️</SelectItem>
+                            <SelectItem value="Computador">Computador</SelectItem>
+                            <SelectItem value="Notebook">Notebook</SelectItem>
+                            <SelectItem value="Servidor">Servidor</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -466,14 +466,14 @@ const Assets = () => {
             </div>
           </div>
 
-          {/* 1. Header Summary Cards (Milvus Style) */}
+          {/* 1. Header Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Total Dispositivos */}
             <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-all">
               <CardContent className="p-5 flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Total Dispositivos</p>
-                  <p className="text-3xl font-black text-foreground">{summaryStats?.totalDevices ?? 0}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Total Dispositivos</p>
+                  <p className="text-3xl font-bold text-foreground">{summaryStats?.totalDevices ?? 0}</p>
                 </div>
                 <div className="p-3 bg-primary/10 text-primary rounded-2xl group-hover:scale-110 transition-transform">
                   <HardDrive className="w-6 h-6" />
@@ -485,10 +485,10 @@ const Assets = () => {
             <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-emerald-500/40 transition-all">
               <CardContent className="p-5 flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Computadores 💻
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    Computadores
                   </p>
-                  <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{summaryStats?.desktopsCount ?? 0}</p>
+                  <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{summaryStats?.desktopsCount ?? 0}</p>
                 </div>
                 <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform">
                   <Monitor className="w-6 h-6" />
@@ -500,10 +500,10 @@ const Assets = () => {
             <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-sky-500/40 transition-all">
               <CardContent className="p-5 flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Notebooks 💻
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    Notebooks
                   </p>
-                  <p className="text-3xl font-black text-sky-600 dark:text-sky-400">{summaryStats?.notebooksCount ?? 0}</p>
+                  <p className="text-3xl font-bold text-sky-600 dark:text-sky-400">{summaryStats?.notebooksCount ?? 0}</p>
                 </div>
                 <div className="p-3 bg-sky-500/10 text-sky-600 rounded-2xl group-hover:scale-110 transition-transform">
                   <Laptop className="w-6 h-6" />
@@ -515,10 +515,10 @@ const Assets = () => {
             <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-indigo-500/40 transition-all">
               <CardContent className="p-5 flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Servidores 🖥️
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    Servidores
                   </p>
-                  <p className="text-3xl font-black text-indigo-600 dark:text-indigo-400">{summaryStats?.serversCount ?? 0}</p>
+                  <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{summaryStats?.serversCount ?? 0}</p>
                 </div>
                 <div className="p-3 bg-indigo-500/10 text-indigo-600 rounded-2xl group-hover:scale-110 transition-transform">
                   <ServerIcon className="w-6 h-6" />
@@ -529,8 +529,8 @@ const Assets = () => {
             {/* Status Breakdown (Online / Offline / Alerta) */}
             <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden">
               <CardContent className="p-4 flex flex-col justify-center space-y-2">
-                <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Status Atual</p>
-                <div className="flex items-center justify-between text-xs font-bold pt-0.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status Atual</p>
+                <div className="flex items-center justify-between text-xs font-semibold pt-0.5">
                   <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                     {summaryStats?.onlineCount ?? 0} Online
@@ -548,7 +548,7 @@ const Assets = () => {
             </Card>
           </div>
 
-          {/* 2. Filter Bar (Milvus Style) */}
+          {/* 2. Filter Bar */}
           <Card className="border-border/40 shadow-xl bg-card/60 backdrop-blur-md overflow-hidden">
             <CardHeader className="p-5 border-b border-border/40 bg-muted/20">
               <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
@@ -601,9 +601,9 @@ const Assets = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all" className="text-xs font-semibold">Todos os Tipos</SelectItem>
-                        <SelectItem value="Computador" className="text-xs">Computador 💻</SelectItem>
-                        <SelectItem value="Notebook" className="text-xs">Notebook 💻</SelectItem>
-                        <SelectItem value="Servidor" className="text-xs">Servidor 🖥️</SelectItem>
+                        <SelectItem value="Computador" className="text-xs">Computador</SelectItem>
+                        <SelectItem value="Notebook" className="text-xs">Notebook</SelectItem>
+                        <SelectItem value="Servidor" className="text-xs">Servidor</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -617,9 +617,9 @@ const Assets = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all" className="text-xs font-semibold">Todos os Status</SelectItem>
-                        <SelectItem value="online" className="text-xs font-bold text-emerald-600">Online 🟢</SelectItem>
-                        <SelectItem value="offline" className="text-xs font-bold text-rose-600">Offline 🔴</SelectItem>
-                        <SelectItem value="alerta" className="text-xs font-bold text-amber-600">Alerta ⚠️</SelectItem>
+                        <SelectItem value="online" className="text-xs font-semibold text-emerald-600">Online</SelectItem>
+                        <SelectItem value="offline" className="text-xs font-semibold text-rose-600">Offline</SelectItem>
+                        <SelectItem value="alerta" className="text-xs font-semibold text-amber-600">Alerta</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -638,18 +638,18 @@ const Assets = () => {
               </div>
             </CardHeader>
 
-            {/* 3. Table matching Milvus Columns */}
+            {/* 3. Table Columns */}
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow className="hover:bg-transparent border-border/40">
-                    <TableHead className="w-[180px] pl-6 text-[10px] font-black uppercase tracking-wider">Status / Tipo</TableHead>
-                    <TableHead className="w-[180px] text-[10px] font-black uppercase tracking-wider">Cliente</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-wider">Geral (Informações Técnicas)</TableHead>
-                    <TableHead className="w-[110px] text-center text-[10px] font-black uppercase tracking-wider">Alertas</TableHead>
-                    <TableHead className="w-[120px] text-center text-[10px] font-black uppercase tracking-wider">Chamados (Tkts)</TableHead>
-                    <TableHead className="w-[160px] text-[10px] font-black uppercase tracking-wider">Última Atualização</TableHead>
-                    <TableHead className="w-[160px] text-right pr-6 text-[10px] font-black uppercase tracking-wider">Ações Rápidas</TableHead>
+                    <TableHead className="w-[160px] text-center text-[10px] font-semibold uppercase tracking-wider">Status / Tipo</TableHead>
+                    <TableHead className="w-[180px] text-center text-[10px] font-semibold uppercase tracking-wider">Cliente</TableHead>
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider">Geral (Informações Técnicas)</TableHead>
+                    <TableHead className="w-[110px] text-center text-[10px] font-semibold uppercase tracking-wider">Alertas</TableHead>
+                    <TableHead className="w-[120px] text-center text-[10px] font-semibold uppercase tracking-wider">Chamados (Tkts)</TableHead>
+                    <TableHead className="w-[160px] text-center text-[10px] font-semibold uppercase tracking-wider">Última Atualização</TableHead>
+                    <TableHead className="w-[160px] text-center text-[10px] font-semibold uppercase tracking-wider">Ações Rápidas</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -660,9 +660,9 @@ const Assets = () => {
                       <TableRow key={device.id} className="group hover:bg-primary/5 transition-colors border-border/40">
                         
                         {/* 1. Status / Tipo */}
-                        <TableCell className="pl-6 py-4 vertical-top">
-                          <div className="flex items-center gap-3">
-                            <div className="relative p-2.5 bg-background border border-border/60 rounded-xl group-hover:scale-105 transition-transform shadow-sm">
+                        <TableCell className="py-4 text-center align-middle">
+                          <div className="flex items-center justify-center gap-3">
+                            <div className="relative p-2.5 bg-background border border-border/60 rounded-xl group-hover:scale-105 transition-transform shadow-sm flex-shrink-0">
                               <DeviceIcon className="w-5 h-5 text-primary" />
                               {/* Online / Offline status dot */}
                               <span 
@@ -674,11 +674,11 @@ const Assets = () => {
                                 )} 
                               />
                             </div>
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col items-start gap-1">
                               <Badge 
                                 variant="secondary" 
                                 className={cn(
-                                  "text-[10px] font-bold px-2 py-0.5 rounded-md border w-fit uppercase tracking-tighter",
+                                  "text-[10px] font-semibold px-2 py-0.5 rounded-md border w-fit uppercase tracking-tighter",
                                   device.device_type === 'Servidor' && "bg-indigo-500/10 text-indigo-600 border-indigo-500/30",
                                   device.device_type === 'Notebook' && "bg-sky-500/10 text-sky-600 border-sky-500/30",
                                   device.device_type === 'Computador' && "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
@@ -686,29 +686,29 @@ const Assets = () => {
                               >
                                 {device.device_type}
                               </Badge>
-                              <span className="text-[10px] font-semibold text-muted-foreground capitalize flex items-center gap-1">
-                                {device.status === 'online' && <span className="text-emerald-500 font-bold">● Online</span>}
-                                {device.status === 'offline' && <span className="text-rose-500 font-bold">● Offline</span>}
-                                {device.status === 'alerta' && <span className="text-amber-500 font-bold">⚠️ Alerta</span>}
+                              <span className="text-[10px] font-medium text-muted-foreground capitalize">
+                                {device.status === 'online' && <span className="text-emerald-600 dark:text-emerald-400 font-medium">Online</span>}
+                                {device.status === 'offline' && <span className="text-rose-600 dark:text-rose-400 font-medium">Offline</span>}
+                                {device.status === 'alerta' && <span className="text-amber-600 dark:text-amber-400 font-medium">Alerta</span>}
                               </span>
                             </div>
                           </div>
                         </TableCell>
 
                         {/* 2. Cliente */}
-                        <TableCell className="vertical-top py-4">
-                          <div className="flex items-center gap-2">
+                        <TableCell className="py-4 text-center align-middle">
+                          <div className="flex items-center justify-center gap-2">
                             <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                            <span className="text-xs font-bold text-foreground line-clamp-2">
+                            <span className="text-xs font-semibold text-foreground line-clamp-2">
                               {device.company_name}
                             </span>
                           </div>
                         </TableCell>
 
                         {/* 3. Geral (Hostname, IP local, MAC, Logged user, OS) */}
-                        <TableCell className="py-4">
+                        <TableCell className="py-4 align-middle">
                           <div className="flex flex-col space-y-1.5">
-                            {/* Hostname bold link */}
+                            {/* Hostname link */}
                             <button
                               onClick={() => {
                                 if (device.raw_machine) {
@@ -717,7 +717,7 @@ const Assets = () => {
                                   setTerminalDevice(device);
                                 }
                               }}
-                              className="text-sm font-black text-primary hover:underline flex items-center gap-1.5 w-fit group/btn"
+                              className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5 w-fit group/btn"
                             >
                               <span>{device.hostname}</span>
                               <ExternalLink className="w-3 h-3 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
@@ -727,75 +727,79 @@ const Assets = () => {
                               {/* IP Local */}
                               <div className="flex items-center gap-1.5" title="IP Local">
                                 <Globe className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span className="font-mono">{device.ip_address || '192.168.1.100'}</span>
+                                <span className="font-mono">{device.ip_address || device.local_ip || '—'}</span>
                               </div>
 
                               {/* MAC Address */}
                               <div className="flex items-center gap-1.5" title="MAC Address">
                                 <Network className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span className="font-mono text-[10px]">{device.mac_address || '00:1A:2B:3C:4D:5E'}</span>
+                                <span className="font-mono text-[10px]">{device.mac_address || '—'}</span>
                               </div>
 
                               {/* Logged-in User */}
                               <div className="flex items-center gap-1.5" title="Usuário Logado">
                                 <User className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span>{device.logged_user || 'suporte.ti'}</span>
+                                <span>{device.logged_user || device.logged_in_user || '—'}</span>
                               </div>
 
                               {/* Operating System */}
                               <div className="flex items-center gap-1.5" title="Sistema Operacional">
                                 <Cpu className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span className="truncate">{device.os || 'Windows 11 Pro'}</span>
+                                <span className="truncate">{device.os || '—'}</span>
                               </div>
                             </div>
                           </div>
                         </TableCell>
 
                         {/* 4. Alertas */}
-                        <TableCell className="text-center vertical-top py-4">
-                          {device.alerts_count > 0 ? (
-                            <Badge 
-                              variant="destructive" 
-                              className="bg-rose-500/10 text-rose-600 border border-rose-500/30 font-extrabold text-[11px] px-2.5 py-1 gap-1"
-                            >
-                              <AlertTriangle className="w-3.5 h-3.5 animate-bounce text-rose-500" />
-                              {device.alerts_count} {device.alerts_count === 1 ? 'Alerta' : 'Alertas'}
-                            </Badge>
-                          ) : (
-                            <Badge 
-                              variant="outline" 
-                              className="bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold text-[11px] px-2 py-0.5"
-                            >
-                              0 Alertas
-                            </Badge>
-                          )}
+                        <TableCell className="py-4 text-center align-middle">
+                          <div className="flex justify-center">
+                            {device.alerts_count > 0 ? (
+                              <Badge 
+                                variant="destructive" 
+                                className="bg-rose-500/10 text-rose-600 border border-rose-500/30 font-semibold text-[11px] px-2.5 py-1 gap-1"
+                              >
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                                {device.alerts_count} {device.alerts_count === 1 ? 'Alerta' : 'Alertas'}
+                              </Badge>
+                            ) : (
+                              <Badge 
+                                variant="outline" 
+                                className="bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-medium text-[11px] px-2 py-0.5"
+                              >
+                                0 Alertas
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
 
                         {/* 5. Chamados (Tkts) */}
-                        <TableCell className="text-center vertical-top py-4">
-                          <button 
-                            onClick={() => setHistoryDevice(device)}
-                            className="inline-flex items-center gap-1 hover:scale-105 transition-transform"
-                          >
-                            <Badge 
-                              variant="secondary" 
-                              className={cn(
-                                "font-bold text-[11px] px-2.5 py-1 gap-1 cursor-pointer transition-colors border",
-                                device.tickets_count > 0 
-                                  ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20" 
-                                  : "bg-muted/40 text-muted-foreground border-border/40"
-                              )}
+                        <TableCell className="py-4 text-center align-middle">
+                          <div className="flex justify-center">
+                            <button 
+                              onClick={() => setHistoryDevice(device)}
+                              className="inline-flex items-center justify-center gap-1 hover:scale-105 transition-transform"
                             >
-                              <Ticket className="w-3.5 h-3.5" />
-                              {device.tickets_count} {device.tickets_count === 1 ? 'Tkt' : 'Tkts'}
-                            </Badge>
-                          </button>
+                              <Badge 
+                                variant="secondary" 
+                                className={cn(
+                                  "font-semibold text-[11px] px-2.5 py-1 gap-1 cursor-pointer transition-colors border",
+                                  device.tickets_count > 0 
+                                    ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20" 
+                                    : "bg-muted/40 text-muted-foreground border-border/40"
+                                )}
+                              >
+                                <Ticket className="w-3.5 h-3.5" />
+                                {device.tickets_count} {device.tickets_count === 1 ? 'Tkt' : 'Tkts'}
+                              </Badge>
+                            </button>
+                          </div>
                         </TableCell>
 
                         {/* 6. Última Atualização */}
-                        <TableCell className="vertical-top py-4">
-                          <div className="flex flex-col text-xs space-y-0.5">
-                            <span className="font-semibold text-foreground flex items-center gap-1">
+                        <TableCell className="py-4 text-center align-middle">
+                          <div className="flex flex-col items-center justify-center text-xs space-y-0.5">
+                            <span className="font-semibold text-foreground flex items-center justify-center gap-1">
                               <Clock className="w-3 h-3 text-muted-foreground" />
                               {formatDate(device.last_seen, "dd/MM/yyyy HH:mm")}
                             </span>
@@ -806,8 +810,8 @@ const Assets = () => {
                         </TableCell>
 
                         {/* 7. Ações Rápidas (Terminal, Force Refresh, Ticket History, Edit/Delete) */}
-                        <TableCell className="text-right pr-6 vertical-top py-4">
-                          <div className="flex items-center justify-end gap-1.5">
+                        <TableCell className="py-4 text-center align-middle">
+                          <div className="flex items-center justify-center gap-1.5">
                             
                             {/* Button Terminal RMM */}
                             <Tooltip>
@@ -938,7 +942,7 @@ const Assets = () => {
                     <Terminal className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
-                    <DialogTitle className="text-xl font-black flex items-center gap-2">
+                    <DialogTitle className="text-xl font-bold flex items-center gap-2">
                       Terminal RMM — {terminalDevice?.hostname}
                     </DialogTitle>
                     <DialogDescription className="text-xs">
@@ -973,7 +977,7 @@ const Assets = () => {
                     <History className="w-5 h-5 text-sky-600 dark:text-sky-400" />
                   </div>
                   <div>
-                    <DialogTitle className="text-xl font-black">
+                    <DialogTitle className="text-xl font-bold">
                       Chamados do Dispositivo: {historyDevice?.hostname}
                     </DialogTitle>
                     <DialogDescription className="text-xs">
