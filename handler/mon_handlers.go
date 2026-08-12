@@ -311,13 +311,44 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = user
+	// RequireUserRole: apenas admin, developer e technician podem enviar comandos remotos.
+	userRole, err := db.RoleByUserID(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível verificar permissões do usuário"})
+		return
+	}
+	if userRole != "admin" && userRole != "technician" && userRole != "developer" {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem enviar comandos remotos"})
+		return
+	}
+
 	machineID := chi.URLParam(r, "id")
+	machine, err := db.MachineByID(ctx, machineID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Máquina não encontrada"})
+		return
+	}
+
+	// ValidateMachineTenancy: non-admin deve pertencer à mesma empresa da máquina.
+	if userRole != "admin" {
+		userCompanyIDPtr, _ := db.CompanyByUserID(ctx, user.ID)
+		if machine.CompanyID == nil || userCompanyIDPtr == nil || *machine.CompanyID != *userCompanyIDPtr {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+			return
+		}
+	}
+
 	var req struct {
 		Command string `json:"command"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "corpo inválido"})
+		return
+	}
+
+	// Validação mínima: command não pode ser vazio
+	if req.Command == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "campo 'command' é obrigatório"})
 		return
 	}
 

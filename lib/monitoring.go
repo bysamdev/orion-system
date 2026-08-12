@@ -21,6 +21,7 @@ type MachineGroupRow struct {
 type MachineRow struct {
 	ID           string     `json:"id"`
 	GroupID      *string    `json:"group_id"`
+	CompanyID    *string    `json:"company_id"`
 	Hostname     string     `json:"hostname"`
 	IPAddress    *string    `json:"ip_address"`
 	OS           *string    `json:"os"`
@@ -165,10 +166,10 @@ WHERE mg.name = (SELECT name FROM public.machine_groups WHERE id = $1) ORDER BY 
 func (d *DB) MachineByID(ctx context.Context, id string) (*MachineRow, error) {
 	var r MachineRow
 	err := d.pool.QueryRow(ctx, `
-SELECT id::text, group_id::text, hostname, ip_address, os, os_version,
+SELECT id::text, group_id::text, company_id::text, hostname, ip_address, os, os_version,
        status, last_seen, agent_version, created_at
 FROM public.machines WHERE id = $1`, id).Scan(
-		&r.ID, &r.GroupID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
+		&r.ID, &r.GroupID, &r.CompanyID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
 		&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt)
 	if err != nil {
 		return nil, err
