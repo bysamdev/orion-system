@@ -553,7 +553,7 @@ const NewTicket = () => {
                         <h4 className="text-sm font-bold">Acesso Remoto (Opcional)</h4>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input placeholder="ID (AnyDesk/TeamViewer)" value={remoteId} onChange={(e) => setRemoteId(e.target.value)} className="bg-background border-border/40" />
+                        <Input placeholder="ID (TeamViewer / AnyDesk)" value={remoteId} onChange={(e) => setRemoteId(e.target.value)} className="bg-background border-border/40" />
                         <Input placeholder="Senha temporária" value={remotePassword} onChange={(e) => setRemotePassword(e.target.value)} className="bg-background border-border/40" />
                       </div>
                     </section>

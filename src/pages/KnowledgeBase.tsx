@@ -1,21 +1,26 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, Book, ChevronRight, Hash, Clock, ArrowRight, Sparkles, Plus, Edit2, Trash2, Ticket, Monitor, Heart, HelpCircle, ExternalLink } from 'lucide-react';
+import { 
+  Search, Book, ChevronRight, Hash, Clock, ArrowRight, Sparkles, Plus, Edit2, Trash2, 
+  Ticket, Monitor, HelpCircle, ExternalLink, Printer, Wifi, Laptop, Mail, ShieldAlert, CheckCircle2,
+  AlertTriangle, Copy, FileText, ArrowUpRight
+} from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
+import { ArticleMarkdownRenderer } from '@/components/knowledge/ArticleMarkdownRenderer';
 
 interface Article {
   id: string;
@@ -30,9 +35,20 @@ interface Article {
   created_at: string;
 }
 
+const CATEGORIES_LIST = [
+  { name: 'Primeiros Passos', icon: Sparkles, color: 'text-blue-500 bg-blue-500/10 border-blue-500/20' },
+  { name: 'Abrir Chamado', icon: Ticket, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
+  { name: 'Acesso Remoto', icon: Monitor, color: 'text-purple-500 bg-purple-500/10 border-purple-500/20' },
+  { name: 'Impressoras', icon: Printer, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
+  { name: 'Rede & Internet', icon: Wifi, color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20' },
+  { name: 'Windows & Sistema', icon: Laptop, color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/20' },
+  { name: 'E-mail & Comunicação', icon: Mail, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20' },
+];
+
 export default function KnowledgeBase() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [readingArticle, setReadingArticle] = useState<Article | null>(null);
   const { data: role } = useUserRole();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -146,8 +162,6 @@ export default function KnowledgeBase() {
     }
   };
 
-  const uniqueCategories = Array.from(new Set(articles?.map(a => a.category) || []));
-
   const filteredArticles = articles?.filter(a => {
     const matchesSearch = a.title.toLowerCase().includes(search.toLowerCase()) || 
                          a.content.toLowerCase().includes(search.toLowerCase());
@@ -158,72 +172,80 @@ export default function KnowledgeBase() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Hero Section */}
-        <div className="relative overflow-hidden bg-primary/5 border-b border-border/50 py-20 px-8">
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full -mr-64 -mt-64 blur-3xl animate-pulse" />
-          <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-secondary/5 rounded-full -ml-32 -mb-32 blur-3xl" />
+        
+        {/* HERO SECTION */}
+        <div className="relative overflow-hidden bg-gradient-to-b from-primary/10 via-primary/5 to-background border-b border-border/40 py-16 px-6 lg:px-12">
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full -mr-64 -mt-64 blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-blue-500/10 rounded-full -ml-32 -mb-32 blur-3xl" />
           
-          <div className="max-w-4xl mx-auto space-y-8 relative z-10 text-center">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Centro de Ajuda Inteligente</span>
-              </div>
-              <h1 className="text-5xl font-black tracking-tighter text-foreground md:text-6xl">
-                Base de Conhecimento <span className="text-primary">& Manual</span>
-              </h1>
-              <p className="text-muted-foreground text-xl font-medium max-w-2xl mx-auto">
-                Explore artigos técnicos, tutoriais rápidos e soluções testadas para acelerar o seu suporte.
-              </p>
+          <div className="max-w-4xl mx-auto space-y-6 relative z-10 text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/15 rounded-full border border-primary/20 backdrop-blur-sm">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Centro de Ajuda Orion System</span>
             </div>
+
+            <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl">
+              Como podemos <span className="text-primary">ajudar você hoje?</span>
+            </h1>
             
-            <div className="relative group max-w-2xl mx-auto">
-              <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none transition-colors group-focus-within:text-primary">
-                <Search className="w-6 h-6 text-muted-foreground/50" />
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Pesquise dúvidas frequentes, siga os guias passo a passo ou aprenda a permitir o acesso remoto do suporte.
+            </p>
+            
+            {/* BUSCA DESTAQUE */}
+            <div className="relative group max-w-2xl mx-auto pt-2">
+              <div className="absolute inset-y-0 left-5 top-2 flex items-center pointer-events-none transition-colors group-focus-within:text-primary">
+                <Search className="w-6 h-6 text-muted-foreground" />
               </div>
               <Input 
-                placeholder="Qual problema você está enfrentando?" 
-                className="h-20 pl-16 pr-6 bg-background border-border/40 shadow-2xl shadow-primary/10 rounded-3xl text-xl focus-visible:ring-primary/20 transition-all placeholder:text-muted-foreground/40"
+                placeholder="Digite sua dúvida (ex: TeamViewer, impressora, abrir chamado)..." 
+                className="h-16 pl-14 pr-6 bg-card/90 border-border/60 shadow-xl rounded-2xl text-lg focus-visible:ring-primary/30 transition-all placeholder:text-muted-foreground/60"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
-            <div className="flex flex-wrap justify-center items-center gap-3">
+            {/* SELETOR DE CATEGORIAS */}
+            <div className="flex flex-wrap justify-center items-center gap-2 pt-4">
               <Button 
                 variant={selectedCategory === null ? "default" : "outline"}
                 size="sm"
                 className={cn(
-                  "rounded-full px-6 h-10 font-bold text-xs uppercase tracking-widest transition-all",
-                  selectedCategory === null && "shadow-lg shadow-primary/20"
+                  "rounded-full px-5 h-9 font-semibold text-xs transition-all",
+                  selectedCategory === null && "shadow-md shadow-primary/20"
                 )}
                 onClick={() => setSelectedCategory(null)}
               >
-                Todos
+                Todas as Categorias
               </Button>
-              {uniqueCategories.map(cat => (
-                <Button 
-                  key={cat}
-                  variant={selectedCategory === cat ? "default" : "outline"}
-                  size="sm"
-                  className={cn(
-                    "rounded-full px-6 h-10 font-bold text-xs uppercase tracking-widest transition-all",
-                    selectedCategory === cat && "shadow-lg shadow-primary/20"
-                  )}
-                  onClick={() => setSelectedCategory(cat)}
-                >
-                  {cat}
-                </Button>
-              ))}
+              {CATEGORIES_LIST.map(cat => {
+                const IconComponent = cat.icon;
+                const isSelected = selectedCategory === cat.name;
+                return (
+                  <Button 
+                    key={cat.name}
+                    variant={isSelected ? "default" : "outline"}
+                    size="sm"
+                    className={cn(
+                      "rounded-full px-4 h-9 font-medium text-xs gap-1.5 transition-all",
+                      isSelected && "shadow-md shadow-primary/20"
+                    )}
+                    onClick={() => setSelectedCategory(isSelected ? null : cat.name)}
+                  >
+                    <IconComponent className="w-3.5 h-3.5" />
+                    {cat.name}
+                  </Button>
+                );
+              })}
 
               {isAdmin && (
-                <div className="pl-4 ml-4 border-l border-border/40">
+                <div className="pl-3 ml-3 border-l border-border/50">
                   <Button 
                     onClick={() => {
                       setEditingArticle({ status: 'draft', is_public: true });
                       setIsEditorOpen(true);
                     }}
-                    className="rounded-full px-6 h-10 font-bold text-xs uppercase tracking-widest gap-2"
+                    className="rounded-full px-5 h-9 font-semibold text-xs gap-2"
                   >
                     <Plus className="w-4 h-4" /> Novo Artigo
                   </Button>
@@ -233,189 +255,238 @@ export default function KnowledgeBase() {
           </div>
         </div>
 
-        {/* Quick Guides Section (Merged from User Guide) */}
+        {/* BANNER / CARDS DE DESTAQUE FIXOS (TEAMVIEWER + ABRIR CHAMADO) */}
         {!search && !selectedCategory && (
-          <div className="bg-muted/10 border-b border-border/40 py-12 px-8">
-            <div className="max-w-6xl mx-auto space-y-12">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="border-border/40 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all group">
-                  <CardContent className="p-8 space-y-6">
-                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Ticket className="w-6 h-6 text-primary" />
-                    </div>
-                    <div className="space-y-3">
-                      <h3 className="text-xl font-bold">Como abrir um chamado</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Clique no botão '+ Novo Ticket' no topo da página. Siga o assistente de 3 passos para descrever o problema. Nosso time será notificado.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-border/40 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all group">
-                  <CardContent className="p-8 space-y-6">
-                    <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Monitor className="w-6 h-6 text-orange-500" />
-                    </div>
-                    <div className="space-y-3">
-                      <h3 className="text-xl font-bold">Suporte Remoto (AnyDesk)</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Pediremos seu ID do AnyDesk para acessar seu computador. É o número de 9 dígitos exibido em 'Este Dispositivo'.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-border/40 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all group">
-                  <CardContent className="p-8 space-y-6">
-                    <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Book className="w-6 h-6 text-purple-500" />
-                    </div>
-                    <div className="space-y-3">
-                      <h3 className="text-xl font-bold">Acompanhamento</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Você receberá notificações por e-mail e no portal. Você pode responder diretamente pelo portal para agilizar.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+          <div className="bg-muted/20 border-b border-border/40 py-10 px-6 lg:px-12">
+            <div className="max-w-6xl mx-auto space-y-8">
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight">Guia Rápido & Principais Tutoriais</h2>
+                  <p className="text-sm text-muted-foreground">Acesso direto aos recursos mais utilizados do suporte.</p>
+                </div>
               </div>
 
-              {/* AnyDesk Tutorial */}
-              <section className="bg-primary/5 border border-primary/10 rounded-[32px] p-8 lg:p-12 overflow-hidden relative group">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[100px] -mr-32 -mt-32 transition-opacity group-hover:opacity-100 opacity-50" />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
-                  <div className="space-y-8">
-                    <div className="space-y-4">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-lg">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                        </span>
-                        <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Tutorial Detalhado</span>
-                      </div>
-                      <h2 className="text-3xl font-black tracking-tight">Como funciona o Suporte Remoto?</h2>
-                      <p className="text-muted-foreground leading-relaxed">
-                        Para resolver problemas complexos, nosso técnico pode solicitar acesso remoto à sua estação de trabalho. Utilizamos o <strong>AnyDesk</strong> pela sua segurança e velocidade.
+                {/* CARD 1 DESTAQUE: COMO ABRIR UM CHAMADO */}
+                <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-card to-card hover:border-emerald-500/40 transition-all shadow-md group relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <Ticket className="w-24 h-24 text-emerald-500" />
+                  </div>
+                  
+                  <CardContent className="p-6 space-y-4 relative z-10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/15 rounded-full border border-emerald-500/30">
+                      <Ticket className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Passo a Passo</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-bold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                        Como abrir um chamado
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Aprenda a solicitar atendimento técnico rápido e acompanhar a resolução do seu chamado no Orion System.
                       </p>
                     </div>
 
-                    <div className="space-y-4">
-                      {[
-                        "Abra o AnyDesk (ícone vermelho na sua área de trabalho)",
-                        "Localize o campo 'Este Dispositivo' no canto superior esquerdo",
-                        " Informe o código de 9 dígitos ao técnico responsável",
-                        "Clique em 'Aceitar' quando o pop-up de conexão aparecer"
-                      ].map((step, i) => (
-                        <div key={i} className="flex items-start gap-4">
-                          <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-black shrink-0 mt-1">
-                            {i + 1}
-                          </div>
-                          <p className="text-sm font-medium text-foreground">{step}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="hidden lg:block">
-                    <div className="bg-background/80 backdrop-blur-xl border border-border/40 rounded-3xl p-8 shadow-2xl space-y-6 max-w-sm mx-auto transform hover:-rotate-2 transition-transform cursor-default">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-red-500 rounded-lg" />
-                          <span className="font-bold text-sm">AnyDesk</span>
-                        </div>
-                        <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                    <div className="space-y-2 pt-2 border-t border-border/40 text-xs text-foreground/80">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span>Clique no botão <strong>+ Novo Ticket</strong> no menu topo.</span>
                       </div>
-                      
-                      <div className="space-y-2 py-4 border-y border-border/20">
-                        <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Este Dispositivo</p>
-                        <p className="text-3xl font-black text-foreground tracking-widest">392 108 554</p>
-                      </div>
-                      
-                      <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground italic">
-                        <span>Pronto para conexões</span>
-                        <ExternalLink className="w-3 h-3" />
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span>Descreva o problema e anexe prints se houver.</span>
                       </div>
                     </div>
+                  </CardContent>
+
+                  <div className="p-6 pt-0 relative z-10">
+                    <Button 
+                      variant="outline"
+                      className="w-full justify-between font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 group-hover:border-emerald-500/60"
+                      onClick={() => setSearch('abrir chamado')}
+                    >
+                      Ver tutorial completo <ArrowRight className="w-4 h-4" />
+                    </Button>
                   </div>
-                </div>
-              </section>
+                </Card>
+
+                {/* CARD 2 DESTAQUE PRINCIPAL: ACESSO REMOTO VIA TEAMVIEWER */}
+                <Card className="border-blue-500/30 bg-gradient-to-br from-blue-500/15 via-card to-card hover:border-blue-500/60 transition-all shadow-md group relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <Monitor className="w-24 h-24 text-blue-500" />
+                  </div>
+
+                  <CardContent className="p-6 space-y-4 relative z-10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/15 rounded-full border border-blue-500/30">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                      </span>
+                      <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Padrão Corporativo</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-bold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        Acesso Remoto (TeamViewer)
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Ferramenta oficial para o suporte técnico acessar seu computador com segurança e resolver seu problema.
+                      </p>
+                    </div>
+
+                    <div className="bg-background/80 backdrop-blur-md rounded-xl p-3.5 border border-border/50 space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground font-medium">Instrução Rápida:</span>
+                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-none font-bold">Obrigatório</Badge>
+                      </div>
+                      <p className="text-xs text-foreground/90 font-medium">
+                        Abra o <strong>TeamViewer</strong> pré-instalado na sua máquina e forneça seu <strong>ID</strong> e <strong>Senha</strong> ao técnico no chamado.
+                      </p>
+                    </div>
+                  </CardContent>
+
+                  <div className="p-6 pt-0 relative z-10">
+                    <Button 
+                      className="w-full justify-between font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20"
+                      onClick={() => setSearch('TeamViewer')}
+                    >
+                      Como liberar acesso TeamViewer <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </Card>
+
+                {/* CARD 3 SECUNDÁRIO / CONTINGÊNCIA: ANYDESK */}
+                <Card className="border-amber-500/20 bg-card/60 hover:border-amber-500/40 transition-all shadow-sm group relative overflow-hidden flex flex-col justify-between">
+                  <CardContent className="p-6 space-y-4">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/15 rounded-full border border-amber-500/30">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Opção de Contingência</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-bold text-foreground">
+                        Acesso Alternativo (AnyDesk)
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Utilize o AnyDesk caso o TeamViewer não esteja instalado ou apresente bloqueios na sua rede corporativa.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-border/40 text-xs text-muted-foreground">
+                      <p>
+                        Abra o AnyDesk e passe o <strong>Endereço de 9 dígitos</strong> exibido na tela inicial para o suporte.
+                      </p>
+                    </div>
+                  </CardContent>
+
+                  <div className="p-6 pt-0">
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-between font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                      onClick={() => setSearch('AnyDesk')}
+                    >
+                      Ver tutorial AnyDesk <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </Card>
+
+              </div>
             </div>
           </div>
         )}
 
-        {/* Results Section */}
-        <div className="flex-1 p-8 lg:p-12 overflow-y-auto">
-          <div className="max-w-6xl mx-auto">
+        {/* LISTA DE ARTIGOS DA BASE DE CONHECIMENTO */}
+        <div className="flex-1 p-6 lg:p-12 overflow-y-auto">
+          <div className="max-w-6xl mx-auto space-y-6">
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">
+                  {selectedCategory ? `Artigos da Categoria: ${selectedCategory}` : search ? `Resultados da busca: "${search}"` : 'Todos os Artigos Disponíveis'}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {filteredArticles?.length || 0} artigo(s) encontrado(s)
+                </p>
+              </div>
+            </div>
+
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[1, 2, 3, 4, 5, 6].map(i => (
-                  <Card key={i} className="h-64 animate-pulse bg-muted/30 rounded-3xl border-none" />
+                  <Card key={i} className="h-60 animate-pulse bg-muted/30 rounded-2xl border-none" />
                 ))}
               </div>
             ) : filteredArticles?.length === 0 ? (
-              <div className="text-center py-32 bg-muted/5 rounded-[40px] border-2 border-dashed border-border/40">
-                <div className="w-20 h-20 bg-background rounded-3xl flex items-center justify-center mx-auto mb-6 border border-border/40 shadow-xl">
-                  <Book className="w-10 h-10 text-muted-foreground/30" />
+              <div className="text-center py-20 bg-muted/10 rounded-3xl border-2 border-dashed border-border/40 space-y-4">
+                <div className="w-16 h-16 bg-background rounded-2xl flex items-center justify-center mx-auto border border-border/40 shadow-sm">
+                  <Book className="w-8 h-8 text-muted-foreground/40" />
                 </div>
-                <h3 className="text-2xl font-black">Nenhum artigo encontrado</h3>
-                <p className="text-muted-foreground text-lg">Tente buscar por termos diferentes ou navegue por outra categoria.</p>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold">Nenhum artigo encontrado</h3>
+                  <p className="text-muted-foreground text-sm">Tente pesquisar com outros termos ou selecione outra categoria acima.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => { setSearch(''); setSelectedCategory(null); }}>
+                  Limpar Filtros
+                </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredArticles?.map(article => (
-                  <Card key={article.id} className="group p-0 border-border/40 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 cursor-pointer rounded-[32px] bg-card/50 backdrop-blur-md relative overflow-hidden flex flex-col h-full">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 transition-transform duration-700 group-hover:scale-[3] opacity-50 pointer-events-none" />
-                    
-                    <CardContent className="p-8 relative flex-1 flex flex-col gap-6">
+                  <Card 
+                    key={article.id} 
+                    className="group border-border/50 hover:border-primary/50 hover:shadow-xl transition-all duration-300 cursor-pointer rounded-2xl bg-card relative overflow-hidden flex flex-col justify-between"
+                    onClick={() => setReadingArticle(article)}
+                  >
+                    <CardContent className="p-6 space-y-4">
                       <div className="flex items-center justify-between">
-                        <Badge variant="outline" className={cn(
-                          "px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg",
-                          article.status === 'draft' ? "bg-secondary/5 text-secondary border-secondary/20" : "bg-primary/5 text-primary border-primary/20"
-                        )}>
-                          {article.status === 'draft' ? 'Rascunho' : article.category}
+                        <Badge variant="secondary" className="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                          {article.category}
                         </Badge>
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground/60">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Clock className="w-3.5 h-3.5" />
-                          <span>{formatDate(article.created_at, "dd MMM, yy", { locale: ptBR })}</span>
+                          <span>{formatDate(article.created_at, "dd/MM/yyyy", { locale: ptBR })}</span>
                         </div>
                       </div>
                       
-                      <div className="space-y-3 flex-1">
-                        <h2 className="text-2xl font-black text-foreground group-hover:text-primary transition-colors leading-[1.1] tracking-tight">
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors leading-snug">
                           {article.title}
-                        </h2>
-                        <p className="text-sm text-muted-foreground/80 line-clamp-3 leading-relaxed font-medium">
+                        </h3>
+                        <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
                           {article.content.replace(/[#*`]/g, '')}
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap gap-2 py-4 border-t border-border/40 mt-auto">
-                        {article.tags?.slice(0, 3).map(tag => (
-                          <span key={tag} className="inline-flex items-center gap-1 text-[10px] bg-background/50 border border-border/40 px-2 py-1 rounded-md text-muted-foreground/70 font-bold uppercase tracking-tighter">
-                            <Hash className="w-2.5 h-2.5 opacity-40" />
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center justify-between mt-auto">
-                        <div className="flex items-center gap-2 text-primary font-black text-xs uppercase tracking-widest group-hover:translate-x-2 transition-transform duration-500">
-                          Ler artigo <ArrowRight className="w-4 h-4" />
+                      {article.tags && article.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-2">
+                          {article.tags.slice(0, 3).map(tag => (
+                            <span key={tag} className="text-[10px] bg-muted/60 px-2 py-0.5 rounded-md text-muted-foreground font-medium">
+                              #{tag}
+                            </span>
+                          ))}
                         </div>
-                        {isAdmin && (
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(article)} className="h-8 w-8 text-muted-foreground hover:text-primary">
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDelete(article.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </CardContent>
+
+                    <div className="px-6 pb-6 pt-2 flex items-center justify-between border-t border-border/30 mt-auto">
+                      <span className="text-xs font-semibold text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        Ler artigo completo <ChevronRight className="w-4 h-4" />
+                      </span>
+
+                      {isAdmin && (
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(article)} className="h-8 w-8 text-muted-foreground hover:text-primary">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(article.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </Card>
                 ))}
               </div>
@@ -423,20 +494,51 @@ export default function KnowledgeBase() {
           </div>
         </div>
 
-        {/* Editor Dialog */}
+        {/* MODAL DE LEITURA DO ARTIGO */}
+        <Dialog open={!!readingArticle} onOpenChange={() => setReadingArticle(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+            <DialogHeader className="space-y-2 border-b pb-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs font-bold uppercase">{readingArticle?.category}</Badge>
+                <span className="text-xs text-muted-foreground">• Criado em {readingArticle?.created_at && formatDate(readingArticle.created_at, "dd/MM/yyyy")}</span>
+              </div>
+              <DialogTitle className="text-2xl font-bold leading-tight">{readingArticle?.title}</DialogTitle>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto py-4 px-1 space-y-4">
+              <ArticleMarkdownRenderer 
+                content={readingArticle?.content || ''} 
+                onOpenTicket={() => {
+                  setReadingArticle(null);
+                  toast({
+                    title: "Direcionando para abertura de chamado",
+                    description: "Preencha as informações do seu ticket de atendimento."
+                  });
+                }}
+              />
+            </div>
+
+            <DialogFooter className="border-t pt-4 flex justify-between items-center">
+              <Button variant="outline" onClick={() => setReadingArticle(null)}>Fechar</Button>
+              <Button onClick={() => { setReadingArticle(null); setSearch('abrir chamado'); }}>Precisa de ajuda? Abrir Chamado</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* EDITOR DIALOG (ADMIN) */}
         <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
           <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>{editingArticle?.id ? 'Editar Artigo' : 'Novo Artigo'}</DialogTitle>
             </DialogHeader>
             
-            <div className="flex-1 overflow-y-auto pr-4 space-y-6 py-4">
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6 py-4">
               <div className="space-y-2">
-                <Label>Título</Label>
+                <Label>Título do Artigo</Label>
                 <Input 
                   value={editingArticle?.title || ''} 
                   onChange={(e) => setEditingArticle(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Ex: Como configurar o proxy"
+                  placeholder="Ex: Como habilitar acesso remoto via TeamViewer"
                 />
               </div>
 
@@ -468,6 +570,7 @@ export default function KnowledgeBase() {
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
+                      {/* Status */}
                       <SelectItem value="draft">Rascunho</SelectItem>
                       <SelectItem value="published">Publicado</SelectItem>
                     </SelectContent>
@@ -483,18 +586,18 @@ export default function KnowledgeBase() {
                 <Label>Artigo Público (Visível para Clientes)</Label>
               </div>
 
-              <div className="space-y-2 flex-1 flex flex-col h-[400px]">
-                <Label>Conteúdo (Markdown suportado)</Label>
+              <div className="space-y-2 flex-1 flex flex-col h-[350px]">
+                <Label>Conteúdo do Artigo (Markdown)</Label>
                 <Textarea 
                   className="flex-1 resize-none font-mono text-sm" 
                   value={editingArticle?.content || ''}
                   onChange={(e) => setEditingArticle(prev => ({ ...prev, content: e.target.value }))}
-                  placeholder="# Título Principal&#10;&#10;Seu texto aqui..."
+                  placeholder="Escreva o passo a passo com marcações markdown..."
                 />
               </div>
             </div>
 
-            <DialogFooter className="mt-4">
+            <DialogFooter className="mt-2">
               <Button variant="outline" onClick={() => setIsEditorOpen(false)}>Cancelar</Button>
               <Button onClick={handleSave} disabled={saveMutation.isPending}>
                 {saveMutation.isPending ? 'Salvando...' : 'Salvar Artigo'}
@@ -502,7 +605,9 @@ export default function KnowledgeBase() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
       </main>
     </div>
   );
 }
+

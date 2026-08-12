@@ -150,7 +150,7 @@ const ClientPortal = () => {
                     <ArrowRight className="w-5 h-5 text-primary opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Aprenda a abrir chamados eficientes e como utilizar o AnyDesk para suporte remoto.
+                    Aprenda a abrir chamados eficientes e como utilizar o <strong>TeamViewer</strong> para liberar o acesso remoto do suporte técnico.
                   </p>
                   <Button variant="link" className="p-0 h-auto font-bold text-primary gap-2">
                     Acessar Guia do Usuário <ChevronRight className="w-4 h-4" />
