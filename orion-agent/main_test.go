@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -76,5 +78,55 @@ func TestRedigirQueryComURLInvalidaNaoEntraEmPanic(t *testing.T) {
 	// Byte de controle torna a URL inparseável.
 	if obtido := redigirQuery("http://exemplo\x7f.com/?token=abc"); strings.Contains(obtido, "abc") {
 		t.Errorf("token vazou mesmo com URL inválida: %q", obtido)
+	}
+}
+
+// TestSetupLoggerUsaNomeDeArquivoInformado cobre a correção B.15: o nome do
+// arquivo de log vem de cfg.LogFile, não mais hardcoded como "agent.log".
+//
+// setupLogger só aceita o NOME do arquivo por parâmetro — o DIRETÓRIO ainda
+// vem de os.Executable() (mesma limitação de token.GetTokenPath, já
+// documentada). Isso é seguro de chamar aqui porque, sob `go test`, o binário
+// roda de um diretório de build descartável, não da instalação real do
+// agente — e o arquivo criado é removido ao final do teste.
+func TestSetupLoggerUsaNomeDeArquivoInformado(t *testing.T) {
+	const nomeArquivo = "teste-setuplogger-b15.log"
+
+	logger, f, err := setupLogger(nomeArquivo)
+	if err != nil {
+		t.Fatalf("setupLogger falhou: %v", err)
+	}
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	if base := filepath.Base(f.Name()); base != nomeArquivo {
+		t.Errorf("nome do arquivo de log = %q, esperado %q", base, nomeArquivo)
+	}
+
+	logger.Println("linha de teste")
+	f.Sync()
+
+	conteudo, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Fatalf("leitura do arquivo de log falhou: %v", err)
+	}
+	if !strings.Contains(string(conteudo), "linha de teste") {
+		t.Errorf("conteúdo gravado pelo logger não apareceu no arquivo: %q", string(conteudo))
+	}
+}
+
+// TestSetupLoggerComNomeVazioUsaAgentLogComoFallback garante que, se
+// cfg.LogFile chegar vazio (não deveria — config.Load já aplica um default),
+// setupLogger não quebra: cai em "agent.log" como última rede de segurança.
+func TestSetupLoggerComNomeVazioUsaAgentLogComoFallback(t *testing.T) {
+	_, f, err := setupLogger("")
+	if err != nil {
+		t.Fatalf("setupLogger(\"\") falhou: %v", err)
+	}
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	if base := filepath.Base(f.Name()); base != "agent.log" {
+		t.Errorf("nome do arquivo de log com entrada vazia = %q, esperado %q", base, "agent.log")
 	}
 }

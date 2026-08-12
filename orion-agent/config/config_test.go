@@ -158,9 +158,14 @@ func TestLogFileAusenteViraAgentLog(t *testing.T) {
 	}
 }
 
-// TestAPIURLAusenteRecebeDefault cobre a regra cfg.APIURL == "" -> endpoint localhost.
+// TestAPIURLAusenteRecebeDefault cobre a regra cfg.APIURL == "" -> URL base localhost.
+//
+// CORRIGIDO (item B.15): o default costumava ser a URL COMPLETA do endpoint de
+// heartbeat, não a base — o que quebrava GetPortalURL/GetTicketURL e o atalho
+// do Desktop, que concatenam "/api/auth/machine-login" direto em cima de
+// cfg.APIURL. Ver config.go.
 func TestAPIURLAusenteRecebeDefault(t *testing.T) {
-	const esperado = "http://localhost:8080/api/monitoring/machines/heartbeat"
+	const esperado = "http://localhost:8080"
 
 	cfg, err := carregarDoDisco(t, "agent_key: abc\n")
 	if err != nil {
@@ -311,7 +316,7 @@ intervalo_segundos: 15
 		t.Fatalf("comportamento mudou: parsing agora e estrito (%v) — atualize este teste", err)
 	}
 
-	if cfg.APIURL != "http://localhost:8080/api/monitoring/machines/heartbeat" {
+	if cfg.APIURL != "http://localhost:8080" {
 		t.Fatalf("APIURL = %q; esperado o default (typo ignorado)", cfg.APIURL)
 	}
 	if cfg.IntervalSeconds != 60 {

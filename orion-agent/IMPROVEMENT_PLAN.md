@@ -138,7 +138,7 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 | B.12 ✅ | `TrimSpace` no `LoadToken` + trocar `io/ioutil` | B2, B5 | **baixo** | baixo | Implementado e testado |
 | B.13 | `KnownFields(true)` no parse do YAML | M12 | baixo | médio | Typos passam a ser erro — é o desejado, mas pode quebrar config existente |
 | B.14 ✅ | Stub `shortcut_other.go` para destravar CI em Linux | M11 | baixo | baixo | Implementado e verificado por cross-compile (`GOOS=linux`) dos 5 pacotes com teste. `main`/`tray` continuam presos ao Windows por causa do `systray` (exige cgo) — fora de escopo deste item. B.4 segue **não verificado com `-race`**: WSL disponível nesta máquina, mas sem toolchain Go/gcc instalado |
-| B.15 | Usar ou remover `cfg.LogFile`; corrigir default de `APIURL` | B3, B4 | baixo | baixo | |
+| B.15 ✅ | Usar ou remover `cfg.LogFile`; corrigir default de `APIURL` | B3, B4 | baixo | baixo | `cfg.LogFile` agora é lido de verdade (main.go passou a carregar config antes do logger); default de `APIURL` corrigido para a URL base, não mais o path completo de heartbeat |
 | B.16 | Certificate pinning | B1 | médio | médio | Defesa em profundidade; opcional |
 
 ### Fase C — UX (fluxo do clique e feedback visual)

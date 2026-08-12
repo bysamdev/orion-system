@@ -75,7 +75,15 @@ func aplicarDefaultsEValidar(cfg *Config, path string) error {
 		cfg.LogFile = "agent.log"
 	}
 	if cfg.APIURL == "" {
-		cfg.APIURL = "http://localhost:8080/api/monitoring/machines/heartbeat"
+		// Correção B.15: o default anterior era a URL COMPLETA do endpoint de
+		// heartbeat ("http://localhost:8080/api/monitoring/machines/heartbeat"),
+		// não a URL base do servidor. sender.Send tem um TrimSuffix específico
+		// para tolerar isso, mas GetPortalURL/GetTicketURL (service/windows.go)
+		// e shortcut.CreatePortalShortcut concatenam "/api/auth/machine-login"
+		// direto em cima de cfg.APIURL — com o default antigo, essas URLs
+		// saíam quebradas (".../heartbeat/api/auth/machine-login"). O default
+		// agora é a URL base, como api_url é documentado em agent.yaml.
+		cfg.APIURL = "http://localhost:8080"
 	}
 
 	if cfg.AgentKey == "" || cfg.AgentKey == "COLOQUE_SUA_CHAVE_AQUI" {

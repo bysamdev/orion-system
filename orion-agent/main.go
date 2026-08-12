@@ -16,9 +16,20 @@ import (
 )
 
 func main() {
+	// ── Carregamento de Configurações ──────────────────────────
+	// Carregado ANTES do logger porque cfg.LogFile define o nome do arquivo de
+	// log (correção B.15) — antes, log_file era parseado do agent.yaml mas
+	// nunca usado: o logger sempre abria "agent.log" hardcoded, porque era
+	// configurado antes de sabermos o que o config.Load() diria.
+	cfg, err := config.Load()
+	if err != nil {
+		// Ainda não temos logger customizado aqui — reportamos no log padrão.
+		log.Fatalf("[ERRO] Falha crítica ao carregar configurações: %v", err)
+	}
+
 	// ── Configuração de Logs ──────────────────────────────────
 	// Tentamos abrir o arquivo de log para registrar as atividades do agente.
-	logger, logFile, err := setupLogger()
+	logger, logFile, err := setupLogger(cfg.LogFile)
 	if err != nil {
 		// Caso não consiga criar o arquivo (permissão, etc), usamos a saída de erro padrão.
 		log.Printf("[AVISO] Não foi possível abrir o arquivo de log: %v", err)
@@ -26,13 +37,6 @@ func main() {
 	}
 	if logFile != nil {
 		defer logFile.Close()
-	}
-
-	// ── Carregamento de Configurações ──────────────────────────
-	// O arquivo config.json guarda a URL do backend e o intervalo de check-in.
-	cfg, err := config.Load()
-	if err != nil {
-		logger.Fatalf("[ERRO] Falha crítica ao carregar configurações: %v", err)
 	}
 
 	// ── Preparação do Serviço Windows ──────────────────────────
@@ -147,15 +151,26 @@ func redigirQuery(bruta string) string {
 	return u.String()
 }
 
-// setupLogger configura a escrita de logs para um arquivo local (agent.log) na mesma pasta do executável.
-// Isso ajuda muito no troubleshooting quando o agente está rodando como SYSTEM.
-func setupLogger() (*log.Logger, *os.File, error) {
+// setupLogger configura a escrita de logs para um arquivo local na mesma pasta do
+// executável. Isso ajuda muito no troubleshooting quando o agente está rodando
+// como SYSTEM.
+//
+// nomeArquivo vem de cfg.LogFile (correção B.15): antes, o nome era sempre
+// "agent.log" hardcoded, e o campo log_file do agent.yaml — documentado no
+// próprio arquivo de exemplo como configurável — era parseado e nunca lido de
+// volta em lugar nenhum. Se vier vazio (não deveria, config.Load já aplica um
+// default), caímos em "agent.log" como última rede de segurança.
+func setupLogger(nomeArquivo string) (*log.Logger, *os.File, error) {
+	if nomeArquivo == "" {
+		nomeArquivo = "agent.log"
+	}
+
 	exe, err := os.Executable()
 	if err != nil {
 		return nil, nil, err
 	}
 	dir := filepath.Dir(exe)
-	logPath := filepath.Join(dir, "agent.log")
+	logPath := filepath.Join(dir, nomeArquivo)
 
 	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
