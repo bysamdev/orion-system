@@ -13,22 +13,28 @@ package sender
 //     comentário do próprio teste.
 //
 // LIMITAÇÕES DE TESTABILIDADE (constantes não injetáveis em api.go):
-//   - maxRetries=3 e retryInterval=10s são const: qualquer teste que exercite o
-//     caminho de retry de Send() custa ~20s de relógio. Por isso quase toda a
-//     cobertura de falha é feita em doPost() (que não tem retry) e existe apenas
-//     UM teste do laço de retry, pulável com -short.
+//   - maxRetries=3 é const. Não é um problema de testabilidade em si (3 tentativas
+//     é rápido de exercitar), mas qualquer teste que force o laço inteiro a esgotar
+//     as tentativas paga o custo cumulativo do backoff — mitigado pelo item abaixo.
 //   - httpTimeout=15s é const. O timeout é testado substituindo temporariamente a
 //     var de pacote httpClient por um client de timeout curto — só é possível
 //     porque httpClient é var e o teste está no mesmo pacote. Se httpClient virasse
 //     const/local, o comportamento de timeout ficaria não testável.
+//
+// CORRIGIDO (item B.9): retryBaseDelay (base do backoff exponencial) passou a ser
+// var, não const — os testes do laço de retry abaixo reduzem para poucos
+// milissegundos antes de chamar Send() e restauram o valor original depois. Antes
+// desta correção, retryInterval era const de 10s e um teste do laço de retry
+// completo custava ~20s reais, escondido atrás de testing.Short()/uma variável de
+// ambiente de opt-in.
 
 import (
 	"encoding/json"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -667,13 +673,21 @@ func TestRespondToCommand_BackendIndisponivel_RetornaErro(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Laço de retry de Send — LENTO (~20s) por causa de retryInterval=10s const
+// Laço de retry de Send — rápido desde a correção B.9 (retryBaseDelay é var)
 // ---------------------------------------------------------------------------
 
+// comRetryBaseDelayReduzido troca retryBaseDelay por um valor pequeno durante o
+// teste e restaura o original ao final — evita que os testes do laço de retry
+// paguem segundos reais de backoff exponencial.
+func comRetryBaseDelayReduzido(t *testing.T, novo time.Duration) {
+	t.Helper()
+	original := retryBaseDelay
+	retryBaseDelay = novo
+	t.Cleanup(func() { retryBaseDelay = original })
+}
+
 func TestSend_BackendSempreFalhando_TentaTresVezesEDesiste(t *testing.T) {
-	if testing.Short() {
-		t.Skip("teste lento (~20s): retryInterval=10s é const em api.go e não é injetável")
-	}
+	comRetryBaseDelayReduzido(t, 5*time.Millisecond)
 
 	var capt requisicaoCapturada
 	srv := servidorQueResponde(t, http.StatusInternalServerError, `{"error":"backend caiu"}`, &capt)
@@ -697,22 +711,22 @@ func TestSend_BackendSempreFalhando_TentaTresVezesEDesiste(t *testing.T) {
 	if !strings.Contains(err.Error(), "backend caiu") {
 		t.Errorf("erro %q não preserva a última causa vinda do backend", err.Error())
 	}
-	// Prova que houve espera real entre as tentativas (2 intervalos de 10s).
-	esperado := time.Duration(maxRetries-1) * retryInterval
-	if decorrido < esperado-2*time.Second {
-		t.Errorf("Send levou %v, esperado ao menos ~%v de espera entre tentativas", decorrido, esperado)
+	// Prova que houve espera real entre as tentativas: backoff exponencial de
+	// base 5ms produz ao menos 5ms (tentativa 1→2) + 10ms (tentativa 2→3) = 15ms,
+	// mais o jitter (que só soma, nunca subtrai) — nunca poderia ser instantâneo.
+	minimoEsperado := 3 * retryBaseDelay // base*1 + base*2, sem contar jitter
+	if decorrido < minimoEsperado {
+		t.Errorf("Send levou %v, esperado ao menos %v de espera entre tentativas (backoff exponencial)", decorrido, minimoEsperado)
 	}
-	t.Logf("ACHADO DE TESTABILIDADE: este teste levou %v porque retryInterval=%v é const", decorrido, retryInterval)
+	// Teto generoso: prova que NÃO regredimos para o antigo retryInterval fixo de
+	// 10s — se alguém reintroduzir um valor grande aqui, este teste denuncia.
+	if decorrido > 2*time.Second {
+		t.Errorf("Send levou %v — muito mais que o esperado para retryBaseDelay=%v; possível regressão para espera fixa/grande", decorrido, retryBaseDelay)
+	}
 }
 
-// Este teste custa mais 10s de relógio. Como o teste acima já cobre o laço de
-// retry inteiro, ele fica atrás de um opt-in explícito para a suíte padrão
-// continuar rápida. Rodar com: ORION_TESTES_LENTOS=1 go test ./sender/ -run SucessoNaSegunda
 func TestSend_SucessoNaSegundaTentativa_NaoPropagaErro(t *testing.T) {
-	if testing.Short() || os.Getenv("ORION_TESTES_LENTOS") != "1" {
-		t.Skip("teste lento (~10s): retryInterval=10s é const em api.go e não é injetável; " +
-			"defina ORION_TESTES_LENTOS=1 para rodar")
-	}
+	comRetryBaseDelayReduzido(t, 5*time.Millisecond)
 
 	var mu sync.Mutex
 	chamadas := 0
@@ -743,6 +757,97 @@ func TestSend_SucessoNaSegundaTentativa_NaoPropagaErro(t *testing.T) {
 	mu.Unlock()
 	if total != 2 {
 		t.Errorf("backend recebeu %d chamadas, esperado 2 (falha + sucesso)", total)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// calcularEspera — backoff exponencial + jitter, testado como função pura (B.9)
+// ---------------------------------------------------------------------------
+
+// TestCalcularEspera_CrescimentoExponencial garante que o piso de cada
+// tentativa (sem contar o jitter, que só soma) dobra a cada tentativa.
+func TestCalcularEspera_CrescimentoExponencial(t *testing.T) {
+	comRetryBaseDelayReduzido(t, 100*time.Millisecond)
+	rng := rand.New(rand.NewSource(1))
+
+	pisoAnterior := time.Duration(0)
+	for tentativa := 1; tentativa <= 5; tentativa++ {
+		pisoEsperado := retryBaseDelay * time.Duration(int64(1)<<uint(tentativa-1))
+		espera := calcularEspera(tentativa, rng)
+
+		if espera < pisoEsperado {
+			t.Errorf("tentativa %d: espera %v menor que o piso esperado %v (jitter não pode subtrair)", tentativa, espera, pisoEsperado)
+		}
+		if tentativa > 1 && pisoEsperado < 2*pisoAnterior {
+			t.Fatalf("tentativa %d: piso %v não dobrou em relação à tentativa anterior (%v)", tentativa, pisoEsperado, pisoAnterior/2)
+		}
+		pisoAnterior = pisoEsperado
+	}
+}
+
+// TestCalcularEspera_JitterLimitadoAMetadeDoBackoff garante que o jitter nunca
+// ultrapassa metade do backoff da tentativa — um jitter sem limite superior
+// tornaria o backoff imprevisível (poderia, por azar, dobrar o atraso real).
+func TestCalcularEspera_JitterLimitadoAMetadeDoBackoff(t *testing.T) {
+	comRetryBaseDelayReduzido(t, 200*time.Millisecond)
+	rng := rand.New(rand.NewSource(42))
+
+	const tentativa = 3
+	backoff := retryBaseDelay * time.Duration(int64(1)<<uint(tentativa-1))
+	tetoEsperado := backoff + backoff/2
+
+	for i := 0; i < 200; i++ {
+		espera := calcularEspera(tentativa, rng)
+		if espera < backoff {
+			t.Fatalf("iteração %d: espera %v abaixo do backoff base %v", i, espera, backoff)
+		}
+		if espera > tetoEsperado {
+			t.Fatalf("iteração %d: espera %v acima do teto (backoff + 50%%) %v", i, espera, tetoEsperado)
+		}
+	}
+}
+
+// TestCalcularEspera_JitterEspalhaTentativasEntreMaquinas é a razão de existir
+// do jitter: sem ele, uma frota inteira de agentes reagindo à mesma queda do
+// backend bateria de volta no mesmo instante exato (thundering herd). Simula
+// N "máquinas" com RNGs independentes e verifica que os atrasos resultantes
+// não são todos idênticos.
+func TestCalcularEspera_JitterEspalhaTentativasEntreMaquinas(t *testing.T) {
+	comRetryBaseDelayReduzido(t, 100*time.Millisecond)
+
+	const maquinas = 20
+	vistos := map[time.Duration]bool{}
+	for i := 0; i < maquinas; i++ {
+		rng := rand.New(rand.NewSource(int64(i)))
+		vistos[calcularEspera(2, rng)] = true
+	}
+
+	if len(vistos) <= 1 {
+		t.Fatalf("todas as %d máquinas simuladas obtiveram o mesmo atraso — jitter não está espalhando as tentativas", maquinas)
+	}
+}
+
+// TestCalcularEspera_BackoffDeUmNanossegundoNaoEntraEmPanico cobre a borda real
+// de Int63n: com retryBaseDelay=1ns e tentativa=1, backoff=1ns e
+// metade=int64(1ns)/2=0 (truncamento de inteiro) — o jitter é calculado como
+// rng.Int63n(metade+1) = rng.Int63n(1), que é válido (sempre devolve 0) e nunca
+// entra em pânico. Int63n só entra em pânico com argumento <= 0, e metade+1 é
+// sempre >= 1 para qualquer backoff não-negativo — este teste prova isso na
+// borda mais apertada possível.
+func TestCalcularEspera_BackoffDeUmNanossegundoNaoEntraEmPanico(t *testing.T) {
+	comRetryBaseDelayReduzido(t, 1*time.Nanosecond)
+	rng := rand.New(rand.NewSource(7))
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("calcularEspera entrou em pânico com backoff de 1ns: %v", r)
+		}
+	}()
+
+	for i := 0; i < 100; i++ {
+		if espera := calcularEspera(1, rng); espera < retryBaseDelay {
+			t.Fatalf("espera %v abaixo do backoff base %v", espera, retryBaseDelay)
+		}
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -15,20 +16,30 @@ import (
 )
 
 const (
-	maxRetries    = 3
-	retryInterval = 10 * time.Second
-	httpTimeout   = 15 * time.Second
+	maxRetries  = 3
+	httpTimeout = 15 * time.Second
 )
+
+// retryBaseDelay é a base do backoff exponencial entre tentativas de Send.
+// É var, não const, só para que os testes possam reduzi-la e exercitar o
+// laço de retry inteiro em milissegundos — antes desta correção,
+// retryInterval fixo de 10s fazia um teste do laço de retry levar ~20s reais,
+// e ficava atrás de testing.Short()/ORION_TESTES_LENTOS só para não pesar a
+// suíte padrão.
+var retryBaseDelay = 2 * time.Second
 
 var httpClient = &http.Client{Timeout: httpTimeout}
 
 // Send POSTs the payload to the backend heartbeat endpoint.
-// It retries up to maxRetries times, waiting retryInterval between attempts.
+// It retries up to maxRetries times, com backoff exponencial e jitter entre
+// as tentativas.
 func Send(cfg *config.Config, payload *collector.Payload) (string, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("marshal payload: %w", err)
 	}
+
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	var lastErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -42,10 +53,27 @@ func Send(cfg *config.Config, payload *collector.Payload) (string, error) {
 		}
 		lastErr = err
 		if attempt < maxRetries {
-			time.Sleep(retryInterval)
+			time.Sleep(calcularEspera(attempt, rng))
 		}
 	}
 	return "", fmt.Errorf("após %d tentativas: %w", maxRetries, lastErr)
+}
+
+// calcularEspera devolve o atraso antes da próxima tentativa: backoff
+// exponencial (retryBaseDelay × 2^(tentativa-1)) mais um jitter aleatório de
+// até metade do backoff.
+//
+// Sem jitter, uma queda do backend faria toda a frota de agentes bater na
+// próxima tentativa no mesmo instante (thundering herd na retomada) — o
+// jitter espalha essas tentativas. O parâmetro rng (em vez de math/rand
+// global) é o que torna esta função testável de forma determinística.
+func calcularEspera(tentativa int, rng *rand.Rand) time.Duration {
+	backoff := retryBaseDelay * time.Duration(int64(1)<<uint(tentativa-1))
+	// metade+1 é sempre >= 1 (backoff é sempre positivo, dado retryBaseDelay > 0 e
+	// tentativa >= 1), então Int63n nunca recebe um argumento inválido aqui.
+	metade := int64(backoff) / 2
+	jitter := time.Duration(rng.Int63n(metade + 1))
+	return backoff + jitter
 }
 
 func doPost(url, agentKey string, body []byte) (string, error) {
