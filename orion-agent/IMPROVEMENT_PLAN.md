@@ -4,8 +4,10 @@
 > `SECURITY-AUTO-PROVISIONING.md`, `PERFORMANCE.md`, `TRAY-UX.md` e da suíte de
 > testes recém-criada.
 >
-> **Nenhum item deste plano está implementado.** Nada de código de produção foi
-> tocado. Aguardo sua aprovação **item a item** antes de qualquer alteração.
+> **Status:** 10 de 37 itens implementados e aprovados até agora — A.6, A.7, A.8,
+> B.1, B.2, B.3, B.5, B.11, B.12, C.1 (ver marcações ✅ abaixo). O restante
+> continua sem tocar em código de produção; sigo aguardando aprovação **item a
+> item** antes de qualquer alteração adicional.
 
 ---
 
@@ -109,9 +111,9 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 | A.3 | Rate limiting + alerta em `machine-login` e `heartbeat` | C2 | médio | baixo | Mitigação enquanto A.6 não sai |
 | A.4 | Reduzir privilégio do serviço (conta virtual em vez de `LocalSystem`) | C4 | médio | **alto** | Pode quebrar coleta que dependa de SYSTEM. Exige teste em máquina real |
 | A.5 | Allowlist de comandos no `executeCommand` | C4 | médio | **alto** | Muda contrato do RMM; comandos livres deixam de funcionar. Decisão de produto |
-| A.6 | Substituir `machine_token` derivado por segredo aleatório + DPAPI + ACL explícita | C3, A1, A2 | alto | **alto** | Migração de identidade da frota. Precisa plano de convivência |
-| A.7 | Enforcement de `https://` em `config.Load` | A3 | **baixo** | baixo | 4 linhas. Ganho alto por esforço mínimo |
-| A.8 | Redigir token de logs e da URL logada | A4 | **baixo** | baixo | Função `redactQuery` já esboçada em SECURITY.md |
+| A.6 ✅ | Substituir `machine_token` derivado por segredo aleatório + DPAPI + ACL explícita | C3, A1, A2 | alto | **alto** | **Implementado junto com B.5** (aprovado). `token.GenerateRandomIdentity` (crypto/rand) + DPAPI (`CRYPTPROTECT_LOCAL_MACHINE`) + ACL via `icacls` (SYSTEM+Administradores+criador) + ponte de migração para tokens legados em texto plano. Ver `MACHINE-IDENTITY-OPTIONS.md` |
+| A.7 ✅ | Enforcement de `https://` em `config.Load` | A3 | **baixo** | baixo | Implementado e testado |
+| A.8 ✅ | Redigir token de logs e da URL logada | A4 | **baixo** | baixo | Implementado e testado (`redigirQuery` em `main.go`) |
 | A.9 | Remover fallback "primeira empresa do banco" | A11 | baixo | médio | Backend. Máquinas órfãs passam a falhar visivelmente (é o desejado) |
 | A.10 | Validar hash/Authenticode no script de GPO | M1 | baixo | baixo | Só o `.ps1` |
 | A.11 | Não logar texto integral de comandos RMM | M2 | baixo | baixo | |
@@ -122,18 +124,18 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 
 | # | Item | IDs | Esforço | Risco | Ganho medido |
 |---|---|---|---|---|---|
-| B.1 | Timeout nas goroutines de disco (`disk.UsageWithContext`) | A6 | **baixo** | baixo | Elimina congelamento permanente. **Maior valor/esforço do plano** |
-| B.2 | Timeout no `executeCommand` (`exec.CommandContext`) | A7 | **baixo** | baixo | Idem para comandos remotos |
-| B.3 | Corrigir `req, _ :=` e escapar `machineID` em `PollCommands` | A9 | **baixo** | baixo | Elimina crash do processo |
-| B.4 | Mutex/atomic em `Svc.machineToken` e `machineID` | A8 | baixo | baixo | Confirmar com `-race` em máquina com toolchain C |
-| B.5 | Tornar `GenerateToken` determinístico (ordenar MACs, escapar separadores) | A10, B6 | baixo | médio | Evita máquina duplicada no RMM. Atenção: muda o token → coordenar com A.6 |
+| B.1 ✅ | Timeout nas goroutines de disco (`disk.UsageWithContext`) | A6 | **baixo** | baixo | Implementado e testado |
+| B.2 ✅ | Timeout no `executeCommand` (`exec.CommandContext`) | A7 | **baixo** | baixo | Implementado e testado |
+| B.3 ✅ | Corrigir `req, _ :=` e escapar `machineID` em `PollCommands` | A9 | **baixo** | baixo | Implementado e testado (`url.Values`) |
+| B.4 | Mutex/atomic em `Svc.machineToken` e `machineID` | A8 | baixo | baixo | Confirmar com `-race` em máquina com toolchain C. **Não aprovado ainda** |
+| B.5 ✅ | Substituir `GenerateToken` (removida) por identidade aleatória persistida | A10, B6 | baixo | médio | **Implementado junto com A.6** — não foi "tornar determinístico", foi trocar o mecanismo por inteiro (ver Opção A de `MACHINE-IDENTITY-OPTIONS.md`). `Payload.GenerateToken` removida de `collector/hardware.go` |
 | B.6 | `cpu.Percent(0)` não-bloqueante | M3 | baixo | **médio** | **−1000 ms de parede/coleta.** Muda semântica da métrica — commit próprio |
 | B.7 | Cachear `cpu.Info` + `net.Interfaces` 1× por coleta | M4 | baixo | baixo | **−50 % de CPU real (127 ms → 63 ms, medido)** |
 | B.8 | Só reescrever atalho quando o conteúdo mudar | M5 | **baixo** | baixo | −2.880 gravações/dia |
 | B.9 | Backoff exponencial + jitter no retry | M6 | baixo | baixo | Evita bloqueio de 65 s e thundering herd |
 | B.10 | Named mutex (instância única) + saída limpa sem `os.Exit` | M7, A12 | baixo | médio | Elimina execução dobrada de comandos |
-| B.11 | Tratar erro de decode em `doPost` | M10 | **baixo** | baixo | |
-| B.12 | `TrimSpace` no `LoadToken` + trocar `io/ioutil` | B2, B5 | **baixo** | baixo | Teste já existe, guardado com `t.Skip` |
+| B.11 ✅ | Tratar erro de decode em `doPost` | M10 | **baixo** | baixo | Implementado e testado |
+| B.12 ✅ | `TrimSpace` no `LoadToken` + trocar `io/ioutil` | B2, B5 | **baixo** | baixo | Implementado e testado |
 | B.13 | `KnownFields(true)` no parse do YAML | M12 | baixo | médio | Typos passam a ser erro — é o desejado, mas pode quebrar config existente |
 | B.14 | Stub `shortcut_other.go` para destravar CI em Linux | M11 | baixo | baixo | Habilita CI e `-race` em runner Linux |
 | B.15 | Usar ou remover `cfg.LogFile`; corrigir default de `APIURL` | B3, B4 | baixo | baixo | |
@@ -143,7 +145,7 @@ Legenda — **Esforço:** baixo (<2 h) · médio (0,5–2 dias) · alto (>2 dias
 
 | # | Item | IDs | Esforço | Risco | Observação |
 |---|---|---|---|---|---|
-| C.1 | Feedback quando `machineToken` está vazio (balão "aguardando primeiro check-in") | A13 | **baixo** | **baixo** | Maior ganho de percepção pelo menor risco. **Sugiro começar por aqui** |
+| C.1 ✅ | Feedback quando `machineToken` está vazio (balão "aguardando primeiro check-in") | A13 | **baixo** | **baixo** | Implementado e testado |
 | C.2 | Ícone da bandeja refletir estado real (ok / sem conexão / inicializando) | B7 | médio | baixo | Resolve "bandeja diz Suporte Ativo com monitoramento morto" |
 | C.3 | Corrigir `redirect_to` para URL absoluta | M8 | baixo | baixo | Confirmar em homologação antes |
 | C.4 | Token efêmero de uso único, pré-emitido em background | A5, A1 | alto | **alto** | Depende de A.6/A.12. Mantém clique instantâneo |
@@ -161,17 +163,18 @@ para webview embutida. Nenhum item acima depende de webview.
 Respeitando "commits pequenos e testáveis" e "não misturar refino visual com
 lógica de backend":
 
-1. **Ganhos altos, risco baixo, isolados** — A.7, A.8, B.1, B.2, B.3, B.11, B.12, C.1
-   Todos são mudanças de poucas linhas, sem alterar contrato externo. A suíte
-   atual já cobre boa parte (vários testes estão guardados com `t.Skip` esperando
-   exatamente essas correções).
-2. **Operacional, sem código** — A.1 (rotação de chave), A.10 (GPO).
-3. **Infra de teste** — B.14, para destravar CI em Linux e finalmente rodar `-race`,
+1. ✅ **Ganhos altos, risco baixo, isolados** — A.7, A.8, B.1, B.2, B.3, B.11, B.12, C.1.
+   **Feito.** Todos implementados e testados.
+2. ✅ **Identidade da máquina** — A.6 + B.5, implementados juntos conforme exigido
+   (mesmo commit/diff, migração de tokens legados incluída). **Feito.**
+3. **Operacional, sem código** — A.1 (rotação de chave), A.10 (GPO). Ainda pendente.
+4. **Infra de teste** — B.14, para destravar CI em Linux e finalmente rodar `-race`,
    confirmando B.4 empiricamente.
-4. **Performance com mudança de semântica** — B.6, B.7, B.8, B.9, cada um em commit
+5. **Performance com mudança de semântica** — B.6, B.7, B.8, B.9, cada um em commit
    próprio, medindo antes/depois com o benchmark descrito em `PERFORMANCE.md` §6.
-5. **Decisões de produto/arquitetura** — A.4, A.5, A.6, A.12, A.13, C.4.
-   Nenhuma deve começar sem definição sua; A.6 e A.12 são um projeto só.
+6. **Decisões de produto/arquitetura restantes** — A.4, A.5, A.12, A.13, C.4.
+   Nenhuma deve começar sem definição sua; A.12 agora pode se apoiar no enrollment
+   de identidade já implementado em A.6.
 
 ---
 
@@ -179,26 +182,30 @@ lógica de backend":
 
 - **A.2 quebra o atalho `.url`** enquanto C.4 não existir → aprovar em conjunto ou
   aceitar que o atalho pare de funcionar temporariamente.
-- **B.5 muda o valor do `machine_token`** → executar junto de A.6, senão a frota
-  inteira re-registra como máquinas novas.
-- **C.4 depende de A.6/A.12** → implementar token efêmero sobre a `X-Agent-Key`
-  atual apenas desloca o problema, não resolve.
+- ~~B.5 muda o valor do `machine_token` → executar junto de A.6~~ **Resolvido:**
+  A.6 e B.5 foram implementados juntos, com ponte de migração para tokens
+  legados (o `machine_token` de máquinas já instaladas continua sendo
+  reconhecido — ver `token/token.go:loadTokenFrom`).
+- **C.4 depende de A.6/A.12** → A.6 (a parte de identidade de dispositivo) já
+  está pronta; falta A.12 (enrollment com certificado) antes de implementar o
+  token efêmero.
 - **B.4 só é verificável** depois de B.14 (ou de instalar toolchain C nesta máquina).
 
 ---
 
-## 5. Aguardando sua decisão
+## 5. Histórico de aprovações
 
-Não vou tocar em código de produção sem aprovação explícita, item a item.
+Não toco em código de produção sem aprovação explícita, item a item.
 
-Minha recomendação de primeiro lote — **8 itens, todos de esforço baixo e risco
-baixo, sem alterar contrato externo nem semântica de métrica**:
+**Lote 1 (aprovado e implementado):** A.7, A.8, B.1, B.2, B.3, B.11, B.12, C.1.
+Eliminou dois caminhos de congelamento permanente do agente (B.1, B.2), um
+crash de processo (B.3), o no-op silencioso da bandeja (C.1) e duas exposições
+de credencial (A.7, A.8).
 
-> **A.7, A.8, B.1, B.2, B.3, B.11, B.12, C.1**
+**Lote 2 (aprovado e implementado):** A.6 + B.5, no mesmo diff, com ponte de
+migração para a frota já instalada — conforme exigido antes de qualquer um dos
+dois entrar em código. Detalhes das opções avaliadas e da decisão em
+`MACHINE-IDENTITY-OPTIONS.md`.
 
-Esse lote elimina dois caminhos de congelamento permanente do agente (B.1, B.2),
-um crash de processo (B.3), o no-op silencioso da bandeja (C.1) e duas exposições
-de credencial (A.7, A.8) — sem mexer em identidade de máquina, privilégio de
-serviço nem contrato do RMM.
-
-Me diga quais aprova e eu sigo só por eles.
+**Ainda sem aprovação:** todo o restante do plano — seções 2 e 3 seguem
+descrevendo o que falta e a sequência sugerida.

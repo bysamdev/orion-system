@@ -2,7 +2,6 @@ package collector
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"net"
 	"os"
@@ -257,17 +256,8 @@ func Collect() (*Payload, error) {
 	}, nil
 }
 
-// GenerateToken cria uma "Digital" estável e única para a máquina baseada no ID do hardware e MAC addresses.
-// Isso evita que a máquina mude de identidade se formatar o Windows (usando o MachineUUID).
-func (p *Payload) GenerateToken() string {
-	var macs []string
-	for _, iface := range p.Interfaces {
-		if iface.MAC != "" {
-			macs = append(macs, iface.MAC)
-		}
-	}
-	
-	raw := fmt.Sprintf("%s|%s|%s", p.MachineUUID, p.Hostname, strings.Join(macs, ","))
-	hash := sha256.Sum256([]byte(raw))
-	return fmt.Sprintf("%x", hash)
-}
+// (Payload.GenerateToken foi removido na correção A.6/B.5: a identidade da máquina
+// deixou de ser derivada de MachineUUID/Hostname/MACs — dados legíveis por qualquer
+// usuário local e instáveis conforme o estado da rede — e passou a ser um segredo
+// aleatório gerado uma única vez. Ver token.GenerateRandomIdentity e
+// orion-agent/MACHINE-IDENTITY-OPTIONS.md.)

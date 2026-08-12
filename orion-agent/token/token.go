@@ -1,6 +1,8 @@
 package token
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -32,7 +34,28 @@ func SaveToken(token string) error {
 	return saveTokenTo(GetTokenPath(), token)
 }
 
-// loadTokenFrom lê o token de um caminho arbitrário.
+// GenerateRandomIdentity cria uma nova identidade de máquina: 32 bytes de alta
+// entropia (crypto/rand), codificados em hex — 64 caracteres, o mesmo comprimento
+// do token anterior, para não exigir nenhuma mudança de schema ou de parsing a
+// jusante (o backend trata machine_token como TEXT opaco).
+//
+// Substitui Payload.GenerateToken (removida de collector/hardware.go), que
+// derivava a identidade de MachineUUID+Hostname+MACs. Esse desenho tinha dois
+// problemas documentados: o valor não era segredo — MachineUUID é lido de uma
+// chave de registro legível por qualquer usuário local, confirmado empiricamente
+// em SECURITY-AUTO-PROVISIONING.md §1.2 — e não era estável, porque a lista de
+// MACs muda com o estado da rede (VPN, Wi-Fi, USB), achado B.5 confirmado por
+// teste. Um valor aleatório, gerado uma única vez e nunca recalculado a partir de
+// hardware, resolve os dois ao mesmo tempo.
+func GenerateRandomIdentity() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("gerar identidade aleatória da máquina: %w", err)
+	}
+	return hex.EncodeToString(buf), nil
+}
+
+// loadTokenFrom lê e decifra o token de um caminho arbitrário.
 //
 // Existe separada de LoadToken para que os testes exercitem esta lógica real sem
 // depender do caminho fixo devolvido por GetTokenPath (que apontaria para
@@ -46,26 +69,55 @@ func loadTokenFrom(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read token file: %w", err)
 	}
+	if len(data) == 0 {
+		return "", nil
+	}
 
-	// TrimSpace é obrigatório: o arquivo costuma ser inspecionado e às vezes recriado
-	// à mão por técnicos (ex: `echo TOKEN > machine.token` no PowerShell, que grava CRLF).
-	// Sem normalizar, o "\r\n" final entra no token e todo heartbeat passa a receber 401,
-	// com o arquivo parecendo visualmente correto.
+	if plain, err := unprotect(data); err == nil {
+		return strings.TrimSpace(string(plain)), nil
+	}
+
+	// Não decifrou como blob DPAPI: ou é um machine.token gravado por uma versão
+	// do agente anterior a esta correção (texto plano, sem proteção), ou o arquivo
+	// está corrompido. Em ambos os casos, tratamos os bytes brutos como o token —
+	// isso é a ponte de migração que evita que a frota já instalada re-registre
+	// como "máquina nova" no primeiro heartbeat após o deploy desta versão. A
+	// próxima chamada a SaveToken regrava o mesmo valor já protegido.
+	//
+	// TrimSpace cobre o mesmo caso do B.12: arquivo editado/recriado à mão por um
+	// técnico, com CRLF ou espaço no fim.
 	return strings.TrimSpace(string(data)), nil
 }
 
-// saveTokenTo grava o token em um caminho arbitrário. Ver comentário de loadTokenFrom
-// sobre por que a lógica é separada da função pública.
+// saveTokenTo cifra e grava o token em um caminho arbitrário. Ver comentário de
+// loadTokenFrom sobre por que a lógica é separada da função pública.
 func saveTokenTo(path, token string) error {
-	// Ensure directory exists
 	dir := filepath.Dir(path)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create token directory: %w", err)
 		}
+		// Só precisa rodar na criação: a ACL não herda mudanças de conteúdo, então
+		// endurecer uma vez é suficiente para todas as gravações seguintes no
+		// mesmo diretório.
+		if err := endurecerACLDoDiretorio(dir); err != nil {
+			return fmt.Errorf("endurecer permissões do diretório de identidade: %w", err)
+		}
 	}
 
-	if err := os.WriteFile(path, []byte(token), 0600); err != nil {
+	if token == "" {
+		// Mantém o comportamento pré-existente para este caso degenerado (achado
+		// documentado em TestTokenVazioEhAceitoSemErro, não é objeto desta
+		// correção): um token vazio é aceito e grava um arquivo vazio.
+		return os.WriteFile(path, nil, 0600)
+	}
+
+	protegido, err := protect([]byte(token))
+	if err != nil {
+		return fmt.Errorf("proteger token antes de gravar: %w", err)
+	}
+
+	if err := os.WriteFile(path, protegido, 0600); err != nil {
 		return fmt.Errorf("write token file: %w", err)
 	}
 

@@ -2,7 +2,9 @@ package token
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -240,3 +242,203 @@ func TestLoadTokenDeveIgnorarEspacosEQuebrasDeLinha(t *testing.T) {
 // (TestNewlineFinalCorrompeOTokenAtualmente foi removido junto com a correcao B.12:
 // ele existia apenas para provar o bug de forma verde enquanto a correcao nao chegava,
 // e a propria mensagem de falha instruia a apaga-lo assim que o token fosse normalizado.)
+
+// ---------------------------------------------------------------------------
+// GenerateRandomIdentity (correção A.6/B.5)
+//
+// Substitui Payload.GenerateToken (removida de collector/hardware.go). O
+// contrato é o OPOSTO do anterior: antes, o mesmo Payload precisava sempre
+// gerar o mesmo token (determinismo); agora, cada chamada precisa gerar um
+// valor DIFERENTE (alta entropia) — quem garante estabilidade entre reinícios
+// é a persistência em disco (LoadToken), não mais a fórmula de geração.
+// ---------------------------------------------------------------------------
+
+// reHex64 valida o formato esperado: 64 caracteres hexadecimais minúsculos
+// (32 bytes de crypto/rand, codificados em hex).
+var reHex64 = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// TestGenerateRandomIdentity_FormatoENuncaRepete garante o formato do valor
+// gerado e que 200 chamadas sucessivas nunca colidem — a alta entropia é
+// justamente o que substitui a antiga garantia de sigilo do token (que hoje
+// era derivado de dados legíveis por qualquer usuário local).
+func TestGenerateRandomIdentity_FormatoENuncaRepete(t *testing.T) {
+	const chamadas = 200
+	vistos := make(map[string]bool, chamadas)
+
+	for i := 0; i < chamadas; i++ {
+		id, err := GenerateRandomIdentity()
+		if err != nil {
+			t.Fatalf("chamada %d: GenerateRandomIdentity retornou erro: %v", i, err)
+		}
+		if !reHex64.MatchString(id) {
+			t.Fatalf("chamada %d: id = %q não é hex minúsculo de 64 caracteres (len=%d)", i, id, len(id))
+		}
+		if vistos[id] {
+			t.Fatalf("chamada %d: colisão — %q já havia sido gerado antes em %d chamadas", i, id, chamadas)
+		}
+		vistos[id] = true
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Criptografia em repouso (DPAPI) e migração de tokens legados
+//
+// Estes testes exercitam saveTokenTo/loadTokenFrom de ponta a ponta, incluindo
+// a criptografia real do Windows (CryptProtectData/CryptUnprotectData via
+// golang.org/x/sys/windows — ver protect_windows.go). Por isso são
+// específicos de Windows; em outras plataformas protect/unprotect são
+// passthrough (protect_other.go) e não há o que verificar aqui.
+// ---------------------------------------------------------------------------
+
+// TestSaveTokenTo_ProtegeConteudoEmDisco garante que o arquivo gravado NÃO
+// contém o token em texto plano — prova que a chamada a protect() dentro de
+// saveTokenTo está realmente cifrando, não apenas repassando os bytes.
+func TestSaveTokenTo_ProtegeConteudoEmDisco(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skipf("criptografia DPAPI é específica do Windows, GOOS atual = %s", runtime.GOOS)
+	}
+
+	caminho := filepath.Join(t.TempDir(), "OrionAgent", "machine.token")
+	const tokenClaro = "identidade-secreta-de-teste-0123456789"
+
+	if err := salvarTokenEm(caminho, tokenClaro); err != nil {
+		t.Fatalf("salvarTokenEm falhou: %v", err)
+	}
+
+	bruto, err := os.ReadFile(caminho)
+	if err != nil {
+		t.Fatalf("leitura do arquivo gravado falhou: %v", err)
+	}
+	if strings.Contains(string(bruto), tokenClaro) {
+		t.Fatalf("o token em texto plano apareceu no arquivo em disco — protect() não está cifrando: %q", string(bruto))
+	}
+
+	// E o round-trip via a função real continua devolvendo o valor original.
+	lido, err := carregarTokenDe(caminho)
+	if err != nil {
+		t.Fatalf("carregarTokenDe falhou após gravação protegida: %v", err)
+	}
+	if lido != tokenClaro {
+		t.Fatalf("token divergente após ciclo cifrar/decifrar: gravado %q, lido %q", tokenClaro, lido)
+	}
+}
+
+// TestLoadTokenFrom_MigraTokenLegadoEmTextoPlano é o teste central da migração:
+// simula um machine.token gravado por uma versão do agente ANTERIOR a esta
+// correção (texto plano, sem DPAPI — exatamente o formato produzido pelo antigo
+// Payload.GenerateToken). Sem esta ponte, toda a frota já instalada se
+// re-registraria como "máquina nova" no primeiro heartbeat após o deploy.
+func TestLoadTokenFrom_MigraTokenLegadoEmTextoPlano(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skipf("teste específico da migração DPAPI do Windows, GOOS atual = %s", runtime.GOOS)
+	}
+
+	caminho := filepath.Join(t.TempDir(), "machine.token")
+	// Formato antigo: sha256 hex de Payload.GenerateToken, gravado sem qualquer proteção.
+	// Sintético (64 caracteres hex) — não corresponde a nenhuma máquina real.
+	tokenLegado := strings.Repeat("ab12cd34", 8)
+
+	if err := os.WriteFile(caminho, []byte(tokenLegado), 0600); err != nil {
+		t.Fatalf("preparação falhou: %v", err)
+	}
+
+	lido, err := carregarTokenDe(caminho)
+	if err != nil {
+		t.Fatalf("token legado não foi lido: %v", err)
+	}
+	if lido != tokenLegado {
+		t.Fatalf("token legado = %q, esperado %q — a frota já instalada re-registraria como máquina nova", lido, tokenLegado)
+	}
+
+	// Regravar (o que EnsureIdentity/SaveToken faz a cada start bem-sucedido, via
+	// service/windows.go tick()) precisa proteger o valor a partir de agora...
+	if err := salvarTokenEm(caminho, lido); err != nil {
+		t.Fatalf("regravação falhou: %v", err)
+	}
+	bruto, err := os.ReadFile(caminho)
+	if err != nil {
+		t.Fatalf("leitura pós-regravação falhou: %v", err)
+	}
+	if string(bruto) == tokenLegado {
+		t.Error("regravação não protegeu o token — o arquivo continua em texto plano")
+	}
+
+	// ...mas o valor LÓGICO do token não pode mudar, senão a migração quebra a
+	// identidade que estava tentando preservar.
+	relido, err := carregarTokenDe(caminho)
+	if err != nil {
+		t.Fatalf("token não pôde ser relido após ser protegido: %v", err)
+	}
+	if relido != tokenLegado {
+		t.Fatalf("token mudou de valor ao ser protegido: %q != %q", relido, tokenLegado)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Endurecimento de ACL (correção A.6, parte "+ ACL explícita")
+// ---------------------------------------------------------------------------
+
+// TestSaveTokenTo_RestringeACLDoDiretorio garante que, ao criar o diretório do
+// token pela primeira vez, saveTokenTo restringe o acesso a exatamente três
+// principals: SYSTEM, Administradores, e a conta que criou o diretório agora
+// (necessária para o modo tray interativo continuar funcionando — ver o
+// comentário de endurecerACLDoDiretorio em acl_windows.go). Qualquer outro
+// principal presente indica que a herança da ACL do diretório pai não foi
+// removida.
+//
+// Verificação por SID via PowerShell (não por nome via icacls) para não
+// depender do idioma de instalação do Windows: nesta própria máquina de
+// desenvolvimento os nomes localizados são "AUTORIDADE NT\SISTEMA" e
+// "BUILTIN\Administradores", que não bateriam com uma asserção em inglês.
+func TestSaveTokenTo_RestringeACLDoDiretorio(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skipf("ACL do Windows, GOOS atual = %s", runtime.GOOS)
+	}
+	if _, err := exec.LookPath("powershell"); err != nil {
+		t.Skip("powershell não disponível neste ambiente para verificar a ACL")
+	}
+
+	dir := filepath.Join(t.TempDir(), "OrionAgent")
+	caminho := filepath.Join(dir, "machine.token")
+
+	if err := salvarTokenEm(caminho, "token-qualquer"); err != nil {
+		t.Fatalf("salvarTokenEm falhou: %v", err)
+	}
+
+	sidUsuarioAtual, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value",
+	).Output()
+	if err != nil {
+		t.Fatalf("não foi possível obter o SID do usuário atual: %v", err)
+	}
+
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"(Get-Acl '"+dir+"').Access | ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value }",
+	).CombinedOutput()
+	if err != nil {
+		t.Fatalf("verificação via PowerShell falhou: %v (%s)", err, out)
+	}
+
+	sids := strings.Fields(strings.TrimSpace(string(out)))
+	esperados := map[string]string{
+		"S-1-5-18":                        "SYSTEM",
+		"S-1-5-32-544":                    "Administradores",
+		strings.TrimSpace(string(sidUsuarioAtual)): "usuário atual (criador do diretório)",
+	}
+
+	achados := make(map[string]bool, len(sids))
+	for _, s := range sids {
+		achados[s] = true
+	}
+
+	for sid, papel := range esperados {
+		if !achados[sid] {
+			t.Errorf("ACL de %q não concede acesso a %s (%s); SIDs encontrados: %v", dir, papel, sid, sids)
+		}
+	}
+	for _, s := range sids {
+		if _, ok := esperados[s]; !ok {
+			t.Errorf("ACL de %q concede acesso a um principal inesperado (%s) — a herança pode não ter sido removida; SIDs encontrados: %v", dir, s, sids)
+		}
+	}
+}

@@ -29,6 +29,7 @@ import (
 
 	"orion-agent/collector"
 	"orion-agent/config"
+	"orion-agent/token"
 )
 
 // ─────────────────────────────────────────────────────────────
@@ -59,27 +60,17 @@ func pularSeBugConhecido(t *testing.T, explicacao string) {
 	t.Skip("BUG CONHECIDO: " + explicacao + " — remover o Skip apos corrigir")
 }
 
-// payloadDaMesmaMaquina monta um Payload equivalente ao que collector.Collect()
-// devolveria para UMA mesma máquina física, variando apenas o usuário logado.
-// Serve para simular troca rápida de usuário sem mexer em hardware real.
-func payloadDaMesmaMaquina(usuario string) *collector.Payload {
-	return &collector.Payload{
-		MachineUUID: "uuid-fixo-da-maquina-de-teste",
-		Hostname:    "ORION-PC-TESTE",
-		Interfaces: []collector.NetworkInterface{
-			{Name: "Ethernet", MAC: "aa:bb:cc:dd:ee:01", IPs: []string{"192.168.0.10/24"}},
-			{Name: "Wi-Fi", MAC: "aa:bb:cc:dd:ee:02", IPs: []string{"192.168.0.11/24"}},
-		},
-		CurrentUser: usuario,
-		Domain:      "EMPRESA",
-	}
-}
-
 // aplicaIdentidadeComoTick reproduz APENAS o bloco de identidade do tick()
 // (o "if s.machineToken == \"\" { ... }"), sem tocar em disco, Desktop ou rede.
-func aplicaIdentidadeComoTick(s *Svc, tokenDerivadoDoHardware string) {
+//
+// Antes da correção A.6/B.5 este helper recebia um token DERIVADO do Payload
+// coletado (via Payload.GenerateToken, hoje removida). Com a correção, a
+// identidade deixou de depender do Payload — vem de token.LoadToken ou
+// token.GenerateRandomIdentity — então o helper passou a receber o valor já
+// resolvido diretamente.
+func aplicaIdentidadeComoTick(s *Svc, identidade string) {
 	if s.machineToken == "" {
-		s.machineToken = tokenDerivadoDoHardware
+		s.machineToken = identidade
 	}
 }
 
@@ -125,7 +116,11 @@ func TestBandejaViraNoOpSilenciosoAntesDoPrimeiroTick(t *testing.T) {
 	}
 
 	// Depois que a identidade é resolvida, os mesmos cliques passam a funcionar.
-	aplicaIdentidadeComoTick(s, payloadDaMesmaMaquina("joao").GenerateToken())
+	identidade, err := token.GenerateRandomIdentity()
+	if err != nil {
+		t.Fatalf("GenerateRandomIdentity falhou: %v", err)
+	}
+	aplicaIdentidadeComoTick(s, identidade)
 	callbackDaBandeja(s.GetPortalURL)
 	callbackDaBandeja(s.GetTicketURL)
 
@@ -240,29 +235,36 @@ func TestGetPortalURLDeveGerarURLValidaComTokenComQuebraDeLinha(t *testing.T) {
 // (A) Troca rápida de usuário
 // ─────────────────────────────────────────────────────────────
 
-// A identidade da máquina é derivada de hardware (MachineUUID + Hostname + MACs)
-// e NÃO inclui o usuário. Trocar de usuário não pode mudar o token.
-func TestTrocaDeUsuarioNaoAlteraIdentidadeDaMaquina(t *testing.T) {
-	primeiroLogon := payloadDaMesmaMaquina("maria")
-	segundoLogon := payloadDaMesmaMaquina("joao")
+// TestIdentidadeDaMaquinaNaoDependeDoUsuarioColetado cobre a correção A.6/B.5.
+//
+// Antes: a identidade era derivada de MachineUUID+Hostname+MACs do Payload
+// coletado — nunca do usuário, mas ainda assim acoplada ao hardware e instável
+// conforme o estado da rede (achado B.5, ver MACHINE-IDENTITY-OPTIONS.md).
+// Agora: a identidade é um valor aleatório resolvido uma única vez
+// (token.GenerateRandomIdentity ou token.LoadToken), e o bloco de identidade do
+// tick() nem consulta o Payload para decidi-la — só a usa DEPOIS de resolvida,
+// em "payload.MachineToken = s.machineToken". Trocar de usuário entre coletas
+// não pode, por construção, alterar uma identidade já fixada: o gate
+// "if s.machineToken == \"\"" impede que o bloco rode de novo.
+func TestIdentidadeDaMaquinaNaoDependeDoUsuarioColetado(t *testing.T) {
+	s := novoSvcDeTeste("https://orion.exemplo.test")
 
-	tokenA := primeiroLogon.GenerateToken()
-	tokenB := segundoLogon.GenerateToken()
-
-	if tokenA == "" {
-		t.Fatal("GenerateToken devolveu string vazia")
+	identidade, err := token.GenerateRandomIdentity()
+	if err != nil {
+		t.Fatalf("GenerateRandomIdentity falhou: %v", err)
 	}
-	if tokenA != tokenB {
-		t.Fatalf("troca de usuário mudou a identidade da máquina (duplicação de identidade):\n"+
-			"usuario=%s token=%s\nusuario=%s token=%s",
-			primeiroLogon.CurrentUser, tokenA, segundoLogon.CurrentUser, tokenB)
+
+	// 1ª coleta: usuário "maria" loga e o tick resolve a identidade.
+	aplicaIdentidadeComoTick(s, identidade)
+	if s.machineToken != identidade {
+		t.Fatalf("machineToken = %q, esperado %q", s.machineToken, identidade)
 	}
 
-	// Sanidade: o token realmente depende do hardware — outra máquina, outro token.
-	outraMaquina := payloadDaMesmaMaquina("maria")
-	outraMaquina.MachineUUID = "uuid-de-outra-maquina"
-	if outraMaquina.GenerateToken() == tokenA {
-		t.Fatal("máquinas diferentes geraram o mesmo token — a identidade não depende do hardware")
+	// 2ª coleta simulada, com outro usuário: como s.machineToken já não está
+	// vazio, o bloco de identidade não roda de novo.
+	aplicaIdentidadeComoTick(s, "identidade-que-nunca-deveria-substituir-a-primeira")
+	if s.machineToken != identidade {
+		t.Fatalf("troca de usuário alterou a identidade já resolvida: antes=%q depois=%q", identidade, s.machineToken)
 	}
 }
 
@@ -272,8 +274,13 @@ func TestTrocaDeUsuarioNaoAlteraIdentidadeDaMaquina(t *testing.T) {
 func TestTrocaRapidaDeUsuarioMantemEstadoDoSvcCoerente(t *testing.T) {
 	s := novoSvcDeTeste("https://orion.exemplo.test")
 
+	identidade, err := token.GenerateRandomIdentity()
+	if err != nil {
+		t.Fatalf("GenerateRandomIdentity falhou: %v", err)
+	}
+
 	// 1ª coleta: usuário "maria" loga e o tick resolve a identidade.
-	aplicaIdentidadeComoTick(s, payloadDaMesmaMaquina("maria").GenerateToken())
+	aplicaIdentidadeComoTick(s, identidade)
 	portalMaria := s.GetPortalURL()
 	ticketMaria := s.GetTicketURL()
 	tokenMaria := s.machineToken
@@ -283,7 +290,7 @@ func TestTrocaRapidaDeUsuarioMantemEstadoDoSvcCoerente(t *testing.T) {
 	}
 
 	// 2ª coleta logo em seguida: "joao" assume a sessão (troca rápida de usuário).
-	aplicaIdentidadeComoTick(s, payloadDaMesmaMaquina("joao").GenerateToken())
+	aplicaIdentidadeComoTick(s, "outra-identidade-hipotetica")
 
 	if s.machineToken != tokenMaria {
 		t.Fatalf("troca de usuário alterou o machineToken do Svc: antes=%q depois=%q", tokenMaria, s.machineToken)
@@ -297,9 +304,11 @@ func TestTrocaRapidaDeUsuarioMantemEstadoDoSvcCoerente(t *testing.T) {
 }
 
 // Exercita o collector real (leitura local, sem rede externa e sem escrita em disco)
-// para confirmar que o usuário logado acompanha a variável de ambiente, mas a
-// identidade da máquina não.
-func TestColetaRealSegueUsuarioMasIdentidadePermaneceEstavel(t *testing.T) {
+// para confirmar que o usuário logado acompanha a variável de ambiente, e que os
+// dados de hardware que antes alimentavam a identidade (MachineUUID, Hostname)
+// continuam estáveis — ainda que, desde a correção A.6/B.5, eles não sejam mais
+// usados para gerar identidade nenhuma (ver TestIdentidadeDaMaquinaNaoDependeDoUsuarioColetado).
+func TestColetaRealSegueUsuarioMasHardwarePermaneceEstavel(t *testing.T) {
 	if testing.Short() {
 		t.Skip("coleta real de hardware leva ~1s por chamada; pulado em -short")
 	}
@@ -325,10 +334,6 @@ func TestColetaRealSegueUsuarioMasIdentidadePermaneceEstavel(t *testing.T) {
 	if primeira.MachineUUID != segunda.MachineUUID || primeira.Hostname != segunda.Hostname {
 		t.Fatalf("identidade de hardware oscilou entre coletas: %q/%q vs %q/%q",
 			primeira.MachineUUID, primeira.Hostname, segunda.MachineUUID, segunda.Hostname)
-	}
-	if primeira.GenerateToken() != segunda.GenerateToken() {
-		t.Fatalf("troca de usuário mudou o token derivado do hardware:\n%s\n%s",
-			primeira.GenerateToken(), segunda.GenerateToken())
 	}
 }
 

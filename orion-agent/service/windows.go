@@ -97,14 +97,26 @@ func (s *Svc) tick() {
 	}
 
 	// Gerenciamento de Identidade (Token)
-	// Se for o primeiro acesso, carregamos do disco ou geramos um novo.
+	// Se for o primeiro acesso, carregamos do disco ou geramos uma nova identidade
+	// aleatória (token.GenerateRandomIdentity — ver MACHINE-IDENTITY-OPTIONS.md).
 	if s.machineToken == "" {
 		t, err := token.LoadToken()
 		if err != nil {
-			s.logger.Printf("[INFO] Identidade local não encontrada, registrando máquina pela primeira vez.")
-			t = payload.GenerateToken()
+			s.logger.Printf("[INFO] Identidade local não encontrada, gerando nova identidade de máquina.")
+			t, err = token.GenerateRandomIdentity()
+			if err != nil {
+				s.logger.Printf("[ERRO] Falha ao gerar identidade da máquina: %v", err)
+				return
+			}
 			if err := token.SaveToken(t); err != nil {
-				s.logger.Printf("[ERRO] Falha ao salvar identidade local: %v", err)
+				// Não seguimos com uma identidade gerada mas não persistida: se o
+				// processo reiniciar antes de uma gravação bem-sucedida, uma NOVA
+				// identidade aleatória seria gerada no próximo start, registrando
+				// uma segunda máquina no backend para o mesmo computador físico.
+				// Preferimos pular o check-in deste ciclo e tentar de novo no
+				// próximo — LoadToken continuará falhando até SaveToken funcionar.
+				s.logger.Printf("[ERRO] Falha ao salvar identidade local, tentando novamente no próximo ciclo: %v", err)
+				return
 			}
 		}
 		s.machineToken = t
