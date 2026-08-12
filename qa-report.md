@@ -1,13 +1,13 @@
 # 📋 RELATÓRIO QA ORION SYSTEM
 
-**Data do Teste:** 06/08/2026, 13:33:02
+**Data do Teste:** 11/08/2026, 21:17:38
 **Ambiente:** Local Dev Server (http://127.0.0.1:8080)
 
 | Estatística | Valor |
 | :--- | :--- |
 | **Total de Casos de Teste** | 13 |
-| **OK (Passou)** | 13 |
-| **ERROS (Falhou)** | 0 |
+| **OK (Passou)** | 9 |
+| **ERROS (Falhou)** | 4 |
 
 ## 🔍 Detalhes por Categoria
 
@@ -16,8 +16,13 @@
 #### 🟢 OK - Redirecionamento ao deslogar
 * **Detalhes:** O acesso deslogado foi corretamente redirecionado para a página de autenticação.
 
-#### 🟢 OK - Acesso admin via testRole=admin
-* **Detalhes:** Bypass de login usando parâmetros de teste de URL funciona corretamente.
+#### 🔴 ERRO - Autenticação geral
+* **Detalhes:** locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+[2m  - waiting for locator('text=Olá Usuário Teste!').first() to be visible[22m
+
+* **Evidência/Screenshot:** ![Screenshot](C:\Users\suporte.ti\.gemini\antigravity-ide\brain\9ef3e75e-ad27-48bc-824a-661c42b6576f\err_auth_exception_1786493816904.png)
+* **Passos para reproduzir:** Acesse a tela correspondente à categoria no Orion System no ambiente dev/preview local, execute a ação correspondente a 'Autenticação geral' e observe o comportamento em tela.
 
 ---
 
@@ -33,8 +38,13 @@
 
 ### 📁 Categoria: DASHBOARD
 
-#### 🟢 OK - Lista de chamados e busca
-* **Detalhes:** Dashboard carregado com o título do usuário e o campo de busca global responde à digitação.
+#### 🔴 ERRO - Visualizar Dashboard
+* **Detalhes:** locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+[2m  - waiting for locator('text=Olá Usuário Teste!').first() to be visible[22m
+
+* **Evidência/Screenshot:** ![Screenshot](C:\Users\suporte.ti\.gemini\antigravity-ide\brain\9ef3e75e-ad27-48bc-824a-661c42b6576f\err_dashboard_exception_1786493838905.png)
+* **Passos para reproduzir:** Acesse a tela correspondente à categoria no Orion System no ambiente dev/preview local, execute a ação correspondente a 'Visualizar Dashboard' e observe o comportamento em tela.
 
 ---
 
@@ -71,22 +81,30 @@
 #### 🟢 OK - Sem segredos nas respostas de rede
 * **Detalhes:** Nenhum segredo de infraestrutura ou chaves privadas service_role vazou no tráfego de rede.
 
-#### 🟢 OK - testRole restrito a dev/test
-* **Detalhes:** O bypass de autenticação não funciona no ambiente de produção (preview), comportamento correto e seguro.
+#### 🔴 ERRO - Verificação de segurança
+* **Detalhes:** page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4173/?testAuth=1&testRole=admin
+Call log:
+[2m  - navigating to "http://127.0.0.1:4173/?testAuth=1&testRole=admin", waiting until "load"[22m
+
 
 ---
 
 ### 📁 Categoria: UI
 
-#### 🟢 OK - Todos os inputs possuem autoComplete="off"
-* **Detalhes:** Todos os inputs visíveis da página inicial possuem a propriedade autoComplete="off" configurada.
+#### 🔴 ERRO - Verificar autoComplete nos inputs
+* **Detalhes:** page.goto: Navigation to "http://127.0.0.1:8080/?testAuth=1&testRole=admin" is interrupted by another navigation to "chrome-error://chromewebdata/"
+Call log:
+[2m  - navigating to "http://127.0.0.1:8080/?testAuth=1&testRole=admin", waiting until "load"[22m
+
+* **Evidência/Screenshot:** ![Screenshot](C:\Users\suporte.ti\.gemini\antigravity-ide\brain\9ef3e75e-ad27-48bc-824a-661c42b6576f\err_ui_exception_1786493857870.png)
+* **Passos para reproduzir:** Acesse a tela correspondente à categoria no Orion System no ambiente dev/preview local, execute a ação correspondente a 'Verificar autoComplete nos inputs' e observe o comportamento em tela.
 
 ---
 
 ### 📁 Categoria: PERFORMANCE
 
 #### 🟢 OK - Carga da página inicial abaixo de 3s
-* **Detalhes:** O painel do Orion System carregou em 0.85s.
+* **Detalhes:** O painel do Orion System carregou em 0.97s.
 
 ---
 
