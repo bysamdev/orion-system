@@ -1,7 +1,17 @@
-# Ignore agent binaries and non-web directories from Vercel deployment
-orion-agent
-systray-agent
-brain
-reports
-scratch
-.obsidian
+# Binários do agente e diretórios não-web fora do deploy da Vercel.
+#
+# IMPORTANTE: os padrões abaixo são ANCORADOS na raiz (barra inicial).
+# Sem a barra, o padrão casa com qualquer diretório de mesmo nome em qualquer
+# profundidade — foi assim que um `reports` solto apagou src/components/reports
+# e src/lib/reports no build da Vercel, quebrando o deploy com "Could not load"
+# num arquivo que existia normalmente no repositório.
+# Ao adicionar entradas aqui, sempre ancore na raiz ou use o caminho completo.
+/orion-agent
+/systray-agent
+/brain
+/reports
+/scratch
+/.obsidian
+
+# Saída de QA (caminho completo: não é um diretório de raiz)
+/scripts/qa/reports
