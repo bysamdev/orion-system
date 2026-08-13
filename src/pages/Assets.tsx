@@ -468,6 +468,97 @@ const Assets = () => {
             </div>
           </div>
 
+          {/* Filtros Globais (Aplicados tanto à lista quanto à topologia) */}
+          <Card className="border-border/40 shadow-xl bg-card/60 backdrop-blur-md overflow-hidden mb-6">
+            <CardHeader className="p-5 border-b border-border/40 bg-muted/20">
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                
+                {/* Search input (Hostname, IP, Serial) */}
+                <div className="flex-1 max-w-lg relative group">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input 
+                    autoComplete="off" 
+                    placeholder="Pesquisar por Hostname, IP, MAC ou Nº de Série..." 
+                    className="pl-10 h-11 bg-background/70 border-border/50 rounded-xl focus-visible:ring-primary/20 text-sm font-medium"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  {search && (
+                    <button 
+                      onClick={() => setSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter controls */}
+                <div className="flex flex-wrap items-center gap-3">
+                  
+                  {/* Filter by Cliente */}
+                  <div className="w-full sm:w-48">
+                    <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
+                        <Building2 className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                        <SelectValue placeholder="Cliente (Empresa)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs font-semibold">Todos os Clientes</SelectItem>
+                        {companies?.map(c => (
+                          <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Filter by Device Type */}
+                  <div className="w-full sm:w-44">
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
+                        <SlidersHorizontal className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                        <SelectValue placeholder="Tipo de Dispositivo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs font-semibold">Todos os Tipos</SelectItem>
+                        <SelectItem value="Computador" className="text-xs">Computador</SelectItem>
+                        <SelectItem value="Notebook" className="text-xs">Notebook</SelectItem>
+                        <SelectItem value="Servidor" className="text-xs">Servidor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Filter by Status */}
+                  <div className="w-full sm:w-40">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
+                        <Activity className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs font-semibold">Todos os Status</SelectItem>
+                        <SelectItem value="online" className="text-xs font-semibold text-emerald-600">Online</SelectItem>
+                        <SelectItem value="offline" className="text-xs font-semibold text-rose-600">Offline</SelectItem>
+                        <SelectItem value="alerta" className="text-xs font-semibold text-amber-600">Alerta</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {hasActiveFilters && (
+                    <Button 
+                      variant="ghost" 
+                      onClick={clearFilters}
+                      className="h-11 px-3 text-xs text-muted-foreground hover:text-foreground font-semibold"
+                    >
+                      Limpar Filtros
+                    </Button>
+                  )}
+                </div>
+
+              </div>
+            </CardHeader>
+          </Card>
+
           <Tabs defaultValue="lista" className="w-full space-y-6">
             <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
               <TabsTrigger value="lista">Lista de Ativos</TabsTrigger>
@@ -557,97 +648,8 @@ const Assets = () => {
             </Card>
           </div>
 
-          {/* 2. Filter Bar */}
+          {/* 3. Table Columns */}
           <Card className="border-border/40 shadow-xl bg-card/60 backdrop-blur-md overflow-hidden">
-            <CardHeader className="p-5 border-b border-border/40 bg-muted/20">
-              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-                
-                {/* Search input (Hostname, IP, Serial) */}
-                <div className="flex-1 max-w-lg relative group">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input 
-                    autoComplete="off" 
-                    placeholder="Pesquisar por Hostname, IP, MAC ou Nº de Série..." 
-                    className="pl-10 h-11 bg-background/70 border-border/50 rounded-xl focus-visible:ring-primary/20 text-sm font-medium"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                  {search && (
-                    <button 
-                      onClick={() => setSearch('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Filter controls */}
-                <div className="flex flex-wrap items-center gap-3">
-                  
-                  {/* Filter by Cliente */}
-                  <div className="w-full sm:w-48">
-                    <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
-                        <Building2 className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-                        <SelectValue placeholder="Cliente (Empresa)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all" className="text-xs font-semibold">Todos os Clientes</SelectItem>
-                        {companies?.map(c => (
-                          <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Filter by Device Type */}
-                  <div className="w-full sm:w-44">
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
-                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
-                        <SlidersHorizontal className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-                        <SelectValue placeholder="Tipo de Dispositivo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all" className="text-xs font-semibold">Todos os Tipos</SelectItem>
-                        <SelectItem value="Computador" className="text-xs">Computador</SelectItem>
-                        <SelectItem value="Notebook" className="text-xs">Notebook</SelectItem>
-                        <SelectItem value="Servidor" className="text-xs">Servidor</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Filter by Status */}
-                  <div className="w-full sm:w-40">
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
-                        <Activity className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all" className="text-xs font-semibold">Todos os Status</SelectItem>
-                        <SelectItem value="online" className="text-xs font-semibold text-emerald-600">Online</SelectItem>
-                        <SelectItem value="offline" className="text-xs font-semibold text-rose-600">Offline</SelectItem>
-                        <SelectItem value="alerta" className="text-xs font-semibold text-amber-600">Alerta</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {hasActiveFilters && (
-                    <Button 
-                      variant="ghost" 
-                      onClick={clearFilters}
-                      className="h-11 px-3 text-xs text-muted-foreground hover:text-foreground font-semibold"
-                    >
-                      Limpar Filtros
-                    </Button>
-                  )}
-                </div>
-
-              </div>
-            </CardHeader>
-
-            {/* 3. Table Columns */}
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-muted/30">

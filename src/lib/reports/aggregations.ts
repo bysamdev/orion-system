@@ -480,3 +480,50 @@ export interface AutomationLogRow {
   ticket_id: string;
   created_at: string;
 }
+
+import { StatusCount, PrioritySla, RequesterCount } from './types';
+
+export function computeByStatus(tickets: TicketRow[]): StatusCount[] {
+  const counts: Record<string, number> = {};
+  for (const t of tickets) {
+    const s = t.status || 'unknown';
+    counts[s] = (counts[s] || 0) + 1;
+  }
+  return Object.entries(counts)
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+export function computeSlaByPriority(tickets: TicketRow[]): PrioritySla[] {
+  const stats: Record<string, { total: number; ok: number }> = {};
+  for (const t of tickets) {
+    const p = t.priority || 'unknown';
+    if (!stats[p]) stats[p] = { total: 0, ok: 0 };
+    if (t.sla_status && t.sla_status !== 'none') {
+      stats[p].total++;
+      if (t.sla_status === 'ok' || t.sla_status === 'attention') {
+        stats[p].ok++;
+      }
+    }
+  }
+  return Object.entries(stats)
+    .filter(([_, s]) => s.total > 0)
+    .map(([priority, s]) => ({
+      priority,
+      count: s.total,
+      slaCompliancePct: s.total > 0 ? (s.ok / s.total) * 100 : 0
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+export function computeTopRequesters(tickets: TicketRow[], limit = 5): RequesterCount[] {
+  const counts: Record<string, number> = {};
+  for (const t of tickets) {
+    const name = t.requester_name || 'Desconhecido';
+    counts[name] = (counts[name] || 0) + 1;
+  }
+  return Object.entries(counts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}

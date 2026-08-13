@@ -46,6 +46,9 @@ import {
   Area,
   Legend,
   LabelList,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -81,6 +84,9 @@ import {
   computeHoursByCompany,
   computeReopenAndCsatByTech,
   computeAutomationAndKbTrend,
+  computeByStatus,
+  computeSlaByPriority,
+  computeTopRequesters,
 } from '@/lib/reports/aggregations';
 import { SLA_COMPLIANCE_TARGET_PCT, type ReportMode } from '@/lib/reports/types';
 
@@ -98,6 +104,15 @@ const SemDados: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
     {children ?? 'Sem dados para exibir'}
   </div>
 );
+
+const STATUS_COLORS: Record<string, string> = {
+  aberto: '#3b82f6', // blue-500
+  pendente: '#eab308', // yellow-500
+  resolvido: '#22c55e', // green-500
+  fechado: '#64748b', // slate-500
+  'em atendimento': '#a855f7', // purple-500
+  unknown: '#94a3b8' // slate-400
+};
 
 const Reports: React.FC = () => {
   const { data: role, isLoading: roleLoading } = useUserRole();
@@ -174,6 +189,9 @@ const Reports: React.FC = () => {
       horasPorEmpresa: computeHoursByCompany(timeEntries ?? [], tickets),
       reaberturaCsat: computeReopenAndCsatByTech(tickets, ratings ?? new Map()),
       automacoes: computeAutomationAndKbTrend(kbLinks ?? [], automationLogs ?? [], dateFrom, dateTo),
+      porStatus: computeByStatus(tickets),
+      slaPorPrioridade: computeSlaByPriority(tickets),
+      topSolicitantes: computeTopRequesters(tickets, 5),
     }),
     [tickets, dateFrom, dateTo, slaTarget, ratings, timeEntries, nomePorUsuario, kbLinks, automationLogs],
   );
@@ -517,6 +535,72 @@ const Reports: React.FC = () => {
           </Card>
         </div>
 
+        {/* ── Distribuição por Status e Top 5 Clientes ───────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <Card className="shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                Distribuição por Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[220px] w-full" {...chartAttrs('Distribuição por Status')}>
+                {charts.porStatus.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={charts.porStatus}
+                        dataKey="count"
+                        nameKey="status"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={2}
+                      >
+                        {charts.porStatus.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.status.toLowerCase()] || STATUS_COLORS.unknown} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={TOOLTIP_STYLE} />
+                      <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <SemDados>Nenhum chamado para exibir</SemDados>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Building2 className="w-4 h-4" /> Top 5 Clientes (Volume)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[220px] w-full" {...chartAttrs('Top 5 Clientes')}>
+                {charts.porEmpresa.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={charts.porEmpresa.slice(0, 5)} layout="vertical" margin={{ left: 10, right: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                      <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+                      <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={100} />
+                      <Tooltip contentStyle={TOOLTIP_STYLE} />
+                      <Bar dataKey="total" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}>
+                        <LabelList dataKey="total" position="right" fontSize={10} fill="hsl(var(--foreground))" />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <SemDados>Nenhum chamado no período</SemDados>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Ativos críticos (RMM) */}
         {criticalAssets && criticalAssets.total > 0 && (
           <Card className="mb-8 shadow-sm border-border/40">
@@ -711,6 +795,74 @@ const Reports: React.FC = () => {
                         </ResponsiveContainer>
                       ) : (
                         <SemDados>Sem dados de empresas</SemDados>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <Card className="shadow-sm border-border/40">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4" /> SLA por Prioridade
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[250px] w-full" {...chartAttrs('SLA por Prioridade')}>
+                      {charts.slaPorPrioridade.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={charts.slaPorPrioridade} layout="vertical" margin={{ right: 28 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="priority" type="category" width={90} tick={{ fontSize: 10 }} />
+                            <Tooltip
+                              contentStyle={TOOLTIP_STYLE}
+                              formatter={(value: number, name: string, props: any) => [
+                                `${value.toFixed(1)}% (${props.payload.count} chamados)`,
+                                'No Prazo',
+                              ]}
+                            />
+                            <Bar dataKey="slaCompliancePct" name="No Prazo" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={18}>
+                              <LabelList 
+                                dataKey="slaCompliancePct" 
+                                position="right" 
+                                fontSize={9} 
+                                fill="hsl(var(--foreground))"
+                                formatter={(val: number) => `${val.toFixed(0)}%`}
+                              />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <SemDados>Sem dados de SLA por prioridade</SemDados>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-sm border-border/40">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <Users className="w-4 h-4" /> Top 5 Solicitantes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[250px] w-full" {...chartAttrs('Top 5 Solicitantes')}>
+                      {charts.topSolicitantes.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={charts.topSolicitantes} layout="vertical" margin={{ right: 28 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 9 }} />
+                            <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
+                            <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={18}>
+                              <LabelList dataKey="count" position="right" fontSize={9} fill="hsl(var(--foreground))" />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <SemDados>Sem dados de solicitantes</SemDados>
                       )}
                     </div>
                   </CardContent>

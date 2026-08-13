@@ -154,3 +154,19 @@ export interface AutomationTrendPoint {
   automation: number;
   kb: number;
 }
+
+export interface StatusCount {
+  status: string;
+  count: number;
+}
+
+export interface PrioritySla {
+  priority: string;
+  count: number;
+  slaCompliancePct: number;
+}
+
+export interface RequesterCount {
+  name: string;
+  count: number;
+}
