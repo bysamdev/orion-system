@@ -726,19 +726,6 @@ const TicketDetails: React.FC = () => {
                       Anexar
                     </Button>
                     
-                    {canManageTickets && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSuggestResponse}
-                        disabled={isSuggesting}
-                        className="h-9 px-3 gap-2 border-purple-200 text-purple-600 bg-purple-500/10 hover:bg-purple-500/20"
-                      >
-                        {isSuggesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                        Sugerir Resposta (IA)
-                      </Button>
-                    )}
-
                     {canManageTickets && <CannedResponseSelector onSelect={(content) => setNewUpdateText(content)} />}
                   </div>
                 </div>

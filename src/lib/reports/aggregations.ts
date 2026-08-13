@@ -18,6 +18,9 @@ import type {
   SlaTrendPoint,
   TechnicianComparison,
   TrendPoint,
+  HoursByCompany,
+  TechReopenCsat,
+  AutomationTrendPoint,
 } from './types';
 
 const MS_POR_HORA = 3_600_000;
@@ -374,6 +377,106 @@ export function computeHoursByTechnician(
       totalHoras: arredonda1(v.total / 60),
       faturaveisHoras: arredonda1(v.faturaveis / 60),
     }))
+    .slice(0, limite);
+}
+
+export function computeHoursByCompany(
+  entries: TimeEntryRow[],
+  ticketsNoEscopo: Ticket[],
+  limite = 8,
+): HoursByCompany[] {
+  const idsNoEscopo = new Set(ticketsNoEscopo.map((t) => t.id));
+  const companyByTicket = new Map(ticketsNoEscopo.map((t) => [t.id, t.company_name || 'Sem Empresa']));
+  const mapa: Record<string, { total: number; faturaveis: number }> = {};
+
+  for (const e of entries) {
+    if (!idsNoEscopo.has(e.ticket_id)) continue;
+    const minutos = e.duration_minutes ?? 0;
+    if (minutos <= 0) continue;
+    const nome = companyByTicket.get(e.ticket_id) || 'Sem Empresa';
+    if (!mapa[nome]) mapa[nome] = { total: 0, faturaveis: 0 };
+    mapa[nome].total += minutos;
+    if (e.billable) mapa[nome].faturaveis += minutos;
+  }
+
+  return Object.entries(mapa)
+    .map(([name, v]) => ({
+      name,
+      totalHoras: arredonda1(v.total / 60),
+      faturaveisHoras: arredonda1(v.faturaveis / 60),
+    }))
     .sort((a, b) => b.totalHoras - a.totalHoras)
     .slice(0, limite);
+}
+
+export function computeReopenAndCsatByTech(
+  tickets: Ticket[],
+  ratingsPorTicket: Map<string, number>,
+  limite = 6,
+): TechReopenCsat[] {
+  const mapa: Record<string, { total: number; reabertos: number; somaNotas: number; nNotas: number }> = {};
+
+  for (const t of tickets) {
+    const tech = t.assigned_to || SEM_ATRIBUICAO;
+    if (!mapa[tech]) mapa[tech] = { total: 0, reabertos: 0, somaNotas: 0, nNotas: 0 };
+    
+    mapa[tech].total++;
+    if (t.status === 'reopened') mapa[tech].reabertos++;
+    
+    const nota = ratingsPorTicket.get(t.id);
+    if (typeof nota === 'number') {
+      mapa[tech].somaNotas += nota;
+      mapa[tech].nNotas++;
+    }
+  }
+
+  return Object.entries(mapa)
+    .filter(([, v]) => v.total >= 2) // amostra < 2 gera distorcoes
+    .map(([name, e]) => ({
+      name,
+      taxaReabertura: Math.round((e.reabertos / e.total) * 100),
+      csatPct: e.nNotas ? Math.round((e.somaNotas / e.nNotas / 5) * 100) : null,
+      csatAmostra: e.nNotas,
+    }))
+    .sort((a, b) => b.taxaReabertura - a.taxaReabertura) // ordena pela maior taxa de reabertura
+    .slice(0, limite);
+}
+
+export function computeAutomationAndKbTrend(
+  kbLinks: KbLinkRow[],
+  automationLogs: AutomationLogRow[],
+  dateFrom: string,
+  dateTo: string
+): AutomationTrendPoint[] {
+  const porSemana: Record<string, { kb: number; automation: number }> = {};
+  
+  const registrar = (isoStr: string | undefined, tipo: 'kb' | 'automation') => {
+    if (!isoStr) return;
+    const dia = isoStr.split('T')[0];
+    if (dia < dateFrom || dia > dateTo) return;
+    const d = new Date(isoStr);
+    if (Number.isNaN(d.getTime())) return;
+    const inicioSemana = new Date(d);
+    inicioSemana.setDate(d.getDate() - d.getDay());
+    const chave = inicioSemana.toISOString().split('T')[0];
+    if (!porSemana[chave]) porSemana[chave] = { kb: 0, automation: 0 };
+    porSemana[chave][tipo]++;
+  };
+
+  for (const log of kbLinks) registrar(log.created_at, 'kb');
+  for (const log of automationLogs) registrar(log.created_at, 'automation');
+
+  return Object.entries(porSemana)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([iso, c]) => ({ week: iso.substring(5).replace('-', '/'), ...c }));
+}
+
+export interface KbLinkRow {
+  ticket_id: string;
+  created_at: string;
+}
+
+export interface AutomationLogRow {
+  ticket_id: string;
+  created_at: string;
 }

@@ -8,7 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { SlaTarget } from '@/lib/reports/types';
-import type { TimeEntryRow } from '@/lib/reports/aggregations';
+import type { TimeEntryRow, KbLinkRow, AutomationLogRow } from '@/lib/reports/aggregations';
 
 /**
  * Meta contratual de horas por prioridade.
@@ -123,6 +123,34 @@ export const useTimeEntriesReport = () => {
         .select('user_id, ticket_id, duration_minutes, billable');
       if (error) throw error;
       return (data ?? []) as TimeEntryRow[];
+    },
+    retry: false,
+  });
+};
+
+export const useKbLinksReport = () => {
+  return useQuery({
+    queryKey: ['report-kb-links'],
+    queryFn: async (): Promise<KbLinkRow[]> => {
+      const { data, error } = await supabase
+        .from('ticket_kb_links')
+        .select('ticket_id, created_at');
+      if (error) throw error;
+      return (data ?? []) as KbLinkRow[];
+    },
+    retry: false,
+  });
+};
+
+export const useAutomationLogsReport = () => {
+  return useQuery({
+    queryKey: ['report-automation-logs'],
+    queryFn: async (): Promise<AutomationLogRow[]> => {
+      const { data, error } = await supabase
+        .from('automation_logs')
+        .select('ticket_id, created_at');
+      if (error) throw error;
+      return (data ?? []) as AutomationLogRow[];
     },
     retry: false,
   });

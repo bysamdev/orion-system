@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTickets } from '@/hooks/useTickets';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,6 +61,8 @@ import {
   useTicketRatings,
   useTimeEntriesReport,
   useCriticalAssets,
+  useKbLinksReport,
+  useAutomationLogsReport,
 } from '@/hooks/useReportSources';
 import {
   filterTickets,
@@ -75,6 +78,9 @@ import {
   computeBulletKpis,
   computeTechnicianComparison,
   computeHoursByTechnician,
+  computeHoursByCompany,
+  computeReopenAndCsatByTech,
+  computeAutomationAndKbTrend,
 } from '@/lib/reports/aggregations';
 import { SLA_COMPLIANCE_TARGET_PCT, type ReportMode } from '@/lib/reports/types';
 
@@ -130,6 +136,8 @@ const Reports: React.FC = () => {
   const { data: ratings } = useTicketRatings();
   const { data: timeEntries } = useTimeEntriesReport();
   const { data: criticalAssets } = useCriticalAssets(companyFilter);
+  const { data: kbLinks } = useKbLinksReport();
+  const { data: automationLogs } = useAutomationLogsReport();
 
   const tickets = useMemo(
     () =>
@@ -163,8 +171,11 @@ const Reports: React.FC = () => {
       bullets: computeBulletKpis(tickets, slaTarget),
       comparativo: computeTechnicianComparison(tickets, ratings ?? new Map()),
       horas: computeHoursByTechnician(timeEntries ?? [], tickets, nomePorUsuario),
+      horasPorEmpresa: computeHoursByCompany(timeEntries ?? [], tickets),
+      reaberturaCsat: computeReopenAndCsatByTech(tickets, ratings ?? new Map()),
+      automacoes: computeAutomationAndKbTrend(kbLinks ?? [], automationLogs ?? [], dateFrom, dateTo),
     }),
-    [tickets, dateFrom, dateTo, slaTarget, ratings, timeEntries, nomePorUsuario],
+    [tickets, dateFrom, dateTo, slaTarget, ratings, timeEntries, nomePorUsuario, kbLinks, automationLogs],
   );
 
   const filtrosAtuais = useMemo(
@@ -542,274 +553,269 @@ const Reports: React.FC = () => {
           </Card>
         )}
 
-        {/* ── Tendência + categorias (ambos os modos) ───────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <Card className="lg:col-span-2 shadow-sm border-border/40">
-            <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                Evolução do Volume
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[250px] w-full" {...chartAttrs('Evolução do Volume')}>
-                {charts.trend.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={charts.trend}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 10 }}
-                        tickFormatter={(v: string) => v.substring(5).replace('-', '/')}
-                      />
-                      <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                      <Tooltip contentStyle={TOOLTIP_STYLE} />
-                      <Line
-                        type="monotone"
-                        dataKey="count"
-                        name="Chamados"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth={3}
-                        dot={{ r: 3 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <SemDados />
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm border-border/40">
-            <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                Chamados por Categoria
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Bar horizontal em vez de pizza: mais legível com 5+ fatias e
-                  permite rótulo de valor em cada barra. */}
-              <div className="h-[250px] w-full" {...chartAttrs('Chamados por Categoria')}>
-                {charts.porCategoria.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={charts.porCategoria} layout="vertical" margin={{ right: 24 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 9 }} />
-                      <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
-                      <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={16}>
-                        <LabelList dataKey="count" position="right" fontSize={9} fill="hsl(var(--foreground))" />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <SemDados />
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── A partir daqui: exclusivo do modo detalhado ───────────────────── */}
-        {detalhado && (
-          <>
-            <Card className="mb-8 shadow-sm border-border/40">
-              <CardHeader>
-                <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                  <Users className="w-4 h-4" /> Comparativo de Técnicos
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px] w-full" {...chartAttrs('Comparativo de Técnicos')}>
-                  <TechnicianComparisonChart data={charts.comparativo} />
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <Card className="shadow-sm border-border/40">
-                <CardHeader>
-                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Clock className="w-4 h-4" /> Tempo Médio por Categoria
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[280px] w-full" {...chartAttrs('Tempo Médio de Resolução por Categoria')}>
-                    {charts.mttr.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={charts.mttr} layout="vertical" margin={{ right: 34 }}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
-                          <XAxis type="number" tick={{ fontSize: 10 }} unit="h" />
-                          <YAxis dataKey="name" type="category" width={104} tick={{ fontSize: 9 }} />
-                          <Tooltip
-                            contentStyle={TOOLTIP_STYLE}
-                            formatter={(v: number, _n: string, p: { payload?: { amostra: number } }) => [
-                              `${v}h (${p.payload?.amostra ?? 0} resolvidos)`,
-                              'Tempo médio',
-                            ]}
-                          />
-                          <Bar dataKey="horas" name="Tempo médio" fill="hsl(var(--warning))" radius={[0, 4, 4, 0]} barSize={16}>
-                            <LabelList
-                              dataKey="horas"
-                              position="right"
-                              fontSize={9}
-                              fill="hsl(var(--foreground))"
-                              formatter={(v: number) => `${v}h`}
-                            />
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <SemDados>Sem chamados resolvidos no período</SemDados>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-sm border-border/40">
-                <CardHeader>
-                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Repeat className="w-4 h-4" /> Taxa de Reabertura por Técnico
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[280px] w-full" {...chartAttrs('Taxa de Reabertura por Técnico')}>
-                    {charts.reabertura.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={charts.reabertura} layout="vertical" margin={{ right: 34 }}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
-                          <XAxis type="number" tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
-                          <YAxis dataKey="name" type="category" width={104} tick={{ fontSize: 9 }} />
-                          <Tooltip
-                            contentStyle={TOOLTIP_STYLE}
-                            formatter={(v: number, _n: string, p: { payload?: { total: number } }) => [
-                              `${v}% de ${p.payload?.total ?? 0} chamados`,
-                              'Reabertura',
-                            ]}
-                          />
-                          <Bar dataKey="taxa" name="Reabertura" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} barSize={16}>
-                            <LabelList
-                              dataKey="taxa"
-                              position="right"
-                              fontSize={9}
-                              fill="hsl(var(--foreground))"
-                              formatter={(v: number) => `${v}%`}
-                            />
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <SemDados>Dados insuficientes (menos de 2 chamados por técnico)</SemDados>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="col-span-full shadow-sm border-border/40">
-                <CardHeader>
-                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4" /> SLA Cumprido vs. Estourado ao Longo do Tempo
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[260px] w-full" {...chartAttrs('SLA ao Longo do Tempo')}>
-                    {charts.slaTrend.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={charts.slaTrend}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                          <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-                          <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                          <Tooltip contentStyle={TOOLTIP_STYLE} />
-                          <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                          <Area type="monotone" dataKey="ok" name="No Prazo" stackId="1" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} strokeWidth={2} />
-                          <Area type="monotone" dataKey="attention" name="Atenção" stackId="1" stroke="#eab308" fill="#eab308" fillOpacity={0.3} strokeWidth={2} />
-                          <Area type="monotone" dataKey="breached" name="Estourado" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.4} strokeWidth={2} />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <SemDados>Sem dados de SLA no período</SemDados>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+        {/* ── Gráfico Executivo de SLA ───────────────────────── */}
+        <Card className="mb-8 shadow-sm border-border/40">
+          <CardHeader>
+            <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4" /> Evolução de Volume e SLA ao Longo do Tempo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[260px] w-full" {...chartAttrs('SLA ao Longo do Tempo')}>
+              {charts.slaTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={charts.slaTrend}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                    <Area type="monotone" dataKey="ok" name="No Prazo" stackId="1" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} strokeWidth={2} />
+                    <Area type="monotone" dataKey="attention" name="Atenção" stackId="1" stroke="#eab308" fill="#eab308" fillOpacity={0.3} strokeWidth={2} />
+                    <Area type="monotone" dataKey="breached" name="Estourado" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.4} strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <SemDados>Sem dados de SLA no período</SemDados>
+              )}
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <Card className="shadow-sm border-border/40">
-                <CardHeader>
-                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                    Volume por Empresa
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[250px] w-full" {...chartAttrs('Volume por Empresa')}>
-                    {charts.porEmpresa.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={charts.porEmpresa} layout="vertical" margin={{ right: 28 }}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
-                          <XAxis type="number" hide />
-                          <YAxis dataKey="name" type="category" width={116} tick={{ fontSize: 9 }} />
-                          <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
-                          <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={16}>
-                            <LabelList dataKey="count" position="right" fontSize={9} fill="hsl(var(--foreground))" />
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <SemDados>Sem dados de empresas</SemDados>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+        {/* ── Tabs (exclusivo do modo detalhado) ───────────────────── */}
+        {detalhado && (
+          <Tabs defaultValue="chamados" className="mb-8">
+            <TabsList className="mb-4">
+              <TabsTrigger value="chamados">Análise de Chamados</TabsTrigger>
+              <TabsTrigger value="equipe">Performance da Equipe</TabsTrigger>
+              <TabsTrigger value="plataforma">Plataforma e Autoatendimento</TabsTrigger>
+            </TabsList>
 
-              <Card className="shadow-sm border-border/40">
-                <CardHeader>
-                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                    Distribuição por Prioridade
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[250px] w-full" {...chartAttrs('Distribuição por Prioridade')}>
-                    {charts.porPrioridade.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={charts.porPrioridade} layout="vertical" margin={{ right: 28 }}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
-                          <XAxis type="number" hide />
-                          <YAxis dataKey="name" type="category" width={70} tick={{ fontSize: 10 }} />
-                          <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
-                          <Bar dataKey="value" name="Chamados" radius={[0, 4, 4, 0]} barSize={18} fill="hsl(var(--primary))">
-                            <LabelList dataKey="value" position="right" fontSize={9} fill="hsl(var(--foreground))" />
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <SemDados />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {charts.horas.length > 0 && (
-                <Card className="col-span-full shadow-sm border-border/40">
+            {/* ABA: ANÁLISE DE CHAMADOS */}
+            <TabsContent value="chamados" className="space-y-6 mt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="shadow-sm border-border/40">
                   <CardHeader>
                     <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      <Timer className="w-4 h-4" /> Horas Lançadas por Técnico
+                      <BarChart3 className="w-4 h-4" /> Chamados por Categoria
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[260px] w-full" {...chartAttrs('Horas Lançadas por Técnico')}>
+                    <div className="h-[250px] w-full" {...chartAttrs('Chamados por Categoria')}>
+                      {charts.porCategoria.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={charts.porCategoria} layout="vertical" margin={{ right: 24 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 9 }} />
+                            <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
+                            <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={16}>
+                              <LabelList dataKey="count" position="right" fontSize={9} fill="hsl(var(--foreground))" />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <SemDados />
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-sm border-border/40">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <Clock className="w-4 h-4" /> Tempo Médio por Categoria
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[250px] w-full" {...chartAttrs('Tempo Médio por Categoria')}>
+                      {charts.mttr.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={charts.mttr} layout="vertical" margin={{ right: 34 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
+                            <XAxis type="number" tick={{ fontSize: 10 }} unit="h" />
+                            <YAxis dataKey="name" type="category" width={104} tick={{ fontSize: 9 }} />
+                            <Tooltip
+                              contentStyle={TOOLTIP_STYLE}
+                              formatter={(v: number, _n: string, p: { payload?: { amostra: number } }) => [
+                                `${v}h (${p.payload?.amostra ?? 0} resolvidos)`,
+                                'Tempo médio',
+                              ]}
+                            />
+                            <Bar dataKey="horas" name="Tempo médio" fill="hsl(var(--warning))" radius={[0, 4, 4, 0]} barSize={16}>
+                              <LabelList
+                                dataKey="horas"
+                                position="right"
+                                fontSize={9}
+                                fill="hsl(var(--foreground))"
+                                formatter={(v: number) => `${v}h`}
+                              />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <SemDados>Sem chamados resolvidos no período</SemDados>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="shadow-sm border-border/40">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                      Distribuição por Prioridade
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[250px] w-full" {...chartAttrs('Distribuição por Prioridade')}>
+                      {charts.porPrioridade.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={charts.porPrioridade} layout="vertical" margin={{ right: 28 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" width={70} tick={{ fontSize: 10 }} />
+                            <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
+                            <Bar dataKey="value" name="Chamados" radius={[0, 4, 4, 0]} barSize={18} fill="hsl(var(--primary))">
+                              <LabelList dataKey="value" position="right" fontSize={9} fill="hsl(var(--foreground))" />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <SemDados />
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-sm border-border/40">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                      Volume por Empresa
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[250px] w-full" {...chartAttrs('Volume por Empresa')}>
+                      {charts.porEmpresa.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={charts.porEmpresa} layout="vertical" margin={{ right: 28 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" width={116} tick={{ fontSize: 9 }} />
+                            <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
+                            <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={16}>
+                              <LabelList dataKey="count" position="right" fontSize={9} fill="hsl(var(--foreground))" />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <SemDados>Sem dados de empresas</SemDados>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            {/* ABA: PERFORMANCE DA EQUIPE */}
+            <TabsContent value="equipe" className="space-y-6 mt-0">
+              <Card className="shadow-sm border-border/40">
+                <CardHeader>
+                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Users className="w-4 h-4" /> Comparativo de Técnicos (Volume, SLA, CSAT)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px] w-full" {...chartAttrs('Comparativo de Técnicos')}>
+                    <TechnicianComparisonChart data={charts.comparativo} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="shadow-sm border-border/40">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <Repeat className="w-4 h-4" /> Reaberturas vs CSAT por Técnico
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[280px] w-full" {...chartAttrs('Reaberturas vs CSAT')}>
+                      {charts.reaberturaCsat.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={charts.reaberturaCsat} margin={{ top: 18 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                            <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} />
+                            <YAxis yAxisId="left" tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
+                            <Bar yAxisId="left" dataKey="taxaReabertura" name="Taxa de Reabertura" fill="hsl(var(--destructive))" radius={[3, 3, 0, 0]}>
+                              <LabelList dataKey="taxaReabertura" position="top" fontSize={9} fill="hsl(var(--foreground))" formatter={(v: number) => `${v}%`} />
+                            </Bar>
+                            <Bar yAxisId="left" dataKey="csatPct" name="CSAT %" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]}>
+                              <LabelList dataKey="csatPct" position="top" fontSize={9} fill="hsl(var(--foreground))" formatter={(v: number) => v ? `${v}%` : ''} />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <SemDados>Dados insuficientes</SemDados>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {charts.horas.length > 0 && (
+                  <Card className="shadow-sm border-border/40">
+                    <CardHeader>
+                      <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                        <Timer className="w-4 h-4" /> Horas Lançadas por Técnico
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[280px] w-full" {...chartAttrs('Horas Lançadas por Técnico')}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={charts.horas} margin={{ top: 18 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                            <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} />
+                            <YAxis tick={{ fontSize: 10 }} unit="h" />
+                            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}h`, '']} />
+                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
+                            <Bar dataKey="totalHoras" name="Total" fill="hsl(var(--muted-foreground))" radius={[3, 3, 0, 0]}>
+                              <LabelList dataKey="totalHoras" position="top" fontSize={9} fill="hsl(var(--foreground))" />
+                            </Bar>
+                            <Bar dataKey="faturaveisHoras" name="Faturáveis" fill="hsl(var(--success))" radius={[3, 3, 0, 0]}>
+                              <LabelList dataKey="faturaveisHoras" position="top" fontSize={9} fill="hsl(var(--foreground))" />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {charts.horasPorEmpresa.length > 0 && (
+                <Card className="shadow-sm border-border/40">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <Timer className="w-4 h-4" /> Horas Lançadas por Empresa
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[280px] w-full" {...chartAttrs('Horas Lançadas por Empresa')}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={charts.horas} margin={{ top: 18 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                          <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} />
-                          <YAxis tick={{ fontSize: 10 }} unit="h" />
+                        <BarChart data={charts.horasPorEmpresa} layout="vertical" margin={{ right: 34 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis type="number" tick={{ fontSize: 10 }} unit="h" />
+                          <YAxis dataKey="name" type="category" width={116} tick={{ fontSize: 9 }} />
                           <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}h`, '']} />
                           <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
-                          <Bar dataKey="totalHoras" name="Total" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]}>
-                            <LabelList dataKey="totalHoras" position="top" fontSize={9} fill="hsl(var(--foreground))" />
+                          <Bar dataKey="totalHoras" name="Total" fill="hsl(var(--muted-foreground))" radius={[0, 4, 4, 0]} barSize={12}>
+                            <LabelList dataKey="totalHoras" position="right" fontSize={9} fill="hsl(var(--foreground))" formatter={(v: number) => `${v}h`} />
                           </Bar>
-                          <Bar dataKey="faturaveisHoras" name="Faturáveis" fill="hsl(var(--success))" radius={[3, 3, 0, 0]}>
-                            <LabelList dataKey="faturaveisHoras" position="top" fontSize={9} fill="hsl(var(--foreground))" />
+                          <Bar dataKey="faturaveisHoras" name="Faturáveis" fill="hsl(var(--success))" radius={[0, 4, 4, 0]} barSize={12}>
+                            <LabelList dataKey="faturaveisHoras" position="right" fontSize={9} fill="hsl(var(--foreground))" formatter={(v: number) => `${v}h`} />
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
@@ -817,8 +823,38 @@ const Reports: React.FC = () => {
                   </CardContent>
                 </Card>
               )}
-            </div>
-          </>
+            </TabsContent>
+
+            {/* ABA: PLATAFORMA */}
+            <TabsContent value="plataforma" className="space-y-6 mt-0">
+              <Card className="shadow-sm border-border/40">
+                <CardHeader>
+                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" /> Adoção de Automações e Base de Conhecimento
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[280px] w-full" {...chartAttrs('Adoção Automações/KB')}>
+                    {charts.automacoes.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={charts.automacoes}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+                          <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                          <Tooltip contentStyle={TOOLTIP_STYLE} />
+                          <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                          <Line type="monotone" dataKey="kb" name="Artigos KB Vinculados" stroke="#3b82f6" strokeWidth={3} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="automation" name="Ações Automatizadas" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <SemDados>Sem registros no período</SemDados>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         )}
 
         {/* ── Resumo de SLA ────────────────────────────────────────────────── */}
