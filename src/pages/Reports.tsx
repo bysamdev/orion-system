@@ -106,14 +106,29 @@ const SemDados: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
+// Cores por status, indexadas pelo valor CRU do banco.
+// Antes as chaves estavam em português enquanto `status` chega em inglês, então
+// nenhuma casava e a pizza inteira caía no cinza de fallback.
 const STATUS_COLORS: Record<string, string> = {
-  aberto: '#3b82f6', // blue-500
-  pendente: '#eab308', // yellow-500
-  resolvido: '#22c55e', // green-500
-  fechado: '#64748b', // slate-500
-  'em atendimento': '#a855f7', // purple-500
-  unknown: '#94a3b8' // slate-400
+  open: '#3b82f6', // blue-500
+  'in-progress': '#a855f7', // purple-500
+  'awaiting-customer': '#eab308', // yellow-500
+  'awaiting-third-party': '#f97316', // orange-500
+  resolved: '#22c55e', // green-500
+  closed: '#64748b', // slate-500
+  reopened: '#ec4899', // pink-500
+  cancelled: '#94a3b8', // slate-400
+  unknown: '#94a3b8',
 };
+
+/** Título de card: contraste pleno com o fundo, não muted. */
+const TITULO_CARD = 'text-sm font-semibold tracking-tight text-foreground flex items-center gap-2';
+
+/** Rótulo de valor dentro de gráfico — 11px é o piso legível na tela e no PDF. */
+const LABEL_VALOR = { fontSize: 11, fill: 'hsl(var(--foreground))' } as const;
+
+/** Tick de eixo. */
+const TICK = { fontSize: 11, fill: 'hsl(var(--muted-foreground))' } as const;
 
 const Reports: React.FC = () => {
   const { data: role, isLoading: roleLoading } = useUserRole();
@@ -471,16 +486,20 @@ const Reports: React.FC = () => {
               rotulo: 'SLA Estourado',
             },
           ].map((k) => (
-            <Card key={k.rotulo}>
-              <CardContent className="pt-4 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className={cn('p-2 rounded-lg', k.cor.split(' ')[1])}>
-                    <k.icon className={cn('h-5 w-5', k.cor.split(' ')[0])} />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-foreground">{k.valor}</p>
-                    <p className="text-xs text-muted-foreground">{k.rotulo}</p>
-                  </div>
+            <Card key={k.rotulo} className="h-full">
+              {/* Altura cheia + centralização vertical: os cards tinham rótulos
+                  de 1 e 2 linhas, então os números não alinhavam entre si. */}
+              <CardContent className="h-full p-4 flex items-center gap-3">
+                <div className={cn('shrink-0 p-2.5 rounded-xl', k.cor.split(' ')[1])}>
+                  <k.icon className={cn('h-5 w-5', k.cor.split(' ')[0])} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-2xl font-bold text-foreground leading-none tabular-nums">
+                    {k.valor}
+                  </p>
+                  <p className="text-xs font-medium text-muted-foreground mt-1.5 leading-tight">
+                    {k.rotulo}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -491,7 +510,7 @@ const Reports: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <Card className="shadow-sm border-border/40">
             <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+              <CardTitle className="text-sm font-semibold tracking-tight text-foreground">
                 Cumprimento de SLA
               </CardTitle>
             </CardHeader>
@@ -507,7 +526,7 @@ const Reports: React.FC = () => {
 
           <Card className="shadow-sm border-border/40 lg:col-span-2">
             <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <CardTitle className={TITULO_CARD}>
                 <Timer className="w-4 h-4" /> Tempo de Resolução vs. Meta Contratual
               </CardTitle>
             </CardHeader>
@@ -540,31 +559,48 @@ const Reports: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <Card className="shadow-sm border-border/40">
             <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <CardTitle className={TITULO_CARD}>
                 Distribuição por Status
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[220px] w-full" {...chartAttrs('Distribuição por Status')}>
+              <div className="h-[240px] w-full" {...chartAttrs('Distribuição por Status')}>
                 {charts.porStatus.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={charts.porStatus}
                         dataKey="count"
-                        nameKey="status"
+                        nameKey="label"
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
+                        innerRadius={52}
+                        outerRadius={76}
                         paddingAngle={2}
                       >
-                        {charts.porStatus.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.status.toLowerCase()] || STATUS_COLORS.unknown} />
+                        {charts.porStatus.map((entry) => (
+                          <Cell
+                            key={entry.status}
+                            fill={STATUS_COLORS[entry.status] ?? STATUS_COLORS.unknown}
+                            stroke="hsl(var(--background))"
+                            strokeWidth={2}
+                          />
                         ))}
+                        {/* Valor impresso na fatia: a cor deixa de ser o único
+                            portador da informação. */}
+                        <LabelList
+                          dataKey="count"
+                          position="inside"
+                          fontSize={11}
+                          fill="#ffffff"
+                          fontWeight={600}
+                        />
                       </Pie>
-                      <Tooltip contentStyle={TOOLTIP_STYLE} />
-                      <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                      <Tooltip
+                        contentStyle={TOOLTIP_STYLE}
+                        formatter={(v: number, n: string) => [`${v} chamados`, n]}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
@@ -576,21 +612,31 @@ const Reports: React.FC = () => {
 
           <Card className="shadow-sm border-border/40">
             <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <CardTitle className={TITULO_CARD}>
                 <Building2 className="w-4 h-4" /> Top 5 Clientes (Volume)
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[220px] w-full" {...chartAttrs('Top 5 Clientes')}>
+              <div className="h-[240px] w-full" {...chartAttrs('Top 5 Clientes')}>
                 {charts.porEmpresa.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={charts.porEmpresa.slice(0, 5)} layout="vertical" margin={{ left: 10, right: 20 }}>
+                    {/* dataKey é `count` — `total` não existe em NamedCount e
+                        deixava o gráfico inteiro em branco. */}
+                    <BarChart
+                      data={charts.porEmpresa.slice(0, 5)}
+                      layout="vertical"
+                      margin={{ left: 10, right: 34 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-                      <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
-                      <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={100} />
-                      <Tooltip contentStyle={TOOLTIP_STYLE} />
-                      <Bar dataKey="total" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}>
-                        <LabelList dataKey="total" position="right" fontSize={10} fill="hsl(var(--foreground))" />
+                      <XAxis type="number" tick={TICK} allowDecimals={false} />
+                      <YAxis dataKey="name" type="category" tick={TICK} width={110} />
+                      <Tooltip
+                        cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
+                        contentStyle={TOOLTIP_STYLE}
+                        formatter={(v: number) => [`${v} chamados`, 'Volume']}
+                      />
+                      <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={18}>
+                        <LabelList dataKey="count" position="right" {...LABEL_VALOR} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -606,7 +652,7 @@ const Reports: React.FC = () => {
         {criticalAssets && criticalAssets.total > 0 && (
           <Card className="mb-8 shadow-sm border-border/40">
             <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <CardTitle className={TITULO_CARD}>
                 <Server className="w-4 h-4" /> Ativos Críticos
               </CardTitle>
             </CardHeader>
@@ -641,7 +687,7 @@ const Reports: React.FC = () => {
         {/* ── Gráfico Executivo de SLA ───────────────────────── */}
         <Card className="mb-8 shadow-sm border-border/40">
           <CardHeader>
-            <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+            <CardTitle className={TITULO_CARD}>
               <ShieldAlert className="w-4 h-4" /> Evolução de Volume e SLA ao Longo do Tempo
             </CardTitle>
           </CardHeader>
@@ -651,8 +697,8 @@ const Reports: React.FC = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={charts.slaTrend}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                    <XAxis dataKey="week" tick={TICK} />
+                    <YAxis tick={TICK} allowDecimals={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                     <Area type="monotone" dataKey="ok" name="No Prazo" stackId="1" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} strokeWidth={2} />
@@ -672,7 +718,7 @@ const Reports: React.FC = () => {
           <Tabs defaultValue="chamados" className="mb-8">
             <TabsList className="mb-4">
               <TabsTrigger value="chamados">Análise de Chamados</TabsTrigger>
-              <TabsTrigger value="equipe">Performance da Equipe</TabsTrigger>
+              <TabsTrigger value="equipe">Desempenho da Equipe</TabsTrigger>
               <TabsTrigger value="plataforma">Plataforma e Autoatendimento</TabsTrigger>
             </TabsList>
 
@@ -681,7 +727,7 @@ const Reports: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="shadow-sm border-border/40">
                   <CardHeader>
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <CardTitle className={TITULO_CARD}>
                       <BarChart3 className="w-4 h-4" /> Chamados por Categoria
                     </CardTitle>
                   </CardHeader>
@@ -692,10 +738,10 @@ const Reports: React.FC = () => {
                           <BarChart data={charts.porCategoria} layout="vertical" margin={{ right: 24 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
                             <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 9 }} />
+                            <YAxis dataKey="name" type="category" width={100} tick={TICK} />
                             <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
                             <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={16}>
-                              <LabelList dataKey="count" position="right" fontSize={9} fill="hsl(var(--foreground))" />
+                              <LabelList dataKey="count" position="right" fontSize={11} fill="hsl(var(--foreground))" />
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
@@ -708,7 +754,7 @@ const Reports: React.FC = () => {
 
                 <Card className="shadow-sm border-border/40">
                   <CardHeader>
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <CardTitle className={TITULO_CARD}>
                       <Clock className="w-4 h-4" /> Tempo Médio por Categoria
                     </CardTitle>
                   </CardHeader>
@@ -718,8 +764,8 @@ const Reports: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={charts.mttr} layout="vertical" margin={{ right: 34 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
-                            <XAxis type="number" tick={{ fontSize: 10 }} unit="h" />
-                            <YAxis dataKey="name" type="category" width={104} tick={{ fontSize: 9 }} />
+                            <XAxis type="number" tick={TICK} unit="h" />
+                            <YAxis dataKey="name" type="category" width={104} tick={TICK} />
                             <Tooltip
                               contentStyle={TOOLTIP_STYLE}
                               formatter={(v: number, _n: string, p: { payload?: { amostra: number } }) => [
@@ -731,7 +777,7 @@ const Reports: React.FC = () => {
                               <LabelList
                                 dataKey="horas"
                                 position="right"
-                                fontSize={9}
+                                fontSize={11}
                                 fill="hsl(var(--foreground))"
                                 formatter={(v: number) => `${v}h`}
                               />
@@ -749,7 +795,7 @@ const Reports: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="shadow-sm border-border/40">
                   <CardHeader>
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                    <CardTitle className="text-sm font-semibold tracking-tight text-foreground">
                       Distribuição por Prioridade
                     </CardTitle>
                   </CardHeader>
@@ -760,10 +806,10 @@ const Reports: React.FC = () => {
                           <BarChart data={charts.porPrioridade} layout="vertical" margin={{ right: 28 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
                             <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" width={70} tick={{ fontSize: 10 }} />
+                            <YAxis dataKey="name" type="category" width={70} tick={TICK} />
                             <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
                             <Bar dataKey="value" name="Chamados" radius={[0, 4, 4, 0]} barSize={18} fill="hsl(var(--primary))">
-                              <LabelList dataKey="value" position="right" fontSize={9} fill="hsl(var(--foreground))" />
+                              <LabelList dataKey="value" position="right" fontSize={11} fill="hsl(var(--foreground))" />
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
@@ -776,7 +822,7 @@ const Reports: React.FC = () => {
 
                 <Card className="shadow-sm border-border/40">
                   <CardHeader>
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                    <CardTitle className="text-sm font-semibold tracking-tight text-foreground">
                       Volume por Empresa
                     </CardTitle>
                   </CardHeader>
@@ -787,10 +833,10 @@ const Reports: React.FC = () => {
                           <BarChart data={charts.porEmpresa} layout="vertical" margin={{ right: 28 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
                             <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" width={116} tick={{ fontSize: 9 }} />
+                            <YAxis dataKey="name" type="category" width={116} tick={TICK} />
                             <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
                             <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={16}>
-                              <LabelList dataKey="count" position="right" fontSize={9} fill="hsl(var(--foreground))" />
+                              <LabelList dataKey="count" position="right" fontSize={11} fill="hsl(var(--foreground))" />
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
@@ -805,7 +851,7 @@ const Reports: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <Card className="shadow-sm border-border/40">
                   <CardHeader>
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <CardTitle className={TITULO_CARD}>
                       <ShieldAlert className="w-4 h-4" /> SLA por Prioridade
                     </CardTitle>
                   </CardHeader>
@@ -813,23 +859,25 @@ const Reports: React.FC = () => {
                     <div className="h-[250px] w-full" {...chartAttrs('SLA por Prioridade')}>
                       {charts.slaPorPrioridade.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={charts.slaPorPrioridade} layout="vertical" margin={{ right: 28 }}>
+                          <BarChart data={charts.slaPorPrioridade} layout="vertical" margin={{ right: 40 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
-                            <XAxis type="number" hide />
-                            <YAxis dataKey="priority" type="category" width={90} tick={{ fontSize: 10 }} />
+                            <XAxis type="number" domain={[0, 100]} hide />
+                            {/* `label` traz a prioridade em português; `priority`
+                                exibia o valor cru do banco (urgent, high...). */}
+                            <YAxis dataKey="label" type="category" width={90} tick={TICK} />
                             <Tooltip
+                              cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
                               contentStyle={TOOLTIP_STYLE}
-                              formatter={(value: number, name: string, props: any) => [
-                                `${value.toFixed(1)}% (${props.payload.count} chamados)`,
-                                'No Prazo',
+                              formatter={(value: number, _n: string, p: { payload?: { count: number } }) => [
+                                `${value.toFixed(1)}% de ${p.payload?.count ?? 0} chamados`,
+                                'Dentro do prazo',
                               ]}
                             />
-                            <Bar dataKey="slaCompliancePct" name="No Prazo" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={18}>
-                              <LabelList 
-                                dataKey="slaCompliancePct" 
-                                position="right" 
-                                fontSize={9} 
-                                fill="hsl(var(--foreground))"
+                            <Bar dataKey="slaCompliancePct" name="Dentro do prazo" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={18}>
+                              <LabelList
+                                dataKey="slaCompliancePct"
+                                position="right"
+                                {...LABEL_VALOR}
                                 formatter={(val: number) => `${val.toFixed(0)}%`}
                               />
                             </Bar>
@@ -844,7 +892,7 @@ const Reports: React.FC = () => {
 
                 <Card className="shadow-sm border-border/40">
                   <CardHeader>
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <CardTitle className={TITULO_CARD}>
                       <Users className="w-4 h-4" /> Top 5 Solicitantes
                     </CardTitle>
                   </CardHeader>
@@ -855,10 +903,10 @@ const Reports: React.FC = () => {
                           <BarChart data={charts.topSolicitantes} layout="vertical" margin={{ right: 28 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
                             <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 9 }} />
+                            <YAxis dataKey="name" type="category" width={110} tick={TICK} />
                             <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
                             <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={18}>
-                              <LabelList dataKey="count" position="right" fontSize={9} fill="hsl(var(--foreground))" />
+                              <LabelList dataKey="count" position="right" fontSize={11} fill="hsl(var(--foreground))" />
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
@@ -875,8 +923,8 @@ const Reports: React.FC = () => {
             <TabsContent value="equipe" className="space-y-6 mt-0">
               <Card className="shadow-sm border-border/40">
                 <CardHeader>
-                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Users className="w-4 h-4" /> Comparativo de Técnicos (Volume, SLA, CSAT)
+                  <CardTitle className={TITULO_CARD}>
+                    <Users className="w-4 h-4" /> Comparativo de Técnicos — Volume, SLA e Satisfação
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -889,8 +937,8 @@ const Reports: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="shadow-sm border-border/40">
                   <CardHeader>
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      <Repeat className="w-4 h-4" /> Reaberturas vs CSAT por Técnico
+                    <CardTitle className={TITULO_CARD}>
+                      <Repeat className="w-4 h-4" /> Reaberturas e Satisfação por Técnico
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -899,15 +947,15 @@ const Reports: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={charts.reaberturaCsat} margin={{ top: 18 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                            <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} />
-                            <YAxis yAxisId="left" tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
+                            <XAxis dataKey="name" tick={TICK} interval={0} />
+                            <YAxis yAxisId="left" tick={TICK} unit="%" domain={[0, 100]} />
                             <Tooltip contentStyle={TOOLTIP_STYLE} />
                             <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
                             <Bar yAxisId="left" dataKey="taxaReabertura" name="Taxa de Reabertura" fill="hsl(var(--destructive))" radius={[3, 3, 0, 0]}>
-                              <LabelList dataKey="taxaReabertura" position="top" fontSize={9} fill="hsl(var(--foreground))" formatter={(v: number) => `${v}%`} />
+                              <LabelList dataKey="taxaReabertura" position="top" fontSize={11} fill="hsl(var(--foreground))" formatter={(v: number) => `${v}%`} />
                             </Bar>
-                            <Bar yAxisId="left" dataKey="csatPct" name="CSAT %" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]}>
-                              <LabelList dataKey="csatPct" position="top" fontSize={9} fill="hsl(var(--foreground))" formatter={(v: number) => v ? `${v}%` : ''} />
+                            <Bar yAxisId="left" dataKey="csatPct" name="Satisfação" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]}>
+                              <LabelList dataKey="csatPct" position="top" fontSize={11} fill="hsl(var(--foreground))" formatter={(v: number) => v ? `${v}%` : ''} />
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
@@ -921,7 +969,7 @@ const Reports: React.FC = () => {
                 {charts.horas.length > 0 && (
                   <Card className="shadow-sm border-border/40">
                     <CardHeader>
-                      <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <CardTitle className={TITULO_CARD}>
                         <Timer className="w-4 h-4" /> Horas Lançadas por Técnico
                       </CardTitle>
                     </CardHeader>
@@ -930,15 +978,15 @@ const Reports: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={charts.horas} margin={{ top: 18 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                            <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} />
-                            <YAxis tick={{ fontSize: 10 }} unit="h" />
+                            <XAxis dataKey="name" tick={TICK} interval={0} />
+                            <YAxis tick={TICK} unit="h" />
                             <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}h`, '']} />
                             <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
                             <Bar dataKey="totalHoras" name="Total" fill="hsl(var(--muted-foreground))" radius={[3, 3, 0, 0]}>
-                              <LabelList dataKey="totalHoras" position="top" fontSize={9} fill="hsl(var(--foreground))" />
+                              <LabelList dataKey="totalHoras" position="top" fontSize={11} fill="hsl(var(--foreground))" />
                             </Bar>
                             <Bar dataKey="faturaveisHoras" name="Faturáveis" fill="hsl(var(--success))" radius={[3, 3, 0, 0]}>
-                              <LabelList dataKey="faturaveisHoras" position="top" fontSize={9} fill="hsl(var(--foreground))" />
+                              <LabelList dataKey="faturaveisHoras" position="top" fontSize={11} fill="hsl(var(--foreground))" />
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
@@ -951,7 +999,7 @@ const Reports: React.FC = () => {
               {charts.horasPorEmpresa.length > 0 && (
                 <Card className="shadow-sm border-border/40">
                   <CardHeader>
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <CardTitle className={TITULO_CARD}>
                       <Timer className="w-4 h-4" /> Horas Lançadas por Empresa
                     </CardTitle>
                   </CardHeader>
@@ -960,15 +1008,15 @@ const Reports: React.FC = () => {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={charts.horasPorEmpresa} layout="vertical" margin={{ right: 34 }}>
                           <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
-                          <XAxis type="number" tick={{ fontSize: 10 }} unit="h" />
-                          <YAxis dataKey="name" type="category" width={116} tick={{ fontSize: 9 }} />
+                          <XAxis type="number" tick={TICK} unit="h" />
+                          <YAxis dataKey="name" type="category" width={116} tick={TICK} />
                           <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}h`, '']} />
                           <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
                           <Bar dataKey="totalHoras" name="Total" fill="hsl(var(--muted-foreground))" radius={[0, 4, 4, 0]} barSize={12}>
-                            <LabelList dataKey="totalHoras" position="right" fontSize={9} fill="hsl(var(--foreground))" formatter={(v: number) => `${v}h`} />
+                            <LabelList dataKey="totalHoras" position="right" fontSize={11} fill="hsl(var(--foreground))" formatter={(v: number) => `${v}h`} />
                           </Bar>
                           <Bar dataKey="faturaveisHoras" name="Faturáveis" fill="hsl(var(--success))" radius={[0, 4, 4, 0]} barSize={12}>
-                            <LabelList dataKey="faturaveisHoras" position="right" fontSize={9} fill="hsl(var(--foreground))" formatter={(v: number) => `${v}h`} />
+                            <LabelList dataKey="faturaveisHoras" position="right" fontSize={11} fill="hsl(var(--foreground))" formatter={(v: number) => `${v}h`} />
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
@@ -982,7 +1030,7 @@ const Reports: React.FC = () => {
             <TabsContent value="plataforma" className="space-y-6 mt-0">
               <Card className="shadow-sm border-border/40">
                 <CardHeader>
-                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                  <CardTitle className={TITULO_CARD}>
                     <TrendingUp className="w-4 h-4" /> Adoção de Automações e Base de Conhecimento
                   </CardTitle>
                 </CardHeader>
@@ -992,8 +1040,8 @@ const Reports: React.FC = () => {
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={charts.automacoes}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                          <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-                          <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                          <XAxis dataKey="week" tick={TICK} />
+                          <YAxis tick={TICK} allowDecimals={false} />
                           <Tooltip contentStyle={TOOLTIP_STYLE} />
                           <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                           <Line type="monotone" dataKey="kb" name="Artigos KB Vinculados" stroke="#3b82f6" strokeWidth={3} dot={{ r: 3 }} />
@@ -1011,21 +1059,45 @@ const Reports: React.FC = () => {
         )}
 
         {/* ── Resumo de SLA ────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[
-            { rotulo: 'SLA No Prazo', valor: metrics.slaOk, borda: 'border-l-green-500', texto: 'text-green-600', badge: 'bg-green-500/10 text-green-700 border-green-500/20' },
-            { rotulo: 'SLA Atenção', valor: metrics.slaAttention, borda: 'border-l-yellow-500', texto: 'text-yellow-600', badge: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20' },
-            { rotulo: 'SLA Estourado', valor: metrics.slaBreached, borda: 'border-l-red-500', texto: 'text-red-600', badge: 'bg-red-500/10 text-red-700 border-red-500/20' },
+            {
+              rotulo: 'Dentro do Prazo',
+              valor: metrics.slaOk,
+              borda: 'border-l-green-600',
+              // Tons -700/-400 no lugar de -600: o -600 sobre fundo claro fica
+              // abaixo de 4.5:1, e no escuro sumia contra o card.
+              texto: 'text-green-700 dark:text-green-400',
+              badge: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-600/30',
+            },
+            {
+              rotulo: 'Em Atenção',
+              valor: metrics.slaAttention,
+              borda: 'border-l-amber-600',
+              texto: 'text-amber-700 dark:text-amber-400',
+              badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-600/30',
+            },
+            {
+              rotulo: 'Prazo Estourado',
+              valor: metrics.slaBreached,
+              borda: 'border-l-red-600',
+              texto: 'text-red-700 dark:text-red-400',
+              badge: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-600/30',
+            },
           ].map((s) => (
-            <Card key={s.rotulo} className={cn('border-l-4', s.borda)}>
-              <CardContent className="pt-4 pb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{s.rotulo}</p>
-                  <p className={cn('text-xl font-bold', s.texto)}>{s.valor}</p>
+            <Card key={s.rotulo} className={cn('border-l-4 h-full', s.borda)}>
+              <CardContent className="h-full p-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {s.rotulo}
+                  </p>
+                  <p className={cn('text-2xl font-bold tabular-nums mt-1 leading-none', s.texto)}>
+                    {s.valor}
+                  </p>
                 </div>
                 {/* Percentual sobre os chamados avaliados por SLA, não sobre o
                     total — dividir pelo total subestimava o indicador. */}
-                <Badge variant="outline" className={s.badge}>
+                <Badge variant="outline" className={cn('shrink-0 font-semibold tabular-nums', s.badge)}>
                   {metrics.slaAvaliados > 0 ? Math.round((s.valor / metrics.slaAvaliados) * 100) : 0}%
                 </Badge>
               </CardContent>

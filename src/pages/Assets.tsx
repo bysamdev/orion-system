@@ -88,20 +88,6 @@ const Assets = () => {
     refetch: refetchInventory 
   } = useDeviceInventory();
 
-  // Compute summary stats safely from devices list
-  const summaryStats = useMemo(() => {
-    const list = Array.isArray(devices) ? devices : [];
-    return {
-      totalDevices: list.length,
-      desktopsCount: list.filter(d => d.device_type === 'desktop' || (d as any).type === 'Computador').length,
-      notebooksCount: list.filter(d => d.device_type === 'notebook' || (d as any).type === 'Notebook').length,
-      serversCount: list.filter(d => d.device_type === 'server' || (d as any).type === 'Servidor').length,
-      onlineCount: list.filter(d => d.status === 'online').length,
-      offlineCount: list.filter(d => d.status === 'offline').length,
-      alertCount: list.reduce((acc, d) => acc + (d.alerts_count || 0), 0),
-    };
-  }, [devices]);
-
   // Query tickets history for selected device
   const { data: deviceTickets, isLoading: deviceTicketsLoading } = useQuery({
     queryKey: ['device-tickets', historyDevice?.id],
@@ -259,6 +245,30 @@ const Assets = () => {
       return matchesSearch && matchesCompany && matchesType && matchesStatus;
     });
   }, [devices, search, companyFilter, typeFilter, statusFilter]);
+
+  // Resumo calculado sobre a lista JÁ FILTRADA, para os cards acompanharem o
+  // filtro de cliente/tipo/status em vez de exibirem sempre o parque inteiro.
+  //
+  // A comparação de tipo aceita as duas grafias: useDeviceInventory grava
+  // 'Computador'/'Notebook'/'Servidor', e a versão anterior testava só
+  // 'desktop'/'notebook'/'server' — nenhuma casava, então os três cards ficavam
+  // travados em zero.
+  const summaryStats = useMemo(() => {
+    const list = Array.isArray(filteredDevices) ? filteredDevices : [];
+    const ehTipo = (d: DeviceItem, ...nomes: string[]) => {
+      const t = (d.device_type || '').toLowerCase();
+      return nomes.some((n) => t === n.toLowerCase());
+    };
+    return {
+      totalDevices: list.length,
+      desktopsCount: list.filter((d) => ehTipo(d, 'Computador', 'desktop')).length,
+      notebooksCount: list.filter((d) => ehTipo(d, 'Notebook', 'notebook')).length,
+      serversCount: list.filter((d) => ehTipo(d, 'Servidor', 'server')).length,
+      onlineCount: list.filter((d) => d.status === 'online').length,
+      offlineCount: list.filter((d) => d.status === 'offline').length,
+      alertCount: list.reduce((acc, d) => acc + (d.alerts_count || 0), 0),
+    };
+  }, [filteredDevices]);
 
   const hasActiveFilters = search !== '' || companyFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'all';
 
@@ -559,6 +569,95 @@ const Assets = () => {
             </CardHeader>
           </Card>
 
+          {/* Resumo do inventário — fora das abas porque descreve o recorte
+              filtrado, que vale igualmente para a lista e para a topologia.
+              Grade uniforme: todos os cards com a mesma estrutura e altura, em
+              vez de o quinto card usar um layout próprio e quebrar a linha. */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            {[
+              {
+                rotulo: 'Total de Dispositivos',
+                valor: summaryStats.totalDevices,
+                icone: HardDrive,
+                cor: 'text-primary',
+                fundo: 'bg-primary/10',
+                borda: 'hover:border-primary/40',
+              },
+              {
+                rotulo: 'Computadores',
+                valor: summaryStats.desktopsCount,
+                icone: Monitor,
+                cor: 'text-emerald-700 dark:text-emerald-400',
+                fundo: 'bg-emerald-500/10',
+                borda: 'hover:border-emerald-500/40',
+              },
+              {
+                rotulo: 'Notebooks',
+                valor: summaryStats.notebooksCount,
+                icone: Laptop,
+                cor: 'text-sky-700 dark:text-sky-400',
+                fundo: 'bg-sky-500/10',
+                borda: 'hover:border-sky-500/40',
+              },
+              {
+                rotulo: 'Servidores',
+                valor: summaryStats.serversCount,
+                icone: ServerIcon,
+                cor: 'text-indigo-700 dark:text-indigo-400',
+                fundo: 'bg-indigo-500/10',
+                borda: 'hover:border-indigo-500/40',
+              },
+              {
+                rotulo: 'Alertas Abertos',
+                valor: summaryStats.alertCount,
+                icone: AlertTriangle,
+                cor: 'text-amber-700 dark:text-amber-400',
+                fundo: 'bg-amber-500/10',
+                borda: 'hover:border-amber-500/40',
+              },
+            ].map((c) => (
+              <Card
+                key={c.rotulo}
+                className={cn('h-full bg-card border-border/50 shadow-sm transition-colors', c.borda)}
+              >
+                <CardContent className="h-full p-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground leading-tight">
+                      {c.rotulo}
+                    </p>
+                    <p className={cn('text-3xl font-bold tabular-nums mt-1.5 leading-none', c.cor)}>
+                      {c.valor}
+                    </p>
+                  </div>
+                  <div className={cn('shrink-0 p-3 rounded-2xl', c.fundo, c.cor)}>
+                    <c.icone className="w-6 h-6" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Situação atual em faixa própria: são três medidas do mesmo eixo
+              (disponibilidade), não KPIs independentes como os cards acima. */}
+          <Card className="border-border/50 shadow-sm">
+            <CardContent className="p-4 flex flex-wrap items-center gap-x-8 gap-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Situação Atual
+              </p>
+              {[
+                { rotulo: 'Online', valor: summaryStats.onlineCount, ponto: 'bg-emerald-500', cor: 'text-emerald-700 dark:text-emerald-400' },
+                { rotulo: 'Offline', valor: summaryStats.offlineCount, ponto: 'bg-rose-500', cor: 'text-rose-700 dark:text-rose-400' },
+                { rotulo: 'Em Alerta', valor: summaryStats.alertCount, ponto: 'bg-amber-500', cor: 'text-amber-700 dark:text-amber-400' },
+              ].map((s) => (
+                <span key={s.rotulo} className="flex items-center gap-2 text-sm">
+                  <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', s.ponto)} />
+                  <span className={cn('font-bold tabular-nums', s.cor)}>{s.valor}</span>
+                  <span className="text-muted-foreground">{s.rotulo}</span>
+                </span>
+              ))}
+            </CardContent>
+          </Card>
+
           <Tabs defaultValue="lista" className="w-full space-y-6">
             <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
               <TabsTrigger value="lista">Lista de Ativos</TabsTrigger>
@@ -566,87 +665,6 @@ const Assets = () => {
             </TabsList>
 
             <TabsContent value="lista" className="space-y-6 outline-none">
-              {/* 1. Header Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                {/* Total Dispositivos */}
-            <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-all">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Total Dispositivos</p>
-                  <p className="text-3xl font-bold text-foreground">{summaryStats?.totalDevices ?? 0}</p>
-                </div>
-                <div className="p-3 bg-primary/10 text-primary rounded-2xl group-hover:scale-110 transition-transform">
-                  <HardDrive className="w-6 h-6" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Computadores */}
-            <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-emerald-500/40 transition-all">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Computadores
-                  </p>
-                  <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{summaryStats?.desktopsCount ?? 0}</p>
-                </div>
-                <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform">
-                  <Monitor className="w-6 h-6" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Notebooks */}
-            <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-sky-500/40 transition-all">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Notebooks
-                  </p>
-                  <p className="text-3xl font-bold text-sky-600 dark:text-sky-400">{summaryStats?.notebooksCount ?? 0}</p>
-                </div>
-                <div className="p-3 bg-sky-500/10 text-sky-600 rounded-2xl group-hover:scale-110 transition-transform">
-                  <Laptop className="w-6 h-6" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Servidores */}
-            <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-indigo-500/40 transition-all">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Servidores
-                  </p>
-                  <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{summaryStats?.serversCount ?? 0}</p>
-                </div>
-                <div className="p-3 bg-indigo-500/10 text-indigo-600 rounded-2xl group-hover:scale-110 transition-transform">
-                  <ServerIcon className="w-6 h-6" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Status Breakdown (Online / Offline / Alerta) */}
-            <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden">
-              <CardContent className="p-4 flex flex-col justify-center space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status Atual</p>
-                <div className="flex items-center justify-between text-xs font-semibold pt-0.5">
-                  <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {summaryStats?.onlineCount ?? 0} Online
-                  </span>
-                  <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                    {summaryStats?.offlineCount ?? 0} Offline
-                  </span>
-                  <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                    {summaryStats?.alertCount ?? 0} Alertas
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
 
           {/* 3. Table Columns */}
           <Card className="border-border/40 shadow-xl bg-card/60 backdrop-blur-md overflow-hidden">
@@ -946,7 +964,18 @@ const Assets = () => {
             </TabsContent>
 
             <TabsContent value="topologia" className="outline-none">
-              <AssetTopologyGraph devices={filteredDevices} />
+              {/* Os mesmos filtros globais da lista alimentam a topologia; o
+                  nome do cliente viaja junto para o cabeçalho identificar o
+                  recorte em vista. */}
+              <AssetTopologyGraph
+                devices={filteredDevices}
+                isFiltered={companyFilter !== 'all'}
+                companyName={
+                  companyFilter === 'all'
+                    ? undefined
+                    : companies?.find((c) => c.id === companyFilter)?.name
+                }
+              />
             </TabsContent>
           </Tabs>
 

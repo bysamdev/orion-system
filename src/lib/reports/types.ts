@@ -156,12 +156,18 @@ export interface AutomationTrendPoint {
 }
 
 export interface StatusCount {
+  /** Valor cru do banco (open, in-progress...). Usado como chave de cor. */
   status: string;
+  /** Rótulo em português, exibido na legenda e no tooltip. */
+  label: string;
   count: number;
 }
 
 export interface PrioritySla {
+  /** Valor cru do banco (urgent, high...). Preservado para ordenação. */
   priority: string;
+  /** Rótulo em português exibido no eixo. */
+  label: string;
   count: number;
   slaCompliancePct: number;
 }

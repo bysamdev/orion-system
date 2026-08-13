@@ -483,6 +483,24 @@ export interface AutomationLogRow {
 
 import { StatusCount, PrioritySla, RequesterCount } from './types';
 
+/**
+ * Rótulos em português dos status do banco.
+ *
+ * O banco guarda os valores em inglês (open, in-progress...). Traduzir aqui, e
+ * não no JSX, faz a tela, o PDF e o XLSX compartilharem os mesmos rótulos.
+ */
+export const ROTULO_STATUS: Record<string, string> = {
+  open: 'Aberto',
+  'in-progress': 'Em Atendimento',
+  'awaiting-customer': 'Aguardando Cliente',
+  'awaiting-third-party': 'Aguardando Terceiro',
+  resolved: 'Resolvido',
+  closed: 'Fechado',
+  reopened: 'Reaberto',
+  cancelled: 'Cancelado',
+  unknown: 'Não Informado',
+};
+
 export function computeByStatus(tickets: TicketRow[]): StatusCount[] {
   const counts: Record<string, number> = {};
   for (const t of tickets) {
@@ -490,7 +508,7 @@ export function computeByStatus(tickets: TicketRow[]): StatusCount[] {
     counts[s] = (counts[s] || 0) + 1;
   }
   return Object.entries(counts)
-    .map(([status, count]) => ({ status, count }))
+    .map(([status, count]) => ({ status, label: ROTULO_STATUS[status] ?? status, count }))
     .sort((a, b) => b.count - a.count);
 }
 
@@ -506,14 +524,19 @@ export function computeSlaByPriority(tickets: TicketRow[]): PrioritySla[] {
       }
     }
   }
+  // Ordem de severidade em vez de volume: um relatório de SLA se lê da
+  // prioridade mais crítica para a menos, não da mais frequente.
+  const ordemSeveridade: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+
   return Object.entries(stats)
-    .filter(([_, s]) => s.total > 0)
+    .filter(([, s]) => s.total > 0)
     .map(([priority, s]) => ({
       priority,
+      label: ROTULO_PRIORIDADE[priority as PriorityKey] ?? priority,
       count: s.total,
-      slaCompliancePct: s.total > 0 ? (s.ok / s.total) * 100 : 0
+      slaCompliancePct: s.total > 0 ? (s.ok / s.total) * 100 : 0,
     }))
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => (ordemSeveridade[a.priority] ?? 99) - (ordemSeveridade[b.priority] ?? 99));
 }
 
 export function computeTopRequesters(tickets: TicketRow[], limit = 5): RequesterCount[] {
