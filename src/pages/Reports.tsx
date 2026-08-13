@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTickets } from '@/hooks/useTickets';
@@ -12,22 +12,95 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
-import { calculateSlaStatus } from '@/lib/ticket-helpers';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useCompanies } from '@/hooks/useCompanies';
-import { Loader2, ArrowLeft, BarChart3, Clock, CheckCircle2, AlertTriangle, TrendingUp, ShieldAlert, Download, Printer, Repeat } from 'lucide-react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend } from 'recharts';
+import {
+  Loader2,
+  ArrowLeft,
+  BarChart3,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  TrendingUp,
+  ShieldAlert,
+  Download,
+  FileSpreadsheet,
+  Printer,
+  Repeat,
+  Server,
+  Users,
+  Timer,
+} from 'lucide-react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  Legend,
+  LabelList,
+} from 'recharts';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+import { BulletChart } from '@/components/reports/BulletChart';
+import { GaugeChart } from '@/components/reports/GaugeChart';
+import { TechnicianComparisonChart } from '@/components/reports/TechnicianComparisonChart';
+import {
+  useSlaTarget,
+  useTicketRatings,
+  useTimeEntriesReport,
+  useCriticalAssets,
+} from '@/hooks/useReportSources';
+import {
+  filterTickets,
+  computeMetrics,
+  computeTrend,
+  computeSlaTrend,
+  computeByTechnician,
+  computeByCompany,
+  computeByCategory,
+  computeByPriority,
+  computeMttrByCategory,
+  computeReopenRateByTech,
+  computeBulletKpis,
+  computeTechnicianComparison,
+  computeHoursByTechnician,
+} from '@/lib/reports/aggregations';
+import { SLA_COMPLIANCE_TARGET_PCT, type ReportMode } from '@/lib/reports/types';
+
+// Marcação usada pela exportação em PDF para localizar e vetorizar os gráficos.
+// O título viaja junto para o PDF não depender da ordem dos nós.
+const chartAttrs = (titulo: string) => ({
+  'data-report-chart': '',
+  'data-report-chart-title': titulo,
+});
+
+const TOOLTIP_STYLE = { backgroundColor: 'hsl(var(--background))', borderRadius: '8px' } as const;
+
+const SemDados: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
+  <div className="h-full flex items-center justify-center text-muted-foreground text-sm text-center px-4">
+    {children ?? 'Sem dados para exibir'}
+  </div>
+);
 
 const Reports: React.FC = () => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Filtros
+  const [mode, setMode] = useState<ReportMode>('resumido');
+  const [exporting, setExporting] = useState<null | 'pdf' | 'xlsx'>(null);
+
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -37,10 +110,8 @@ const Reports: React.FC = () => {
   const [companyFilter, setCompanyFilter] = useState<string>('all');
   const [techFilter, setTechFilter] = useState<string>('all');
 
-  // Buscar empresas para filtro
   const { data: companies } = useCompanies();
 
-  // Buscar técnicos para filtro
   const { data: technicians } = useQuery({
     queryKey: ['technicians-list'],
     queryFn: async () => {
@@ -54,240 +125,132 @@ const Reports: React.FC = () => {
     },
   });
 
-  // Buscar tickets através da fonte unificada (useTickets)
   const { data: allTickets = [], isLoading: ticketsLoading } = useTickets();
+  const { data: slaTarget = null } = useSlaTarget(companyFilter);
+  const { data: ratings } = useTicketRatings();
+  const { data: timeEntries } = useTimeEntriesReport();
+  const { data: criticalAssets } = useCriticalAssets(companyFilter);
 
-  // Filtragem no client-side para manter a consistência com o Dashboard
-  const tickets = useMemo(() => {
-    return (allTickets || []).filter(t => {
-      // Filtros de empresa e técnico
-      if (companyFilter !== 'all' && t.company_id !== companyFilter) return false;
-      if (techFilter !== 'all' && t.assigned_to_user_id !== techFilter) return false;
+  const tickets = useMemo(
+    () =>
+      filterTickets(allTickets, {
+        dateFrom,
+        dateTo,
+        companyId: companyFilter,
+        technicianId: techFilter,
+      }),
+    [allTickets, dateFrom, dateTo, companyFilter, techFilter],
+  );
 
-      // Status ativo
-      const isOpen = ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'].includes(t.status);
+  const metrics = useMemo(() => computeMetrics(tickets), [tickets]);
 
-      // Tratamento para tickets sem data de criação válida
-      if (!t.created_at && isOpen) return true;
-      if (!t.created_at) return false;
+  const nomePorUsuario = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of technicians ?? []) m.set(t.id, t.full_name ?? '—');
+    return m;
+  }, [technicians]);
 
-      const createdDate = t.created_at.split('T')[0];
-      const isCreatedInPeriod = createdDate >= dateFrom && createdDate <= dateTo;
+  const charts = useMemo(
+    () => ({
+      trend: computeTrend(tickets, dateFrom, dateTo),
+      slaTrend: computeSlaTrend(tickets),
+      porTecnico: computeByTechnician(tickets),
+      porEmpresa: computeByCompany(tickets),
+      porCategoria: computeByCategory(tickets),
+      porPrioridade: computeByPriority(tickets),
+      mttr: computeMttrByCategory(tickets),
+      reabertura: computeReopenRateByTech(tickets),
+      bullets: computeBulletKpis(tickets, slaTarget),
+      comparativo: computeTechnicianComparison(tickets, ratings ?? new Map()),
+      horas: computeHoursByTechnician(timeEntries ?? [], tickets, nomePorUsuario),
+    }),
+    [tickets, dateFrom, dateTo, slaTarget, ratings, timeEntries, nomePorUsuario],
+  );
 
-      let isResolvedInPeriod = false;
-      if (t.resolved_at) {
-        const resolvedDate = t.resolved_at.split('T')[0];
-        isResolvedInPeriod = resolvedDate >= dateFrom && resolvedDate <= dateTo;
-      }
+  const filtrosAtuais = useMemo(
+    () => ({
+      dateFrom,
+      dateTo,
+      companyId: companyFilter,
+      companyName:
+        companyFilter === 'all'
+          ? 'Todas'
+          : companies?.find((c) => c.id === companyFilter)?.name ?? companyFilter,
+      technicianId: techFilter,
+      technicianName:
+        techFilter === 'all' ? 'Todos' : nomePorUsuario.get(techFilter) ?? techFilter,
+    }),
+    [dateFrom, dateTo, companyFilter, techFilter, companies, nomePorUsuario],
+  );
 
-      // Ticket é relevante se foi criado, resolvido ou continua ativo no período
-      return isCreatedInPeriod || isResolvedInPeriod || isOpen;
-    });
-  }, [allTickets, dateFrom, dateTo, companyFilter, techFilter]);
+  // ── Exportações ────────────────────────────────────────────────────────────
+  // Ambas operam sobre `tickets` (já filtrado) e sobre os nós de gráfico
+  // efetivamente renderizados no modo atual — nunca exportam fora do escopo
+  // que o usuário está vendo.
 
-  // Calcular métricas
-  const metrics = useMemo(() => {
-    const open = tickets.filter(t => ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'].includes(t.status)).length;
-    const resolved = tickets.filter(t => t.status === 'resolved').length;
-    const closed = tickets.filter(t => ['closed', 'cancelled'].includes(t.status)).length;
-
-    // Tempo médio de resolução (em horas)
-    const resolvedTickets = tickets.filter(t => t.resolved_at && t.created_at);
-    let avgResolutionHours = 0;
-    if (resolvedTickets.length > 0) {
-      const totalMs = resolvedTickets.reduce((acc, t) => {
-        return acc + (new Date(t.resolved_at!).getTime() - new Date(t.created_at).getTime());
-      }, 0);
-      avgResolutionHours = Math.round((totalMs / resolvedTickets.length / 3600000) * 10) / 10;
+  const exportarPdf = useCallback(async () => {
+    setExporting('pdf');
+    try {
+      const { gerarPdf, nomeArquivo, baixarBlob } = await import('@/lib/reports/exportPdf');
+      const chartNodes = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-report-chart]'),
+      );
+      const blob = await gerarPdf({
+        mode,
+        filters: filtrosAtuais,
+        metrics,
+        slaTarget,
+        bulletKpis: charts.bullets,
+        tickets,
+        chartNodes,
+      });
+      baixarBlob(blob, nomeArquivo(mode, filtrosAtuais, 'pdf'));
+      toast({
+        title: 'PDF gerado',
+        description: `Relatório ${mode} com ${chartNodes.length} gráficos vetoriais.`,
+      });
+    } catch (err) {
+      console.error('Falha ao gerar PDF:', err);
+      toast({
+        title: 'Erro ao gerar PDF',
+        description: 'Não foi possível montar o documento. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(null);
     }
+  }, [mode, filtrosAtuais, metrics, slaTarget, charts.bullets, tickets, toast]);
 
-    // SLA compliance
-    const withSla = tickets.filter(t => t.sla_status);
-    const slaOk = withSla.filter(t => t.sla_status === 'ok').length;
-    const slaAttention = withSla.filter(t => t.sla_status === 'attention').length;
-    const slaBreached = withSla.filter(t => t.sla_status === 'breached').length;
+  const exportarXlsx = useCallback(async () => {
+    setExporting('xlsx');
+    try {
+      const { gerarXlsx } = await import('@/lib/reports/exportXlsx');
+      const { nomeArquivo, baixarBlob } = await import('@/lib/reports/exportPdf');
+      const blob = await gerarXlsx({
+        filters: filtrosAtuais,
+        metrics,
+        tickets,
+        porTecnico: charts.comparativo,
+        mttrPorCategoria: charts.mttr,
+        horasPorTecnico: charts.horas,
+      });
+      baixarBlob(blob, nomeArquivo(mode, filtrosAtuais, 'xlsx'));
+      toast({
+        title: 'Planilha gerada',
+        description: `${tickets.length} chamados exportados com abas de análise.`,
+      });
+    } catch (err) {
+      console.error('Falha ao gerar XLSX:', err);
+      toast({
+        title: 'Erro ao gerar planilha',
+        description: 'Não foi possível montar o arquivo. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(null);
+    }
+  }, [mode, filtrosAtuais, metrics, tickets, charts.comparativo, charts.mttr, charts.horas, toast]);
 
-    // Rankings
-    const techRanking = tickets.reduce((acc: Record<string, number>, t) => {
-      if (t.assigned_to) {
-        acc[t.assigned_to] = (acc[t.assigned_to] || 0) + 1;
-      }
-      return acc;
-    }, {});
-
-    const companyRanking = tickets.reduce((acc: Record<string, number>, t) => {
-      if (t.company_name) {
-        acc[t.company_name] = (acc[t.company_name] || 0) + 1;
-      }
-      return acc;
-    }, {});
-
-    const categoryRanking = tickets.reduce((acc: Record<string, number>, t) => {
-      const cat = t.category || 'Sem Categoria';
-      acc[cat] = (acc[cat] || 0) + 1;
-      return acc;
-    }, {});
-
-    return { 
-      open, resolved, closed, total: tickets.length, 
-      avgResolutionHours, slaOk, slaAttention, slaBreached,
-      techRanking, companyRanking, categoryRanking
-    };
-  }, [tickets]);
-
-  // Transformar dados para os gráficos
-  const chartData = useMemo(() => {
-    // 1. Status Distribution
-    const statusData = [
-      { name: 'Aberto', value: metrics.open, color: 'hsl(var(--primary))' },
-      { name: 'Resolvido/Fechado', value: metrics.resolved + metrics.closed, color: 'hsl(var(--success))' }
-    ].filter(d => d.value > 0);
-
-    // 2. SLA Distribution
-    const slaData = [
-      { name: 'No Prazo', value: metrics.slaOk, color: '#22c55e' },
-      { name: 'Atenção', value: metrics.slaAttention, color: '#eab308' },
-      { name: 'Estourado', value: metrics.slaBreached, color: '#ef4444' }
-    ].filter(d => d.value > 0);
-
-    // 3. Tickets por dia (apenas considerando criação dentro do período para o gráfico)
-    const ticketsPerDay = tickets.reduce((acc: Record<string, number>, t) => {
-      if (!t.created_at) return acc;
-      const date = t.created_at.split('T')[0];
-      if (date >= dateFrom && date <= dateTo) {
-        if (!acc[date]) acc[date] = 0;
-        acc[date]++;
-      }
-      return acc;
-    }, {});
-    const trendData = Object.entries(ticketsPerDay)
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    // 5. Técnico Ranking (Top 5)
-    const technicianData = Object.entries(metrics.techRanking)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    // 6. Empresa Ranking (Top 5)
-    const companyData = Object.entries(metrics.companyRanking)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    // 7. Categoria Ranking
-    const categoryData = Object.entries(metrics.categoryRanking)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
-
-    // 4. Priority Distribution
-    const priorityData = tickets.reduce((acc: Record<string, number>, t) => {
-      acc[t.priority] = (acc[t.priority] || 0) + 1;
-      return acc;
-    }, {});
-    const priorityChartData = Object.entries(priorityData).map(([name, value]) => ({
-      name: name === 'urgent' ? 'Urgente' : name === 'high' ? 'Alta' : name === 'medium' ? 'Média' : 'Baixa',
-      value,
-      color: name === 'urgent' ? '#ef4444' : name === 'high' ? '#f97316' : name === 'medium' ? '#eab308' : '#22c55e'
-    })).filter(d => d.value > 0);
-
-    // ── NOVOS GRÁFICOS ──────────────────────────────────────────────────────
-
-    // 8. MTTR por Categoria (tempo médio de resolução em horas)
-    const mttrMap: Record<string, { totalMs: number; count: number }> = {};
-    tickets.forEach(t => {
-      if (!t.resolved_at || !t.created_at) return;
-      const cat = t.category || 'Sem Categoria';
-      const ms = new Date(t.resolved_at).getTime() - new Date(t.created_at).getTime();
-      if (!mttrMap[cat]) mttrMap[cat] = { totalMs: 0, count: 0 };
-      mttrMap[cat].totalMs += ms;
-      mttrMap[cat].count++;
-    });
-    const mttrByCategoryData = Object.entries(mttrMap)
-      .map(([name, { totalMs, count }]) => ({
-        name,
-        horas: Math.round((totalMs / count / 3_600_000) * 10) / 10,
-      }))
-      .sort((a, b) => b.horas - a.horas)
-      .slice(0, 8);
-
-    // 9. Taxa de Reabertura por Técnico
-    const reopenMap: Record<string, { total: number; reopened: number }> = {};
-    tickets.forEach(t => {
-      const tech = t.assigned_to || 'Sem Atribuição';
-      if (!reopenMap[tech]) reopenMap[tech] = { total: 0, reopened: 0 };
-      reopenMap[tech].total++;
-      if (t.status === 'reopened') reopenMap[tech].reopened++;
-    });
-    const reopenRateByTechData = Object.entries(reopenMap)
-      .filter(([, v]) => v.total >= 2)
-      .map(([name, { total, reopened }]) => ({
-        name: name.length > 18 ? name.slice(0, 18) + '…' : name,
-        taxa: Math.round((reopened / total) * 100),
-        total,
-      }))
-      .sort((a, b) => b.taxa - a.taxa)
-      .slice(0, 7);
-
-    // 10. SLA cumprido vs estourado ao longo do tempo (por semana)
-    const slaWeekMap: Record<string, { ok: number; breached: number; attention: number }> = {};
-    tickets.forEach(t => {
-      if (!t.created_at || !t.sla_status) return;
-      const d = new Date(t.created_at);
-      const startOfWeek = new Date(d);
-      startOfWeek.setDate(d.getDate() - d.getDay());
-      const weekKey = startOfWeek.toISOString().split('T')[0];
-      if (!slaWeekMap[weekKey]) slaWeekMap[weekKey] = { ok: 0, breached: 0, attention: 0 };
-      if (t.sla_status === 'ok') slaWeekMap[weekKey].ok++;
-      else if (t.sla_status === 'breached') slaWeekMap[weekKey].breached++;
-      else if (t.sla_status === 'attention') slaWeekMap[weekKey].attention++;
-    });
-    const slaTrendData = Object.entries(slaWeekMap)
-      .map(([week, counts]) => ({ week: week.substring(5).replace('-', '/'), ...counts }))
-      .sort((a, b) => a.week.localeCompare(b.week));
-
-    return { statusData, slaData, trendData, priorityChartData, technicianData, companyData, categoryData, mttrByCategoryData, reopenRateByTechData, slaTrendData };
-  }, [tickets, metrics, dateFrom, dateTo]);
-
-  const exportToCSV = () => {
-    if (tickets.length === 0) return;
-    const headers = ['ID', 'Título', 'Empresa', 'Solicitante', 'Prioridade', 'Status', 'SLA', 'Técnico', 'Criado Em', 'Resolvido Em'];
-    const rows = tickets.map(t => [
-      t.ticket_number,
-      `"${t.title.replace(/"/g, '""')}"`,
-      `"${t.company_name}"`,
-      `"${t.requester_name}"`,
-      t.priority,
-      t.status,
-      t.sla_status || 'N/A',
-      `"${t.assigned_to || ''}"`,
-      t.created_at,
-      t.resolved_at || ''
-    ]);
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `relatorio_chamados_${dateFrom}_${dateTo}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast({
-      title: "Exportação concluída",
-      description: "O relatório foi baixado com sucesso.",
-      variant: "default",
-    });
-  };
-
-  const printReport = () => {
-    window.print();
-  };
-
-  // Loading state
   if (roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -296,10 +259,7 @@ const Reports: React.FC = () => {
     );
   }
 
-  // RBAC: Clientes não podem acessar relatórios
-  if (role === 'customer') {
-    return <Navigate to="/" replace />;
-  }
+  if (role === 'customer') return <Navigate to="/" replace />;
 
   if (role !== 'admin' && role !== 'developer' && role !== 'technician') {
     return (
@@ -308,7 +268,9 @@ const Reports: React.FC = () => {
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center space-y-2">
               <p className="text-lg font-semibold text-foreground">Acesso Restrito</p>
-              <p className="text-sm text-muted-foreground">Você não tem permissão para acessar os relatórios.</p>
+              <p className="text-sm text-muted-foreground">
+                Você não tem permissão para acessar os relatórios.
+              </p>
             </div>
           </div>
         </main>
@@ -316,55 +278,121 @@ const Reports: React.FC = () => {
     );
   }
 
+  const detalhado = mode === 'detalhado';
+  const semTickets = tickets.length === 0;
+
   return (
     <div className="min-h-screen bg-background">
       <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-        
-        <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+        <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <Button variant="ghost" onClick={() => navigate('/')} className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Voltar ao Dashboard
             </Button>
             <h1 className="text-3xl font-bold text-foreground">Relatórios Gerenciais</h1>
-            <p className="text-muted-foreground mt-1">Métricas, análise de desempenho e exportação de dados</p>
+            <p className="text-muted-foreground mt-1">
+              Métricas, análise de desempenho e exportação de dados
+            </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={exportToCSV} className="bg-background" disabled={tickets.length === 0}>
-              <Download className="w-4 h-4 mr-2" /> Exportar Planilha
-            </Button>
-            <Button onClick={printReport} disabled={tickets.length === 0}>
-              <Printer className="w-4 h-4 mr-2" /> Salvar PDF / Imprimir
-            </Button>
-          </div>
-        </div>
 
-        {/* Cabeçalho exclusivo para impressão */}
-        <div className="hidden print:block mb-8 border-b pb-4">
-          <h1 className="text-2xl font-bold">Relatório Gerencial de Chamados</h1>
-          <p className="text-sm text-gray-500">Período: {dateFrom} a {dateTo}</p>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Alternador de modo */}
+            <div
+              className="inline-flex rounded-lg border border-border bg-muted/40 p-1"
+              role="group"
+              aria-label="Modo do relatório"
+            >
+              {(['resumido', 'detalhado'] as ReportMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  aria-pressed={mode === m}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-semibold rounded-md transition-colors capitalize',
+                    mode === m
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={exportarXlsx}
+                disabled={semTickets || exporting !== null}
+                className="bg-background"
+              >
+                {exporting === 'xlsx' ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                )}
+                {exporting === 'xlsx' ? 'Gerando...' : 'Planilha (XLSX)'}
+              </Button>
+              {/* Fallback preservado: se a geração vetorial falhar em algum
+                  ambiente, o usuário ainda consegue um PDF pela impressão do
+                  navegador. Some da própria impressão via print:hidden. */}
+              <Button
+                variant="outline"
+                onClick={() => window.print()}
+                disabled={semTickets || exporting !== null}
+                className="bg-background print:hidden"
+                title="Alternativa: gerar PDF pela impressão do navegador"
+              >
+                <Printer className="w-4 h-4" />
+                <span className="sr-only">Imprimir</span>
+              </Button>
+              <Button onClick={exportarPdf} disabled={semTickets || exporting !== null}>
+                {exporting === 'pdf' ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                {exporting === 'pdf' ? 'Gerando...' : 'Exportar PDF'}
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Filtros */}
-        <Card className="mb-6 print:hidden">
+        <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <Label className="text-xs text-muted-foreground">Data Início</Label>
-                <Input autoComplete="off" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                <Input
+                  autoComplete="off"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Data Fim</Label>
-                <Input autoComplete="off" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                <Input
+                  autoComplete="off"
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Empresa</Label>
                 <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
-                    {companies?.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    {companies?.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -372,11 +400,15 @@ const Reports: React.FC = () => {
               <div>
                 <Label className="text-xs text-muted-foreground">Técnico</Label>
                 <Select value={techFilter} onValueChange={setTechFilter}>
-                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {technicians?.map(t => (
-                      <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
+                    {technicians?.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.full_name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -385,95 +417,164 @@ const Reports: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* KPIs */}
+        {/* ── KPIs ─────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <Card>
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <BarChart3 className="h-5 w-5 text-primary" />
+          {[
+            { icon: BarChart3, cor: 'text-primary bg-primary/10', valor: metrics.total, rotulo: 'Total no Período' },
+            { icon: Clock, cor: 'text-blue-500 bg-blue-500/10', valor: metrics.open, rotulo: 'Abertos/Ativos' },
+            {
+              icon: CheckCircle2,
+              cor: 'text-green-500 bg-green-500/10',
+              valor: metrics.resolved + metrics.closed,
+              rotulo: 'Resolvidos/Fechados',
+            },
+            {
+              icon: TrendingUp,
+              cor: 'text-warning bg-warning/10',
+              valor: `${metrics.avgResolutionHours}h`,
+              rotulo: 'Tempo Médio Resolução',
+            },
+            {
+              icon: AlertTriangle,
+              cor: 'text-destructive bg-destructive/10',
+              valor: metrics.slaBreached,
+              rotulo: 'SLA Estourado',
+            },
+          ].map((k) => (
+            <Card key={k.rotulo}>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className={cn('p-2 rounded-lg', k.cor.split(' ')[1])}>
+                    <k.icon className={cn('h-5 w-5', k.cor.split(' ')[0])} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{k.valor}</p>
+                    <p className="text-xs text-muted-foreground">{k.rotulo}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.total}</p>
-                  <p className="text-xs text-muted-foreground">Total no Período</p>
-                </div>
-              </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* ── Bloco executivo: Gauge + Bullets + Ativos ─────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <Card className="shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                Cumprimento de SLA
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center pt-2" {...chartAttrs('Cumprimento de SLA')}>
+              <GaugeChart
+                value={metrics.slaCompliancePct}
+                target={SLA_COMPLIANCE_TARGET_PCT}
+                label="Chamados no prazo"
+                sampleSize={metrics.slaAvaliados}
+              />
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Clock className="h-5 w-5 text-blue-500" />
+
+          <Card className="shadow-sm border-border/40 lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Timer className="w-4 h-4" /> Tempo de Resolução vs. Meta Contratual
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {charts.bullets.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                  {charts.bullets.map((k) => (
+                    <BulletChart key={k.label} kpi={k} />
+                  ))}
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.open}</p>
-                  <p className="text-xs text-muted-foreground">Abertos/Ativos</p>
+              ) : (
+                <div className="h-[140px]">
+                  <SemDados>
+                    {slaTarget
+                      ? 'Nenhum chamado resolvido no período para comparar com a meta.'
+                      : 'Nenhuma configuração de SLA cadastrada — sem meta contratual para comparar.'}
+                  </SemDados>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.resolved + metrics.closed}</p>
-                  <p className="text-xs text-muted-foreground">Resolvidos/Fechados</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-warning/10">
-                  <TrendingUp className="h-5 w-5 text-warning" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.avgResolutionHours}h</p>
-                  <p className="text-xs text-muted-foreground">Tempo Médio Resolução</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-destructive/10">
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.slaBreached}</p>
-                  <p className="text-xs text-muted-foreground">SLA Estourado</p>
-                </div>
-              </div>
+              )}
+              {slaTarget && (
+                <p className="text-[10px] text-muted-foreground mt-3">
+                  Meta de origem: {slaTarget.sourceName}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Gráficos / Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 print:break-inside-avoid">
-          <Card className="col-span-1 lg:col-span-2 shadow-sm border-border/40">
+        {/* Ativos críticos (RMM) */}
+        {criticalAssets && criticalAssets.total > 0 && (
+          <Card className="mb-8 shadow-sm border-border/40">
             <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Evolução do Volume</CardTitle>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Server className="w-4 h-4" /> Ativos Críticos
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[250px] w-full">
-                {chartData.trendData.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-6">
+                <div>
+                  <p className="text-2xl font-bold text-destructive">{criticalAssets.offline}</p>
+                  <p className="text-xs text-muted-foreground">Offline</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-warning">{criticalAssets.alerta}</p>
+                  <p className="text-xs text-muted-foreground">Em alerta</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{criticalAssets.total}</p>
+                  <p className="text-xs text-muted-foreground">Total monitorado</p>
+                </div>
+                {criticalAssets.exemplos.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 ml-auto">
+                    {criticalAssets.exemplos.map((a) => (
+                      <Badge key={a.name} variant="outline" className="text-[10px]">
+                        {a.hostname || a.name} · {a.status}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Tendência + categorias (ambos os modos) ───────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <Card className="lg:col-span-2 shadow-sm border-border/40">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                Evolução do Volume
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px] w-full" {...chartAttrs('Evolução do Volume')}>
+                {charts.trend.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData.trendData}>
+                    <LineChart data={charts.trend}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(val) => val.substring(5).replace('-', '/')} />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
-                      <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4 }} />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 10 }}
+                        tickFormatter={(v: string) => v.substring(5).replace('-', '/')}
+                      />
+                      <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                      <Tooltip contentStyle={TOOLTIP_STYLE} />
+                      <Line
+                        type="monotone"
+                        dataKey="count"
+                        name="Chamados"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={3}
+                        dot={{ r: 3 }}
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
-                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Sem dados para exibir</div>
+                  <SemDados />
                 )}
               </div>
             </CardContent>
@@ -481,309 +582,352 @@ const Reports: React.FC = () => {
 
           <Card className="shadow-sm border-border/40">
             <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Distribuição de Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[250px] w-full">
-                {chartData.statusData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={chartData.statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                        {chartData.statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Sem dados para exibir</div>
-                )}
-              </div>
-              <div className="flex justify-center gap-4 mt-2">
-                 {chartData.statusData.map(d => (
-                   <div key={d.name} className="flex items-center gap-1.5 align-middle text-xs font-bold">
-                     <span className="w-2.5 h-2.5 rounded-full block" style={{ backgroundColor: d.color }}></span>
-                     {d.name}
-                   </div>
-                 ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── Novos Gráficos Analíticos ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 print:break-inside-avoid">
-          {/* MTTR por Categoria */}
-          <Card className="shadow-sm border-border/40">
-            <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                <Clock className="w-4 h-4" /> Tempo Médio de Resolução por Categoria
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                Chamados por Categoria
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[280px] w-full">
-                {chartData.mttrByCategoryData.length > 0 ? (
+              {/* Bar horizontal em vez de pizza: mais legível com 5+ fatias e
+                  permite rótulo de valor em cada barra. */}
+              <div className="h-[250px] w-full" {...chartAttrs('Chamados por Categoria')}>
+                {charts.porCategoria.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData.mttrByCategoryData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis type="number" tick={{ fontSize: 10 }} unit="h" />
-                      <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 9 }} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }}
-                        formatter={(val: number) => [`${val}h`, 'Tempo Médio']}
-                      />
-                      <Bar dataKey="horas" fill="hsl(var(--warning))" radius={[0, 4, 4, 0]} barSize={18} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Sem tickets resolvidos no período</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Taxa de Reabertura por Técnico */}
-          <Card className="shadow-sm border-border/40">
-            <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                <Repeat className="w-4 h-4" /> Taxa de Reabertura por Técnico
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[280px] w-full">
-                {chartData.reopenRateByTechData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData.reopenRateByTechData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis type="number" tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
-                      <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 9 }} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }}
-                        formatter={(val: number, _: string, props: { payload?: { total: number } }) => [
-                          `${val}% (${props.payload?.total ?? 0} tickets)`,
-                          'Taxa de Reabertura'
-                        ]}
-                      />
-                      <Bar dataKey="taxa" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={18} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Dados insuficientes (&lt;2 tickets/técnico)</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* SLA Cumprido vs Estourado ao Longo do Tempo */}
-          <Card className="col-span-full shadow-sm border-border/40">
-            <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4" /> SLA Cumprido vs. Estourado ao Longo do Tempo
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[260px] w-full">
-                {chartData.slaTrendData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData.slaTrendData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
-                      <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                      <Area type="monotone" dataKey="ok" name="No Prazo" stackId="1" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} strokeWidth={2} />
-                      <Area type="monotone" dataKey="attention" name="Atenção" stackId="1" stroke="#eab308" fill="#eab308" fillOpacity={0.3} strokeWidth={2} />
-                      <Area type="monotone" dataKey="breached" name="Estourado" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.4} strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Sem dados de SLA no período</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Rankings */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 print:break-inside-avoid">
-          <Card className="shadow-sm border-border/40">
-            <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Desempenho por Técnico</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[250px] w-full">
-                {chartData.technicianData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData.technicianData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
+                    <BarChart data={charts.porCategoria} layout="vertical" margin={{ right: 24 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
                       <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} />
-                      <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
-                      <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={20} />
+                      <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 9 }} />
+                      <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
+                      <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={16}>
+                        <LabelList dataKey="count" position="right" fontSize={9} fill="hsl(var(--foreground))" />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm text-center">Nenhum dado atribuído</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm border-border/40">
-            <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Volume por Empresa</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[250px] w-full">
-                {chartData.companyData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData.companyData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} />
-                      <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
-                      <Bar dataKey="count" fill="hsl(var(--warning))" radius={[0, 4, 4, 0]} barSize={20} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm text-center">Sem dados de empresas</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="col-span-full shadow-sm border-border/40">
-            <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Chamados por Categoria</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[280px] w-full">
-                {chartData.categoryData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData.categoryData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }} />
-                      <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={40} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Nenhum dado de categorias</div>
+                  <SemDados />
                 )}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* SLA Summary */}
-        <div className="grid grid-cols-3 gap-4 mb-6 print:break-inside-avoid">
-          <Card className="border-l-4 border-l-green-500">
-            <CardContent className="pt-4 pb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">SLA No Prazo</p>
-                <p className="text-xl font-bold text-green-600">{metrics.slaOk}</p>
-              </div>
-              <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20">
-                {metrics.total > 0 ? Math.round((metrics.slaOk / metrics.total) * 100) : 0}%
-              </Badge>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-yellow-500">
-            <CardContent className="pt-4 pb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">SLA Atenção</p>
-                <p className="text-xl font-bold text-yellow-600">{metrics.slaAttention}</p>
-              </div>
-              <Badge variant="outline" className="bg-yellow-500/10 text-yellow-700 border-yellow-500/20">
-                {metrics.total > 0 ? Math.round((metrics.slaAttention / metrics.total) * 100) : 0}%
-              </Badge>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-red-500">
-            <CardContent className="pt-4 pb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">SLA Estourado</p>
-                <p className="text-xl font-bold text-red-600">{metrics.slaBreached}</p>
-              </div>
-              <Badge variant="outline" className="bg-red-500/10 text-red-700 border-red-500/20">
-                {metrics.total > 0 ? Math.round((metrics.slaBreached / metrics.total) * 100) : 0}%
-              </Badge>
-            </CardContent>
-          </Card>
-        </div>
+        {/* ── A partir daqui: exclusivo do modo detalhado ───────────────────── */}
+        {detalhado && (
+          <>
+            <Card className="mb-8 shadow-sm border-border/40">
+              <CardHeader>
+                <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                  <Users className="w-4 h-4" /> Comparativo de Técnicos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px] w-full" {...chartAttrs('Comparativo de Técnicos')}>
+                  <TechnicianComparisonChart data={charts.comparativo} />
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Tabela de tickets */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              Tickets no Período
-              <span className="ml-2 text-sm font-normal text-muted-foreground">({tickets.length})</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {ticketsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>#</TableHead>
-                      <TableHead>Título</TableHead>
-                      <TableHead>Empresa</TableHead>
-                      <TableHead>Solicitante</TableHead>
-                      <TableHead>Prioridade</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>SLA</TableHead>
-                      <TableHead>Técnico</TableHead>
-                      <TableHead>Criado</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {tickets.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                          Nenhum ticket encontrado para os filtros selecionados.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      (tickets || []).map(ticket => (
-                        <TableRow
-                          key={ticket.id}
-                          className="cursor-pointer hover:bg-muted/30"
-                          onClick={() => navigate(`/ticket/${ticket.id}`)}
-                        >
-                          <TableCell className="font-mono font-medium">#{ticket.ticket_number}</TableCell>
-                          <TableCell className="max-w-[200px] truncate">{ticket.title}</TableCell>
-                          <TableCell className="text-muted-foreground max-w-[120px] truncate">{ticket.company_name}</TableCell>
-                          <TableCell className="text-muted-foreground max-w-[120px] truncate">{ticket.requester_name}</TableCell>
-                          <TableCell><PriorityBadge priority={ticket.priority} size="sm" /></TableCell>
-                          <TableCell><StatusBadge status={ticket.status} /></TableCell>
-                          <TableCell>
-                            <SLABadge
-                              slaStatus={ticket.sla_status}
-                              slaDueDate={ticket.sla_due_date}
-                              createdAt={ticket.created_at}
-                              variant="compact"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <Card className="shadow-sm border-border/40">
+                <CardHeader>
+                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Clock className="w-4 h-4" /> Tempo Médio por Categoria
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[280px] w-full" {...chartAttrs('Tempo Médio de Resolução por Categoria')}>
+                    {charts.mttr.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={charts.mttr} layout="vertical" margin={{ right: 34 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis type="number" tick={{ fontSize: 10 }} unit="h" />
+                          <YAxis dataKey="name" type="category" width={104} tick={{ fontSize: 9 }} />
+                          <Tooltip
+                            contentStyle={TOOLTIP_STYLE}
+                            formatter={(v: number, _n: string, p: { payload?: { amostra: number } }) => [
+                              `${v}h (${p.payload?.amostra ?? 0} resolvidos)`,
+                              'Tempo médio',
+                            ]}
+                          />
+                          <Bar dataKey="horas" name="Tempo médio" fill="hsl(var(--warning))" radius={[0, 4, 4, 0]} barSize={16}>
+                            <LabelList
+                              dataKey="horas"
+                              position="right"
+                              fontSize={9}
+                              fill="hsl(var(--foreground))"
+                              formatter={(v: number) => `${v}h`}
                             />
-                          </TableCell>
-                          <TableCell className="text-muted-foreground max-w-[120px] truncate">
-                            {ticket.assigned_to || '—'}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap text-xs text-muted-foreground capitalize-first">
-                            {ticket.created_at && !isNaN(new Date(ticket.created_at).getTime()) ? formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true, locale: ptBR }) : "Desconhecido"}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <SemDados>Sem chamados resolvidos no período</SemDados>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border-border/40">
+                <CardHeader>
+                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Repeat className="w-4 h-4" /> Taxa de Reabertura por Técnico
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[280px] w-full" {...chartAttrs('Taxa de Reabertura por Técnico')}>
+                    {charts.reabertura.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={charts.reabertura} layout="vertical" margin={{ right: 34 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis type="number" tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
+                          <YAxis dataKey="name" type="category" width={104} tick={{ fontSize: 9 }} />
+                          <Tooltip
+                            contentStyle={TOOLTIP_STYLE}
+                            formatter={(v: number, _n: string, p: { payload?: { total: number } }) => [
+                              `${v}% de ${p.payload?.total ?? 0} chamados`,
+                              'Reabertura',
+                            ]}
+                          />
+                          <Bar dataKey="taxa" name="Reabertura" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} barSize={16}>
+                            <LabelList
+                              dataKey="taxa"
+                              position="right"
+                              fontSize={9}
+                              fill="hsl(var(--foreground))"
+                              formatter={(v: number) => `${v}%`}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <SemDados>Dados insuficientes (menos de 2 chamados por técnico)</SemDados>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="col-span-full shadow-sm border-border/40">
+                <CardHeader>
+                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4" /> SLA Cumprido vs. Estourado ao Longo do Tempo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[260px] w-full" {...chartAttrs('SLA ao Longo do Tempo')}>
+                    {charts.slaTrend.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={charts.slaTrend}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+                          <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                          <Tooltip contentStyle={TOOLTIP_STYLE} />
+                          <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                          <Area type="monotone" dataKey="ok" name="No Prazo" stackId="1" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} strokeWidth={2} />
+                          <Area type="monotone" dataKey="attention" name="Atenção" stackId="1" stroke="#eab308" fill="#eab308" fillOpacity={0.3} strokeWidth={2} />
+                          <Area type="monotone" dataKey="breached" name="Estourado" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.4} strokeWidth={2} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <SemDados>Sem dados de SLA no período</SemDados>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <Card className="shadow-sm border-border/40">
+                <CardHeader>
+                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                    Volume por Empresa
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[250px] w-full" {...chartAttrs('Volume por Empresa')}>
+                    {charts.porEmpresa.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={charts.porEmpresa} layout="vertical" margin={{ right: 28 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis type="number" hide />
+                          <YAxis dataKey="name" type="category" width={116} tick={{ fontSize: 9 }} />
+                          <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
+                          <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={16}>
+                            <LabelList dataKey="count" position="right" fontSize={9} fill="hsl(var(--foreground))" />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <SemDados>Sem dados de empresas</SemDados>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border-border/40">
+                <CardHeader>
+                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                    Distribuição por Prioridade
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[250px] w-full" {...chartAttrs('Distribuição por Prioridade')}>
+                    {charts.porPrioridade.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={charts.porPrioridade} layout="vertical" margin={{ right: 28 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis type="number" hide />
+                          <YAxis dataKey="name" type="category" width={70} tick={{ fontSize: 10 }} />
+                          <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
+                          <Bar dataKey="value" name="Chamados" radius={[0, 4, 4, 0]} barSize={18} fill="hsl(var(--primary))">
+                            <LabelList dataKey="value" position="right" fontSize={9} fill="hsl(var(--foreground))" />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <SemDados />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {charts.horas.length > 0 && (
+                <Card className="col-span-full shadow-sm border-border/40">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <Timer className="w-4 h-4" /> Horas Lançadas por Técnico
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[260px] w-full" {...chartAttrs('Horas Lançadas por Técnico')}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={charts.horas} margin={{ top: 18 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} />
+                          <YAxis tick={{ fontSize: 10 }} unit="h" />
+                          <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}h`, '']} />
+                          <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
+                          <Bar dataKey="totalHoras" name="Total" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]}>
+                            <LabelList dataKey="totalHoras" position="top" fontSize={9} fill="hsl(var(--foreground))" />
+                          </Bar>
+                          <Bar dataKey="faturaveisHoras" name="Faturáveis" fill="hsl(var(--success))" radius={[3, 3, 0, 0]}>
+                            <LabelList dataKey="faturaveisHoras" position="top" fontSize={9} fill="hsl(var(--foreground))" />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── Resumo de SLA ────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          {[
+            { rotulo: 'SLA No Prazo', valor: metrics.slaOk, borda: 'border-l-green-500', texto: 'text-green-600', badge: 'bg-green-500/10 text-green-700 border-green-500/20' },
+            { rotulo: 'SLA Atenção', valor: metrics.slaAttention, borda: 'border-l-yellow-500', texto: 'text-yellow-600', badge: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20' },
+            { rotulo: 'SLA Estourado', valor: metrics.slaBreached, borda: 'border-l-red-500', texto: 'text-red-600', badge: 'bg-red-500/10 text-red-700 border-red-500/20' },
+          ].map((s) => (
+            <Card key={s.rotulo} className={cn('border-l-4', s.borda)}>
+              <CardContent className="pt-4 pb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">{s.rotulo}</p>
+                  <p className={cn('text-xl font-bold', s.texto)}>{s.valor}</p>
+                </div>
+                {/* Percentual sobre os chamados avaliados por SLA, não sobre o
+                    total — dividir pelo total subestimava o indicador. */}
+                <Badge variant="outline" className={s.badge}>
+                  {metrics.slaAvaliados > 0 ? Math.round((s.valor / metrics.slaAvaliados) * 100) : 0}%
+                </Badge>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* ── Tabela (somente no detalhado) ────────────────────────────────── */}
+        {detalhado && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Chamados no Período
+                <span className="ml-2 text-sm font-normal text-muted-foreground">({tickets.length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {ticketsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>#</TableHead>
+                        <TableHead>Título</TableHead>
+                        <TableHead>Empresa</TableHead>
+                        <TableHead>Solicitante</TableHead>
+                        <TableHead>Prioridade</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>SLA</TableHead>
+                        <TableHead>Técnico</TableHead>
+                        <TableHead>Criado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {semTickets ? (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                            Nenhum chamado encontrado para os filtros selecionados.
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      ) : (
+                        tickets.map((ticket) => (
+                          <TableRow
+                            key={ticket.id}
+                            className="cursor-pointer hover:bg-muted/30"
+                            onClick={() => navigate(`/ticket/${ticket.id}`)}
+                          >
+                            <TableCell className="font-mono font-medium">#{ticket.ticket_number}</TableCell>
+                            <TableCell className="max-w-[200px] truncate">{ticket.title}</TableCell>
+                            <TableCell className="text-muted-foreground max-w-[120px] truncate">{ticket.company_name}</TableCell>
+                            <TableCell className="text-muted-foreground max-w-[120px] truncate">{ticket.requester_name}</TableCell>
+                            <TableCell><PriorityBadge priority={ticket.priority} size="sm" /></TableCell>
+                            <TableCell><StatusBadge status={ticket.status} /></TableCell>
+                            <TableCell>
+                              <SLABadge
+                                slaStatus={ticket.sla_status}
+                                slaDueDate={ticket.sla_due_date}
+                                createdAt={ticket.created_at}
+                                variant="compact"
+                              />
+                            </TableCell>
+                            <TableCell className="text-muted-foreground max-w-[120px] truncate">
+                              {ticket.assigned_to || '—'}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap text-xs text-muted-foreground capitalize-first">
+                              {ticket.created_at && !Number.isNaN(new Date(ticket.created_at).getTime())
+                                ? formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true, locale: ptBR })
+                                : 'Desconhecido'}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* No modo resumido a tabela some, então o total precisa aparecer aqui. */}
+        {!detalhado && (
+          <p className="text-xs text-muted-foreground text-center">
+            {tickets.length} chamados no período · troque para o modo <strong>detalhado</strong> para ver
+            a tabela analítica e o comparativo por técnico.
+          </p>
+        )}
       </main>
     </div>
   );
