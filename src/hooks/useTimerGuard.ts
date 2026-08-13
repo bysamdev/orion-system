@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveTimer, useStopTimer } from '@/hooks/useTimeEntries';
-import debounce from 'lodash/debounce';
 import { toast } from '@/hooks/use-toast';
 
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
@@ -15,17 +14,18 @@ export const useTimerGuard = () => {
   useEffect(() => {
     if (!activeTimer) return;
 
-    const handleInactivity = debounce(() => {
-      if (!activeTimer) return;
-      stopTimer.mutate({ entryId: activeTimer.id });
-      toast({
-        title: 'Timer pausado',
-        description: 'O timer foi pausado automaticamente após 30 minutos de inatividade.',
-      });
-    }, INACTIVITY_TIMEOUT_MS);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const resetTimer = () => {
-      handleInactivity();
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (!activeTimer) return;
+        stopTimer.mutate({ entryId: activeTimer.id });
+        toast({
+          title: 'Timer pausado',
+          description: 'O timer foi pausado automaticamente após 30 minutos de inatividade.',
+        });
+      }, INACTIVITY_TIMEOUT_MS);
     };
 
     // Attach listeners
@@ -34,13 +34,13 @@ export const useTimerGuard = () => {
     window.addEventListener('click', resetTimer);
 
     // Initial call to start the timeout
-    handleInactivity();
+    resetTimer();
 
     return () => {
       window.removeEventListener('mousemove', resetTimer);
       window.removeEventListener('keydown', resetTimer);
       window.removeEventListener('click', resetTimer);
-      handleInactivity.cancel();
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [activeTimer, stopTimer]);
 
