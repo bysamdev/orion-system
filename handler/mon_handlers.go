@@ -16,6 +16,47 @@ import (
 	"orion-api/lib"
 )
 
+// ─── Escopo por empresa nas leituras (pentest Strix vuln-0003) ───────────────
+//
+// O pool do backend conecta com papel privilegiado, então RLS não se aplica a
+// estas queries: sem recorte explícito aqui, qualquer usuário autenticado lia o
+// parque inteiro de todas as empresas. O critério de "vê tudo" espelha as
+// policies de RLS já existentes — empresa master ou papel developer.
+//
+// monitoringCreateCommand já fazia essa checagem; estes helpers estendem o
+// mesmo limite às leituras.
+
+// escopoDoUsuario resolve empresa/papel do chamador.
+//
+// Nas rotas cobertas por RequireCompanyScope (todas as de usuário) o escopo já
+// foi resolvido pelo middleware e vem do contexto, sem nova ida ao banco. O
+// lookup direto permanece como fallback para qualquer chamador fora do grupo.
+func escopoDoUsuario(ctx context.Context, userID string) (lib.UserScope, error) {
+	if escopo, ok := lib.ScopeFromContext(ctx); ok {
+		return escopo, nil
+	}
+	return db.UserScopeByID(ctx, userID)
+}
+
+// podeVerMaquina decide o acesso quando a máquina já foi carregada.
+func podeVerMaquina(ctx context.Context, userID string, machineCompanyID *string) bool {
+	escopo, err := escopoDoUsuario(ctx, userID)
+	if err != nil {
+		return false // sem conseguir provar o vínculo, nega
+	}
+	return escopo.PodeVerEmpresa(machineCompanyID)
+}
+
+// podeVerMaquinaPorID carrega a máquina só para checar a empresa dona. Usado
+// nas rotas cujo recurso é derivado da máquina (métricas, alertas, comandos).
+func podeVerMaquinaPorID(ctx context.Context, userID, machineID string) bool {
+	m, err := db.MachineByID(ctx, machineID)
+	if err != nil {
+		return false
+	}
+	return podeVerMaquina(ctx, userID, m.CompanyID)
+}
+
 func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 	defer cancel()
@@ -27,8 +68,12 @@ func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	_ = user // keeping for future use
-	s, err := db.DashboardSummaryData(ctx)
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	s, err := db.DashboardSummaryData(ctx, escopo.FiltroEmpresa())
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar dashboard"})
 		return
@@ -49,8 +94,12 @@ func monitoringListGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = user
-	groups, err := db.ListMachineGroups(ctx)
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	groups, err := db.ListMachineGroups(ctx, escopo.FiltroEmpresa())
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar grupos"})
 		return
@@ -69,9 +118,13 @@ func monitoringGroupMachines(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = user
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
 	groupID := chi.URLParam(r, "id")
-	machines, err := db.MachinesByGroupID(ctx, groupID)
+	machines, err := db.MachinesByGroupID(ctx, groupID, escopo.FiltroEmpresa())
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar máquinas"})
 		return
@@ -93,11 +146,14 @@ func monitoringMachineDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = user
 	id := chi.URLParam(r, "id")
 	machine, err := db.MachineByID(ctx, id)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Máquina não encontrada"})
+		return
+	}
+	if !podeVerMaquina(ctx, user.ID, machine.CompanyID) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
 		return
 	}
 	hw, _ := db.MachineHardwareByMachineID(ctx, id)
@@ -115,8 +171,11 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = user
 	id := chi.URLParam(r, "id")
+	if !podeVerMaquinaPorID(ctx, user.ID, id) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+		return
+	}
 	limit := 100
 	if ls := r.URL.Query().Get("limit"); ls != "" {
 		if l, err := strconv.Atoi(ls); err == nil && l > 0 {
@@ -145,8 +204,11 @@ func monitoringMachineAlerts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = user
 	id := chi.URLParam(r, "id")
+	if !podeVerMaquinaPorID(ctx, user.ID, id) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+		return
+	}
 	alerts, err := db.AlertsByMachineID(ctx, id)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar alertas"})
@@ -305,14 +367,48 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		RAMSlots: []byte(`null`), Disks: disksJSON, NetworkInterfaces: ifacesJSON, GPU: req.GPU,
 	})
 
-	if req.DiskTotal > 0 {
-		usage := float64(req.DiskUsed) / float64(req.DiskTotal)
-		if usage > 0.90 {
-			_ = db.InsertAlert(ctx, lib.InsertAlertInput{
-				MachineID: machineID, Type: "disk_usage", Severity: "critical",
-				Message: fmt.Sprintf("Uso de disco crítico: %.1f%% (%d/%d bytes)", usage*100, req.DiskUsed, req.DiskTotal),
+	hasAlert := false
+
+	if req.CPUUsage > 85 {
+		_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
+			MachineID: machineID, Type: "cpu", Severity: "warning",
+			Message: fmt.Sprintf("Uso de CPU alto: %.1f%%", req.CPUUsage),
+		})
+		hasAlert = true
+	} else {
+		_ = db.ResolveAlertsByType(ctx, machineID, "cpu")
+	}
+
+	if req.RAMTotal > 0 {
+		ramUsage := float64(req.RAMUsed) / float64(req.RAMTotal)
+		if ramUsage > 0.90 {
+			_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
+				MachineID: machineID, Type: "ram", Severity: "warning",
+				Message: fmt.Sprintf("Uso de RAM alto: %.1f%%", ramUsage*100),
 			})
+			hasAlert = true
+		} else {
+			_ = db.ResolveAlertsByType(ctx, machineID, "ram")
 		}
+	}
+
+	if req.DiskTotal > 0 {
+		diskUsage := float64(req.DiskUsed) / float64(req.DiskTotal)
+		if diskUsage > 0.90 {
+			_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
+				MachineID: machineID, Type: "disk", Severity: "critical",
+				Message: fmt.Sprintf("Uso de disco crítico: %.1f%% (%d/%d bytes)", diskUsage*100, req.DiskUsed, req.DiskTotal),
+			})
+			hasAlert = true
+		} else {
+			_ = db.ResolveAlertsByType(ctx, machineID, "disk")
+		}
+	}
+
+	if hasAlert {
+		_ = db.UpdateMachineStatus(ctx, machineID, "alerta")
+	} else {
+		_ = db.UpdateMachineStatus(ctx, machineID, "online")
 	}
 
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "machine_id": machineID})
@@ -394,8 +490,11 @@ func monitoringGetMachineCommands(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = user
 	machineID := chi.URLParam(r, "id")
+	if !podeVerMaquinaPorID(ctx, user.ID, machineID) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+		return
+	}
 	cmds, err := db.ListCommandsByMachineID(ctx, machineID, 50)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro ao buscar comandos"})
@@ -493,6 +592,25 @@ func monitoringUpdateMachine(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
+
+	// requireAdminOrDeveloper só valida o papel do chamador, nunca a empresa —
+	// sem isto, um admin/gestor de QUALQUER empresa atualizava (e reatribuía)
+	// a máquina de qualquer outra empresa só sabendo o id.
+	machine, err := db.MachineByID(ctx, id)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Máquina não encontrada"})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	if !escopo.PodeVerEmpresa(machine.CompanyID) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+		return
+	}
+
 	var updates map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "JSON inválido"})
@@ -503,13 +621,20 @@ func monitoringUpdateMachine(w http.ResponseWriter, r *http.Request) {
 	allowed := map[string]bool{"group_id": true, "company_id": true, "hostname": true}
 	refinedUpdates := make(map[string]any)
 	for k, v := range updates {
-		if allowed[k] {
-			// Convert empty string to nil for UUID columns to avoid syntax error
-			if s, ok := v.(string); ok && s == "" && (k == "group_id" || k == "company_id") {
-				refinedUpdates[k] = nil
-			} else {
-				refinedUpdates[k] = v
-			}
+		if !allowed[k] {
+			continue
+		}
+		// Só quem enxerga tudo (master/developer) pode reatribuir a empresa
+		// dona da máquina — senão um usuário escopado "moveria" a máquina
+		// para fora do alcance de PodeVerEmpresa e escaparia do isolamento.
+		if k == "company_id" && !escopo.Global() {
+			continue
+		}
+		// Convert empty string to nil for UUID columns to avoid syntax error
+		if s, ok := v.(string); ok && s == "" && (k == "group_id" || k == "company_id") {
+			refinedUpdates[k] = nil
+		} else {
+			refinedUpdates[k] = v
 		}
 	}
 
@@ -547,6 +672,21 @@ func monitoringCreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// requireAdminOrDeveloper só valida o papel — sem isto, um admin/gestor de
+	// qualquer empresa criava grupo em QUALQUER company_id informado no corpo.
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	if !escopo.Global() {
+		if escopo.CompanyID == nil {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+			return
+		}
+		req.CompanyID = *escopo.CompanyID
+	}
+
 	id, err := db.CreateMachineGroup(ctx, req.Name, req.Description, req.ClientContact, req.CompanyID)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
@@ -572,6 +712,25 @@ func monitoringUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
+
+	// requireAdminOrDeveloper só valida o papel, nunca se o grupo pertence à
+	// empresa do chamador — sem isto, um admin/gestor de qualquer empresa
+	// editava (e reatribuía) o grupo de qualquer outra empresa por id.
+	groupCompanyID, err := db.MachineGroupCompanyID(ctx, id)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Grupo não encontrado"})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	if !escopo.PodeVerEmpresa(groupCompanyID) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: grupo não pertence à sua empresa"})
+		return
+	}
+
 	var updates map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "JSON inválido"})
@@ -581,13 +740,19 @@ func monitoringUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	allowed := map[string]bool{"name": true, "description": true, "client_contact": true, "company_id": true}
 	refined := make(map[string]any)
 	for k, v := range updates {
-		if allowed[k] {
-			// Convert empty string to nil for UUID columns to avoid syntax error
-			if s, ok := v.(string); ok && s == "" && k == "company_id" {
-				refined[k] = nil
-			} else {
-				refined[k] = v
-			}
+		if !allowed[k] {
+			continue
+		}
+		// Só quem enxerga tudo pode reatribuir a empresa dona do grupo — mesmo
+		// raciocínio de monitoringUpdateMachine.
+		if k == "company_id" && !escopo.Global() {
+			continue
+		}
+		// Convert empty string to nil for UUID columns to avoid syntax error
+		if s, ok := v.(string); ok && s == "" && k == "company_id" {
+			refined[k] = nil
+		} else {
+			refined[k] = v
 		}
 	}
 
@@ -615,10 +780,98 @@ func monitoringDeleteGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
+
+	// requireAdminOrDeveloper só valida o papel — sem isto, um admin/gestor de
+	// qualquer empresa apagava o grupo de qualquer outra empresa por id.
+	groupCompanyID, err := db.MachineGroupCompanyID(ctx, id)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Grupo não encontrado"})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	if !escopo.PodeVerEmpresa(groupCompanyID) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: grupo não pertence à sua empresa"})
+		return
+	}
+
 	if err := db.DeleteMachineGroup(ctx, id); err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
+// ─── Self-Healing ───────────────────────────────────────────────────────────
+
+func monitoringSelfHealEvent(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	// Require Agent Key
+	chaveEmpresaID, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+
+	var req struct {
+		MachineID string `json:"machine_id"`
+		AlertType string `json:"alert_type"`
+		Status    string `json:"status"` // "success" ou "failed"
+		Output    string `json:"output"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "corpo inválido"})
+		return
+	}
+	if req.MachineID == "" || req.AlertType == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "machine_id e alert_type são obrigatórios"})
+		return
+	}
+	if req.Status != "success" && req.Status != "failed" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "status deve ser 'success' ou 'failed'"})
+		return
+	}
+
+	machine, err := db.MachineByID(ctx, req.MachineID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Máquina não encontrada"})
+		return
+	}
+
+	// A chave de agente prova a identidade de UMA empresa, mas machine_id vem do
+	// corpo da requisição: sem esta checagem, um agente legítimo da empresa A
+	// grava eventos de autocura em máquinas da empresa B. A chave global
+	// ("global") é a de administração e segue podendo reportar qualquer máquina.
+	if chaveEmpresaID != "" && chaveEmpresaID != "global" {
+		if machine.CompanyID == nil || *machine.CompanyID != chaveEmpresaID {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "máquina não pertence à empresa desta chave de agente"})
+			return
+		}
+	}
+
+	// Registrado em rmm_remediation_logs — não em tickets. public.tickets exige
+	// user_id/requester_name/category NOT NULL e este endpoint é autenticado por
+	// chave de agente, sem usuário por trás para satisfazer o FK de user_id.
+	//
+	// machine.CompanyID é *string de propósito: máquina órfã (company_id nulo)
+	// grava log sem empresa em vez de derrubar o handler com nil dereference.
+	if err := db.InsertRemediationLog(ctx, lib.InsertRemediationLogInput{
+		MachineID: req.MachineID,
+		CompanyID: machine.CompanyID,
+		AlertType: req.AlertType,
+		Status:    req.Status,
+		Output:    req.Output,
+	}); err != nil {
+		log.Printf("[ERRO] falha ao registrar evento de autocura (machine=%s): %v", req.MachineID, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro ao registrar evento de autocura"})
+		return
+	}
+
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -634,8 +887,12 @@ func monitoringCriticalAlerts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = user
-	alerts, err := db.CriticalAlerts(ctx)
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	alerts, err := db.CriticalAlerts(ctx, escopo.FiltroEmpresa())
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar alertas críticos"})
 		return

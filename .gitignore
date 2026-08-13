@@ -33,3 +33,6 @@ backend-go/.env.*
 # Graphify knowledge graph (não subir pro GitHub)
 graphify-out/
 .claude/skills/graphify/
+
+# Binários compilados (agente Windows e função Go) — não versionar
+*.exe

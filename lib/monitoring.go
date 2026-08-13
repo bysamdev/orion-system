@@ -111,14 +111,22 @@ type CriticalAlertItem struct {
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
-func (d *DB) ListMachineGroups(ctx context.Context) ([]MachineGroupRow, error) {
+// ListMachineGroups lista os grupos visíveis ao chamador.
+//
+// companyID nil = sem filtro (empresa master / developer). Caso contrário só os
+// grupos daquela empresa, e a contagem de máquinas também é restrita a ela —
+// senão os totais entregariam o tamanho do parque das outras empresas.
+func (d *DB) ListMachineGroups(ctx context.Context, companyID *string) ([]MachineGroupRow, error) {
 	rows, err := d.pool.Query(ctx, `
 SELECT MAX(mg.id::text) AS id, mg.name, MAX(mg.description), MAX(mg.client_contact), MIN(mg.created_at),
        COUNT(m.id)                                              AS total_machines,
        COUNT(m.id) FILTER (WHERE m.status = 'online')          AS online_machines
 FROM public.machine_groups mg
-LEFT JOIN public.machines m ON m.group_id = mg.id
-GROUP BY mg.name ORDER BY mg.name`)
+LEFT JOIN public.machines m
+       ON m.group_id = mg.id
+      AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
+WHERE $1::uuid IS NULL OR mg.company_id = $1::uuid
+GROUP BY mg.name ORDER BY mg.name`, companyID)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +142,8 @@ GROUP BY mg.name ORDER BY mg.name`)
 	return out, rows.Err()
 }
 
-func (d *DB) MachinesByGroupID(ctx context.Context, groupID string) ([]MachineWithMetric, error) {
+// MachinesByGroupID lista as máquinas de um grupo. companyID nil = sem filtro.
+func (d *DB) MachinesByGroupID(ctx context.Context, groupID string, companyID *string) ([]MachineWithMetric, error) {
 	rows, err := d.pool.Query(ctx, `
 SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_version,
        m.status, m.last_seen, m.agent_version, m.created_at,
@@ -145,7 +154,9 @@ LEFT JOIN LATERAL (
   SELECT cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, collected_at
   FROM public.machine_metrics WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
 ) lm ON true
-WHERE mg.name = (SELECT name FROM public.machine_groups WHERE id = $1) ORDER BY m.hostname`, groupID)
+WHERE mg.name = (SELECT name FROM public.machine_groups WHERE id = $1)
+  AND ($2::uuid IS NULL OR m.company_id = $2::uuid)
+ORDER BY m.hostname`, groupID, companyID)
 	if err != nil {
 		return nil, err
 	}
@@ -359,6 +370,33 @@ VALUES ($1, $2, $3, $4)`, in.MachineID, in.Type, in.Severity, in.Message)
 	return err
 }
 
+func (d *DB) InsertAlertIfNotExists(ctx context.Context, in InsertAlertInput) error {
+	_, err := d.pool.Exec(ctx, `
+INSERT INTO public.machine_alerts (machine_id, type, severity, message)
+SELECT $1, $2, $3, $4
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.machine_alerts 
+    WHERE machine_id = $1 AND type = $2 AND resolved = false
+)`, in.MachineID, in.Type, in.Severity, in.Message)
+	return err
+}
+
+func (d *DB) ResolveAlertsByType(ctx context.Context, machineID, alertType string) error {
+	_, err := d.pool.Exec(ctx, `
+UPDATE public.machine_alerts 
+SET resolved = true 
+WHERE machine_id = $1 AND type = $2 AND resolved = false`, machineID, alertType)
+	return err
+}
+
+func (d *DB) UpdateMachineStatus(ctx context.Context, machineID, status string) error {
+	_, err := d.pool.Exec(ctx, `
+UPDATE public.machines 
+SET status = $2 
+WHERE id = $1`, machineID, status)
+	return err
+}
+
 type InsertCommandInput struct {
 	MachineID string
 	Command   string
@@ -423,19 +461,28 @@ WHERE id = $1`, id, status, output)
 	return err
 }
 
-func (d *DB) DashboardSummaryData(ctx context.Context) (DashboardSummary, error) {
+// DashboardSummaryData conta máquinas e alertas. companyID nil = todas as
+// empresas (master/developer); caso contrário só a empresa do chamador.
+func (d *DB) DashboardSummaryData(ctx context.Context, companyID *string) (DashboardSummary, error) {
 	var s DashboardSummary
 	err := d.pool.QueryRow(ctx, `
-SELECT 
-  (SELECT COUNT(*) FROM public.machines) AS total,
-  (SELECT COUNT(*) FROM public.machines WHERE status = 'online') AS online,
-  (SELECT COUNT(*) FROM public.machines WHERE status <> 'online') AS offline,
-  (SELECT COUNT(*) FROM public.machine_alerts WHERE resolved = false) AS active_alerts
-`).Scan(&s.Total, &s.Online, &s.Offline, &s.ActiveAlerts)
+SELECT
+  (SELECT COUNT(*) FROM public.machines
+    WHERE $1::uuid IS NULL OR company_id = $1::uuid) AS total,
+  (SELECT COUNT(*) FROM public.machines
+    WHERE status = 'online'  AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS online,
+  (SELECT COUNT(*) FROM public.machines
+    WHERE status <> 'online' AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS offline,
+  (SELECT COUNT(*) FROM public.machine_alerts a
+    JOIN public.machines m ON m.id = a.machine_id
+    WHERE a.resolved = false AND ($1::uuid IS NULL OR m.company_id = $1::uuid)) AS active_alerts
+`, companyID).Scan(&s.Total, &s.Online, &s.Offline, &s.ActiveAlerts)
 	return s, err
 }
 
-func (d *DB) CriticalAlerts(ctx context.Context) ([]CriticalAlertItem, error) {
+// CriticalAlerts agrega offline/disco/CPU/alertas. companyID nil = todas as
+// empresas; caso contrário cada ramo do UNION filtra por m.company_id.
+func (d *DB) CriticalAlerts(ctx context.Context, companyID *string) ([]CriticalAlertItem, error) {
 	rows, err := d.pool.Query(ctx, `
 -- Máquinas offline há mais de 1 hora
 SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
@@ -445,6 +492,7 @@ SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE m.status = 'offline' AND m.last_seen < now() - INTERVAL '1 hour'
+  AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL
 
@@ -460,6 +508,7 @@ LEFT JOIN LATERAL (
   WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
 ) lm ON true
 WHERE lm.disk_total > 0 AND (lm.disk_used::float8 / lm.disk_total) > 0.90
+  AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL
 
@@ -475,6 +524,7 @@ LEFT JOIN LATERAL (
   WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
 ) lm ON true
 WHERE lm.cpu_usage > 85
+  AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL
 
@@ -485,8 +535,9 @@ FROM public.machine_alerts a
 JOIN public.machines m ON m.id = a.machine_id
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE a.resolved = false
+  AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 ORDER BY severity DESC, alert_type
-`)
+`, companyID)
 	if err != nil {
 		return nil, err
 	}
@@ -538,6 +589,38 @@ func (d *DB) UpdateMachine(ctx context.Context, id string, updates map[string]an
 	args = append(args, id)
 	_, err := d.pool.Exec(ctx, query, args...)
 	return err
+}
+
+// InsertRemediationLogInput descreve um evento de autocura reportado pelo agente.
+type InsertRemediationLogInput struct {
+	MachineID string
+	CompanyID *string // empresa dona da máquina; nil para máquina órfã/legada
+	AlertType string
+	Status    string // "success" | "failed"
+	Output    string
+}
+
+// InsertRemediationLog registra o resultado de uma remediação automática.
+//
+// Vai para rmm_remediation_logs (a tabela criada para isso), não para tickets:
+// public.tickets exige user_id, requester_name e category NOT NULL, e o evento
+// de autocura é autenticado por chave de agente — não existe usuário por trás
+// dele para satisfazer o FK de user_id.
+func (d *DB) InsertRemediationLog(ctx context.Context, in InsertRemediationLogInput) error {
+	_, err := d.pool.Exec(ctx, `
+INSERT INTO public.rmm_remediation_logs (agent_id, company_id, alert_type, status, output)
+VALUES ($1, $2, $3, $4, $5)`,
+		in.MachineID, in.CompanyID, in.AlertType, in.Status, NilIfEmpty(in.Output))
+	return err
+}
+
+// MachineGroupCompanyID retorna a empresa dona do grupo — usado para checar
+// posse antes de update/delete (correção: essas rotas só validavam o papel do
+// chamador, nunca se o grupo pertencia à empresa dele).
+func (d *DB) MachineGroupCompanyID(ctx context.Context, id string) (*string, error) {
+	var companyID *string
+	err := d.pool.QueryRow(ctx, `SELECT company_id::text FROM public.machine_groups WHERE id = $1`, id).Scan(&companyID)
+	return companyID, err
 }
 
 func (d *DB) CreateMachineGroup(ctx context.Context, name, description, contact, companyID string) (string, error) {

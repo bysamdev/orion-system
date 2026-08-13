@@ -1,10 +1,20 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -248,6 +258,19 @@ func (s *Svc) pollAndExecuteCommands() {
 		// exposição — o conteúdo já fica registrado no backend, sob controle de
 		// acesso por role, via RespondToCommand logo abaixo.
 		s.logger.Printf("[RMM] Executando comando remoto (id=%s)", c.ID)
+		
+		cmdTrimmed := strings.TrimSpace(c.Command)
+		if strings.HasPrefix(cmdTrimmed, "orion-install") {
+			go s.handleOrionInstall(c.ID, cmdTrimmed)
+			continue
+		}
+
+		if strings.HasPrefix(cmdTrimmed, "orion-start-terminal") {
+			go s.StartRemoteTerminalSession()
+			sender.RespondToCommand(s.cfg, c.ID, "completed", "Terminal session started")
+			continue
+		}
+
 		output, err := executeCommand(c.Command)
 		status := "completed"
 		if err != nil {
@@ -312,5 +335,216 @@ func ServiceConfig() *service.Config {
 		// token/token.go:saveTokenTo sobre a ACL do diretório de identidade,
 		// já ajustada para acompanhar essa troca).
 		UserName: `NT SERVICE\OrionAgent`,
+	}
+}
+
+func (s *Svc) handleOrionInstall(commandID string, commandText string) {
+	s.logger.Printf("[ORION-INSTALL] Iniciando instalação para comando %s", commandID)
+	
+	url, hash, silentArgs, err := parseOrionInstallArgs(commandText)
+	if err != nil {
+		msg := fmt.Sprintf("Erro ao fazer parse dos argumentos: %v", err)
+		sender.RespondToCommand(s.cfg, commandID, "failed", msg)
+		return
+	}
+
+	tempFile, err := downloadFileToTemp(url)
+	if err != nil {
+		msg := fmt.Sprintf("Erro no download: %v", err)
+		sender.RespondToCommand(s.cfg, commandID, "failed", msg)
+		return
+	}
+	defer os.Remove(tempFile) // Limpa o arquivo temporário depois
+
+	if hash != "" {
+		if err := verifySHA256(tempFile, hash); err != nil {
+			msg := fmt.Sprintf("Erro na verificação de hash: %v", err)
+			sender.RespondToCommand(s.cfg, commandID, "failed", msg)
+			return
+		}
+	}
+
+	output, err := runInstaller(tempFile, silentArgs)
+	if err != nil {
+		msg := fmt.Sprintf("Erro na instalação: %v\nSaída: %s", err, output)
+		sender.RespondToCommand(s.cfg, commandID, "failed", msg)
+		return
+	}
+
+	msg := fmt.Sprintf("Instalação concluída com sucesso.\nSaída:\n%s", output)
+	sender.RespondToCommand(s.cfg, commandID, "completed", msg)
+}
+
+func parseOrionInstallArgs(command string) (string, string, string, error) {
+	// Exemplo: orion-install --url="https://..." --hash="12345" --args="/S /Q"
+	urlRegex := regexp.MustCompile(`--url="([^"]+)"|--url=([^\s]+)`)
+	hashRegex := regexp.MustCompile(`--hash="([^"]+)"|--hash=([^\s]+)`)
+	argsRegex := regexp.MustCompile(`--args="([^"]+)"`)
+
+	var url, hash, args string
+
+	urlMatches := urlRegex.FindStringSubmatch(command)
+	if len(urlMatches) > 0 {
+		if urlMatches[1] != "" {
+			url = urlMatches[1]
+		} else {
+			url = urlMatches[2]
+		}
+	}
+
+	hashMatches := hashRegex.FindStringSubmatch(command)
+	if len(hashMatches) > 0 {
+		if hashMatches[1] != "" {
+			hash = hashMatches[1]
+		} else {
+			hash = hashMatches[2]
+		}
+	}
+
+	argsMatches := argsRegex.FindStringSubmatch(command)
+	if len(argsMatches) > 1 {
+		args = argsMatches[1]
+	}
+
+	if url == "" {
+		return "", "", "", fmt.Errorf("URL não especificada")
+	}
+
+	return url, hash, args, nil
+}
+
+func downloadFileToTemp(url string) (string, error) {
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("status HTTP inválido: %s", resp.Status)
+	}
+
+	fileName := filepath.Base(url)
+	if !strings.Contains(fileName, ".") {
+		fileName = "installer.tmp"
+	}
+
+	tempDir := os.TempDir()
+	tempFilePath := filepath.Join(tempDir, fileName)
+
+	out, err := os.Create(tempFilePath)
+	if err != nil {
+		return "", err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return tempFilePath, nil
+}
+
+func verifySHA256(filePath, expectedHash string) error {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
+
+	calculatedHash := hex.EncodeToString(h.Sum(nil))
+	if !strings.EqualFold(calculatedHash, expectedHash) {
+		return fmt.Errorf("hash SHA-256 não confere (esperado: %s, obtido: %s)", expectedHash, calculatedHash)
+	}
+
+	return nil
+}
+
+func runInstaller(filePath, silentArgs string) (string, error) {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	var cmd *exec.Cmd
+
+	argsList := strings.Fields(silentArgs)
+
+	switch ext {
+	case ".msi":
+		baseArgs := []string{"/i", filePath}
+		baseArgs = append(baseArgs, argsList...)
+		cmd = exec.Command("msiexec", baseArgs...)
+	case ".exe":
+		cmd = exec.Command(filePath, argsList...)
+	case ".ps1":
+		baseArgs := []string{"-ExecutionPolicy", "Bypass", "-File", filePath}
+		baseArgs = append(baseArgs, argsList...)
+		cmd = exec.Command("powershell", baseArgs...)
+	case ".bat":
+		baseArgs := []string{"/c", filePath}
+		baseArgs = append(baseArgs, argsList...)
+		cmd = exec.Command("cmd", baseArgs...)
+	default:
+		return "", fmt.Errorf("extensão de arquivo não suportada: %s", ext)
+	}
+
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+func (s *Svc) executeSelfHealingRemediation(alertType string, action string, payload string) {
+	s.logger.Printf("[SELF-HEAL] Executing remediation for alert %s: %s", alertType, action)
+	
+	// Simulate remediation execution
+	var output string
+	var err error
+	
+	if action == "restart_service" {
+		output, err = executeCommand(fmt.Sprintf("net stop %s && net start %s", payload, payload))
+	} else if action == "run_script" {
+		output, err = executeCommand(payload)
+	} else {
+		output = "Ação de remediação desconhecida"
+		err = fmt.Errorf("ação desconhecida")
+	}
+	
+	status := "success"
+	if err != nil {
+		status = "failed"
+		output = fmt.Sprintf("Erro: %v\nOutput: %s", err, output)
+	}
+	
+	s.reportSelfHealingEvent(alertType, status, output)
+}
+
+func (s *Svc) reportSelfHealingEvent(alertType, status, output string) {
+	machineID := s.getMachineID()
+	if machineID == "" {
+		return
+	}
+	
+	endpoint := fmt.Sprintf("%s/api/monitoring/self-heal-event", s.cfg.APIURL)
+	
+	payload := map[string]string{
+		"machine_id": machineID,
+		"alert_type": alertType,
+		"status":     status,
+		"output":     output,
+	}
+	
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(body))
+	if err == nil {
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Agent-Key", s.cfg.AgentKey)
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(req)
+		if err == nil {
+			resp.Body.Close()
+		}
 	}
 }

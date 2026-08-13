@@ -1,6 +1,8 @@
 package lib
 
 import (
+
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -9,6 +11,8 @@ import (
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 // WriteJSON writes a JSON response with the given status code.
@@ -16,6 +20,32 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+type contextKey string
+
+const (
+	UserContextKey  contextKey = "authUser"
+	ScopeContextKey contextKey = "userScope"
+)
+
+// ContextWithUserAndScope returns a new context with the given user and scope.
+func ContextWithUserAndScope(ctx context.Context, user *AuthUser, scope UserScope) context.Context {
+	ctx = context.WithValue(ctx, UserContextKey, user)
+	ctx = context.WithValue(ctx, ScopeContextKey, scope)
+	return ctx
+}
+
+// UserFromContext retrieves the user from the context.
+func UserFromContext(ctx context.Context) (*AuthUser, bool) {
+	user, ok := ctx.Value(UserContextKey).(*AuthUser)
+	return user, ok
+}
+
+// ScopeFromContext retrieves the scope from the context.
+func ScopeFromContext(ctx context.Context) (UserScope, bool) {
+	scope, ok := ctx.Value(ScopeContextKey).(UserScope)
+	return scope, ok
 }
 
 // DecodeBody decodes JSON from r.Body into out, disallowing unknown fields.
@@ -96,15 +126,21 @@ func NilIfEmpty(s string) any {
 	}
 	return s
 }
-// ClientIP devolve o endereço IP do cliente para fins de rate limiting.
+
+// ClientIP devolve a chave de identificação usada pelos rate limiters.
 //
-// r.RemoteAddr já foi corrigido pelo middleware.RealIP (aplicado em
-// buildRouter, router.go) a partir de X-Forwarded-For/X-Real-IP quando o
-// request vem atrás do proxy da Vercel — mas o valor pode vir só como IP
-// (sem porta, quando derivado de header) ou como "ip:porta" (quando vem
-// direto de r.RemoteAddr sem reescrita). SplitHostPort trata os dois casos;
-// se falhar (nenhuma porta presente), o valor bruto já é o IP.
+// Prefere o IP resolvido por middleware.ClientIPFromXFFTrustedProxies, que só
+// considera a entrada de X-Forwarded-For acrescentada pelo nosso próprio proxy
+// — a única que o cliente não consegue forjar. O middleware.RealIP anterior
+// confiava no header cru, então bastava variá-lo para burlar os limites.
+//
+// Sem esse valor (dev local sem proxy, ou XFF menor que o esperado), cai para
+// r.RemoteAddr. O fallback é seguro: fora da Vercel não há proxy no caminho,
+// e r.RemoteAddr passa a ser o IP real da conexão TCP.
 func ClientIP(r *http.Request) string {
+	if ip := middleware.GetClientIP(r.Context()); ip != "" {
+		return ip
+	}
 	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		return host
 	}

@@ -78,6 +78,63 @@ func (d *DB) CompanyByUserID(ctx context.Context, userID string) (*string, error
 	return companyID, err
 }
 
+// UserScope descreve até onde a leitura de um usuário pode enxergar no
+// monitoramento multi-empresa.
+//
+// Existe porque o pool do backend conecta com papel privilegiado — RLS não se
+// aplica a estas queries, então o recorte por empresa precisa ser feito aqui.
+type UserScope struct {
+	CompanyID *string // empresa do usuário; nil quando o perfil não tem empresa
+	Role      string  // customer | technician | admin | developer
+	Master    bool    // pertence à empresa master (Orion System)
+}
+
+// Global informa se o usuário enxerga todas as empresas. Espelha exatamente a
+// condição usada nas policies de RLS em 20260614000001_enable_rls_machines.sql:
+// is_master_company_user(uid) OR has_role(uid, 'developer').
+func (s UserScope) Global() bool {
+	return s.Master || s.Role == "developer"
+}
+
+// FiltroEmpresa devolve o valor a passar como parâmetro de company_id nas
+// queries escopadas: nil para quem vê tudo (o SQL trata NULL como "sem filtro"),
+// senão a empresa do usuário.
+func (s UserScope) FiltroEmpresa() *string {
+	if s.Global() {
+		return nil
+	}
+	return s.CompanyID
+}
+
+// PodeVerEmpresa decide se o usuário pode ler um objeto de uma dada empresa.
+// Um objeto sem company_id (dado órfão/legado) só é visível para quem vê tudo.
+func (s UserScope) PodeVerEmpresa(companyID *string) bool {
+	if s.Global() {
+		return true
+	}
+	if companyID == nil || s.CompanyID == nil {
+		return false
+	}
+	return *companyID == *s.CompanyID
+}
+
+// UserScopeByID resolve empresa, papel e pertencimento à empresa master numa
+// única ida ao banco. LEFT JOIN em user_roles porque 'customer' é implícito:
+// createUserCredentials só grava a linha quando o papel não é customer.
+func (d *DB) UserScopeByID(ctx context.Context, userID string) (UserScope, error) {
+	var s UserScope
+	err := d.pool.QueryRow(ctx, `
+SELECT p.company_id::text,
+       COALESCE(ur.role::text, 'customer'),
+       COALESCE(c.name = 'Orion System', false)
+FROM public.profiles p
+LEFT JOIN public.user_roles ur ON ur.user_id = p.id
+LEFT JOIN public.companies  c  ON c.id = p.company_id
+WHERE p.id = $1
+LIMIT 1`, userID).Scan(&s.CompanyID, &s.Role, &s.Master)
+	return s, err
+}
+
 type ProfileUpdate struct {
 	FullName           *string
 	Department         *string

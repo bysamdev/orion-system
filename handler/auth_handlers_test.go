@@ -78,3 +78,38 @@ func TestAbsoluteURL_CaminhoRaizFuncionaCorretamente(t *testing.T) {
 		t.Errorf("absoluteURL = %q, esperado %q", got, want)
 	}
 }
+
+// TestCaminhoRelativoSeguro cobre o bypass de open redirect relatado no
+// pentest (vuln-0005): a validação anterior era apenas HasPrefix(v, "/"), que
+// aceita referências protocol-relative como "//evil.com".
+func TestCaminhoRelativoSeguro(t *testing.T) {
+	aceitos := []string{
+		"/",
+		"/novo-ticket",
+		"/tickets/42",
+		"/novo-ticket?origem=agente",
+	}
+	for _, v := range aceitos {
+		if !caminhoRelativoSeguro(v) {
+			t.Errorf("caminhoRelativoSeguro(%q) = false, esperado true", v)
+		}
+	}
+
+	rejeitados := []string{
+		"",                          // vazio → cai no default "/"
+		"/\\evil.com",               // backslash normalizada pelo navegador
+		"//evil.com",                // protocol-relative
+		"///evil.com",               // idem, com barra extra
+		"//evil.com/novo-ticket",    // protocol-relative com caminho plausível
+		"https://evil.com",          // esquema absoluto
+		"http://evil.com",           // esquema absoluto
+		"evil.com",                  // sem "/" inicial
+		"/redir?u=https://evil.com", // esquema embutido
+		"/novo-ticket\r\nX: 1",      // injeção de header via CRLF
+	}
+	for _, v := range rejeitados {
+		if caminhoRelativoSeguro(v) {
+			t.Errorf("caminhoRelativoSeguro(%q) = true, esperado false", v)
+		}
+	}
+}

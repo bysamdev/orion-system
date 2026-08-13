@@ -40,8 +40,12 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 	// Apenas caminhos relativos são permitidos na entrada — evita
 	// redirecionamento aberto via um valor de query totalmente controlado
 	// pelo chamador (ex.: "redirect_to=https://phishing.example").
+	// O prefixo "/" sozinho NÃO basta: "//evil.com" e "/\evil.com" também começam
+	// com "/" e o navegador os resolve como URL absoluta para outro host
+	// (referência protocol-relative). Exigimos um caminho same-origin de verdade:
+	// uma única "/" inicial, sem barra invertida e sem "://" em nenhum ponto.
 	redirectPath := r.URL.Query().Get("redirect_to")
-	if redirectPath == "" || !strings.HasPrefix(redirectPath, "/") {
+	if !caminhoRelativoSeguro(redirectPath) {
 		redirectPath = "/"
 	}
 
@@ -152,6 +156,28 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 	// 6. Redirecionamento Final
 	// O navegador do usuário será levado para o portal Orion já autenticado.
 	http.Redirect(w, r, loginLink, http.StatusTemporaryRedirect)
+}
+
+// caminhoRelativoSeguro decide se um valor vindo de ?redirect_to= pode ser
+// usado como destino pós-login sem sair da origem da aplicação.
+//
+// Só aceita caminho same-origin: uma única "/" inicial. Rejeita explicitamente
+// as três formas que passam por um teste ingênuo de HasPrefix(v, "/"):
+//
+//	"//evil.com"   → protocol-relative; o navegador resolve como https://evil.com
+//	"/\evil.com"   → navegadores normalizam "\" em "/", virando o caso acima
+//	"/x?u=http://" → qualquer esquema embutido no restante do caminho
+func caminhoRelativoSeguro(v string) bool {
+	if v == "" || !strings.HasPrefix(v, "/") {
+		return false
+	}
+	if strings.HasPrefix(v, "//") {
+		return false
+	}
+	if strings.ContainsAny(v, "\\\r\n") {
+		return false
+	}
+	return !strings.Contains(v, "://")
 }
 
 // absoluteURL converte um caminho relativo (já validado como começando com

@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, Send, Loader2, Paperclip, CheckCircle2, Sparkles,
   Cpu, Mail, HardDrive, Globe, MoreHorizontal, Layout,
-  ChevronRight, ChevronLeft, ShieldCheck, AlertCircle
+  ChevronRight, ChevronLeft, ShieldCheck, AlertCircle, BookOpen, ExternalLink
 } from 'lucide-react';
 import { FileUpload } from '@/components/ticket/FileUpload';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
@@ -30,6 +30,7 @@ import { useActiveContracts } from '@/hooks/useContracts';
 import { invokeOrionFunction } from '@/lib/orion-functions';
 import { cn } from '@/lib/utils';
 import { suggestCategory, CATEGORY_LABELS } from '@/lib/ticket-helpers';
+import { useKBSuggestions } from '@/hooks/useKBSuggestions';
 
 const ticketSchema = ticketCreationSchema;
 type TicketFormValues = z.infer<typeof ticketSchema>;
@@ -71,6 +72,7 @@ const NewTicket = () => {
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [anyDropdownOpen, setAnyDropdownOpen] = useState(false);
   const [createdTicket, setCreatedTicket] = useState<{ id: string; number: number; priority: string } | null>(null);
+  const [customFieldsJson, setCustomFieldsJson] = useState('{}');
 
   // ── Smart: VIP Client detection ─────────────────
   const { data: companyInfo } = useQuery({
@@ -150,6 +152,8 @@ const NewTicket = () => {
   const watchedTitle = form.watch('title');
   const watchedDescription = form.watch('description');
 
+  const { suggestions, isLoading: isSuggestionsLoading } = useKBSuggestions(watchedTitle, currentCategory || '');
+
   // ── Smart: Description placeholder is derived from selected category (no pre-fill) ──
 
   // ── Smart: Auto-suggest category from title/description ─────
@@ -190,6 +194,13 @@ const NewTicket = () => {
         remote_password: remotePassword.trim() || null,
         contract_id: selectedContractId || null,
         asset_id: selectedAssetId || null,
+        custom_fields: (() => {
+          try {
+            return JSON.parse(customFieldsJson);
+          } catch {
+            return {};
+          }
+        })(),
       }).select().single();
 
       if (ticketError) {
@@ -295,6 +306,7 @@ const NewTicket = () => {
                 setRemotePassword('');
                 setSelectedContractId('');
                 setSelectedAssetId('');
+                setCustomFieldsJson('{}');
               }} className="h-12 w-full font-bold">
                 Abrir Outro Chamado
               </Button>
@@ -308,7 +320,7 @@ const NewTicket = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       
-      <main className="flex-1 p-4 md:p-6 lg:p-12 max-w-4xl mx-auto w-full space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <main className="flex-1 p-4 md:p-6 lg:p-12 max-w-6xl mx-auto w-full space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="hover:bg-primary/5 transition-colors gap-2 text-muted-foreground">
             <ArrowLeft className="w-4 h-4" /> Voltar
@@ -336,8 +348,10 @@ const NewTicket = () => {
           }</p>
         </div>
 
-        <Card className="border-border/40 shadow-2xl shadow-primary/5 overflow-hidden bg-card/50 backdrop-blur-sm">
-          <CardContent className="p-4 md:p-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="border-border/40 shadow-2xl shadow-primary/5 overflow-hidden bg-card/50 backdrop-blur-sm">
+              <CardContent className="p-4 md:p-8">
             <Form {...form}>
               <form 
                 onSubmit={(e) => {
@@ -555,6 +569,16 @@ const NewTicket = () => {
                         <Input placeholder="Senha temporária" value={remotePassword} onChange={(e) => setRemotePassword(e.target.value)} className="bg-background border-border/40" />
                       </div>
                     </section>
+                    
+                    <section className="space-y-4">
+                      <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Campos Customizados (JSON)</Label>
+                      <Textarea 
+                        value={customFieldsJson} 
+                        onChange={(e) => setCustomFieldsJson(e.target.value)}
+                        className="bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl font-mono text-xs min-h-[100px]"
+                        placeholder='{"key": "value"}'
+                      />
+                    </section>
                   </div>
                 )}
 
@@ -704,6 +728,48 @@ const NewTicket = () => {
             </Form>
           </CardContent>
         </Card>
+      </div>
+      
+      <div className="lg:col-span-1">
+        {/* Suggestions Panel */}
+        {(suggestions.length > 0 || isSuggestionsLoading) && (
+          <Card className="border-border/40 shadow-2xl shadow-primary/5 overflow-hidden bg-card/50 backdrop-blur-sm sticky top-8 animate-in slide-in-from-right-8 duration-500">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-primary" />
+                Artigos Sugeridos
+              </CardTitle>
+              <CardDescription>Baseados no que você está relatando...</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-1">
+              {isSuggestionsLoading ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                suggestions.map((article) => (
+                  <div key={article.id} className="p-4 bg-muted/30 border border-border/40 rounded-xl space-y-3">
+                    <h4 className="font-bold text-sm leading-tight text-foreground">{article.title}</h4>
+                    <p className="text-xs text-muted-foreground line-clamp-3">{article.content}</p>
+                    <div className="flex items-center justify-between pt-2">
+                      <Button variant="ghost" size="sm" className="h-8 text-xs font-bold text-primary px-2" onClick={() => window.open(`/kb/${article.id}`, '_blank')}>
+                        Ler <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                      <Button variant="secondary" size="sm" className="h-8 text-xs font-bold bg-green-500/10 text-green-600 hover:bg-green-500/20" onClick={() => {
+                        toast({ title: 'Que ótimo!', description: 'Ficamos felizes que o artigo resolveu seu problema.' });
+                        navigate('/');
+                      }}>
+                        Isso resolveu!
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
 
         {/* User Info Footnote */}
         <div className="flex flex-col md:flex-row items-center justify-center gap-8 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40 text-center md:text-left">

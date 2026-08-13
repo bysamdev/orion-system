@@ -36,6 +36,8 @@ import { cn, formatDate } from '@/lib/utils';
 import { RemoteTerminal } from '@/components/monitoring/RemoteTerminal';
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 import { MachineWithMetric } from '@/hooks/useMonitoring';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AssetTopologyGraph } from '@/components/assets/AssetTopologyGraph';
 
 const deviceIcons: Record<string, React.ElementType> = {
   'Computador': Monitor,
@@ -466,9 +468,16 @@ const Assets = () => {
             </div>
           </div>
 
-          {/* 1. Header Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* Total Dispositivos */}
+          <Tabs defaultValue="lista" className="w-full space-y-6">
+            <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+              <TabsTrigger value="lista">Lista de Ativos</TabsTrigger>
+              <TabsTrigger value="topologia">Topologia de Rede</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="lista" className="space-y-6 outline-none">
+              {/* 1. Header Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* Total Dispositivos */}
             <Card className="bg-card border-border/50 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-all">
               <CardContent className="p-5 flex items-center justify-between">
                 <div className="space-y-1">
@@ -932,6 +941,12 @@ const Assets = () => {
               </Table>
             </CardContent>
           </Card>
+            </TabsContent>
+
+            <TabsContent value="topologia" className="outline-none">
+              <AssetTopologyGraph devices={filteredDevices} />
+            </TabsContent>
+          </Tabs>
 
           {/* Modal RMM Terminal */}
           <Dialog open={!!terminalDevice} onOpenChange={(open) => !open && setTerminalDevice(null)}>

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
-import { Timer, CheckCircle2, ArrowUpRight, Paperclip, BookOpen, Play, Square, User, Clock } from 'lucide-react';
+import { Timer, CheckCircle2, ArrowUpRight, Paperclip, BookOpen, Play, Square, User, Clock, Merge, Sparkles } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveTimer, useStartTimer, useStopTimer } from '@/hooks/useTimeEntries';
@@ -30,6 +30,9 @@ interface TicketHeroHeaderProps {
   onAttach: () => void;
   onStatusChange: (status: string) => void;
   onLinkKB?: () => void;
+  onMerge?: () => void;
+  onSummarize?: () => void;
+  isSummarizing?: boolean;
 }
 
 export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
@@ -41,6 +44,9 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
   onAttach,
   onStatusChange,
   onLinkKB,
+  onMerge,
+  onSummarize,
+  isSummarizing,
 }) => {
   const { user } = useAuth();
   const { data: activeTimer } = useActiveTimer(user?.id);
@@ -179,6 +185,26 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
             <Paperclip className="w-3.5 h-3.5" />
             Anexar
           </Button>
+
+          {onSummarize && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onSummarize} 
+              disabled={isSummarizing} 
+              className={cn("gap-2 border-purple-200 text-purple-600", !isSummarizing && "bg-purple-500/10 hover:bg-purple-500/20")}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              {isSummarizing ? 'Resumindo...' : 'Resumir com IA'}
+            </Button>
+          )}
+
+          {onMerge && (
+            <Button variant="outline" size="sm" onClick={onMerge} className="gap-2">
+              <Merge className="w-3.5 h-3.5" />
+              Mesclar Ticket
+            </Button>
+          )}
 
           {onLinkKB && (
             <Button variant="outline" size="sm" onClick={onLinkKB} className="gap-2">

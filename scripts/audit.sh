@@ -1,4 +1,14 @@
-export DB_URL="postgresql://postgres.kcxwealimsfxqstoprdg:***SENHA-REMOVIDA-VER-SECURITY-md***@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
+#!/usr/bin/env bash
+# Auditoria do schema Postgres/Supabase.
+#
+# A connection string NUNCA deve ser commitada aqui — este arquivo é público no
+# repositório. Exporte DATABASE_URL antes de rodar:
+#
+#   export DATABASE_URL="postgresql://<user>:<senha>@<host>:6543/postgres"
+#   bash scripts/audit.sh
+set -euo pipefail
+
+export DB_URL="${DATABASE_URL:?defina DATABASE_URL antes de rodar (ver comentário no topo deste arquivo)}"
 
 echo "=== 1. ALL TABLES ==="
 psql $DB_URL -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"

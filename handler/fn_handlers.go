@@ -4,11 +4,9 @@ package handler
 // These are equivalent to the existing backend-go /functions/* routes.
 
 import (
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"html/template"
-	"math/big"
 	"net/http"
 	"strings"
 	"time"
@@ -206,12 +204,11 @@ func createUserCredentials(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	n, err := rand.Int(rand.Reader, big.NewInt(9000))
-	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao gerar senha"})
-		return
-	}
-	pw := fmt.Sprintf("Orion%04d", int(n.Int64()+1000))
+	// O formato anterior era "Orion" + 4 dígitos — 9.000 valores possíveis
+	// (~13 bits), enumeráveis em minutos contra o endpoint de login, e a conta
+	// nasce com EmailConfirm: true, pronta para uso (pentest Strix vuln-0006).
+	// GenerateRandomPassword usa crypto/rand sobre um alfabeto de 70 símbolos.
+	pw := lib.GenerateRandomPassword(16)
 
 	out, err := sb.AdminCreateUser(r.Context(), lib.CreateUserInput{
 		Email: req.Email, Password: pw, EmailConfirm: true,

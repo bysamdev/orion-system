@@ -14,10 +14,29 @@ interface CreateUserRequest {
   company_id: string;
 }
 
-// Gerar senha provisória: Orion + 4 números aleatórios
-function generateTempPassword(): string {
-  const randomNumbers = Math.floor(1000 + Math.random() * 9000); // 4 dígitos
-  return `Orion${randomNumbers}`;
+// Gerar senha provisória forte.
+//
+// O formato anterior era "Orion" + 4 dígitos sorteados com Math.random():
+// 9.000 valores possíveis (~13 bits) e nem sequer um gerador criptográfico.
+// Como a conta nasce com email_confirm: true, dava para enumerar o espaço
+// inteiro contra o login antes do cliente trocar a senha (Strix vuln-0006).
+//
+// crypto.getRandomValues é CSPRNG. O laço de rejeição descarta bytes que
+// cairiam fora de um múltiplo exato do alfabeto — sem isso, o "% length"
+// enviesaria os primeiros caracteres do conjunto.
+function generateTempPassword(length = 16): string {
+  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+  const limite = 256 - (256 % charset.length);
+  let senha = '';
+  while (senha.length < length) {
+    const bytes = crypto.getRandomValues(new Uint8Array(length));
+    for (const b of bytes) {
+      if (b >= limite) continue; // descarta para não enviesar
+      senha += charset[b % charset.length];
+      if (senha.length === length) break;
+    }
+  }
+  return senha;
 }
 
 serve(async (req) => {

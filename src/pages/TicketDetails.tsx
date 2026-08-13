@@ -21,11 +21,15 @@ import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
 import { ImagePasteHandler } from '@/components/ticket/ImagePasteHandler';
+import { MergeTicketDialog } from '@/components/tickets/MergeTicketDialog';
 import { TimeTracker } from '@/components/ticket/TimeTracker';
 import { SatisfactionSurvey } from '@/components/ticket/SatisfactionSurvey';
+import { useTicketCopilot } from '@/hooks/useTicketCopilot';
+import { TicketSummaryDialog } from '@/components/ticket/TicketSummaryDialog';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useUpdateTicketPriority, useResolveTicket, useEscalateTicket, useAddTicketUpdate } from '@/hooks/useTickets';
+import { useTicketPresence } from '@/hooks/useTicketPresence';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useCannedResponses } from '@/hooks/useCannedResponses';
 import { useTicketAttachments, useUploadAttachment } from '@/hooks/useTicketAttachments';
@@ -201,6 +205,7 @@ const TicketDetails: React.FC = () => {
   const escalateTicket = useEscalateTicket();
   const addUpdate = useAddTicketUpdate();
   const { data: timeEntries = [] } = useTicketTimeEntries(validId);
+  const { otherViewers } = useTicketPresence(validId);
 
   // Buscar status history
   const { data: statusHistory = [] } = useQuery({
@@ -251,8 +256,29 @@ const TicketDetails: React.FC = () => {
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [escalateDialogOpen, setEscalateDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: cannedResponses = [] } = useCannedResponses();
+
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+  const [ticketSummary, setTicketSummary] = useState<{coreProblem: string, diagnosis: string, nextSteps: string} | null>(null);
+  const { summarizeTicket, generateSuggestedResponse, isSummarizing, isSuggesting } = useTicketCopilot();
+
+  const handleSummarize = async () => {
+    if (!ticket) return;
+    setSummaryDialogOpen(true);
+    setTicketSummary(null);
+    const summary = await summarizeTicket(ticket.id);
+    if (summary) setTicketSummary(summary);
+  };
+
+  const handleSuggestResponse = async () => {
+    if (!ticket) return;
+    const suggestion = await generateSuggestedResponse(ticket.id);
+    if (suggestion) {
+      setNewUpdateText(prev => prev + (prev ? '\n\n' : '') + suggestion);
+    }
+  };
 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredTemplates, setFilteredTemplates] = useState<Array<{ id: string; title: string; content: string; shortcut?: string }>>([]);
@@ -597,10 +623,22 @@ const TicketDetails: React.FC = () => {
             onEscalate={() => setEscalateDialogOpen(true)}
             onAttach={() => fileInputRef.current?.click()}
             onStatusChange={handleStatusChange}
+            onMerge={() => setMergeDialogOpen(true)}
+            onSummarize={handleSummarize}
+            isSummarizing={isSummarizing}
           />
         </div>
 
         <TicketStatusStepper currentStatus={ticket.status} />
+
+        {otherViewers.length > 0 && (
+          <div className="mb-6 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 p-4 rounded-xl flex items-center gap-3 animate-pulse">
+            <AlertCircle className="w-5 h-5" />
+            <p className="text-sm font-bold">
+              Atenção: {otherViewers.map(v => v.name).join(', ')} também {otherViewers.length === 1 ? 'está visualizando' : 'estão visualizando'} este chamado neste momento.
+            </p>
+          </div>
+        )}
 
         {(ticket.status === 'awaiting-customer' || ticket.status === 'awaiting-third-party') && (
           <div className="mb-6 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2">
@@ -687,6 +725,20 @@ const TicketDetails: React.FC = () => {
                       {uploadAttachment.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
                       Anexar
                     </Button>
+                    
+                    {canManageTickets && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSuggestResponse}
+                        disabled={isSuggesting}
+                        className="h-9 px-3 gap-2 border-purple-200 text-purple-600 bg-purple-500/10 hover:bg-purple-500/20"
+                      >
+                        {isSuggesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        Sugerir Resposta (IA)
+                      </Button>
+                    )}
+
                     {canManageTickets && <CannedResponseSelector onSelect={(content) => setNewUpdateText(content)} />}
                   </div>
                 </div>
@@ -1103,6 +1155,22 @@ const TicketDetails: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MergeTicketDialog
+        open={mergeDialogOpen}
+        onOpenChange={setMergeDialogOpen}
+        primaryTicketId={ticket.id}
+        companyId={ticket.company_id}
+        onMergeComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ['ticket', ticket.id] });
+          queryClient.invalidateQueries({ queryKey: ['ticketUpdates', ticket.id] });
+        }}
+      />
+      <TicketSummaryDialog
+        open={summaryDialogOpen}
+        onOpenChange={setSummaryDialogOpen}
+        summary={ticketSummary}
+      />
     </div>
   );
 };

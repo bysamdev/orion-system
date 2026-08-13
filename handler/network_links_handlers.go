@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -24,11 +23,24 @@ func monitoringListNetworkLinks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	companyID := r.URL.Query().Get("company_id")
-	if companyID == "" {
-		if userCompanyID, err := db.CompanyByUserID(ctx, user.ID); err == nil && userCompanyID != nil {
-			companyID = *userCompanyID
-		}
+	// Correção: antes, ?company_id= da query string era usado sem checar
+	// contra a empresa do chamador — qualquer usuário autenticado lia os
+	// network links de qualquer empresa só trocando o parâmetro. Só quem
+	// enxerga tudo (master/developer) pode escolher a empresa livremente;
+	// os demais sempre recebem o filtro da própria empresa.
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	var companyID string
+	if escopo.Global() {
+		companyID = r.URL.Query().Get("company_id")
+	} else if escopo.CompanyID != nil {
+		companyID = *escopo.CompanyID
+	} else {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
 	}
 
 	links, err := db.ListNetworkLinks(ctx, companyID)
@@ -61,10 +73,26 @@ func monitoringCreateNetworkLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.CompanyID == nil || *req.CompanyID == "" {
-		if userCompanyID, err := db.CompanyByUserID(ctx, user.ID); err == nil && userCompanyID != nil {
-			req.CompanyID = userCompanyID
+	// Correção: antes, um company_id enviado no corpo era aceito sem checar
+	// contra a empresa do chamador — qualquer usuário autenticado podia criar
+	// um link "pertencendo" a outra empresa. Só quem enxerga tudo pode
+	// escolher a empresa livremente; os demais sempre criam na própria.
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	if escopo.Global() {
+		if req.CompanyID == nil || *req.CompanyID == "" {
+			if userCompanyID, err := db.CompanyByUserID(ctx, user.ID); err == nil && userCompanyID != nil {
+				req.CompanyID = userCompanyID
+			}
 		}
+	} else if escopo.CompanyID != nil {
+		req.CompanyID = escopo.CompanyID
+	} else {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
 	}
 
 	created, err := db.CreateNetworkLink(ctx, req)
@@ -116,13 +144,10 @@ func monitoringDeleteNetworkLink(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/monitoring/cron/probe-network-links
 func cronProbeNetworkLinks(w http.ResponseWriter, r *http.Request) {
-	cronSecret := os.Getenv("CRON_SECRET")
-	if cronSecret != "" {
-		got := r.Header.Get("Authorization")
-		if got != "Bearer "+cronSecret {
-			lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "não autorizado"})
-			return
-		}
+	// Mesmo fail-open que existia em cronMarkOffline; o relatório do pentest só
+	// apontou o outro, mas o padrão era idêntico. Ver autorizarCron em router.go.
+	if !autorizarCron(w, r) {
+		return
 	}
 
 	if db == nil {

@@ -16,6 +16,15 @@ var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4
 
 // ticketResolveHandler resolves a numeric ticket ID or a UUID and returns the internal UUID.
 func ticketResolveHandler(w http.ResponseWriter, r *http.Request) {
+	// A rota traduz número sequencial de chamado → UUID interno. Sem guarda de
+	// autenticação, qualquer um percorre /1, /2, /3... e enumera os UUIDs de
+	// todos os chamados do sistema (vuln-0009 do pentest). Todo o resto da API
+	// já faz esse mesmo requireAuth por handler — esta rota era a única exceção.
+	if _, err := requireAuth(r); err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
+		return
+	}
+
 	if db == nil {
 		lib.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "sem conexão com banco"})
 		return
