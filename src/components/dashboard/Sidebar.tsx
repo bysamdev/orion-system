@@ -150,8 +150,8 @@ export const AppSidebar: React.FC = () => {
           onClick={() => navigate('/')}
           className="flex items-center px-3 pt-2 pb-3 cursor-pointer"
         >
-          <img src={orionLogo} alt="Orion System" className="h-8 w-auto dark:hidden" />
-          <img src={orionLogoLight} alt="Orion System" className="h-8 w-auto hidden dark:block" />
+          <img src={orionLogo} alt="Orion System" className="h-11 w-auto dark:hidden transition-all duration-200" />
+          <img src={orionLogoLight} alt="Orion System" className="h-11 w-auto hidden dark:block transition-all duration-200" />
         </button>
 
         <div

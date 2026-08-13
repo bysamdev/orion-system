@@ -85,12 +85,12 @@ const Auth = () => {
             <img
               src={orionLogo}
               alt="Orion System Logo"
-              className="h-20 w-auto dark:hidden"
+              className="h-24 w-auto dark:hidden transition-all duration-200"
             />
             <img
               src={orionLogoLight}
               alt="Orion System Logo"
-              className="h-20 w-auto hidden dark:block"
+              className="h-24 w-auto hidden dark:block transition-all duration-200"
             />
           </div>
           <div className="space-y-2">
