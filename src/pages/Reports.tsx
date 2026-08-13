@@ -31,6 +31,7 @@ import {
   Server,
   Users,
   Timer,
+  Building2,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
