@@ -85,7 +85,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Permissão verificada. Role:', callerRole.role);
+    console.log('Permissão verificada. Roles:', userRoles.map(r => r.role));
 
     // 6. Parse do body da requisição
     const { user_id, email, password, full_name, department, role, company_id, status } = await req.json();
@@ -106,6 +106,57 @@ serve(async (req) => {
         JSON.stringify({ error: 'Proibido: Você não pode alterar sua própria função (role)' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // 7b. SEC-02: isolamento multitenant. `service_role` ignora RLS, então sem
+    // esta checagem um admin da Empresa A conseguiria atualizar/mover/promover
+    // usuários de qualquer outra empresa via este endpoint (Account Takeover).
+    const { data: isGlobalScope, error: globalScopeError } = await supabaseAdmin
+      .rpc('is_master_company_user', { _user_id: callerUser.id });
+
+    if (globalScopeError) {
+      console.error('Erro ao verificar escopo global:', globalScopeError);
+      return new Response(
+        JSON.stringify({ error: 'Não foi possível verificar permissões do usuário' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!isGlobalScope) {
+      const { data: callerProfile, error: callerProfileError } = await supabaseAdmin
+        .from('profiles')
+        .select('company_id')
+        .eq('id', callerUser.id)
+        .single();
+
+      const { data: targetProfile, error: targetProfileError } = await supabaseAdmin
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user_id)
+        .single();
+
+      if (callerProfileError || targetProfileError || !callerProfile?.company_id ||
+          !targetProfile?.company_id || targetProfile.company_id !== callerProfile.company_id) {
+        console.error('Tentativa cross-tenant bloqueada:', callerUser.id, '->', user_id);
+        return new Response(
+          JSON.stringify({ error: 'Usuário não pertence à sua empresa' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (company_id && company_id !== callerProfile.company_id) {
+        return new Response(
+          JSON.stringify({ error: 'Não é permitido mover o usuário para outra empresa' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (role === 'developer') {
+        return new Response(
+          JSON.stringify({ error: 'Não é permitido conceder a função developer' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // 8. Atualizar dados no Auth (email e/ou senha)

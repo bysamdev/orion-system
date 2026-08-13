@@ -428,12 +428,12 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// RequireUserRole: apenas admin, developer e technician podem enviar comandos remotos.
-	userRole, err := db.RoleByUserID(ctx, user.ID)
+	escopo, err := escopoDoUsuario(ctx, user.ID)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível verificar permissões do usuário"})
 		return
 	}
-	if userRole != "admin" && userRole != "technician" && userRole != "developer" {
+	if escopo.Role != "admin" && escopo.Role != "technician" && escopo.Role != "developer" {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem enviar comandos remotos"})
 		return
 	}
@@ -445,13 +445,11 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ValidateMachineTenancy: non-admin deve pertencer à mesma empresa da máquina.
-	if userRole != "admin" {
-		userCompanyIDPtr, _ := db.CompanyByUserID(ctx, user.ID)
-		if machine.CompanyID == nil || userCompanyIDPtr == nil || *machine.CompanyID != *userCompanyIDPtr {
-			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
-			return
-		}
+	// ValidateMachineTenancy: escopo de empresa/global — nunca role isolado, para
+	// não permitir que um admin de uma empresa comande máquinas de outra (SEC-01).
+	if !escopo.PodeVerEmpresa(machine.CompanyID) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+		return
 	}
 
 	var req struct {

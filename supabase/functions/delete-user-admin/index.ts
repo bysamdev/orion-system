@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     // Verificar se o usuário a ser excluído existe
     const { data: targetUser, error: targetError } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, email')
+      .select('id, full_name, email, company_id')
       .eq('id', user_id)
       .single();
 
@@ -109,6 +109,37 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Usuário não encontrado' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // SEC-02: isolamento multitenant. `service_role` ignora RLS, então sem esta
+    // checagem um admin da Empresa A conseguiria excluir usuários de qualquer
+    // empresa terceira via este endpoint.
+    const { data: isGlobalScope, error: globalScopeError } = await supabaseAdmin
+      .rpc('is_master_company_user', { _user_id: requestingUser.id });
+
+    if (globalScopeError) {
+      console.error('Erro ao verificar escopo global:', globalScopeError);
+      return new Response(
+        JSON.stringify({ error: 'Não foi possível verificar permissões do usuário' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!isGlobalScope) {
+      const { data: callerProfile, error: callerProfileError } = await supabaseAdmin
+        .from('profiles')
+        .select('company_id')
+        .eq('id', requestingUser.id)
+        .single();
+
+      if (callerProfileError || !callerProfile?.company_id ||
+          !targetUser.company_id || targetUser.company_id !== callerProfile.company_id) {
+        console.error('Tentativa cross-tenant bloqueada ao excluir usuário:', requestingUser.id, '->', user_id);
+        return new Response(
+          JSON.stringify({ error: 'Usuário não pertence à sua empresa' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Excluir usuário do Auth (CASCADE vai limpar profiles e user_roles)

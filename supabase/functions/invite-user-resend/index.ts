@@ -64,7 +64,7 @@ serve(async (req) => {
       throw new Error('Apenas administradores podem convidar usuários');
     }
 
-    console.log('Role verificada:', roleData.role);
+    console.log('Role verificada:', userRoles.map(r => r.role));
 
     // Parse do body
     const body: InviteUserRequest = await req.json();
@@ -88,6 +88,34 @@ serve(async (req) => {
         },
       }
     );
+
+    // SEC-02: isolamento multitenant. `service_role` ignora RLS, então sem esta
+    // checagem um admin da Empresa A poderia convidar/criar usuários (inclusive
+    // outros admins) em qualquer empresa terceira só informando o company_id.
+    const { data: isGlobalScope, error: globalScopeError } = await supabaseAdmin
+      .rpc('is_master_company_user', { _user_id: user.id });
+
+    if (globalScopeError) {
+      console.error('Erro ao verificar escopo global:', globalScopeError);
+      throw new Error('Não foi possível verificar permissões do usuário');
+    }
+
+    if (!isGlobalScope) {
+      const { data: callerProfile, error: callerProfileError } = await supabaseAdmin
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+
+      if (callerProfileError || !callerProfile?.company_id || callerProfile.company_id !== company_id) {
+        console.error('Tentativa cross-tenant bloqueada ao convidar usuário:', user.id, '->', company_id);
+        throw new Error('Não é permitido convidar usuários em outra empresa');
+      }
+
+      if (role === 'developer') {
+        throw new Error('Não é permitido conceder a função developer');
+      }
+    }
 
     console.log('=== Passo A: Criando usuário com senha temporária ===');
 

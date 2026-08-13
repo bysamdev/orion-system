@@ -129,6 +129,43 @@ serve(async (req) => {
       }
     );
 
+    // SEC-02: isolamento multitenant. `service_role` ignora RLS, então sem esta
+    // checagem um admin da Empresa A poderia criar usuários (inclusive outros
+    // admins) em qualquer empresa terceira só informando o company_id no body.
+    const { data: isGlobalScope, error: globalScopeError } = await supabaseAdmin
+      .rpc('is_master_company_user', { _user_id: user.id });
+
+    if (globalScopeError) {
+      console.error('Erro ao verificar escopo global:', globalScopeError);
+      return new Response(
+        JSON.stringify({ error: 'Não foi possível verificar permissões do usuário' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!isGlobalScope) {
+      const { data: callerProfile, error: callerProfileError } = await supabaseAdmin
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+
+      if (callerProfileError || !callerProfile?.company_id || callerProfile.company_id !== company_id) {
+        console.error('Tentativa cross-tenant bloqueada ao criar usuário:', user.id, '->', company_id);
+        return new Response(
+          JSON.stringify({ error: 'Não é permitido criar usuários em outra empresa' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (role === 'developer') {
+        return new Response(
+          JSON.stringify({ error: 'Não é permitido conceder a função developer' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Gerar senha provisória
     const tempPassword = generateTempPassword();
     console.log('Senha provisória gerada');

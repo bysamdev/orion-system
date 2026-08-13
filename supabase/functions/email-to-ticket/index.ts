@@ -1,14 +1,45 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { timingSafeEqual } from "https://deno.land/std@0.168.0/crypto/timing_safe_equal.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
+}
+
+function secretsMatch(provided: string, expected: string): boolean {
+  const a = new TextEncoder().encode(provided)
+  const b = new TextEncoder().encode(expected)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  // SEC-03: esta função é pública (provedores de email como SendGrid/Mailgun/
+  // Postmark não enviam JWT do Supabase), então sem um segredo compartilhado
+  // qualquer requisição HTTP externa cria chamados forjados em nome de
+  // qualquer cliente. Falha FECHADO: sem a variável configurada, o endpoint
+  // fica indisponível em vez de aceitar tudo (mesmo padrão do CRON_SECRET).
+  const expectedSecret = Deno.env.get('EMAIL_WEBHOOK_SECRET')
+  if (!expectedSecret) {
+    console.error('[ALERTA] email-to-ticket chamado mas EMAIL_WEBHOOK_SECRET não está configurada — recusando por segurança')
+    return new Response(JSON.stringify({ error: 'Webhook não configurado' }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  const providedSecret = req.headers.get('X-Webhook-Secret') ?? ''
+  if (!providedSecret || !secretsMatch(providedSecret, expectedSecret)) {
+    console.error('email-to-ticket: X-Webhook-Secret ausente ou inválido')
+    return new Response(JSON.stringify({ error: 'Não autorizado' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
   try {

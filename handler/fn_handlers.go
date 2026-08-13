@@ -32,7 +32,8 @@ func adminUpdateUser(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}
-	if _, err := requireAdminOrDeveloper(r, u.ID); err != nil {
+	escopo, err := escopoDoUsuario(r.Context(), u.ID)
+	if err != nil || (escopo.Role != "admin" && escopo.Role != "developer") {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Apenas administradores e desenvolvedores podem atualizar usuários"})
 		return
 	}
@@ -49,6 +50,26 @@ func adminUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if req.Role != nil && req.UserID == u.ID {
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Você não pode alterar sua própria função"})
 		return
+	}
+
+	// SEC-02: um admin de tenant só pode gerenciar usuários da própria empresa e
+	// nunca pode mover um usuário para outra empresa nem conceder escopo global
+	// (role "developer") — sem isso, service_role vira Account Takeover cross-tenant.
+	if !escopo.Global() {
+		targetCompanyID, err := db.CompanyByUserID(r.Context(), req.UserID)
+		if err != nil || !escopo.PodeVerEmpresa(targetCompanyID) {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Usuário não pertence à sua empresa"})
+			return
+		}
+		if req.CompanyID != nil && strings.TrimSpace(*req.CompanyID) != "" &&
+			(escopo.CompanyID == nil || strings.TrimSpace(*req.CompanyID) != *escopo.CompanyID) {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não é permitido mover o usuário para outra empresa"})
+			return
+		}
+		if req.Role != nil && strings.TrimSpace(*req.Role) == "developer" {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não é permitido conceder a função developer"})
+			return
+		}
 	}
 
 	// Auth update (email/password)
@@ -128,7 +149,8 @@ func deleteUserAdmin(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
-	if _, err := requireAdminOrDeveloper(r, u.ID); err != nil {
+	escopo, err := escopoDoUsuario(r.Context(), u.ID)
+	if err != nil || (escopo.Role != "admin" && escopo.Role != "developer") {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Apenas administradores podem excluir usuários"})
 		return
 	}
@@ -155,6 +177,15 @@ func deleteUserAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// SEC-02: admin de tenant só pode excluir usuários da própria empresa.
+	if !escopo.Global() {
+		targetCompanyID, err := db.CompanyByUserID(r.Context(), req.UserID)
+		if err != nil || !escopo.PodeVerEmpresa(targetCompanyID) {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Usuário não pertence à sua empresa"})
+			return
+		}
+	}
+
 	if err := sb.AdminDeleteUserByID(r.Context(), req.UserID); err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao excluir usuário: %v", err)})
 		return
@@ -175,7 +206,8 @@ func createUserCredentials(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
-	if _, err := requireAdminOrDeveloper(r, u.ID); err != nil {
+	escopo, err := escopoDoUsuario(r.Context(), u.ID)
+	if err != nil || (escopo.Role != "admin" && escopo.Role != "developer") {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Apenas administradores podem criar usuários"})
 		return
 	}
@@ -202,6 +234,19 @@ func createUserCredentials(w http.ResponseWriter, r *http.Request) {
 	if req.Email == "" || req.FullName == "" || req.Role == "" || req.CompanyID == "" {
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Dados obrigatórios ausentes: email, full_name, role, company_id"})
 		return
+	}
+
+	// SEC-02: admin de tenant só pode criar usuários dentro da própria empresa e
+	// nunca com escopo global (role "developer").
+	if !escopo.Global() {
+		if escopo.CompanyID == nil || req.CompanyID != *escopo.CompanyID {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não é permitido criar usuários em outra empresa"})
+			return
+		}
+		if req.Role == "developer" {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não é permitido conceder a função developer"})
+			return
+		}
 	}
 
 	// O formato anterior era "Orion" + 4 dígitos — 9.000 valores possíveis
