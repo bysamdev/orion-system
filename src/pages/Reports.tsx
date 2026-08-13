@@ -587,13 +587,13 @@ const Reports: React.FC = () => {
                           />
                         ))}
                         {/* Valor impresso na fatia: a cor deixa de ser o único
-                            portador da informação. */}
+                            portador da informação. Peso normal — negrito em
+                            fonte pequena sobre fatia curva ficava ilegível. */}
                         <LabelList
                           dataKey="count"
                           position="inside"
-                          fontSize={11}
+                          fontSize={12}
                           fill="#ffffff"
-                          fontWeight={600}
                         />
                       </Pie>
                       <Tooltip
