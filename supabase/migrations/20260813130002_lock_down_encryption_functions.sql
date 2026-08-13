@@ -32,6 +32,30 @@ REVOKE EXECUTE ON FUNCTION public.get_decrypted_remote_password(uuid) FROM PUBLI
 GRANT EXECUTE ON FUNCTION public.get_encryption_key() TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_decrypted_remote_password(uuid) TO service_role;
 
+-- Pre-existing function_search_path_mutable WARN on this function (present
+-- since 20260811000002, unrelated to SEC-01..05 but trivial to close while
+-- already touching its dependency chain for SEC-04).
+CREATE OR REPLACE FUNCTION get_decrypted_remote_password(p_ticket_id UUID)
+RETURNS TEXT AS $$
+DECLARE
+    decrypted TEXT;
+BEGIN
+    SELECT pgp_sym_decrypt(decode(remote_password, 'base64'), public.get_encryption_key()) INTO decrypted
+    FROM public.tickets
+    WHERE id = p_ticket_id AND remote_password IS NOT NULL;
+
+    RETURN decrypted;
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
+
+-- pgp_sym_encrypt lives in the `extensions` schema on this project
+-- (Supabase's standard pgcrypto install location), not `public` — the
+-- search_path below must include it or every write that touches
+-- remote_password fails with "function pgp_sym_encrypt(text, text) does
+-- not exist" (hit and fixed live while rolling this migration out).
 CREATE OR REPLACE FUNCTION encrypt_remote_password_trigger_fn()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -40,4 +64,15 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
+
+-- Making it SECURITY DEFINER above also made it directly callable via
+-- POST /rest/v1/rpc/encrypt_remote_password_trigger_fn (flagged by
+-- get_advisors right after this was first applied). Trigger functions have
+-- no business being invoked outside trigger context — NEW/OLD/TG_OP aren't
+-- set, so a direct call just errors at runtime — but there's no reason to
+-- leave the grant in place. INSERT/UPDATE that fire the trigger are
+-- unaffected: trigger execution never goes through function-level EXECUTE
+-- grants.
+REVOKE EXECUTE ON FUNCTION public.encrypt_remote_password_trigger_fn() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.encrypt_remote_password_trigger_fn() TO service_role;
