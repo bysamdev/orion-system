@@ -243,63 +243,97 @@ export const TechnicianDashboard: React.FC = () => {
 
       {/* KPIs Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Em Atendimento"
-          value={stats?.inProgress || 0}
-          icon={PlayCircle}
-          active={kpiFilter === 'in-progress'}
-          onClick={() => {
-            setKpiFilter(f => f === 'in-progress' ? null : 'in-progress');
-            setActiveTab('my-tickets');
-            document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
-          }}
-        />
         <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="w-full h-full">
-                <StatCard
-                  title="SLA Crítico"
-                  value={stats?.slaAtRisk || 0}
-                  icon={AlertTriangle}
-                  variant={(stats?.slaAtRisk || 0) > 0 ? 'danger' : 'default'}
-                  active={kpiFilter === 'sla'}
-                  onClick={() => {
-                    setKpiFilter(f => f === 'sla' ? null : 'sla');
-                    setActiveTab('my-tickets');
-                    document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="font-medium">
-              <p>Tickets com prazo vencido</p>
-            </TooltipContent>
-          </Tooltip>
-        <StatCard
-          title="Minha Fila"
-          value={stats?.pending || 0}
-          icon={Clock}
-          variant="warning"
-          active={kpiFilter === 'pending'}
-          onClick={() => {
-            setKpiFilter(f => f === 'pending' ? null : 'pending');
-            setActiveTab('my-tickets');
-            document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
-          }}
-        />
-        <StatCard
-          title="Resolvidos Hoje"
-          value={stats?.resolvedToday || 0}
-          icon={CheckCircle2}
-          variant="success"
-          active={closedOpen}
-          onClick={() => {
-            setClosedOpen(true);
-            setKpiFilter(null);
-            setActiveTab('my-tickets');
-            setTimeout(() => document.getElementById('closed-tickets-section')?.scrollIntoView({ behavior: 'smooth' }), 100);
-          }}
-        />
+          <TooltipTrigger asChild>
+            <div className="w-full h-full">
+              <StatCard
+                title="Em Atendimento"
+                value={stats?.inProgress || 0}
+                description="Tickets em atendimento ativo"
+                icon={PlayCircle}
+                active={kpiFilter === 'in-progress'}
+                onClick={() => {
+                  setKpiFilter(f => f === 'in-progress' ? null : 'in-progress');
+                  setActiveTab('my-tickets');
+                  document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="font-medium">
+            <p>Tickets em atendimento ativo</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="w-full h-full">
+              <StatCard
+                title="SLA Crítico"
+                value={stats?.slaAtRisk || 0}
+                description="Tickets com prazo vencido"
+                icon={AlertTriangle}
+                variant={(stats?.slaAtRisk || 0) > 0 ? 'danger' : 'default'}
+                active={kpiFilter === 'sla'}
+                onClick={() => {
+                  setKpiFilter(f => f === 'sla' ? null : 'sla');
+                  setActiveTab('my-tickets');
+                  document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="font-medium">
+            <p>Tickets com prazo vencido</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="w-full h-full">
+              <StatCard
+                title="Minha Fila"
+                value={stats?.pending || 0}
+                description="Tickets pendentes na sua fila"
+                icon={Clock}
+                variant="warning"
+                active={kpiFilter === 'pending'}
+                onClick={() => {
+                  setKpiFilter(f => f === 'pending' ? null : 'pending');
+                  setActiveTab('my-tickets');
+                  document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="font-medium">
+            <p>Tickets pendentes na sua fila</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="w-full h-full">
+              <StatCard
+                title="Resolvidos Hoje"
+                value={stats?.resolvedToday || 0}
+                description="Tickets concluídos hoje"
+                icon={CheckCircle2}
+                variant="success"
+                active={closedOpen}
+                onClick={() => {
+                  setClosedOpen(true);
+                  setKpiFilter(null);
+                  setActiveTab('my-tickets');
+                  setTimeout(() => document.getElementById('closed-tickets-section')?.scrollIntoView({ behavior: 'smooth' }), 100);
+                }}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="font-medium">
+            <p>Tickets concluídos hoje</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Team Workload Widget (Only for Admins) */}
