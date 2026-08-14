@@ -13,6 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Globe, Plus, Trash2, Activity, AlertCircle, Clock, Zap, Radio, Router, Network, Building2, Wifi } from 'lucide-react';
 import { toast } from 'sonner';
 
+function statusLabel(status: string) {
+  if (status === 'pending') return 'PENDENTE';
+  return status.toUpperCase();
+}
+
 function formatDate(dateStr?: string | null) {
   if (!dateStr) return 'Não verificado';
   try {
@@ -323,7 +328,7 @@ export default function WebMonitoring() {
                           endpoint.status === 'online' ? 'default' : 
                           endpoint.status === 'offline' ? 'destructive' : 'secondary'
                         } className={endpoint.status === 'online' ? 'bg-green-500 hover:bg-green-600' : ''}>
-                          {endpoint.status.toUpperCase()}
+                          {statusLabel(endpoint.status)}
                         </Badge>
                         <Button variant="ghost" size="icon" aria-label="Excluir endpoint" onClick={() => handleDeleteWebEndpoint(endpoint.id)} title="Excluir" disabled={deleteWebEndpointMutation.isPending}>
                           <Trash2 className="w-4 h-4 text-destructive" />
@@ -606,7 +611,7 @@ export default function WebMonitoring() {
                             } 
                             className={link.status === 'online' ? 'bg-green-500 hover:bg-green-600' : ''}
                           >
-                            {link.status.toUpperCase()}
+                            {statusLabel(link.status)}
                           </Badge>
                         </div>
                       </div>

@@ -17,7 +17,8 @@ import { UnifiedTimeline } from '@/components/ticket/UnifiedTimeline';
 import { ResolutionDialog } from '@/components/ticket/ResolutionDialog';
 import { EscalateDialog } from '@/components/ticket/EscalateDialog';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2, Sparkles, ExternalLink, FileText, HandHelping, UserCheck } from 'lucide-react';
+import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2, Sparkles, ExternalLink, FileText, HandHelping, UserCheck, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
 import { ImagePasteHandler } from '@/components/ticket/ImagePasteHandler';
@@ -26,7 +27,7 @@ import { TimeTracker } from '@/components/ticket/TimeTracker';
 import { SatisfactionSurvey } from '@/components/ticket/SatisfactionSurvey';
 import { useTicketCopilot } from '@/hooks/useTicketCopilot';
 import { TicketSummaryDialog } from '@/components/ticket/TicketSummaryDialog';
-import { cn } from '@/lib/utils';
+import { cn, formatDurationHuman, formatDate } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useUpdateTicketPriority, useResolveTicket, useEscalateTicket, useAddTicketUpdate, useAssumeTicket } from '@/hooks/useTickets';
 import { useTicketPresence } from '@/hooks/useTicketPresence';
@@ -254,6 +255,25 @@ const TicketDetails: React.FC = () => {
     },
     enabled: !!ticket?.contract_id
   });
+
+  // Fetch contract details for company
+  const { data: companyContract } = useQuery({
+    queryKey: ['ticket-company-contract', ticket?.company_id],
+    queryFn: async () => {
+      if (!ticket?.company_id) return null;
+      const { data, error } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('company_id', ticket.company_id)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!ticket?.company_id
+  });
+
+  const isSporadic = !ticket?.contract_id && !companyContract;
 
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [escalateDialogOpen, setEscalateDialogOpen] = useState(false);
@@ -601,6 +621,15 @@ const TicketDetails: React.FC = () => {
     return h > 0 ? `${h}h${min > 0 ? `${min}min` : ''}` : `${min}min`;
   };
 
+  const elapsedServiceMinutes = React.useMemo(() => {
+    if (!ticket?.created_at) return 0;
+    const start = new Date(ticket.created_at).getTime();
+    const end = (ticket.status === 'resolved' || ticket.status === 'closed') && ticket.resolved_at
+      ? new Date(ticket.resolved_at).getTime()
+      : Date.now();
+    return Math.max(1, Math.floor((end - start) / 60000));
+  }, [ticket?.created_at, ticket?.resolved_at, ticket?.status]);
+
   const isActuallyLoading = isResolving || (!!validId && (ticketLoading || updatesLoading));
 
   if (isActuallyLoading) {
@@ -637,6 +666,7 @@ const TicketDetails: React.FC = () => {
             ticket={ticket} 
             totalTimeMinutes={totalMinutes}
             canManageTickets={canManageTickets}
+            isSporadic={isSporadic}
             onResolve={() => setResolveDialogOpen(true)}
             onEscalate={() => setEscalateDialogOpen(true)}
             onAttach={() => fileInputRef.current?.click()}
@@ -1063,34 +1093,73 @@ const TicketDetails: React.FC = () => {
               </Card>
             )}
 
-            {/* Cronógrafo */}
-            {canManageTickets && (
-              <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
-                <div className="flex items-center gap-2 mb-4">
-                  <Timer className="w-4 h-4 text-primary" />
-                  <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Cronógrafo de Atendimento</h3>
+            {/* Tempo de Atendimento (Contagem automática contínua em minutos - horas - dias - meses) */}
+            <Card className="p-6 border-none shadow-sm bg-background border border-border/40 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Tempo de Atendimento</h3>
                 </div>
-                <TimeTracker ticketId={ticket.id} />
-              </Card>
-            )}
+                <span className={cn(
+                  "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
+                  isSporadic ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                )}>
+                  {isSporadic ? 'Cliente Esporádico' : 'Com Contrato'}
+                </span>
+              </div>
+              
+              <div className="bg-muted/30 rounded-2xl p-4 space-y-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Duração do Chamado</p>
+                <p className="text-xl font-black text-foreground tracking-tight">
+                  {formatDurationHuman(elapsedServiceMinutes)}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Iniciado em {ticket.created_at ? formatDate(ticket.created_at, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : '—'}
+                </p>
+              </div>
 
-            {/* Resumo de Tempo (Visual para todos) */}
-            <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
-              <div className="flex items-center gap-2 mb-4">
-                <Clock className="w-4 h-4 text-primary" />
-                <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Esforço Total</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-muted/30 rounded-xl p-3">
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Total</p>
-                  <p className="text-lg font-bold">{totalMinutes > 0 ? formatMinutes(totalMinutes) : '—'}</p>
+              {/* Detalhes de faturamento caso seja cliente esporádico e tenha apontamentos */}
+              {isSporadic && (totalMinutes > 0 || billableMinutes > 0) && (
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="bg-muted/20 rounded-xl p-3 border border-border/30">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Apontado</p>
+                    <p className="text-base font-bold">{totalMinutes > 0 ? formatMinutes(totalMinutes) : '—'}</p>
+                  </div>
+                  <div className="bg-muted/20 rounded-xl p-3 border border-border/30">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Faturável</p>
+                    <p className="text-base font-bold text-primary">{billableMinutes > 0 ? formatMinutes(billableMinutes) : '—'}</p>
+                  </div>
                 </div>
-                <div className="bg-muted/30 rounded-xl p-3">
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Faturável</p>
-                  <p className="text-lg font-bold text-primary">{billableMinutes > 0 ? formatMinutes(billableMinutes) : '—'}</p>
-                </div>
-              </div>
+              )}
             </Card>
+
+            {/* Cronógrafo Opcional em Menu Suspenso (Apenas para clientes marcados como esporádico) */}
+            {isSporadic && canManageTickets && (
+              <Collapsible defaultOpen={false} className="border border-border/40 rounded-2xl bg-card overflow-hidden shadow-sm">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full p-4 flex items-center justify-between text-left hover:bg-muted/30 transition-colors group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                        <Timer className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-foreground text-xs uppercase tracking-wider">Cronógrafo de Atendimento</h3>
+                        <p className="text-[10px] text-muted-foreground">Apontamento manual de horas (opcional)</p>
+                      </div>
+                    </div>
+                    <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform duration-200" />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="p-4 pt-0 border-t border-border/30">
+                  <div className="pt-3">
+                    <TimeTracker ticketId={ticket.id} />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
 
             {/* Atributos Básicos */}
             <Card className="p-6 border-none shadow-sm bg-background border border-border/40">

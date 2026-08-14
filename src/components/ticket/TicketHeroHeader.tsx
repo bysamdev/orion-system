@@ -8,7 +8,8 @@ import { Timer, CheckCircle2, ArrowUpRight, Paperclip, BookOpen, Play, Square, U
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveTimer, useStartTimer, useStopTimer } from '@/hooks/useTimeEntries';
-import { cn } from '@/lib/utils';
+import { cn, formatDurationHuman, formatDate } from '@/lib/utils';
+import { ptBR } from 'date-fns/locale';
 
 interface TicketHeroHeaderProps {
   ticket: {
@@ -22,13 +23,15 @@ interface TicketHeroHeaderProps {
     sla_status: string | null;
     sla_due_date: string | null;
     created_at?: string;
+    resolved_at?: string | null;
     company_name?: string | null;
   };
   totalTimeMinutes?: number;
   canManageTickets: boolean;
+  isSporadic?: boolean;
   onResolve: () => void;
   onEscalate: () => void;
-  onAttach: () => void;
+  onAttach?: () => void;
   onStatusChange: (status: string) => void;
   onAssume?: () => void;
   isAssuming?: boolean;
@@ -42,6 +45,7 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
   ticket,
   totalTimeMinutes = 0,
   canManageTickets,
+  isSporadic = false,
   onResolve,
   onEscalate,
   onAttach,
@@ -93,12 +97,14 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
     }
   };
 
-  const formatTotalTime = (totalMinutes: number) => {
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    if (h === 0) return `${m}min`;
-    return `${h}h ${m}min`;
-  };
+  const elapsedServiceMinutes = React.useMemo(() => {
+    if (!ticket?.created_at) return 0;
+    const start = new Date(ticket.created_at).getTime();
+    const end = (ticket.status === 'resolved' || ticket.status === 'closed') && ticket.resolved_at
+      ? new Date(ticket.resolved_at).getTime()
+      : Date.now();
+    return Math.max(1, Math.floor((end - start) / 60000));
+  }, [ticket?.created_at, ticket?.resolved_at, ticket?.status]);
 
   return (
     <div className="bg-card border border-border rounded-xl p-6 space-y-4">
@@ -137,15 +143,18 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
         <PriorityBadge priority={ticket.priority} />
         <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} />
         
-        {/* Badge de Horas Apontadas */}
+        {/* Badge de Tempo de Atendimento (sem relógio piscando na tela, em minutos - horas - dias - meses) */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/5 border border-primary/20 text-primary cursor-help">
-              <Timer className="w-3 h-3" />
-              <span className="text-sm font-bold">{formatTotalTime(totalTimeMinutes)}</span>
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary cursor-help">
+              <Clock className="w-3.5 h-3.5" />
+              <span className="text-xs font-bold">{formatDurationHuman(elapsedServiceMinutes)}</span>
             </div>
           </TooltipTrigger>
-          <TooltipContent>Total de tempo apontado neste chamado</TooltipContent>
+          <TooltipContent>
+            <p className="font-bold">Tempo de Atendimento</p>
+            <p className="text-xs text-muted-foreground">Iniciado em {ticket.created_at ? formatDate(ticket.created_at, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : '—'}</p>
+          </TooltipContent>
         </Tooltip>
 
         {ticket.company_name && (
@@ -174,25 +183,28 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
 
           {!isResolved && (
             <>
-              <Button
-                variant={isTimerActiveHere ? 'destructive' : 'outline'}
-                size="sm"
-                onClick={handleTimerToggle}
-                disabled={!!isTimerActiveElsewhere || startTimer.isPending || stopTimer.isPending}
-                className="gap-2"
-              >
-                {isTimerActiveHere ? (
-                  <>
-                    <Square className="w-3.5 h-3.5" />
-                    Parar {elapsed}
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3.5 h-3.5" />
-                    Iniciar Timer
-                  </>
-                )}
-              </Button>
+              {/* Cronógrafo: Apenas para clientes marcados como esporádico (sem contrato) */}
+              {isSporadic && (
+                <Button
+                  variant={isTimerActiveHere ? 'destructive' : 'outline'}
+                  size="sm"
+                  onClick={handleTimerToggle}
+                  disabled={!!isTimerActiveElsewhere || startTimer.isPending || stopTimer.isPending}
+                  className="gap-2"
+                >
+                  {isTimerActiveHere ? (
+                    <>
+                      <Square className="w-3.5 h-3.5" />
+                      Parar {elapsed}
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5" />
+                      Iniciar Timer
+                    </>
+                  )}
+                </Button>
+              )}
 
               {/* Ação rápida para Atender (in-progress) se estiver em outro status */}
               {ticket.status !== 'in-progress' && (

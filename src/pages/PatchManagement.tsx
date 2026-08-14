@@ -24,6 +24,13 @@ const STATUS_STYLE: Record<string, string> = {
   failed:     'bg-red-500/10 text-red-600 border-red-500/30',
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  pending:    'Pendente',
+  dispatched: 'Despachado',
+  completed:  'Concluído',
+  failed:     'Falhou',
+};
+
 const PatchManagement: React.FC = () => {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -168,7 +175,7 @@ const PatchManagement: React.FC = () => {
                           </TableCell>
                           <TableCell>
                             <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded border', STATUS_STYLE[dep.status] ?? 'border-border text-muted-foreground')}>
-                              {dep.status}
+                              {STATUS_LABEL[dep.status] ?? dep.status}
                             </span>
                           </TableCell>
                           <TableCell className="text-[10px] text-muted-foreground whitespace-nowrap">

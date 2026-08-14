@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getStatusLabel } from '@/components/shared/StatusBadge';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useDeviceInventory, DeviceItem } from '@/hooks/useDeviceInventory';
@@ -1064,7 +1065,7 @@ const Assets = () => {
                           <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
                           <div className="flex items-center gap-2 mt-2">
                             <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5">
-                              {ticket.status}
+                              {getStatusLabel(ticket.status)}
                             </Badge>
                             {ticket.priority && (
                               <Badge variant="secondary" className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5">
