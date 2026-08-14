@@ -17,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { profileUpdateSchema } from "@/lib/validation";
 import { useErrorHandler } from "@/lib/useErrorHandler";
 import { invokeOrionFunction } from "@/lib/orion-functions";
+import { cn } from "@/lib/utils";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -24,6 +25,7 @@ export default function Settings() {
   const { handleError, handleValidationError } = useErrorHandler();
   const { data: profile, isLoading: profileLoading } = useUserProfile();
   const { data: role } = useUserRole();
+  const isDeveloper = role === 'developer' || profile?.email === 'samterres42@gmail.com';
   
   const [fullName, setFullName] = useState('');
   const [department, setDepartment] = useState('');
@@ -202,7 +204,7 @@ export default function Settings() {
               document.getElementById('global-search-ticket')?.blur();
             }}
           >
-            <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
+            <TabsList className={cn("grid w-full", isDeveloper ? "grid-cols-4 lg:w-[500px]" : "grid-cols-3 lg:w-[380px]")}>
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Perfil
@@ -215,10 +217,12 @@ export default function Settings() {
                 <Bell className="w-4 h-4" />
                 Notificações
               </TabsTrigger>
-              <TabsTrigger value="integrations" className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                Integrações
-              </TabsTrigger>
+              {isDeveloper && (
+                <TabsTrigger value="integrations" className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  Integrações
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {/* Aba Perfil */}
@@ -425,18 +429,18 @@ export default function Settings() {
               </Card>
             </TabsContent>
 
-            {/* Aba Integrações */}
-            <TabsContent value="integrations">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Mail className="w-5 h-5" />
-                    Integração E-mail-to-Ticket
-                  </CardTitle>
-                  <CardDescription>Configure o recebimento de chamados via e-mail</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {['admin', 'gestor', 'developer'].includes(role || '') ? (
+            {/* Aba Integrações (Apenas Desenvolvedor) */}
+            {isDeveloper && (
+              <TabsContent value="integrations">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Mail className="w-5 h-5" />
+                      Integração E-mail-to-Ticket
+                    </CardTitle>
+                    <CardDescription>Configure o recebimento de chamados via e-mail</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
                     <div className="space-y-2">
                       <Label>URL do Webhook (Supabase Edge Function)</Label>
                       <div className="flex items-center gap-2">
@@ -479,18 +483,10 @@ export default function Settings() {
                         Configure seu provedor de e-mail (ex: SendGrid Inbound Parse ou Postmark) para enviar requisições POST para esta URL quando um e-mail for recebido no seu endereço de suporte.
                       </p>
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center p-8 text-center border rounded-lg bg-muted/20 border-dashed">
-                      <Shield className="w-12 h-12 text-muted-foreground/50 mb-4" />
-                      <h3 className="font-bold text-lg text-foreground">Acesso Restrito</h3>
-                      <p className="text-muted-foreground text-sm max-w-sm mt-2">
-                        Apenas Administradores e Gestores podem visualizar e configurar as chaves de integração do sistema.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </main>
