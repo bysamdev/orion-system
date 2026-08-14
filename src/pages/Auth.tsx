@@ -26,17 +26,29 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Sparkles, Star, ShieldCheck, Orbit, Compass, Loader2 } from 'lucide-react';
+import { 
+  Ticket, 
+  Monitor, 
+  Laptop, 
+  Server as ServerIcon, 
+  Wifi, 
+  Network, 
+  HardDrive, 
+  ShieldCheck, 
+  Sparkles, 
+  Loader2 
+} from 'lucide-react';
 
 import orionLogo from '@/assets/orion-logo.png';
 import orionLogoLight from '@/assets/orion-logo-light.png';
 
-// Constelação de estrelas orbitando suavemente AO REDOR da logo (raios externos para nunca cruzar o centro da logo)
+// Constelação de ícones de TI do sistema orbitando ao redor da logo Orion
 const orbitIcons: OrbitIconConfig[] = [
   {
+    // Ticket / Chamado
     component: () => (
-      <div className="flex items-center justify-center size-8 rounded-full bg-amber-500/20 backdrop-blur-md border border-amber-400/40 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.5)]">
-        <Star className="size-4 fill-amber-300 stroke-amber-400 animate-pulse" />
+      <div className="flex items-center justify-center size-9 rounded-full bg-purple-600/25 backdrop-blur-md border border-purple-400/50 text-purple-200 shadow-[0_0_16px_rgba(168,85,247,0.5)]">
+        <Ticket className="size-4 text-purple-200" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -47,9 +59,10 @@ const orbitIcons: OrbitIconConfig[] = [
     reverse: false,
   },
   {
+    // Computador / Desktop
     component: () => (
-      <div className="flex items-center justify-center size-8 rounded-full bg-purple-500/20 backdrop-blur-md border border-purple-400/40 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.4)]">
-        <Sparkles className="size-4 fill-purple-300 stroke-purple-200" />
+      <div className="flex items-center justify-center size-9 rounded-full bg-blue-500/25 backdrop-blur-md border border-blue-400/40 text-blue-200 shadow-[0_0_14px_rgba(59,130,246,0.4)]">
+        <Monitor className="size-4 text-blue-200" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -60,9 +73,10 @@ const orbitIcons: OrbitIconConfig[] = [
     reverse: false,
   },
   {
+    // Notebook / Laptop
     component: () => (
-      <div className="flex items-center justify-center size-9 rounded-full bg-indigo-500/20 backdrop-blur-md border border-indigo-400/40 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.4)]">
-        <Star className="size-5 fill-indigo-300 stroke-indigo-200" />
+      <div className="flex items-center justify-center size-9 rounded-full bg-cyan-500/25 backdrop-blur-md border border-cyan-400/40 text-cyan-200 shadow-[0_0_14px_rgba(6,182,212,0.4)]">
+        <Laptop className="size-4 text-cyan-200" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -73,9 +87,10 @@ const orbitIcons: OrbitIconConfig[] = [
     reverse: true,
   },
   {
+    // Servidor
     component: () => (
-      <div className="flex items-center justify-center size-8 rounded-full bg-cyan-500/20 backdrop-blur-md border border-cyan-400/40 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.4)]">
-        <Compass className="size-4 text-cyan-300" />
+      <div className="flex items-center justify-center size-9 rounded-full bg-amber-500/25 backdrop-blur-md border border-amber-400/40 text-amber-200 shadow-[0_0_15px_rgba(251,191,36,0.45)]">
+        <ServerIcon className="size-4 text-amber-200" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -86,9 +101,10 @@ const orbitIcons: OrbitIconConfig[] = [
     reverse: true,
   },
   {
+    // Wi-Fi / Rede Sem Fio
     component: () => (
-      <div className="flex items-center justify-center size-10 rounded-full bg-purple-600/25 backdrop-blur-md border border-purple-400/50 text-purple-200 shadow-[0_0_18px_rgba(168,85,247,0.5)]">
-        <Star className="size-5 fill-purple-200 stroke-purple-300" />
+      <div className="flex items-center justify-center size-10 rounded-full bg-emerald-500/25 backdrop-blur-md border border-emerald-400/40 text-emerald-200 shadow-[0_0_16px_rgba(52,211,153,0.4)]">
+        <Wifi className="size-5 text-emerald-200" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -98,9 +114,10 @@ const orbitIcons: OrbitIconConfig[] = [
     reverse: false,
   },
   {
+    // Switch / Topologia de Rede
     component: () => (
-      <div className="flex items-center justify-center size-9 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-400/40 text-emerald-300 shadow-[0_0_14px_rgba(52,211,153,0.4)]">
-        <ShieldCheck className="size-5 text-emerald-300" />
+      <div className="flex items-center justify-center size-10 rounded-full bg-indigo-500/25 backdrop-blur-md border border-indigo-400/40 text-indigo-200 shadow-[0_0_16px_rgba(99,102,241,0.4)]">
+        <Network className="size-5 text-indigo-200" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -111,9 +128,10 @@ const orbitIcons: OrbitIconConfig[] = [
     reverse: false,
   },
   {
+    // Armazenamento / Storage / HD
     component: () => (
       <div className="flex items-center justify-center size-10 rounded-full bg-violet-600/25 backdrop-blur-md border border-violet-400/40 text-violet-200 shadow-[0_0_16px_rgba(139,92,246,0.4)]">
-        <Orbit className="size-5 text-violet-200" />
+        <HardDrive className="size-5 text-violet-200" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -123,9 +141,10 @@ const orbitIcons: OrbitIconConfig[] = [
     reverse: true,
   },
   {
+    // Segurança / Antivírus / RMM
     component: () => (
-      <div className="flex items-center justify-center size-9 rounded-full bg-amber-400/20 backdrop-blur-md border border-amber-300/40 text-amber-200 shadow-[0_0_15px_rgba(251,191,36,0.4)]">
-        <Sparkles className="size-5 fill-amber-200 stroke-amber-300" />
+      <div className="flex items-center justify-center size-10 rounded-full bg-teal-500/25 backdrop-blur-md border border-teal-400/40 text-teal-200 shadow-[0_0_16px_rgba(20,184,166,0.4)]">
+        <ShieldCheck className="size-5 text-teal-200" />
       </div>
     ),
     className: 'border-none bg-transparent',
