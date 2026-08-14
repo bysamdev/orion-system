@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2, Zap, Sparkles, MessageSquare } from 'lucide-react';
+import { CheckCircle2, Zap, Sparkles, MessageSquare, CheckSquare } from 'lucide-react';
 import { useCannedResponses } from '@/hooks/useCannedResponses';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -17,8 +18,9 @@ import {
 interface ResolutionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (notes: string, sendSurvey: boolean) => void;
+  onConfirm: (notes: string, sendSurvey: boolean, completedChecklist: string[]) => void;
   isPending?: boolean;
+  checklist?: string[];
 }
 
 const DEFAULT_RESOLVED_TEXT = 'Seu chamado foi resolvido! Qualquer dúvida, estamos à disposição.';
@@ -28,9 +30,11 @@ export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
   onOpenChange,
   onConfirm,
   isPending = false,
+  checklist = [],
 }) => {
   const [notes, setNotes] = useState('');
   const [sendSurvey, setSendSurvey] = useState(true);
+  const [selectedChecklist, setSelectedChecklist] = useState<string[]>([]);
   const { data: cannedResponses = [] } = useCannedResponses();
 
   // Encontra a resposta pronta específica de chamado resolvido, se existir no banco
@@ -40,20 +44,34 @@ export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
 
   const resolvedTextToApply = resolvedCanned?.content || DEFAULT_RESOLVED_TEXT;
 
+  // Quando o modal abre, pré-marca os itens do checklist para agilizar o atendimento
+  useEffect(() => {
+    if (open) {
+      if (checklist && checklist.length > 0) {
+        setSelectedChecklist(checklist);
+      } else {
+        setSelectedChecklist([]);
+      }
+    }
+  }, [open, checklist]);
+
   const handleApplyQuickText = (text: string) => {
     setNotes(text);
   };
 
   const handleConfirm = () => {
     if (!notes.trim()) return;
-    onConfirm(notes.trim(), sendSurvey);
+    onConfirm(notes.trim(), sendSurvey, selectedChecklist);
     setNotes('');
     setSendSurvey(true);
   };
 
+  const hasChecklist = checklist && checklist.length > 0;
+  const isChecklistComplete = !hasChecklist || selectedChecklist.length === checklist.length;
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-[540px]">
+      <AlertDialogContent className="sm:max-w-[540px] max-h-[90vh] overflow-y-auto">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
@@ -132,12 +150,55 @@ export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
               placeholder="Descreva o que foi feito para resolver o problema..."
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              rows={4}
+              rows={3}
               maxLength={5000}
               className="mt-2"
             />
             <p className="text-xs text-muted-foreground mt-1">{notes.length}/5000 caracteres</p>
           </div>
+
+          {/* Checklist de Resolução (se configurado para a categoria) */}
+          {hasChecklist && (
+            <div className="space-y-2 p-3.5 bg-muted/30 border border-border/50 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <CheckSquare className="w-3.5 h-3.5 text-primary" />
+                  Checklist Obrigatório ({selectedChecklist.length}/{checklist.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedChecklist(selectedChecklist.length === checklist.length ? [] : [...checklist])}
+                  className="text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                >
+                  {selectedChecklist.length === checklist.length ? 'Desmarcar todos' : 'Marcar todos'}
+                </button>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                {checklist.map((item, idx) => {
+                  const isChecked = selectedChecklist.includes(item);
+                  return (
+                    <label 
+                      key={idx} 
+                      className="flex items-center gap-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer select-none"
+                    >
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          setSelectedChecklist(prev =>
+                            checked ? [...prev, item] : prev.filter(i => i !== item)
+                          );
+                        }}
+                      />
+                      <span className={cn("transition-colors", isChecked && "text-foreground font-medium")}>
+                        {item}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center space-x-2 pt-1">
             <Checkbox
@@ -157,7 +218,7 @@ export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
           </AlertDialogCancel>
           <Button
             onClick={handleConfirm}
-            disabled={!notes.trim() || isPending}
+            disabled={!notes.trim() || !isChecklistComplete || isPending}
             className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             <CheckCircle2 className="w-4 h-4" />

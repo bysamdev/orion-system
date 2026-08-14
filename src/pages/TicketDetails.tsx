@@ -539,10 +539,11 @@ const TicketDetails: React.FC = () => {
     }
   };
 
-  const handleResolveConfirm = async (notes: string, _sendSurvey: boolean) => {
+  const handleResolveConfirm = async (notes: string, _sendSurvey: boolean, completedItems: string[] = []) => {
     if (!ticket) return;
 
-    const isChecklistValid = !resolutionChecklist || (resolutionChecklist && resolutionChecklist.items && checklistCompleted.length === resolutionChecklist.items.length);
+    const checklistItems = resolutionChecklist?.items || [];
+    const isChecklistValid = checklistItems.length === 0 || completedItems.length === checklistItems.length;
 
     if (!notes.trim() || !isChecklistValid) {
       toast({
@@ -554,8 +555,8 @@ const TicketDetails: React.FC = () => {
     }
 
     let resolutionContent = `Resolução: ${notes}`;
-    if (resolutionChecklist && resolutionChecklist.items && resolutionChecklist.items.length > 0) {
-      resolutionContent += `\n\nChecklist de Resolução:\n${resolutionChecklist.items.map(item => `- [x] ${item}`).join('\n')}`;
+    if (completedItems.length > 0) {
+      resolutionContent += `\n\nChecklist de Resolução:\n${completedItems.map(item => `- [x] ${item}`).join('\n')}`;
     }
 
     try {
@@ -1139,6 +1140,7 @@ const TicketDetails: React.FC = () => {
         onOpenChange={setResolveDialogOpen}
         onConfirm={handleResolveConfirm}
         isPending={resolveTicket.isPending}
+        checklist={resolutionChecklist?.items || []}
       />
 
       <EscalateDialog
