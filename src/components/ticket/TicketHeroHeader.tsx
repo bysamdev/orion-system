@@ -229,11 +229,6 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
                 <ArrowUpRight className="w-3.5 h-3.5" />
                 Escalar
               </Button>
-
-              <Button variant="outline" size="sm" onClick={onAttach} className="gap-2">
-                <Paperclip className="w-3.5 h-3.5" />
-                Anexar
-              </Button>
             </>
           )}
 
@@ -250,18 +245,6 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
             </Button>
           )}
 
-          {onSummarize && !isResolved && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={onSummarize} 
-              disabled={isSummarizing} 
-              className={cn("gap-2 border-purple-200 text-purple-600", !isSummarizing && "bg-purple-500/10 hover:bg-purple-500/20")}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              {isSummarizing ? 'Resumindo...' : 'Resumir com IA'}
-            </Button>
-          )}
 
           {onMerge && !isResolved && (
             <Button variant="outline" size="sm" onClick={onMerge} className="gap-2">
