@@ -47,8 +47,8 @@ const orbitIcons: OrbitIconConfig[] = [
   {
     // Ticket / Chamado
     component: () => (
-      <div className="flex items-center justify-center size-9 rounded-full bg-purple-600/25 backdrop-blur-md border border-purple-400/50 text-purple-200 shadow-[0_0_16px_rgba(168,85,247,0.5)]">
-        <Ticket className="size-4 text-purple-200" />
+      <div className="flex items-center justify-center size-9 rounded-full bg-purple-100 border border-purple-300 text-purple-700 shadow-[0_2px_10px_rgba(168,85,247,0.3)] dark:bg-purple-600/30 dark:backdrop-blur-md dark:border-purple-400/60 dark:text-purple-200 dark:shadow-[0_0_16px_rgba(168,85,247,0.5)]">
+        <Ticket className="size-4 text-purple-700 dark:text-purple-200 stroke-[2.2]" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -61,8 +61,8 @@ const orbitIcons: OrbitIconConfig[] = [
   {
     // Computador / Desktop
     component: () => (
-      <div className="flex items-center justify-center size-9 rounded-full bg-blue-500/25 backdrop-blur-md border border-blue-400/40 text-blue-200 shadow-[0_0_14px_rgba(59,130,246,0.4)]">
-        <Monitor className="size-4 text-blue-200" />
+      <div className="flex items-center justify-center size-9 rounded-full bg-blue-100 border border-blue-300 text-blue-700 shadow-[0_2px_10px_rgba(59,130,246,0.3)] dark:bg-blue-600/30 dark:backdrop-blur-md dark:border-blue-400/60 dark:text-blue-200 dark:shadow-[0_0_16px_rgba(59,130,246,0.45)]">
+        <Monitor className="size-4 text-blue-700 dark:text-blue-200 stroke-[2.2]" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -75,8 +75,8 @@ const orbitIcons: OrbitIconConfig[] = [
   {
     // Notebook / Laptop
     component: () => (
-      <div className="flex items-center justify-center size-9 rounded-full bg-cyan-500/25 backdrop-blur-md border border-cyan-400/40 text-cyan-200 shadow-[0_0_14px_rgba(6,182,212,0.4)]">
-        <Laptop className="size-4 text-cyan-200" />
+      <div className="flex items-center justify-center size-9 rounded-full bg-cyan-100 border border-cyan-300 text-cyan-800 shadow-[0_2px_10px_rgba(6,182,212,0.3)] dark:bg-cyan-600/30 dark:backdrop-blur-md dark:border-cyan-400/60 dark:text-cyan-200 dark:shadow-[0_0_16px_rgba(6,182,212,0.45)]">
+        <Laptop className="size-4 text-cyan-800 dark:text-cyan-200 stroke-[2.2]" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -89,8 +89,8 @@ const orbitIcons: OrbitIconConfig[] = [
   {
     // Servidor
     component: () => (
-      <div className="flex items-center justify-center size-9 rounded-full bg-amber-500/25 backdrop-blur-md border border-amber-400/40 text-amber-200 shadow-[0_0_15px_rgba(251,191,36,0.45)]">
-        <ServerIcon className="size-4 text-amber-200" />
+      <div className="flex items-center justify-center size-9 rounded-full bg-amber-100 border border-amber-300 text-amber-800 shadow-[0_2px_10px_rgba(245,158,11,0.3)] dark:bg-amber-600/30 dark:backdrop-blur-md dark:border-amber-400/60 dark:text-amber-200 dark:shadow-[0_0_16px_rgba(251,191,36,0.5)]">
+        <ServerIcon className="size-4 text-amber-800 dark:text-amber-200 stroke-[2.2]" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -103,8 +103,8 @@ const orbitIcons: OrbitIconConfig[] = [
   {
     // Wi-Fi / Rede Sem Fio
     component: () => (
-      <div className="flex items-center justify-center size-10 rounded-full bg-emerald-500/25 backdrop-blur-md border border-emerald-400/40 text-emerald-200 shadow-[0_0_16px_rgba(52,211,153,0.4)]">
-        <Wifi className="size-5 text-emerald-200" />
+      <div className="flex items-center justify-center size-10 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 shadow-[0_2px_12px_rgba(16,185,129,0.3)] dark:bg-emerald-600/30 dark:backdrop-blur-md dark:border-emerald-400/60 dark:text-emerald-200 dark:shadow-[0_0_18px_rgba(52,211,153,0.5)]">
+        <Wifi className="size-5 text-emerald-800 dark:text-emerald-200 stroke-[2.2]" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -116,8 +116,8 @@ const orbitIcons: OrbitIconConfig[] = [
   {
     // Switch / Topologia de Rede
     component: () => (
-      <div className="flex items-center justify-center size-10 rounded-full bg-indigo-500/25 backdrop-blur-md border border-indigo-400/40 text-indigo-200 shadow-[0_0_16px_rgba(99,102,241,0.4)]">
-        <Network className="size-5 text-indigo-200" />
+      <div className="flex items-center justify-center size-10 rounded-full bg-indigo-100 border border-indigo-300 text-indigo-800 shadow-[0_2px_12px_rgba(99,102,241,0.3)] dark:bg-indigo-600/30 dark:backdrop-blur-md dark:border-indigo-400/60 dark:text-indigo-200 dark:shadow-[0_0_18px_rgba(99,102,241,0.5)]">
+        <Network className="size-5 text-indigo-800 dark:text-indigo-200 stroke-[2.2]" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -130,8 +130,8 @@ const orbitIcons: OrbitIconConfig[] = [
   {
     // Armazenamento / Storage / HD
     component: () => (
-      <div className="flex items-center justify-center size-10 rounded-full bg-violet-600/25 backdrop-blur-md border border-violet-400/40 text-violet-200 shadow-[0_0_16px_rgba(139,92,246,0.4)]">
-        <HardDrive className="size-5 text-violet-200" />
+      <div className="flex items-center justify-center size-10 rounded-full bg-violet-100 border border-violet-300 text-violet-800 shadow-[0_2px_12px_rgba(139,92,246,0.3)] dark:bg-violet-600/30 dark:backdrop-blur-md dark:border-violet-400/60 dark:text-violet-200 dark:shadow-[0_0_18px_rgba(139,92,246,0.5)]">
+        <HardDrive className="size-5 text-violet-800 dark:text-violet-200 stroke-[2.2]" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -143,8 +143,8 @@ const orbitIcons: OrbitIconConfig[] = [
   {
     // Segurança / Antivírus / RMM
     component: () => (
-      <div className="flex items-center justify-center size-10 rounded-full bg-teal-500/25 backdrop-blur-md border border-teal-400/40 text-teal-200 shadow-[0_0_16px_rgba(20,184,166,0.4)]">
-        <ShieldCheck className="size-5 text-teal-200" />
+      <div className="flex items-center justify-center size-10 rounded-full bg-teal-100 border border-teal-300 text-teal-800 shadow-[0_2px_12px_rgba(20,184,166,0.3)] dark:bg-teal-600/30 dark:backdrop-blur-md dark:border-teal-400/60 dark:text-teal-200 dark:shadow-[0_0_18px_rgba(20,184,166,0.5)]">
+        <ShieldCheck className="size-5 text-teal-800 dark:text-teal-200 stroke-[2.2]" />
       </div>
     ),
     className: 'border-none bg-transparent',
