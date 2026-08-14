@@ -6,9 +6,10 @@ import { useErrorHandler } from '@/lib/useErrorHandler';
 import { fetchWithTimeout } from '@/lib/fetch-client';
 import {
   Ripple,
-  AuthTabs,
   TechOrbitDisplay,
+  AnimatedForm,
   OrbitIconConfig,
+  Field,
 } from '@/components/ui/modern-animated-sign-in';
 import {
   Dialog,
@@ -26,84 +27,108 @@ import { Sparkles, Star, ShieldCheck, Orbit, Compass, Loader2 } from 'lucide-rea
 import orionLogo from '@/assets/orion-logo.png';
 import orionLogoLight from '@/assets/orion-logo-light.png';
 
-// Constelação de Orion orbitando a marca central
+// Ícones e estrelas da Constelação de Orion orbitando a marca central
 const orbitIcons: OrbitIconConfig[] = [
   {
     component: () => (
-      <div className="flex items-center justify-center size-9 rounded-full bg-purple-500/20 backdrop-blur-md border border-purple-400/40 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.5)]">
-        <Star className="size-5 fill-amber-300 stroke-amber-400 animate-pulse" />
+      <div className="flex items-center justify-center size-8 rounded-full bg-amber-500/20 backdrop-blur-md border border-amber-400/40 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.5)]">
+        <Star className="size-4 fill-amber-300 stroke-amber-400 animate-pulse" />
       </div>
     ),
     className: 'border-none bg-transparent',
-    duration: 18,
-    delay: 0,
+    duration: 20,
+    delay: 20,
     radius: 110,
     path: true,
     reverse: false,
   },
   {
     component: () => (
-      <div className="flex items-center justify-center size-8 rounded-full bg-purple-600/20 backdrop-blur-md border border-purple-400/30 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.4)]">
+      <div className="flex items-center justify-center size-8 rounded-full bg-purple-500/20 backdrop-blur-md border border-purple-400/40 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.4)]">
         <Sparkles className="size-4 fill-purple-300 stroke-purple-200" />
       </div>
     ),
     className: 'border-none bg-transparent',
-    duration: 24,
-    delay: 6,
+    duration: 20,
+    delay: 10,
+    radius: 110,
+    path: true,
+    reverse: false,
+  },
+  {
+    component: () => (
+      <div className="flex items-center justify-center size-9 rounded-full bg-indigo-500/20 backdrop-blur-md border border-indigo-400/40 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.4)]">
+        <Star className="size-5 fill-indigo-300 stroke-indigo-200" />
+      </div>
+    ),
+    className: 'border-none bg-transparent',
+    duration: 22,
+    delay: 20,
     radius: 160,
     path: true,
     reverse: true,
   },
   {
     component: () => (
-      <div className="flex items-center justify-center size-10 rounded-full bg-indigo-500/20 backdrop-blur-md border border-indigo-400/40 text-indigo-300 shadow-[0_0_18px_rgba(99,102,241,0.4)]">
-        <Star className="size-5 fill-indigo-300 stroke-indigo-200" />
+      <div className="flex items-center justify-center size-8 rounded-full bg-cyan-500/20 backdrop-blur-md border border-cyan-400/40 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.4)]">
+        <Compass className="size-4 text-cyan-300" />
       </div>
     ),
     className: 'border-none bg-transparent',
-    duration: 30,
-    delay: 12,
-    radius: 220,
-    path: true,
-    reverse: false,
-  },
-  {
-    component: () => (
-      <div className="flex items-center justify-center size-8 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-400/30 text-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.3)]">
-        <ShieldCheck className="size-4" />
-      </div>
-    ),
-    className: 'border-none bg-transparent',
-    duration: 26,
-    delay: 18,
-    radius: 270,
+    duration: 22,
+    delay: 10,
+    radius: 160,
     path: true,
     reverse: true,
   },
   {
     component: () => (
-      <div className="flex items-center justify-center size-9 rounded-full bg-violet-600/25 backdrop-blur-md border border-violet-400/40 text-violet-200 shadow-[0_0_15px_rgba(139,92,246,0.4)]">
-        <Orbit className="size-5" />
+      <div className="flex items-center justify-center size-10 rounded-full bg-purple-600/25 backdrop-blur-md border border-purple-400/50 text-purple-200 shadow-[0_0_18px_rgba(168,85,247,0.5)]">
+        <Star className="size-5 fill-purple-200 stroke-purple-300" />
       </div>
     ),
     className: 'border-none bg-transparent',
-    duration: 35,
-    delay: 8,
-    radius: 330,
+    radius: 220,
+    duration: 24,
     path: true,
     reverse: false,
   },
   {
     component: () => (
-      <div className="flex items-center justify-center size-8 rounded-full bg-purple-500/20 backdrop-blur-md border border-purple-400/30 text-amber-200 shadow-[0_0_10px_rgba(251,191,36,0.3)]">
-        <Compass className="size-4" />
+      <div className="flex items-center justify-center size-9 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-400/40 text-emerald-300 shadow-[0_0_14px_rgba(52,211,153,0.4)]">
+        <ShieldCheck className="size-5 text-emerald-300" />
       </div>
     ),
     className: 'border-none bg-transparent',
-    duration: 22,
-    delay: 15,
-    radius: 190,
-    path: false,
+    radius: 220,
+    duration: 24,
+    delay: 20,
+    path: true,
+    reverse: false,
+  },
+  {
+    component: () => (
+      <div className="flex items-center justify-center size-10 rounded-full bg-violet-600/25 backdrop-blur-md border border-violet-400/40 text-violet-200 shadow-[0_0_16px_rgba(139,92,246,0.4)]">
+        <Orbit className="size-5 text-violet-200" />
+      </div>
+    ),
+    className: 'border-none bg-transparent',
+    radius: 280,
+    duration: 28,
+    path: true,
+    reverse: true,
+  },
+  {
+    component: () => (
+      <div className="flex items-center justify-center size-9 rounded-full bg-amber-400/20 backdrop-blur-md border border-amber-300/40 text-amber-200 shadow-[0_0_15px_rgba(251,191,36,0.4)]">
+        <Sparkles className="size-5 fill-amber-200 stroke-amber-300" />
+      </div>
+    ),
+    className: 'border-none bg-transparent',
+    radius: 280,
+    duration: 28,
+    delay: 40,
+    path: true,
     reverse: true,
   },
 ];
@@ -119,7 +144,7 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Modal de Esqueci a Senha
+  // Modal de Recuperação de Senha
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isResetting, setIsResetting] = useState(false);
@@ -153,7 +178,7 @@ const Auth = () => {
     detectAgent();
   }, [toast]);
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!email || !password) {
       toast({ title: 'Atenção', description: 'Preencha o e-mail e a senha.', variant: 'destructive' });
@@ -206,62 +231,38 @@ const Auth = () => {
     }
   };
 
-  const formFields = {
-    header: 'Orion System',
-    subHeader: 'Gerenciamento de TI, Ativos & Helpdesk Inteligente',
-    fields: [
-      {
-        label: 'E-mail Corporativo',
-        name: 'login-email-unique',
-        required: true,
-        type: 'email' as const,
-        placeholder: 'seu.email@empresa.com',
-        value: email,
-        onChange: (e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value),
-      },
-      {
-        label: 'Senha de Acesso',
-        name: 'login-password-field',
-        required: true,
-        type: 'password' as const,
-        placeholder: '••••••••',
-        value: password,
-        onChange: (e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value),
-      },
-    ],
-    submitButton: isSubmitting ? 'Acessando...' : 'Entrar no Sistema',
-    isLoading: isSubmitting,
-    textVariantButton: 'Esqueceu a senha?',
-    extraHeaderContent: (
-      <div className="flex items-center gap-2 mb-2 lg:hidden">
-        <img
-          src={orionLogo}
-          alt="Orion System Logo"
-          className="h-10 w-auto dark:hidden"
-        />
-        <img
-          src={orionLogoLight}
-          alt="Orion System Logo"
-          className="h-10 w-auto hidden dark:block"
-        />
-        <span className="font-semibold text-lg text-purple-950 dark:text-purple-100">
-          Orion System
-        </span>
-      </div>
-    ),
-  };
+  const fields: Field[] = [
+    {
+      label: 'E-mail',
+      name: 'login-email-unique',
+      required: true,
+      type: 'email',
+      placeholder: 'seu@email.com',
+      value: email,
+      onChange: (e) => setEmail(e.target.value),
+    },
+    {
+      label: 'Senha',
+      name: 'login-password-field',
+      required: true,
+      type: 'password',
+      placeholder: '••••••••',
+      value: password,
+      onChange: (e) => setPassword(e.target.value),
+    },
+  ];
 
   return (
-    <main className="min-h-screen w-full bg-background flex max-lg:justify-center overflow-hidden">
-      {/* Lado Esquerdo: Logo Central do Orion com Estrelas Orbitando & Ripple */}
-      <section className="relative hidden lg:flex flex-col items-center justify-center w-1/2 bg-gradient-to-br from-purple-950/15 via-background to-purple-900/10 dark:from-purple-950/40 dark:via-background dark:to-purple-900/20 border-r border-border/50">
-        <Ripple mainCircleSize={120} mainCircleOpacity={0.28} numCircles={9} />
-
+    <section className="flex max-lg:justify-center min-h-screen w-full bg-background overflow-hidden">
+      {/* Lado Esquerdo (50% Desktop): Logo do Orion + Estrelas Orbitando + Ripple */}
+      <span className="flex flex-col justify-center items-center w-1/2 max-lg:hidden relative overflow-hidden bg-gradient-to-br from-purple-950/10 via-background to-purple-900/10 border-r border-border/40">
+        <Ripple mainCircleSize={120} />
+        
         <TechOrbitDisplay
           iconsArray={orbitIcons}
           text="Bem Vindo(a)"
           centerElement={
-            <div className="relative group flex items-center justify-center p-6 rounded-3xl bg-background/60 dark:bg-zinc-950/60 backdrop-blur-xl border border-purple-500/20 shadow-[0_0_35px_rgba(168,85,247,0.15)] transition-transform duration-500 hover:scale-105">
+            <div className="relative group flex items-center justify-center p-6 rounded-3xl bg-background/80 dark:bg-zinc-950/80 backdrop-blur-xl border border-purple-500/20 shadow-[0_0_35px_rgba(168,85,247,0.15)] transition-transform duration-500 hover:scale-105">
               <img
                 src={orionLogo}
                 alt="Orion System Logo"
@@ -275,25 +276,47 @@ const Auth = () => {
             </div>
           }
         />
-      </section>
+      </span>
 
-      {/* Lado Direito: Formulário com Efeitos de Glow e Validação */}
-      <section className="w-full lg:w-1/2 min-h-screen flex flex-col justify-center items-center px-6 sm:px-12 relative z-10">
-        <AuthTabs
-          formFields={formFields}
+      {/* Lado Direito (50% Desktop, 100% Mobile): Formulário Animado */}
+      <span className="w-1/2 min-h-screen h-screen flex flex-col justify-center items-center max-lg:w-full max-lg:px-[10%] px-6 relative z-10">
+        <AnimatedForm
+          header="Orion System"
+          subHeader="Sistema de Gerenciamento de Chamados & TI"
+          fields={fields}
+          submitButton={isSubmitting ? "Acessando..." : "Entrar"}
+          textVariantButton="Esqueceu a senha?"
+          isLoading={isSubmitting}
+          onSubmit={handleSignIn}
           goTo={(e) => {
             e.preventDefault();
             setResetEmail(email);
             setForgotPasswordOpen(true);
           }}
-          handleSubmit={handleSignIn}
+          extraHeaderContent={
+            <div className="flex items-center gap-2 mb-2 lg:hidden">
+              <img
+                src={orionLogo}
+                alt="Orion System Logo"
+                className="h-10 w-auto dark:hidden"
+              />
+              <img
+                src={orionLogoLight}
+                alt="Orion System Logo"
+                className="h-10 w-auto hidden dark:block"
+              />
+              <span className="font-semibold text-lg text-purple-950 dark:text-purple-100">
+                Orion System
+              </span>
+            </div>
+          }
         />
 
-        {/* Informações de Rodapé */}
+        {/* Rodapé */}
         <footer className="absolute bottom-4 text-center text-xs text-muted-foreground">
           &copy; {new Date().getFullYear()} Orion System. Todos os direitos reservados.
         </footer>
-      </section>
+      </span>
 
       {/* Modal de Recuperação de Senha */}
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
@@ -343,7 +366,7 @@ const Auth = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </main>
+    </section>
   );
 };
 
