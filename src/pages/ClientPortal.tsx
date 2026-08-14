@@ -10,7 +10,7 @@ import {
   ChevronRight, MessageSquare, LifeBuoy, 
   ExternalLink, ArrowRight, Loader2
 } from 'lucide-react';
-import { useUserProfile } from '@/hooks/useUserRole';
+import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useMeusTickets } from '@/hooks/useMyTickets';
@@ -30,6 +30,8 @@ const ClientPortal = () => {
   const navigate = useNavigate();
   // Buscamos o perfil detalhado para saudar o usuário pelo nome.
   const { data: profile, isLoading: profileLoading } = useUserProfile();
+  const { data: role } = useUserRole();
+  const isStaff = role === 'technician' || role === 'admin' || role === 'developer';
   const [search, setSearch] = useState('');
 
   // Hook centralizado para buscar os 5 chamados recentes do usuário.
@@ -107,45 +109,47 @@ const ClientPortal = () => {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <div className={cn("grid gap-10", isStaff ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1")}>
           
-          {/* Listagem de Atividade Recente: Facilita o retorno a chamados em aberto */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-black tracking-tight">Atividade Recente</h2>
-              <Button variant="ghost" size="sm" className="font-bold gap-2 text-primary" onClick={() => navigate('/historico')}>
-                Ver todos <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              {recentTickets?.map((ticket) => (
-                <Card key={ticket.id} className="border-border/40 bg-card/30 backdrop-blur-sm hover:bg-card/50 transition-colors cursor-pointer" onClick={() => navigate(`/ticket/${ticket.id}`)}>
-                  <CardContent className="p-5 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "p-2 rounded-xl",
-                        ticket.status === 'open' ? "bg-primary/10 text-primary" : "bg-success/10 text-success"
-                      )}>
-                        <Ticket className="w-5 h-5" />
+          {/* Listagem de Atividade Recente: Visível somente para técnico ou superior */}
+          {isStaff && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-black tracking-tight">Atividade Recente</h2>
+                <Button variant="ghost" size="sm" className="font-bold gap-2 text-primary" onClick={() => navigate('/historico')}>
+                  Ver todos <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                {recentTickets?.map((ticket) => (
+                  <Card key={ticket.id} className="border-border/40 bg-card/30 backdrop-blur-sm hover:bg-card/50 transition-colors cursor-pointer" onClick={() => navigate(`/ticket/${ticket.id}`)}>
+                    <CardContent className="p-5 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "p-2 rounded-xl",
+                          ticket.status === 'open' ? "bg-primary/10 text-primary" : "bg-success/10 text-success"
+                        )}>
+                          <Ticket className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-bold leading-tight">{ticket.title}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">#{ticket.ticket_number} • {statusLabels[ticket.status] || ticket.status}</p>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <p className="font-bold leading-tight">{ticket.title}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">#{ticket.ticket_number} • {statusLabels[ticket.status] || ticket.status}</p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors" />
-                  </CardContent>
-                </Card>
-              ))}
-              {recentTickets?.length === 0 && (
-                <div className="h-40 flex flex-col items-center justify-center border border-dashed border-border/60 rounded-3xl opacity-40">
-                  <LifeBuoy className="w-10 h-10 mb-2" />
-                  <p className="font-bold">Nenhum chamado aberto</p>
-                </div>
-              )}
+                      <ArrowRight className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+                    </CardContent>
+                  </Card>
+                ))}
+                {recentTickets?.length === 0 && (
+                  <div className="h-40 flex flex-col items-center justify-center border border-dashed border-border/60 rounded-3xl opacity-40">
+                    <LifeBuoy className="w-10 h-10 mb-2" />
+                    <p className="font-bold">Nenhum chamado aberto</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Destaques da Central de Ajuda: Promoção de conteúdos de autoatendimento */}
           <div className="space-y-6">
