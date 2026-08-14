@@ -29,7 +29,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { SLABadge } from './SLABadge';
 import { cn } from '@/lib/utils';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
-import { Ticket } from '@/hooks/useTickets';
+import { Ticket, useAssumeTicket } from '@/hooks/useTickets';
 
 // Carregado sob demanda: recharts só entra no bundle quando este
 // widget é de fato renderizado, não no chunk padrão do dashboard.
@@ -165,18 +165,31 @@ export const TechnicianDashboard: React.FC = () => {
   const { data: activeAgentsCount } = useActiveAgentsCount(profile?.company_id);
 
   const { data: teamWorkload, isLoading: teamWorkloadLoading } = useTeamWorkload(profile?.company_id);
+  const assumeTicket = useAssumeTicket();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [kpiFilter, setKpiFilter] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('my-tickets');
+  const [activeTab, setActiveTab] = useState<string>('unassigned');
+  const [initialTabSet, setInitialTabSet] = useState(false);
   const [closedOpen, setClosedOpen] = useState(false);
 
-  // Auto-switch tab if admin/developer and personal queue is empty but active tickets exist
+  // Definir a aba inicial: se o técnico tem chamados próprios em atendimento, inicia em "Meus Chamados";
+  // se não tem nenhum atribuído a si e há chamados na Fila de Espera, inicia em "Fila de Espera" ou "Todos os Chamados".
   React.useEffect(() => {
-    if ((role === 'admin' || role === 'developer') && myTickets.length === 0 && allActiveTickets.length > 0) {
+    if (initialTabSet) return;
+    if (myTicketsLoading || unassignedLoading || allTicketsLoading) return;
+
+    if (myTickets.length > 0) {
+      setActiveTab('my-tickets');
+    } else if (unassigned.length > 0) {
+      setActiveTab('unassigned');
+    } else if (allActiveTickets.length > 0) {
       setActiveTab('all-tickets');
+    } else {
+      setActiveTab('unassigned');
     }
-  }, [role, myTickets.length, allActiveTickets.length]);
+    setInitialTabSet(true);
+  }, [myTicketsLoading, unassignedLoading, allTicketsLoading, myTickets.length, unassigned.length, allActiveTickets.length, initialTabSet]);
   
   // Advanced filters state
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
@@ -188,6 +201,27 @@ export const TechnicianDashboard: React.FC = () => {
   const [slaFilter, setSlaFilter] = useState<string>('all');
 
   useRealtimeTickets();
+
+  const filteredUnassignedTickets = useMemo(() => {
+    let result = [...unassigned];
+    if (kpiFilter === 'sla') result = result.filter(t => t.sla_status === 'attention' || t.sla_status === 'breached');
+
+    if (priorityFilter !== 'all') result = result.filter(t => t.priority === priorityFilter);
+    if (categoryFilter !== 'all') result = result.filter(t => t.category === categoryFilter);
+    if (companyFilter !== 'all') result = result.filter(t => t.company_name?.toLowerCase().includes(companyFilter.toLowerCase()));
+    if (slaFilter !== 'all') result = result.filter(t => t.sla_status === slaFilter);
+
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      result = result.filter(t =>
+        t.title.toLowerCase().includes(lower) ||
+        t.ticket_number.toString().includes(lower) ||
+        t.requester_name.toLowerCase().includes(lower) ||
+        t.company_name?.toLowerCase().includes(lower)
+      );
+    }
+    return result;
+  }, [unassigned, searchTerm, kpiFilter, priorityFilter, categoryFilter, companyFilter, slaFilter]);
 
   const filteredMyTickets = useMemo(() => {
     let result = [...myTickets];
@@ -241,15 +275,26 @@ export const TechnicianDashboard: React.FC = () => {
   }, [allActiveTickets, searchTerm, kpiFilter, priorityFilter, categoryFilter, statusFilter, technicianFilter, companyFilter, slaFilter]);
 
   const handleAssumeTicket = async (ticketId: string) => {
-    if (!profile?.full_name) return;
+    const technicianName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'Técnico';
+    const technicianId = user?.id;
+
+    if (!technicianId) {
+      toast({ 
+        title: 'Erro de Autenticação', 
+        description: 'Usuário não autenticado para assumir o chamado.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     try {
-      const { error } = await supabase.from('tickets').update({ assigned_to: profile.full_name, status: 'in-progress' }).eq('id', ticketId);
-      if (error) throw error;
-      toast({ title: 'Ticket Assumido', description: 'Você agora é o responsável por este chamado.' });
-      queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
-      queryClient.invalidateQueries({ queryKey: ['my-active-tickets'] });
+      await assumeTicket.mutateAsync({
+        id: ticketId,
+        userId: technicianId,
+        userName: technicianName
+      });
     } catch {
-      toast({ title: 'Erro', variant: 'destructive' });
+      // Error handled by mutation onError
     }
   };
 
@@ -426,16 +471,16 @@ export const TechnicianDashboard: React.FC = () => {
             <div className="relative w-full md:max-w-md group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
               <Input
-                              autoComplete="off"
-                              placeholder="Busque por #número, título ou cliente..."
-                              value={searchTerm}
-                              onChange={e => setSearchTerm(e.target.value)}
-                              className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-2xl transition-all"
-                            />
+                autoComplete="off"
+                placeholder="Busque por #número, título ou cliente..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-2xl transition-all"
+              />
               {searchTerm && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-tighter text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                    {filteredMyTickets.length} {filteredMyTickets.length === 1 ? 'resultado' : 'resultados'}
+                    {activeTab === 'unassigned' ? filteredUnassignedTickets.length : activeTab === 'my-tickets' ? filteredMyTickets.length : filteredAllTickets.length} {(activeTab === 'unassigned' ? filteredUnassignedTickets.length : activeTab === 'my-tickets' ? filteredMyTickets.length : filteredAllTickets.length) === 1 ? 'resultado' : 'resultados'}
                   </span>
                 </div>
               )}
@@ -554,17 +599,81 @@ export const TechnicianDashboard: React.FC = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="flex items-center justify-between">
               <TabsList className="bg-muted/10 p-1 rounded-2xl border border-border/40">
-                <TabsTrigger value="my-tickets" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
-                  Meus Chamados ({filteredMyTickets.length})
-                </TabsTrigger>
                 <TabsTrigger value="unassigned" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
                   Fila de Espera ({unassigned.length})
+                </TabsTrigger>
+                <TabsTrigger value="my-tickets" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
+                  Meus Chamados ({filteredMyTickets.length})
                 </TabsTrigger>
                 <TabsTrigger value="all-tickets" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
                   Todos os Chamados ({filteredAllTickets.length})
                 </TabsTrigger>
               </TabsList>
             </div>
+
+            <TabsContent value="unassigned" className="mt-0">
+              <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-muted/5">
+                      <TableRow className="hover:bg-transparent border-b border-border/40">
+                        <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Descrição</TableHead>
+                        <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-12">Prioridade</TableHead>
+                        <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest h-12">Prazo SLA</TableHead>
+                        <TableHead className="w-[150px] h-12 text-right pr-6">Ação</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUnassignedTickets.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-48 text-center text-muted-foreground italic text-xs">
+                            {searchTerm || priorityFilter !== 'all' || categoryFilter !== 'all' || companyFilter !== 'all' || slaFilter !== 'all'
+                              ? 'Nenhum chamado encontrado na fila de espera com os filtros aplicados.'
+                              : 'Fila limpa! Nenhum chamado aguardando atendimento.'}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredUnassignedTickets.map(t => (
+                          <TableRow key={t.id} className="group relative border-b border-border/40 hover:bg-muted/30 transition-all cursor-pointer" onClick={() => navigate(`/ticket/${t.id}`)}>
+                            <TableCell className="py-4 font-mono text-[11px] font-bold text-muted-foreground/60">
+                              #{t.ticket_number}
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <div className="space-y-0.5">
+                                <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
+                                  {t.title}
+                                </p>
+                                <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
+                                  <span className="text-primary/70">{t.requester_name}</span>
+                                  <span>·</span>
+                                  <span className="truncate max-w-[120px]">{t.company_name || 'N/A'}</span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <PriorityBadge priority={t.priority} size="sm" />
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <SLABadge slaStatus={t.sla_status} slaDueDate={t.sla_due_date} createdAt={t.created_at} variant="compact" />
+                            </TableCell>
+                            <TableCell className="py-4 text-right pr-6">
+                              <Button 
+                                size="sm" 
+                                onClick={(e) => { e.stopPropagation(); handleAssumeTicket(t.id); }} 
+                                className="h-8 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider relative z-20 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
+                              >
+                                <HandHelping className="w-3.5 h-3.5" /> Assumir
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="my-tickets" className="mt-0">
               <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
@@ -589,68 +698,6 @@ export const TechnicianDashboard: React.FC = () => {
                         </TableRow>
                       ) : (
                         filteredMyTickets.map(t => <TicketRow key={t.id} ticket={t} />)
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="unassigned" className="mt-0">
-              <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader className="bg-muted/5">
-                      <TableRow className="hover:bg-transparent border-b border-border/40">
-                        <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Descrição</TableHead>
-                        <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-12">Prioridade</TableHead>
-                        <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest h-12">Prazo SLA</TableHead>
-                        <TableHead className="w-[150px] h-12 text-right"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {unassigned.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="h-48 text-center text-muted-foreground italic text-xs">
-                            Fila limpa! Ótimo trabalho.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        unassigned.map(t => (
-                          <TableRow key={t.id} className="group relative border-b border-border/40 hover:bg-muted/30 transition-all cursor-pointer" onClick={() => navigate(`/ticket/${t.id}`)}>
-                            <TableCell className="py-4 font-mono text-[11px] font-bold text-muted-foreground/60">
-                              #{t.ticket_number}
-                            </TableCell>
-                            <TableCell className="py-4">
-                              <div className="space-y-0.5">
-                                <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
-                                  {t.title}
-                                </p>
-                                <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
-                                  <span className="text-primary/70">{t.requester_name}</span>
-                                  <span>·</span>
-                                  <span className="truncate max-w-[120px]">{t.company_name || 'N/A'}</span>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-4">
-                              <PriorityBadge priority={t.priority} size="sm" />
-                            </TableCell>
-                            <TableCell className="py-4 text-center">
-                              <SLABadge slaStatus={t.sla_status} slaDueDate={t.sla_due_date} createdAt={t.created_at} variant="compact" />
-                            </TableCell>
-                            <TableCell className="py-4 text-right">
-                              <Button 
-                                size="sm" 
-                                onClick={(e) => { e.stopPropagation(); handleAssumeTicket(t.id); }} 
-                                className="h-8 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider relative z-20 shadow-lg shadow-primary/20"
-                              >
-                                Assumir <HandHelping className="ml-2 w-3.5 h-3.5" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))
                       )}
                     </TableBody>
                   </Table>
@@ -717,7 +764,7 @@ export const TechnicianDashboard: React.FC = () => {
           </Card>
 
           {/* Recently Closed (Revitalized) */}
-          <section className="space-y-4">
+          <section id="closed-tickets-section" className="space-y-4">
             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 px-2 flex items-center justify-between">
               Fechados Recentemente
               <Clock className="w-3.5 h-3.5" />

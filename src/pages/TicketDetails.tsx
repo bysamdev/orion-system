@@ -17,7 +17,7 @@ import { UnifiedTimeline } from '@/components/ticket/UnifiedTimeline';
 import { ResolutionDialog } from '@/components/ticket/ResolutionDialog';
 import { EscalateDialog } from '@/components/ticket/EscalateDialog';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2, Sparkles, ExternalLink, FileText } from 'lucide-react';
+import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2, Sparkles, ExternalLink, FileText, HandHelping, UserCheck } from 'lucide-react';
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
 import { ImagePasteHandler } from '@/components/ticket/ImagePasteHandler';
@@ -28,7 +28,7 @@ import { useTicketCopilot } from '@/hooks/useTicketCopilot';
 import { TicketSummaryDialog } from '@/components/ticket/TicketSummaryDialog';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useUpdateTicketPriority, useResolveTicket, useEscalateTicket, useAddTicketUpdate } from '@/hooks/useTickets';
+import { useTicket, useTicketUpdates, useUpdateTicketStatus, useUpdateTicketAssignment, useUpdateTicketPriority, useResolveTicket, useEscalateTicket, useAddTicketUpdate, useAssumeTicket } from '@/hooks/useTickets';
 import { useTicketPresence } from '@/hooks/useTicketPresence';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useCannedResponses } from '@/hooks/useCannedResponses';
@@ -146,6 +146,7 @@ const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
 const TicketDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
@@ -204,6 +205,7 @@ const TicketDetails: React.FC = () => {
   const resolveTicket = useResolveTicket();
   const escalateTicket = useEscalateTicket();
   const addUpdate = useAddTicketUpdate();
+  const assumeTicket = useAssumeTicket();
   const { data: timeEntries = [] } = useTicketTimeEntries(validId);
   const { otherViewers } = useTicketPresence(validId);
 
@@ -434,9 +436,24 @@ const TicketDetails: React.FC = () => {
   const canReopenTicket = ticket?.status === 'closed' || ticket?.status === 'resolved';
 
   const statusLabels: Record<string, string> = {
-    'open': 'Aberto', 'in-progress': 'Em Andamento', 'awaiting-customer': 'Aguardando Cliente',
-    'awaiting-third-party': 'Aguardando Terceiro', 'resolved': 'Resolvido', 'closed': 'Fechado',
+    'open': 'Aberto', 'in-progress': 'Em Atendimento', 'awaiting-customer': 'Aguardando Cliente',
+    'awaiting-third-party': 'Aguardando Terceiro', 'resolved': 'Resolvido', 'closed': 'Concluído',
     'reopened': 'Reaberto', 'cancelled': 'Cancelado'
+  };
+
+  const handleAssumeTicket = async () => {
+    if (!ticket || !user) return;
+    const userName = userProfile?.full_name || user.user_metadata?.full_name || 'Técnico';
+    try {
+      await assumeTicket.mutateAsync({
+        id: ticket.id,
+        userId: user.id,
+        userName,
+        last_updated_at: ticket.updated_at,
+      });
+    } catch {
+      // Error handled by mutation onError
+    }
   };
 
   const handleAddUpdate = async () => {
@@ -623,6 +640,8 @@ const TicketDetails: React.FC = () => {
             onEscalate={() => setEscalateDialogOpen(true)}
             onAttach={() => fileInputRef.current?.click()}
             onStatusChange={handleStatusChange}
+            onAssume={handleAssumeTicket}
+            isAssuming={assumeTicket.isPending}
             onMerge={() => setMergeDialogOpen(true)}
             onSummarize={handleSummarize}
             isSummarizing={isSummarizing}
@@ -859,11 +878,11 @@ const TicketDetails: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="open">Aberto</SelectItem>
-                        <SelectItem value="in-progress">Em Andamento</SelectItem>
+                        <SelectItem value="in-progress">Em Atendimento</SelectItem>
                         <SelectItem value="awaiting-customer">Aguardando Cliente</SelectItem>
                         <SelectItem value="awaiting-third-party">Aguardando Terceiro</SelectItem>
                         <SelectItem value="resolved">Resolvido</SelectItem>
-                        <SelectItem value="closed">Fechado</SelectItem>
+                        <SelectItem value="closed">Concluído</SelectItem>
                         <SelectItem value="reopened">Reaberto</SelectItem>
                         <SelectItem value="cancelled">Cancelado</SelectItem>
                       </SelectContent>
@@ -871,9 +890,22 @@ const TicketDetails: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Agente Responsável</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Agente Responsável</label>
+                      {ticket.assigned_to_user_id !== user?.id && (
+                        <button
+                          type="button"
+                          onClick={handleAssumeTicket}
+                          disabled={assumeTicket.isPending}
+                          className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
+                        >
+                          <HandHelping className="w-3 h-3" />
+                          {assumeTicket.isPending ? 'Assumindo...' : 'Assumir chamado'}
+                        </button>
+                      )}
+                    </div>
                     <Select 
-                      value={ticket.assigned_to || ''} 
+                      value={ticket.assigned_to || 'unassigned'} 
                       onValueChange={handleAssignmentChange} 
                       disabled={techniciansLoading}
                     >
@@ -881,6 +913,7 @@ const TicketDetails: React.FC = () => {
                         <SelectValue placeholder={techniciansLoading ? "..." : "Selecione..."} />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="unassigned">Fila Geral (Não atribuído)</SelectItem>
                         {(technicians || []).map(tech => (
                           <SelectItem key={tech.id} value={tech.full_name || ''}>{tech.full_name || 'Sem nome'}</SelectItem>
                         ))}

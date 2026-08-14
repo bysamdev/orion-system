@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
-import { Timer, CheckCircle2, ArrowUpRight, Paperclip, BookOpen, Play, Square, User, Clock, Merge, Sparkles } from 'lucide-react';
+import { Timer, CheckCircle2, ArrowUpRight, Paperclip, BookOpen, Play, Square, User, Clock, Merge, Sparkles, HandHelping, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveTimer, useStartTimer, useStopTimer } from '@/hooks/useTimeEntries';
@@ -18,6 +18,7 @@ interface TicketHeroHeaderProps {
     status: string;
     priority: string;
     assigned_to: string | null;
+    assigned_to_user_id?: string | null;
     sla_status: string | null;
     sla_due_date: string | null;
     created_at?: string;
@@ -29,6 +30,8 @@ interface TicketHeroHeaderProps {
   onEscalate: () => void;
   onAttach: () => void;
   onStatusChange: (status: string) => void;
+  onAssume?: () => void;
+  isAssuming?: boolean;
   onLinkKB?: () => void;
   onMerge?: () => void;
   onSummarize?: () => void;
@@ -43,6 +46,8 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
   onEscalate,
   onAttach,
   onStatusChange,
+  onAssume,
+  isAssuming = false,
   onLinkKB,
   onMerge,
   onSummarize,
@@ -52,6 +57,10 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
   const { data: activeTimer } = useActiveTimer(user?.id);
   const startTimer = useStartTimer();
   const stopTimer = useStopTimer();
+
+  const isAssignedToMe = Boolean(user && ticket.assigned_to_user_id === user.id);
+  const isResolved = ticket.status === 'resolved' || ticket.status === 'closed';
+  const canAssume = canManageTickets && !isResolved && !isAssignedToMe;
 
   // Timer ativo neste ticket?
   const isTimerActiveHere = activeTimer?.ticket_id === ticket.id;
@@ -84,8 +93,6 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
     }
   };
 
-  const isResolved = ticket.status === 'resolved' || ticket.status === 'closed';
-
   const formatTotalTime = (totalMinutes: number) => {
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
@@ -104,11 +111,23 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
           </div>
         </div>
         
-        {/* Adicionado o Responsável no Header conforme solicitado */}
+        {/* Responsável no Header com botão Assumir quando não atribuído ou de outro técnico */}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/40 rounded-lg border border-border/50">
           <User className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">Responsável:</span>
           <span className="text-sm font-bold text-foreground">{ticket.assigned_to || 'Não atribuído'}</span>
+          {canAssume && onAssume && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={onAssume}
+              disabled={isAssuming}
+              className="h-6 px-2.5 text-[10px] font-bold uppercase tracking-wider ml-1 shadow-sm gap-1"
+            >
+              <HandHelping className="w-3 h-3" />
+              {isAssuming ? 'Assumindo...' : 'Assumir'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -118,16 +137,16 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
         <PriorityBadge priority={ticket.priority} />
         <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} />
         
-        {/* Badge de Horas Apontadas conforme solicitado */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/5 border border-primary/20 text-primary cursor-help">
-                <Timer className="w-3 h-3" />
-                <span className="text-sm font-bold">{formatTotalTime(totalTimeMinutes)}</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>Total de tempo apontado neste chamado</TooltipContent>
-          </Tooltip>
+        {/* Badge de Horas Apontadas */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/5 border border-primary/20 text-primary cursor-help">
+              <Timer className="w-3 h-3" />
+              <span className="text-sm font-bold">{formatTotalTime(totalTimeMinutes)}</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>Total de tempo apontado neste chamado</TooltipContent>
+        </Tooltip>
 
         {ticket.company_name && (
           <span className="text-sm text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
@@ -137,56 +156,101 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
       </div>
 
       {/* Linha 3: Quick Actions */}
-      {canManageTickets && !isResolved && (
+      {canManageTickets && (
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
-          <Button
-            variant={isTimerActiveHere ? 'destructive' : 'outline'}
-            size="sm"
-            onClick={handleTimerToggle}
-            disabled={!!isTimerActiveElsewhere || startTimer.isPending || stopTimer.isPending}
-            className="gap-2"
-          >
-            {isTimerActiveHere ? (
-              <>
-                <Square className="w-3.5 h-3.5" />
-                Parar {elapsed}
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5" />
-                Iniciar Timer
-              </>
-            )}
-          </Button>
+          {/* Ação Assumir Chamado destacada */}
+          {canAssume && onAssume && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onAssume}
+              disabled={isAssuming}
+              className="gap-2 shadow-sm font-bold"
+            >
+              <HandHelping className="w-3.5 h-3.5" />
+              {isAssuming ? 'Assumindo Chamado...' : 'Assumir Chamado'}
+            </Button>
+          )}
 
-          <Button variant="default" size="sm" onClick={onResolve} className="gap-2">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Resolver
-          </Button>
+          {!isResolved && (
+            <>
+              <Button
+                variant={isTimerActiveHere ? 'destructive' : 'outline'}
+                size="sm"
+                onClick={handleTimerToggle}
+                disabled={!!isTimerActiveElsewhere || startTimer.isPending || stopTimer.isPending}
+                className="gap-2"
+              >
+                {isTimerActiveHere ? (
+                  <>
+                    <Square className="w-3.5 h-3.5" />
+                    Parar {elapsed}
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5" />
+                    Iniciar Timer
+                  </>
+                )}
+              </Button>
 
-          {/* Quick status change button conforme solicitado */}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => onStatusChange('awaiting-customer')} 
-            className={cn("gap-2", ticket.status === 'awaiting-customer' && "bg-purple-500/10 text-purple-600 border-purple-200")}
-            disabled={ticket.status === 'awaiting-customer'}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            {ticket.status === 'awaiting-customer' ? 'Aguardando Cliente' : 'Aguardar Cliente'}
-          </Button>
+              {/* Ação rápida para Atender (in-progress) se estiver em outro status */}
+              {ticket.status !== 'in-progress' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onStatusChange('in-progress')}
+                  className="gap-2 border-yellow-500/30 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/10"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Atender
+                </Button>
+              )}
 
-          <Button variant="outline" size="sm" onClick={onEscalate} className="gap-2">
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            Escalar
-          </Button>
+              {/* Botão Aguardar Cliente */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => onStatusChange('awaiting-customer')} 
+                className={cn("gap-2", ticket.status === 'awaiting-customer' && "bg-purple-500/10 text-purple-600 border-purple-200")}
+                disabled={ticket.status === 'awaiting-customer'}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                {ticket.status === 'awaiting-customer' ? 'Aguardando Cliente' : 'Aguardar Cliente'}
+              </Button>
 
-          <Button variant="outline" size="sm" onClick={onAttach} className="gap-2">
-            <Paperclip className="w-3.5 h-3.5" />
-            Anexar
-          </Button>
+              {/* Botão Resolver */}
+              <Button variant="default" size="sm" onClick={onResolve} className="gap-2 bg-green-600 hover:bg-green-700 text-white">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Resolver
+              </Button>
 
-          {onSummarize && (
+              <Button variant="outline" size="sm" onClick={onEscalate} className="gap-2">
+                <ArrowUpRight className="w-3.5 h-3.5" />
+                Escalar
+              </Button>
+
+              <Button variant="outline" size="sm" onClick={onAttach} className="gap-2">
+                <Paperclip className="w-3.5 h-3.5" />
+                Anexar
+              </Button>
+            </>
+          )}
+
+          {/* Botão Concluir Chamado para tickets resolvidos */}
+          {ticket.status === 'resolved' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onStatusChange('closed')}
+              className="gap-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold"
+            >
+              <Check className="w-3.5 h-3.5" />
+              Concluir Chamado
+            </Button>
+          )}
+
+          {onSummarize && !isResolved && (
             <Button 
               variant="outline" 
               size="sm" 
@@ -199,14 +263,14 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
             </Button>
           )}
 
-          {onMerge && (
+          {onMerge && !isResolved && (
             <Button variant="outline" size="sm" onClick={onMerge} className="gap-2">
               <Merge className="w-3.5 h-3.5" />
               Mesclar Ticket
             </Button>
           )}
 
-          {onLinkKB && (
+          {onLinkKB && !isResolved && (
             <Button variant="outline" size="sm" onClick={onLinkKB} className="gap-2">
               <BookOpen className="w-3.5 h-3.5" />
               Vincular KB

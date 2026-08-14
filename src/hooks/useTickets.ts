@@ -177,6 +177,28 @@ export const useTicketUpdates = (ticketId: string) => {
   });
 };
 
+export const invalidateTicketQueries = (queryClient: any, ticketId?: string) => {
+  queryClient.invalidateQueries({ queryKey: ['tickets'] });
+  queryClient.invalidateQueries({ queryKey: ['my-active-tickets'] });
+  queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
+  queryClient.invalidateQueries({ queryKey: ['all-active-tickets'] });
+  queryClient.invalidateQueries({ queryKey: ['technician-stats'] });
+  queryClient.invalidateQueries({ queryKey: ['my-recent-closed'] });
+  queryClient.invalidateQueries({ queryKey: ['sla-at-risk-tickets'] });
+  queryClient.invalidateQueries({ queryKey: ['technician-workload'] });
+  queryClient.invalidateQueries({ queryKey: ['team-workload'] });
+  queryClient.invalidateQueries({ queryKey: ['meus-tickets'] });
+  if (ticketId) {
+    queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
+    queryClient.invalidateQueries({ queryKey: ['ticket-updates', ticketId] });
+    queryClient.invalidateQueries({ queryKey: ['ticket-status-history', ticketId] });
+  } else {
+    queryClient.invalidateQueries({ queryKey: ['ticket'] });
+    queryClient.invalidateQueries({ queryKey: ['ticket-updates'] });
+    queryClient.invalidateQueries({ queryKey: ['ticket-status-history'] });
+  }
+};
+
 export interface UpdateTicketStatusParams {
   id: string;
   status: string;
@@ -295,9 +317,7 @@ export const useUpdateTicketStatus = () => {
       return ticketData;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
-      queryClient.invalidateQueries({ queryKey: ['ticket-updates', data.id] });
+      invalidateTicketQueries(queryClient, data.id);
       
       if (data.status === 'in-progress' && data.assigned_to) {
         toast({
@@ -318,8 +338,7 @@ export const useUpdateTicketStatus = () => {
         description: mapDatabaseError(error),
         variant: 'destructive',
       });
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['ticket'] });
+      invalidateTicketQueries(queryClient);
     },
   });
 };
@@ -400,9 +419,7 @@ export const useUpdateTicketAssignment = () => {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
-      queryClient.invalidateQueries({ queryKey: ['ticket-updates', data.id] });
+      invalidateTicketQueries(queryClient, data.id);
       toast({
         title: 'Técnico atribuído',
         description: 'O técnico foi atribuído ao chamado com sucesso.',
@@ -415,9 +432,89 @@ export const useUpdateTicketAssignment = () => {
         description: mapDatabaseError(error),
         variant: 'destructive',
       });
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['ticket'] });
+      invalidateTicketQueries(queryClient);
     },
+  });
+};
+
+export interface AssumeTicketParams {
+  id: string;
+  userId: string;
+  userName: string;
+  last_updated_at?: string | null;
+}
+
+export const useAssumeTicket = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      userId,
+      userName,
+      last_updated_at,
+    }: AssumeTicketParams) => {
+      let query = supabase
+        .from('tickets')
+        .update({
+          assigned_to: userName,
+          assigned_to_user_id: userId,
+          status: 'in-progress'
+        })
+        .eq('id', id);
+
+      if (last_updated_at) {
+        query = query.eq('updated_at', last_updated_at);
+      }
+
+      const { data: ticketData, error: updateError } = await query
+        .select()
+        .single();
+
+      if (updateError) {
+        if (updateError.code === 'PGRST116') {
+          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+        }
+        throw updateError;
+      }
+
+      // Safe timeline update
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: timelineError } = await supabase
+          .from('ticket_updates')
+          .insert([{
+            ticket_id: id,
+            content: `Chamado assumido por ${userName} (Status alterado para: Em Atendimento)`,
+            type: 'assignment',
+            author: '',
+            author_id: user.id,
+            is_internal: false
+          }]);
+
+        if (timelineError) {
+          console.warn('[useAssumeTicket] Falha ao registrar timeline:', timelineError);
+        }
+      }
+
+      return ticketData;
+    },
+    onSuccess: (data) => {
+      invalidateTicketQueries(queryClient, data?.id);
+      toast({
+        title: 'Chamado Assumido',
+        description: `Você assumiu o chamado #${data?.ticket_number || ''} e o status foi alterado para Em Atendimento.`,
+      });
+    },
+    onError: (error: Error) => {
+      logError('useAssumeTicket', error);
+      toast({
+        title: 'Erro ao assumir chamado',
+        description: mapDatabaseError(error),
+        variant: 'destructive',
+      });
+      invalidateTicketQueries(queryClient);
+    }
   });
 };
 
@@ -495,9 +592,7 @@ export const useUpdateTicketPriority = () => {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
-      queryClient.invalidateQueries({ queryKey: ['ticket-updates', data.id] });
+      invalidateTicketQueries(queryClient, data.id);
       toast({
         title: 'Prioridade alterada',
         description: 'A prioridade do chamado foi atualizada com sucesso.',
@@ -510,8 +605,7 @@ export const useUpdateTicketPriority = () => {
         description: mapDatabaseError(error),
         variant: 'destructive',
       });
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['ticket'] });
+      invalidateTicketQueries(queryClient);
     },
   });
 };
@@ -539,7 +633,8 @@ export const useResolveTicket = () => {
         .from('tickets')
         .update({
           status: 'resolved',
-          resolution_notes: notes
+          resolution_notes: notes,
+          resolved_at: new Date().toISOString()
         })
         .eq('id', id);
 
@@ -588,7 +683,7 @@ export const useResolveTicket = () => {
         try {
           await supabase
             .from('tickets')
-            .update({ status: previousStatus, resolution_notes: null })
+            .update({ status: previousStatus, resolution_notes: null, resolved_at: null })
             .eq('id', id);
         } catch (revertErr) {
           console.error('[useResolveTicket] Falha ao reverter resolução:', revertErr);
@@ -599,9 +694,7 @@ export const useResolveTicket = () => {
       return updatedTicket;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
-      queryClient.invalidateQueries({ queryKey: ['ticket-updates', data.id] });
+      invalidateTicketQueries(queryClient, data.id);
       toast({
         title: 'Chamado Resolvido',
         description: 'O chamado foi resolvido com sucesso.',
@@ -614,8 +707,7 @@ export const useResolveTicket = () => {
         description: mapDatabaseError(error),
         variant: 'destructive',
       });
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['ticket'] });
+      invalidateTicketQueries(queryClient);
     },
   });
 };
@@ -740,9 +832,7 @@ export const useEscalateTicket = () => {
     },
     onSuccess: (data, variables) => {
       const ticketId = data?.id || variables.id;
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
-      queryClient.invalidateQueries({ queryKey: ['ticket-updates', ticketId] });
+      invalidateTicketQueries(queryClient, ticketId);
       toast({
         title: 'Chamado Escalado',
         description: 'O chamado foi escalado com sucesso e o histórico registrado.',
@@ -755,8 +845,7 @@ export const useEscalateTicket = () => {
         description: mapDatabaseError(error),
         variant: 'destructive',
       });
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['ticket'] });
+      invalidateTicketQueries(queryClient);
     },
   });
 };
@@ -793,9 +882,7 @@ export const useAddTicketUpdate = () => {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['ticket-updates', data.ticket_id] });
-      queryClient.invalidateQueries({ queryKey: ['ticket', data.ticket_id] });
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      invalidateTicketQueries(queryClient, data.ticket_id);
       toast({
         title: 'Comentário adicionado',
         description: 'Seu comentário foi adicionado com sucesso.',

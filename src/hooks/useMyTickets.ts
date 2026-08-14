@@ -14,14 +14,16 @@ export const useMyActiveTickets = (userId: string | undefined) => {
       if (!userId) return [];
 
       if (import.meta.env.DEV) {
-        return getMockTicketsByStatus(['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party']) as unknown as Promise<Ticket[]>;
+        return getMockTicketsByStatus(['in-progress', 'awaiting-customer', 'awaiting-third-party', 'resolved', 'open', 'reopened']).filter(
+          t => t.assigned_to_user_id === userId || !userId || t.assigned_to_user_id === 'test-user'
+        ) as unknown as Promise<Ticket[]>;
       }
 
       const { data: tickets, error } = await supabase
         .from('tickets')
         .select('*')
         .eq('assigned_to_user_id', userId)
-        .in('status', ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'])
+        .in('status', ['in-progress', 'awaiting-customer', 'awaiting-third-party', 'resolved', 'open', 'reopened'])
         .order('sla_due_date', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
@@ -66,23 +68,24 @@ export const useSLAAtRiskTickets = () => {
 };
 
 /**
- * Hook para buscar tickets não atribuídos (fila geral) - com SLA
+ * Hook para buscar tickets não atribuídos (fila geral / fila de espera) - com SLA
  */
 export const useUnassignedTicketsEnhanced = () => {
   return useQuery({
     queryKey: ['unassigned-tickets-enhanced'],
     queryFn: async () => {
       if (import.meta.env.DEV) {
-        return getMockTicketsByStatus(['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party']).filter(t => !t.assigned_to) as unknown as Promise<Ticket[]>;
+        return getMockTicketsByStatus(['open', 'reopened', 'awaiting-customer', 'awaiting-third-party']).filter(
+          t => !t.assigned_to_user_id && !t.assigned_to
+        ) as unknown as Promise<Ticket[]>;
       }
 
       const { data: tickets, error } = await supabase
         .from('tickets')
         .select('*')
-        .in('status', ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'])
         .is('assigned_to_user_id', null)
-        .order('sla_due_date', { ascending: true, nullsFirst: false })
-        .limit(20);
+        .in('status', ['open', 'reopened', 'awaiting-customer', 'awaiting-third-party'])
+        .order('sla_due_date', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
       return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
@@ -127,14 +130,14 @@ export const useMyRecentClosedTickets = (userId: string | undefined) => {
       if (!userId) return [];
 
       if (import.meta.env.DEV) {
-        return getMockTicketsByStatus(['resolved', 'closed']) as unknown as any[];
+        return getMockTicketsByStatus(['closed', 'cancelled']) as unknown as any[];
       }
 
       const { data, error } = await supabase
         .from('tickets')
         .select('id, ticket_number, title, status, category, assigned_to, updated_at, resolved_at, requester_name')
         .eq('assigned_to_user_id', userId)
-        .in('status', ['resolved', 'closed'])
+        .in('status', ['closed', 'cancelled'])
         .order('updated_at', { ascending: false })
         .limit(5);
 
