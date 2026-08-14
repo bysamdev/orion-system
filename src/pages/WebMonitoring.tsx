@@ -325,7 +325,7 @@ export default function WebMonitoring() {
                         } className={endpoint.status === 'online' ? 'bg-green-500 hover:bg-green-600' : ''}>
                           {endpoint.status.toUpperCase()}
                         </Badge>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteWebEndpoint(endpoint.id)} title="Excluir" disabled={deleteWebEndpointMutation.isPending}>
+                        <Button variant="ghost" size="icon" aria-label="Excluir endpoint" onClick={() => handleDeleteWebEndpoint(endpoint.id)} title="Excluir" disabled={deleteWebEndpointMutation.isPending}>
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
                       </div>

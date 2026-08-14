@@ -263,8 +263,8 @@ export const ResolutionChecklistManagement = () => {
                   </TableCell>
                   <TableCell className="text-right pr-6">
                     <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(checklist)} className="h-8 w-8 hover:text-primary"><Edit2 className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => { if(window.confirm('Excluir este checklist?')) deleteMutation.mutate(checklist.id) }} className="h-8 w-8 hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" aria-label="Editar checklist" onClick={() => handleEdit(checklist)} className="h-8 w-8 hover:text-primary"><Edit2 className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" aria-label="Excluir checklist" onClick={() => { if(window.confirm('Excluir este checklist?')) deleteMutation.mutate(checklist.id) }} className="h-8 w-8 hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>

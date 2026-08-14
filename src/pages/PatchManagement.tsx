@@ -137,7 +137,7 @@ const PatchManagement: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-bold text-sm">Log de Implantações</h2>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => qc.invalidateQueries({ queryKey: ['package-deployments'] })}>
+              <Button variant="ghost" size="icon" aria-label="Atualizar implantações" className="h-7 w-7" onClick={() => qc.invalidateQueries({ queryKey: ['package-deployments'] })}>
                 <RefreshCw className="w-3.5 h-3.5" />
               </Button>
             </div>

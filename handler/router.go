@@ -108,6 +108,7 @@ func buildRouter() http.Handler {
 	r.Use(middleware.ClientIPFromXFFTrustedProxies(proxiesConfiaveis()))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(maxBodySizeMiddleware)
 	r.Use(corsMiddleware)
 
 	// ── Rotas com mecanismo de autenticação PRÓPRIO ───────────────────────────
@@ -368,3 +369,14 @@ func cronMarkOffline(w http.ResponseWriter, r *http.Request) {
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"marked_offline": n})
 }
+
+// maxBodySizeMiddleware limits incoming request body to prevent memory exhaustion DoS (10MB max).
+func maxBodySizeMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil {
+			r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+

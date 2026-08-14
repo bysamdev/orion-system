@@ -466,7 +466,7 @@ export default function Settings() {
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
+                            <Button variant="outline" size="icon" aria-label="Copiar URL do webhook" onClick={handleCopyWebhook}>
                               {copiedWebhook ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                             </Button>
                           </TooltipTrigger>

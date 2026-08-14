@@ -149,11 +149,11 @@ export const RulesTab: React.FC<Props> = ({ companyId }) => {
                         onCheckedChange={v => toggleMutation.mutate({ id: rule.id, active: v })}
                         className="scale-90"
                       />
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => openEdit(rule)}>
-                        <Edit2 className="w-3.5 h-3.5" />
+                      <Button variant="ghost" size="icon" aria-label="Editar regra de automação" className="h-8 w-8 hover:text-primary" onClick={() => openEdit(rule)}>
+                        <Edit2 className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(rule.id)}>
-                        <Trash2 className="w-3.5 h-3.5" />
+                      <Button variant="ghost" size="icon" aria-label="Excluir regra de automação" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(rule.id)}>
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>

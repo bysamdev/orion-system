@@ -18,7 +18,7 @@ export const ThemeToggle: React.FC = () => {
 
   if (!mounted) {
     return (
-      <Button variant="ghost" size="icon" className="hover:bg-primary/10 opacity-0">
+      <Button variant="ghost" size="icon" aria-label="Alternar tema" className="hover:bg-primary/10 opacity-0">
         <Sun className="w-5 h-5" />
       </Button>
     );
