@@ -313,7 +313,7 @@ const Auth = () => {
         />
 
         {/* Rodapé */}
-        <footer className="absolute bottom-4 text-center text-xs text-muted-foreground">
+        <footer className="absolute bottom-4 left-0 right-0 text-center text-xs text-muted-foreground/60 pointer-events-none select-none">
           &copy; {new Date().getFullYear()} Orion System. Todos os direitos reservados.
         </footer>
       </span>

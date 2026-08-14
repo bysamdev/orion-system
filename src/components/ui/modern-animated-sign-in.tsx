@@ -166,33 +166,34 @@ type RippleProps = {
 };
 
 const Ripple = memo(function Ripple({
-  mainCircleSize = 210,
-  mainCircleOpacity = 0.24,
-  numCircles = 11,
+  mainCircleSize = 140,
+  mainCircleOpacity = 0.28,
+  numCircles = 8,
   className = '',
 }: RippleProps) {
   return (
-    <section
-      className={`max-w-[50%] absolute inset-0 flex items-center justify-center
-        dark:bg-white/5 bg-neutral-50/50
-        [mask-image:linear-gradient(to_bottom,black,transparent)]
-        dark:[mask-image:linear-gradient(to_bottom,white,transparent)] ${className}`}
+    <div
+      className={cn(
+        'pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden',
+        '[mask-image:radial-gradient(circle_at_center,black_45%,transparent_85%)]',
+        className
+      )}
     >
       {Array.from({ length: numCircles }, (_, i) => {
-        const size = mainCircleSize + i * 70;
+        const size = mainCircleSize + i * 65;
         const opacity = mainCircleOpacity - i * 0.03;
         const animationDelay = `${i * 0.06}s`;
         const borderStyle = i === numCircles - 1 ? 'dashed' : 'solid';
-        const borderOpacity = 5 + i * 5;
+        const borderOpacity = 6 + i * 4;
 
         return (
           <span
             key={i}
-            className='absolute animate-ripple rounded-full bg-foreground/15 border'
+            className='absolute animate-ripple rounded-full border pointer-events-none'
             style={{
               width: `${size}px`,
               height: `${size}px`,
-              opacity: Math.max(opacity, 0.02),
+              opacity: Math.max(opacity, 0.03),
               animationDelay: animationDelay,
               borderStyle: borderStyle,
               borderWidth: '1px',
@@ -204,7 +205,7 @@ const Ripple = memo(function Ripple({
           />
         );
       })}
-    </section>
+    </div>
   );
 });
 
@@ -235,10 +236,11 @@ const OrbitingCircles = memo(function OrbitingCircles({
         <svg
           xmlns='http://www.w3.org/2000/svg'
           version='1.1'
-          className='pointer-events-none absolute inset-0 size-full'
+          className='pointer-events-none absolute inset-0 size-full z-10'
         >
           <circle
-            className='stroke-purple-500/20 stroke-1 dark:stroke-purple-400/20'
+            className='stroke-purple-500/25 stroke-1 dark:stroke-purple-400/25'
+            strokeDasharray="4 4"
             cx='50%'
             cy='50%'
             r={radius}
@@ -246,7 +248,7 @@ const OrbitingCircles = memo(function OrbitingCircles({
           />
         </svg>
       )}
-      <section
+      <div
         style={
           {
             '--duration': duration,
@@ -255,13 +257,15 @@ const OrbitingCircles = memo(function OrbitingCircles({
           } as React.CSSProperties
         }
         className={cn(
-          'absolute flex size-full transform-gpu animate-orbit items-center justify-center rounded-full border border-transparent bg-transparent [animation-delay:calc(var(--delay)*1000ms)]',
+          'absolute z-20 flex size-full transform-gpu animate-orbit items-center justify-center rounded-full pointer-events-none [animation-delay:calc(var(--delay)*1000ms)]',
           { '[animation-direction:reverse]': reverse },
           className
         )}
       >
-        {children}
-      </section>
+        <div className="pointer-events-auto flex items-center justify-center">
+          {children}
+        </div>
+      </div>
     </>
   );
 });
@@ -290,16 +294,16 @@ const TechOrbitDisplay = memo(function TechOrbitDisplay({
   centerElement,
 }: TechnologyOrbitDisplayProps) {
   return (
-    <section className='relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg'>
+    <div className='relative flex h-full w-full flex-col items-center justify-center overflow-hidden'>
       {centerElement ? (
-        <div className="z-10 flex flex-col items-center justify-center gap-3">
+        <div className="z-30 flex flex-col items-center justify-center gap-4">
           {centerElement}
-          <span className='pointer-events-none whitespace-pre-wrap bg-gradient-to-b from-purple-950 via-purple-800 to-purple-400 dark:from-white dark:via-purple-200 dark:to-purple-500/20 bg-clip-text text-center text-5xl font-bold tracking-tight text-transparent'>
+          <span className='pointer-events-none whitespace-pre-wrap bg-gradient-to-b from-purple-950 via-purple-700 to-purple-400 dark:from-white dark:via-purple-200 dark:to-purple-400/30 bg-clip-text text-center text-4xl sm:text-5xl font-bold tracking-tight text-transparent drop-shadow-sm'>
             {text}
           </span>
         </div>
       ) : (
-        <span className='pointer-events-none whitespace-pre-wrap bg-gradient-to-b from-purple-950 via-purple-800 to-purple-400 dark:from-white dark:via-purple-200 dark:to-purple-500/20 bg-clip-text text-center text-6xl font-bold tracking-tight text-transparent'>
+        <span className='pointer-events-none whitespace-pre-wrap bg-gradient-to-b from-purple-950 via-purple-700 to-purple-400 dark:from-white dark:via-purple-200 dark:to-purple-400/30 bg-clip-text text-center text-5xl sm:text-6xl font-bold tracking-tight text-transparent'>
           {text}
         </span>
       )}
@@ -317,7 +321,7 @@ const TechOrbitDisplay = memo(function TechOrbitDisplay({
           {icon.component()}
         </OrbitingCircles>
       ))}
-    </section>
+    </div>
   );
 });
 
