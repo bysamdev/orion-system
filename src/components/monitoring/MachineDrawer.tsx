@@ -22,7 +22,10 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { PerformanceChart } from './PerformanceChart';
 import { InventoryTab } from './InventoryTab';
-import { RemoteTerminal } from './RemoteTerminal';
+
+const RemoteTerminal = React.lazy(() =>
+  import('./RemoteTerminal').then((m) => ({ default: m.RemoteTerminal }))
+);
 
 const severityColor: Record<string, string> = {
   critical: 'bg-red-500/10 text-red-600 border-red-500/30',
@@ -230,13 +233,22 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
 
               {/* ── Terminal tab ── */}
               <TabsContent value="actions" className="mt-0">
-                <RemoteTerminal
-                  machineId={machineId}
-                  hostname={machine?.hostname}
-                  isOnline={isOnline}
-                  userId={profile?.id}
-                  userName={profile?.full_name ?? profile?.email}
-                />
+                <React.Suspense
+                  fallback={
+                    <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+                      <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+                      <span className="text-xs font-medium">Carregando console remoto...</span>
+                    </div>
+                  }
+                >
+                  <RemoteTerminal
+                    machineId={machineId}
+                    hostname={machine?.hostname}
+                    isOnline={isOnline}
+                    userId={profile?.id}
+                    userName={profile?.full_name ?? profile?.email}
+                  />
+                </React.Suspense>
               </TabsContent>
 
             </div>

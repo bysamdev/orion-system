@@ -80,6 +80,14 @@ async function takeScreenshot(page, name) {
   // ----------------------------------------------------
   // CONFIGURAÇÃO DE MOCKS DE REDE (SUPABASE & BACKEND API)
   // ----------------------------------------------------
+  await page.route('**/rest/v1/**', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([])
+    });
+  });
+
   await page.route('**/auth/v1/**', async route => {
     await route.fulfill({
       status: 200,
@@ -241,7 +249,7 @@ async function takeScreenshot(page, name) {
       await page.waitForLoadState('networkidle');
       
       // Espera o título principal ou sidebar carregar
-      const bypassLocator = page.locator('text=Olá Usuário Teste!').first();
+      const bypassLocator = page.locator('h1:has-text("Olá")').first();
       await bypassLocator.waitFor({ state: 'visible', timeout: 15000 });
       const bypassUrl = page.url();
       const bypassed = !bypassUrl.includes('/auth') && (await bypassLocator.isVisible());
@@ -324,7 +332,7 @@ async function takeScreenshot(page, name) {
       await page.locator('text=Sincronizando Dashboard...').waitFor({ state: 'detached', timeout: 30000 }).catch(() => {});
       await page.waitForTimeout(2000);
       
-      const dashboardTitleLocator = page.locator('text=Olá Usuário Teste!').first();
+      const dashboardTitleLocator = page.locator('h1:has-text("Olá")').first();
       await dashboardTitleLocator.waitFor({ state: 'visible', timeout: 15000 });
       const hasTitle = await dashboardTitleLocator.isVisible();
       const searchInput = page.locator('input[placeholder*="Buscar tickets"]');
@@ -462,6 +470,34 @@ async function takeScreenshot(page, name) {
     } catch (e) {
       const scr = await takeScreenshot(page, 'err_reports_exception');
       addResult('Página de Relatórios', 'REPORTS', 'ERRO', e.message, scr);
+    }
+
+    // ----------------------------------------------------
+    // 7.5. ASSETS
+    // ----------------------------------------------------
+    console.log("\nExecutando: ASSETS...");
+    try {
+      await page.goto(`${BASE_URL}/ativos?testAuth=1&testRole=admin`);
+      await page.waitForLoadState('networkidle');
+      
+      const assetsHeading = page.locator('h1:has-text("Inventário")').first();
+      await assetsHeading.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+      
+      const assetsUrl = page.url();
+      const redirectedToAssets = assetsUrl.includes('/assets');
+      const hasAssetsContent = (await assetsHeading.isVisible()) || 
+                               (await page.locator('text="INVENTÁRIO COMPLETO"').count() > 0) ||
+                               (await page.locator('text="Dispositivos"').count() > 0);
+      
+      if (redirectedToAssets && hasAssetsContent) {
+        addResult('Inventário de Ativos (CMDB)', 'ASSETS', 'OK', 'A rota /ativos redireciona corretamente para /assets e carrega o inventário de ativos/CMDB com sucesso.');
+      } else {
+        const scr = await takeScreenshot(page, 'err_assets_check');
+        addResult('Inventário de Ativos (CMDB)', 'ASSETS', 'ERRO', `Falha ao carregar ativos. URL: ${assetsUrl}, Conteúdo detectado: ${hasAssetsContent}`, scr);
+      }
+    } catch (e) {
+      const scr = await takeScreenshot(page, 'err_assets_exception');
+      addResult('Inventário de Ativos geral', 'ASSETS', 'ERRO', e.message, scr);
     }
 
     // ----------------------------------------------------

@@ -36,9 +36,9 @@ serve(async (req) => {
       JSON.stringify({ success: true, message: 'Webhook received' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
-  } catch (error) {
-    console.error('Webhook Error:', error.message)
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: any) {
+    console.error('Webhook Error:', error?.message || error)
+    return new Response(JSON.stringify({ error: error?.message || 'Webhook Error' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     })

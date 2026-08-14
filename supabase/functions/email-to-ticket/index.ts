@@ -92,9 +92,9 @@ serve(async (req) => {
       JSON.stringify({ success: true, ticket_id: ticket.id }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
-  } catch (error) {
-    console.error('Error processing email:', error.message)
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: any) {
+    console.error('Error processing email:', error?.message || error)
+    return new Response(JSON.stringify({ error: error?.message || 'Error processing email' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     })
