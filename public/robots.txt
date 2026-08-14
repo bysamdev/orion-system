@@ -1,14 +1,19 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
-Allow: /
+Allow: /$
+Allow: /auth
+Allow: /favicon.png
+Allow: /manifest.json
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /tickets
+Disallow: /client-portal
+Disallow: /settings
+Disallow: /reports
+Disallow: /monitoring
+Disallow: /automacoes
+Disallow: /patch-management
+Disallow: /knowledge-base
+Disallow: /assets
+Disallow: /avaliacao
+Disallow: /api/
+Disallow: /

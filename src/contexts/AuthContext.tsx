@@ -52,15 +52,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       .then(({ data, error }) => {
         if (!isMounted) return;
 
-        // Modo teste em DEV via parâmetro explícito na URL
-        if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('testAuth')) {
-          const testUserId = new URLSearchParams(window.location.search).get('testUserId') || 'test-user';
-          setSession({ access_token: 'test', user: { id: testUserId, email: 'test@orion.com' } } as any);
-          setUser({ id: testUserId, email: 'test@orion.com' } as any);
-          setLoading(false);
-          return;
-        }
-
         if (error) {
           console.error("Error getting session:", error.message);
           setSession(null);

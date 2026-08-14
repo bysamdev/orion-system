@@ -37,15 +37,17 @@ const WebMonitoring = lazy(() => import("./pages/WebMonitoring"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 30, // 30 minutes - cache agressivo apoiado em Realtime para invalidação
+      gcTime: 1000 * 60 * 60 * 2, // 2 hours
       retry: (failureCount, error: any) => {
         // Abort retry immediately for auth/RLS errors
         if (error?.code === 'PGRST301' || error?.code === '42501' || error?.status === 401 || error?.status === 403) {
           return false;
         }
-        return failureCount < 3;
+        return failureCount < 2;
       },
-      refetchOnWindowFocus: false, // Prevents duplicate fetches on tab switch
+      refetchOnWindowFocus: false, // Invalidação acontece via Supabase Realtime
+      refetchOnReconnect: false,
     },
   },
 });
