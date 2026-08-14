@@ -128,11 +128,23 @@ func primeiroIPv4EMacNaoLoopback(ifaces []net.Interface) (ip, mac string) {
 				continue
 			}
 			if ip4 := addrIP.To4(); ip4 != nil {
-				return ip4.String(), iface.HardwareAddr.String()
+				ip = ip4.String()
+				mac = iface.HardwareAddr.String()
+				if mac != "" {
+					return ip, mac
+				}
 			}
 		}
 	}
-	return "", ""
+	if mac == "" {
+		for _, iface := range ifaces {
+			if iface.Flags&net.FlagLoopback == 0 && len(iface.HardwareAddr) > 0 {
+				mac = iface.HardwareAddr.String()
+				break
+			}
+		}
+	}
+	return ip, mac
 }
 
 // cpuModelUmaVez cacheia o modelo do processador (cpu.Info) — dado estático

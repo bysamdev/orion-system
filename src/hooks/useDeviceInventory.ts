@@ -175,26 +175,28 @@ function resolveStatus(status?: string | null, lastSeen?: string | null): Device
 }
 
 function extractLocalIp(machine: any, hardware: any): string {
-  if (machine?.ip_address) return machine.ip_address;
-  if (machine?.local_ip) return machine.local_ip;
-  if (hardware?.local_ip) return hardware.local_ip;
+  if (machine?.ip_address && machine.ip_address !== '127.0.0.1') return machine.ip_address;
+  if (machine?.local_ip && machine.local_ip !== '127.0.0.1') return machine.local_ip;
+  if (hardware?.local_ip && hardware.local_ip !== '127.0.0.1') return hardware.local_ip;
   if (Array.isArray(hardware?.network_interfaces) && hardware.network_interfaces.length > 0) {
-    const ni = (hardware.network_interfaces || []).find((i: any) => i?.ip || i?.address);
+    const ni = (hardware.network_interfaces || []).find((i: any) => (i?.ip || i?.address) && i?.ip !== '127.0.0.1' && i?.address !== '127.0.0.1');
     if (ni?.ip) return ni.ip;
     if (ni?.address) return ni.address;
   }
-  return '192.168.1.100';
+  return machine?.ip_address || machine?.local_ip || '—';
 }
 
-function extractMacAddress(hardware: any): string {
-  if (hardware?.mac_address) return hardware.mac_address;
-  if (hardware?.mac) return hardware.mac;
+function extractMacAddress(machine: any, hardware: any): string {
+  if (machine?.mac_address && machine.mac_address !== '00:00:00:00:00:00') return machine.mac_address;
+  if (machine?.mac && machine.mac !== '00:00:00:00:00:00') return machine.mac;
+  if (hardware?.mac_address && hardware.mac_address !== '00:00:00:00:00:00') return hardware.mac_address;
+  if (hardware?.mac && hardware.mac !== '00:00:00:00:00:00') return hardware.mac;
   if (Array.isArray(hardware?.network_interfaces) && hardware.network_interfaces.length > 0) {
-    const ni = (hardware.network_interfaces || []).find((i: any) => i?.mac || i?.mac_address);
+    const ni = (hardware.network_interfaces || []).find((i: any) => (i?.mac || i?.mac_address) && i?.mac !== '00:00:00:00:00:00' && i?.mac_address !== '00:00:00:00:00:00');
     if (ni?.mac) return ni.mac;
     if (ni?.mac_address) return ni.mac_address;
   }
-  return '00:00:00:00:00:00';
+  return machine?.mac_address || '—';
 }
 
 export interface UseDeviceInventoryOptions {
@@ -294,7 +296,7 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
 
           const osStr = m.os || hw.os || 'Windows 11 Pro';
           const localIp = extractLocalIp(m, hw);
-          const macAddress = extractMacAddress(hw);
+          const macAddress = extractMacAddress(m, hw);
           const loggedInUser = hw.logged_in_user || hw.user || m.logged_in_user || 'N/A';
           const deviceType = resolveDeviceType(hw.device_type, m.hostname, osStr);
           const lastSeen = m.last_seen || metric?.collected_at || m.created_at || new Date().toISOString();
