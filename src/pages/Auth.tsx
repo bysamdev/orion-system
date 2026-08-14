@@ -31,7 +31,7 @@ import { Sparkles, Star, ShieldCheck, Orbit, Compass, Loader2 } from 'lucide-rea
 import orionLogo from '@/assets/orion-logo.png';
 import orionLogoLight from '@/assets/orion-logo-light.png';
 
-// Constelação de estrelas orbitando suavemente ao redor da logo
+// Constelação de estrelas orbitando suavemente AO REDOR da logo (raios externos para nunca cruzar o centro da logo)
 const orbitIcons: OrbitIconConfig[] = [
   {
     component: () => (
@@ -40,9 +40,9 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    duration: 20,
-    delay: 20,
-    radius: 120,
+    duration: 22,
+    delay: 15,
+    radius: 175,
     path: true,
     reverse: false,
   },
@@ -53,9 +53,9 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    duration: 20,
-    delay: 10,
-    radius: 120,
+    duration: 22,
+    delay: 5,
+    radius: 175,
     path: true,
     reverse: false,
   },
@@ -66,9 +66,9 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    duration: 24,
+    duration: 26,
     delay: 20,
-    radius: 180,
+    radius: 235,
     path: true,
     reverse: true,
   },
@@ -79,9 +79,9 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    duration: 24,
+    duration: 26,
     delay: 10,
-    radius: 180,
+    radius: 235,
     path: true,
     reverse: true,
   },
@@ -92,8 +92,8 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    radius: 250,
-    duration: 28,
+    radius: 295,
+    duration: 30,
     path: true,
     reverse: false,
   },
@@ -104,8 +104,8 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    radius: 250,
-    duration: 28,
+    radius: 295,
+    duration: 30,
     delay: 20,
     path: true,
     reverse: false,
@@ -117,8 +117,8 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    radius: 320,
-    duration: 32,
+    radius: 355,
+    duration: 34,
     path: true,
     reverse: true,
   },
@@ -129,8 +129,8 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    radius: 320,
-    duration: 32,
+    radius: 355,
+    duration: 34,
     delay: 40,
     path: true,
     reverse: true,
@@ -276,9 +276,9 @@ const Auth = () => {
         </div>
       </div>
 
-      {/* Lado Esquerdo (50% Desktop): Logo do Orion Sem Fundo em Órbita Central + Ripple */}
+      {/* Lado Esquerdo (50% Desktop): Logo do Orion Centralizada e Limpa, com Órbitas Externas e Ripple */}
       <span className="flex flex-col justify-center items-center w-1/2 max-lg:hidden relative overflow-hidden">
-        <Ripple mainCircleSize={140} />
+        <Ripple mainCircleSize={200} />
         
         <TechOrbitDisplay
           iconsArray={orbitIcons}
@@ -294,9 +294,9 @@ const Auth = () => {
                 repeat: Infinity,
                 ease: 'easeInOut',
               }}
-              className="relative flex items-center justify-center select-none"
+              className="relative z-30 flex items-center justify-center select-none"
             >
-              {/* Logo sem fundo / container - muda automaticamente com o tema */}
+              {/* Apenas a logo no centro, 100% limpa, sem qualquer ícone ou caixa atrás */}
               <img
                 src={isDark ? orionLogoLight : orionLogo}
                 alt="Orion System Logo"
