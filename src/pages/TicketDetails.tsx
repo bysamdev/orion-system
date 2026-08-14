@@ -966,7 +966,7 @@ const TicketDetails: React.FC = () => {
                   {suggestedArticles.map((article: { id: string; title: string; slug: string; category: string }) => (
                     <button
                       key={article.id}
-                      onClick={() => navigate('/knowledge')} // Idealmente abriria o modal ou artigo específico, mas por agora vai pra lista
+                      onClick={() => navigate('/conhecimento')} // Idealmente abriria o modal ou artigo específico, mas por agora vai pra lista
                       className="w-full text-left p-3 rounded-xl bg-background border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
                     >
                       <div className="flex items-start justify-between gap-2">

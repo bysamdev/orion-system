@@ -1046,7 +1046,7 @@ const Assets = () => {
                         className="group flex items-start gap-4 p-4 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 transition-all cursor-pointer"
                         onClick={() => {
                           setHistoryDevice(null);
-                          navigate(`/tickets/${ticket.id}`);
+                          navigate(`/ticket/${ticket.id}`);
                         }}
                       >
                         <div className="p-2 bg-primary/10 rounded-lg text-primary mt-0.5">

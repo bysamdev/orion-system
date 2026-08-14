@@ -356,7 +356,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
   }
 
   if (role === 'customer') {
-    return <Navigate to="/tutorial" replace />;
+    return <Navigate to="/conhecimento" replace />;
   }
 
   if (role && !['admin', 'developer', 'technician'].includes(role)) {

@@ -28,11 +28,12 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     // Sem isso, o Vite usa o nome padrão "assets" para a pasta de chunks
-    // JS/CSS do build, servida em produção em /assets/*. Esse app tem uma
-    // rota de SPA em /assets (página Ativos) — o mesmo caminho literal do
-    // diretório de build colide com a rota, e um reload em /assets pode
-    // fazer a Vercel entregar o conteúdo bruto de um chunk JS em vez do
-    // fallback para index.html, em vez de renderizar a aplicação.
+    // JS/CSS do build, servida em produção em /assets/*. Esse app teve uma
+    // rota de SPA em /assets (hoje /ativos, página Ativos) — o mesmo caminho
+    // literal do diretório de build colidia com a rota, e um reload em
+    // /assets podia fazer a Vercel entregar o conteúdo bruto de um chunk JS
+    // em vez do fallback para index.html, em vez de renderizar a aplicação.
+    // assetsDir customizado mantido por segurança mesmo após a rota mudar.
     assetsDir: '_assets',
     chunkSizeWarningLimit: 1000,
     rollupOptions: {

@@ -71,7 +71,7 @@ const ClientPortal = () => {
             </CardContent>
           </Card>
 
-          <Card className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" onClick={() => navigate('/knowledge')}>
+          <Card className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" onClick={() => navigate('/conhecimento')}>
             <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
               <div className="p-3 xl:p-4 bg-secondary/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
                 <Book className="w-6 h-6 xl:w-8 xl:h-8 text-secondary-foreground" />
@@ -140,7 +140,7 @@ const ClientPortal = () => {
           <div className="space-y-6">
             <h2 className="text-2xl font-black tracking-tight">Destaques da Ajuda</h2>
             <div className="space-y-4">
-              <Card className="group bg-gradient-to-br from-primary/5 to-transparent border-primary/20 cursor-pointer" onClick={() => navigate('/tutorial')}>
+              <Card className="group bg-gradient-to-br from-primary/5 to-transparent border-primary/20 cursor-pointer" onClick={() => navigate('/conhecimento')}>
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">

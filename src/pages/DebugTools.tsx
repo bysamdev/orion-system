@@ -193,7 +193,7 @@ const DebugTools = () => {
 
   // Rate Limit Test - Try to create 15 tickets rapidly
   const runRateLimitTest = async () => {
-    if (!user) return;
+    if (!user || !profile) return;
     
     setIsRateLimitRunning(true);
     setRateLimitResults([]);
@@ -212,6 +212,8 @@ const DebugTools = () => {
     }
 
     console.log('Starting rate limit test with token:', accessToken.slice(0, 20) + '...');
+
+    const newTestIds: string[] = [];
 
     try {
       for (let i = 1; i <= 15; i++) {
@@ -252,6 +254,28 @@ const DebugTools = () => {
           };
 
           setRateLimitResults(prev => [...prev, result]);
+
+          // To actually trigger the rate limit in the database for subsequent checks, 
+          // we must create a ticket if allowed, just like the real application does.
+          if (result.allowed && !response.error) {
+            const { data: ticket } = await supabase
+              .from('tickets')
+              .insert({
+                title: `[DEBUG-RATELIMIT-TEST] Tentativa ${i}`,
+                description: 'Ticket para forçar o rate limit edge function',
+                category: 'outros',
+                priority: 'low',
+                requester_name: profile.full_name,
+                user_id: user.id,
+                company_id: profile.company_id,
+              })
+              .select()
+              .single();
+
+            if (ticket) {
+              newTestIds.push(ticket.id);
+            }
+          }
         } catch (innerError: any) {
           console.error(`Attempt ${i} exception:`, innerError);
           
@@ -269,6 +293,10 @@ const DebugTools = () => {
 
         // Small delay to see results updating
         await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      if (newTestIds.length > 0) {
+        setTestTicketIds(prev => [...prev, ...newTestIds]);
       }
 
       toast({
