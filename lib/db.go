@@ -126,7 +126,7 @@ func (d *DB) UserScopeByID(ctx context.Context, userID string) (UserScope, error
 	err := d.pool.QueryRow(ctx, `
 SELECT p.company_id::text,
        COALESCE(ur.role::text, 'customer'),
-       COALESCE(c.name = 'Orion System', false)
+       COALESCE(c.name ILIKE '%iBReady%' OR c.name ILIKE '%Orion System%' OR c.name ILIKE '%bysamdev%', false)
 FROM public.profiles p
 LEFT JOIN public.user_roles ur ON ur.user_id = p.id
 LEFT JOIN public.companies  c  ON c.id = p.company_id

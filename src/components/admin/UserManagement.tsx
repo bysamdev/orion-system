@@ -327,10 +327,6 @@ export const UserManagement = () => {
     setIsUpdating(true);
 
     try {
-      // Verificar se a empresa foi alterada
-      const originalUser = users?.find(u => u.id === editFormData.id);
-      const companyChanged = originalUser && originalUser.company_id !== editFormData.company_id;
-
       const { data, error } = await invokeOrionFunction('admin-update-user', {
         user_id: editFormData.id,
         email: editFormData.email.trim(),
@@ -338,7 +334,7 @@ export const UserManagement = () => {
         department: editFormData.department || null,
         role: editFormData.role,
         password: editFormData.password || undefined,
-        company_id: companyChanged ? editFormData.company_id : undefined,
+        company_id: editFormData.company_id || undefined,
         status: editFormData.status,
       });
 
