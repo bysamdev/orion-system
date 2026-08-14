@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTechnicianStats, useTechnicianWorkload, useTeamWorkload } from '@/hooks/useTechnicianStats';
-import { useMyActiveTickets, useSLAAtRiskTickets, useUnassignedTicketsEnhanced, useMyRecentClosedTickets, useActiveAgentsCount } from '@/hooks/useMyTickets';
+import { useMyActiveTickets, useSLAAtRiskTickets, useUnassignedTicketsEnhanced, useAllActiveTickets, useMyRecentClosedTickets, useActiveAgentsCount } from '@/hooks/useMyTickets';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -155,9 +155,10 @@ export const TechnicianDashboard: React.FC = () => {
   const { data: role } = useUserRole();
   const { data: profile } = useUserProfile();
 
-  const { data: stats, isLoading: statsLoading } = useTechnicianStats(user?.id);
-  const { data: workload, isLoading: workloadLoading } = useTechnicianWorkload(user?.id);
+  const { data: stats, isLoading: statsLoading } = useTechnicianStats(user?.id, role);
+  const { data: workload, isLoading: workloadLoading } = useTechnicianWorkload(user?.id, role);
   const { data: myTickets = [], isLoading: myTicketsLoading } = useMyActiveTickets(user?.id);
+  const { data: allActiveTickets = [], isLoading: allTicketsLoading } = useAllActiveTickets();
   const { data: slaTickets = [], isLoading: slaLoading } = useSLAAtRiskTickets();
   const { data: unassigned = [], isLoading: unassignedLoading } = useUnassignedTicketsEnhanced();
   const { data: recentClosed = [], isLoading: closedLoading } = useMyRecentClosedTickets(user?.id);
@@ -169,6 +170,13 @@ export const TechnicianDashboard: React.FC = () => {
   const [kpiFilter, setKpiFilter] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('my-tickets');
   const [closedOpen, setClosedOpen] = useState(false);
+
+  // Auto-switch tab if admin/developer and personal queue is empty but active tickets exist
+  React.useEffect(() => {
+    if ((role === 'admin' || role === 'developer') && myTickets.length === 0 && allActiveTickets.length > 0) {
+      setActiveTab('all-tickets');
+    }
+  }, [role, myTickets.length, allActiveTickets.length]);
   
   // Advanced filters state
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
@@ -205,6 +213,32 @@ export const TechnicianDashboard: React.FC = () => {
     }
     return result;
   }, [myTickets, searchTerm, kpiFilter, priorityFilter, categoryFilter, statusFilter, technicianFilter, companyFilter, slaFilter]);
+
+  const filteredAllTickets = useMemo(() => {
+    let result = [...allActiveTickets];
+    if (kpiFilter === 'in-progress') result = result.filter(t => t.status === 'in-progress');
+    else if (kpiFilter === 'sla') result = result.filter(t => t.sla_status === 'attention' || t.sla_status === 'breached');
+    else if (kpiFilter === 'pending') result = result.filter(t => ['open', 'reopened', 'awaiting-customer'].includes(t.status));
+
+    if (priorityFilter !== 'all') result = result.filter(t => t.priority === priorityFilter);
+    if (categoryFilter !== 'all') result = result.filter(t => t.category === categoryFilter);
+    if (statusFilter !== 'all') result = result.filter(t => t.status === statusFilter);
+    if (technicianFilter !== 'all') result = result.filter(t => t.assigned_to === technicianFilter);
+    if (companyFilter !== 'all') result = result.filter(t => t.company_name?.toLowerCase().includes(companyFilter.toLowerCase()));
+    if (slaFilter !== 'all') result = result.filter(t => t.sla_status === slaFilter);
+
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      result = result.filter(t =>
+        t.title.toLowerCase().includes(lower) ||
+        t.ticket_number.toString().includes(lower) ||
+        t.requester_name.toLowerCase().includes(lower) ||
+        t.company_name?.toLowerCase().includes(lower) ||
+        t.assigned_to?.toLowerCase().includes(lower)
+      );
+    }
+    return result;
+  }, [allActiveTickets, searchTerm, kpiFilter, priorityFilter, categoryFilter, statusFilter, technicianFilter, companyFilter, slaFilter]);
 
   const handleAssumeTicket = async (ticketId: string) => {
     if (!profile?.full_name) return;
@@ -526,6 +560,9 @@ export const TechnicianDashboard: React.FC = () => {
                 <TabsTrigger value="unassigned" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
                   Fila de Espera ({unassigned.length})
                 </TabsTrigger>
+                <TabsTrigger value="all-tickets" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
+                  Todos os Chamados ({filteredAllTickets.length})
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -614,6 +651,36 @@ export const TechnicianDashboard: React.FC = () => {
                             </TableCell>
                           </TableRow>
                         ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="all-tickets" className="mt-0">
+              <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-muted/5">
+                      <TableRow className="hover:bg-transparent border-b border-border/40">
+                        <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Descrição</TableHead>
+                        <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-12">Prioridade</TableHead>
+                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-12 text-center">Status</TableHead>
+                        <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest h-12">Prazo SLA</TableHead>
+                        <TableHead className="w-[120px] h-12"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAllTickets.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-48 text-center text-muted-foreground italic text-xs">
+                            Nenhum chamado ativo encontrado no momento.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredAllTickets.map(t => <TicketRow key={t.id} ticket={t} />)
                       )}
                     </TableBody>
                   </Table>

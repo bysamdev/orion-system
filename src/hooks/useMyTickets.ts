@@ -82,7 +82,32 @@ export const useUnassignedTicketsEnhanced = () => {
         .in('status', ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'])
         .is('assigned_to_user_id', null)
         .order('sla_due_date', { ascending: true, nullsFirst: false })
-        .limit(10);
+        .limit(20);
+
+      if (error) throw error;
+      return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
+    },
+    refetchInterval: 30000,
+    staleTime: 15_000,
+  });
+};
+
+/**
+ * Hook para buscar todos os tickets ativos (visão geral da equipe / admins)
+ */
+export const useAllActiveTickets = () => {
+  return useQuery({
+    queryKey: ['all-active-tickets'],
+    queryFn: async () => {
+      if (import.meta.env.DEV) {
+        return getMockTicketsByStatus(['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party']) as unknown as Promise<Ticket[]>;
+      }
+
+      const { data: tickets, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .in('status', ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'])
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;

@@ -32,10 +32,15 @@ export const useRealtimeTickets = () => {
             
             // Invalidar todas as queries de tickets relacionadas ao dashboard do técnico
             queryClient.invalidateQueries({ queryKey: ['tickets'] });
+            queryClient.invalidateQueries({ queryKey: ['all-active-tickets'] });
             queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
             queryClient.invalidateQueries({ queryKey: ['sla-at-risk-tickets'] });
             queryClient.invalidateQueries({ queryKey: ['my-active-tickets'] });
             queryClient.invalidateQueries({ queryKey: ['my-recent-closed'] });
+            queryClient.invalidateQueries({ queryKey: ['technician-stats'] });
+            queryClient.invalidateQueries({ queryKey: ['technician-workload'] });
+            queryClient.invalidateQueries({ queryKey: ['team-workload'] });
+            queryClient.invalidateQueries({ queryKey: ['meus-tickets'] });
             
             // Se houver um ID específico, invalidar também
             if (payload.new && 'id' in payload.new) {

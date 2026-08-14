@@ -6,41 +6,54 @@ import { calculateSlaStatus } from '@/lib/ticket-helpers';
 /**
  * Hook para buscar estatísticas pessoais do técnico logado
  */
-export const useTechnicianStats = (userId: string | undefined) => {
+export const useTechnicianStats = (userId: string | undefined, role?: string) => {
   return useQuery({
-    queryKey: ['technician-stats', userId],
+    queryKey: ['technician-stats', userId, role],
     queryFn: async () => {
       if (!userId) return null;
 
       const now = new Date();
       const today = startOfDay(now);
+      const isAdminOrDev = role === 'admin' || role === 'developer';
 
-      // 1. Em Atendimento (tickets in-progress atribuídos ao técnico)
-      const { data: inProgressTickets, error: inProgressError } = await supabase
+      // 1. Em Atendimento
+      let inProgressQuery = supabase
         .from('tickets')
         .select('id')
-        .eq('status', 'in-progress')
-        .eq('assigned_to_user_id', userId);
+        .eq('status', 'in-progress');
 
+      if (!isAdminOrDev) {
+        inProgressQuery = inProgressQuery.eq('assigned_to_user_id', userId);
+      }
+
+      const { data: inProgressTickets, error: inProgressError } = await inProgressQuery;
       if (inProgressError) throw inProgressError;
 
-      // 2. Resolvidos Hoje (tickets resolvidos pelo técnico nas últimas 24h)
-      const { data: resolvedToday, error: resolvedError } = await supabase
+      // 2. Resolvidos Hoje
+      let resolvedQuery = supabase
         .from('tickets')
         .select('id')
         .in('status', ['resolved', 'closed'])
-        .eq('assigned_to_user_id', userId)
         .gte('resolved_at', today.toISOString());
 
+      if (!isAdminOrDev) {
+        resolvedQuery = resolvedQuery.eq('assigned_to_user_id', userId);
+      }
+
+      const { data: resolvedToday, error: resolvedError } = await resolvedQuery;
       if (resolvedError) throw resolvedError;
 
       // 3. SLA em Risco e Breached
-      const { data: activeTickets, error: activeError } = await supabase
+      let activeQuery = supabase
         .from('tickets')
         .select('id, sla_due_date, created_at')
-        .eq('assigned_to_user_id', userId)
         .not('status', 'in', '("resolved","closed","cancelled")');
 
+      if (!isAdminOrDev) {
+        activeQuery = activeQuery.eq('assigned_to_user_id', userId);
+      }
+
+      const { data: activeTickets, error: activeError } = await activeQuery;
       if (activeError) throw activeError;
 
       let slaAtRiskCount = 0;
@@ -55,13 +68,17 @@ export const useTechnicianStats = (userId: string | undefined) => {
         }
       });
 
-      // 4. Meus Pendentes (tickets abertos atribuídos ao técnico)
-      const { data: pendingTickets, error: pendingError } = await supabase
+      // 4. Pendentes
+      let pendingQuery = supabase
         .from('tickets')
         .select('id')
-        .eq('assigned_to_user_id', userId)
         .in('status', ['open', 'reopened', 'awaiting-customer', 'awaiting-third-party']);
 
+      if (!isAdminOrDev) {
+        pendingQuery = pendingQuery.eq('assigned_to_user_id', userId);
+      }
+
+      const { data: pendingTickets, error: pendingError } = await pendingQuery;
       if (pendingError) throw pendingError;
 
       return {
@@ -72,24 +89,31 @@ export const useTechnicianStats = (userId: string | undefined) => {
       };
     },
     enabled: !!userId,
-    refetchInterval: 30000, // Atualizar a cada 30 segundos
+    refetchInterval: 30000,
   });
 };
 
 /**
  * Hook para buscar distribuição de tickets do técnico por status
  */
-export const useTechnicianWorkload = (userId: string | undefined) => {
+export const useTechnicianWorkload = (userId: string | undefined, role?: string) => {
   return useQuery({
-    queryKey: ['technician-workload', userId],
+    queryKey: ['technician-workload', userId, role],
     queryFn: async () => {
       if (!userId) return null;
 
-      const { data: tickets, error } = await supabase
+      const isAdminOrDev = role === 'admin' || role === 'developer';
+
+      let query = supabase
         .from('tickets')
         .select('status')
-        .eq('assigned_to_user_id', userId)
         .not('status', 'in', '("resolved","closed","cancelled")');
+
+      if (!isAdminOrDev) {
+        query = query.eq('assigned_to_user_id', userId);
+      }
+
+      const { data: tickets, error } = await query;
 
       if (error) throw error;
 
