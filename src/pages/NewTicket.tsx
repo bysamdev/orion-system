@@ -318,10 +318,8 @@ const NewTicket = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      
-      <main className="flex-1 p-4 md:p-6 lg:p-12 max-w-6xl mx-auto w-full space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="flex items-center justify-between">
+    <div className="max-w-5xl mx-auto w-full space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="hover:bg-primary/5 transition-colors gap-2 text-muted-foreground">
             <ArrowLeft className="w-4 h-4" /> Voltar
           </Button>
@@ -348,8 +346,16 @@ const NewTicket = () => {
           }</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+        <div className={cn(
+          "gap-8 items-start",
+          (suggestions.length > 0 || isSuggestionsLoading)
+            ? "grid grid-cols-1 lg:grid-cols-3"
+            : "max-w-3xl mx-auto w-full"
+        )}>
+          <div className={cn(
+            "space-y-6",
+            (suggestions.length > 0 || isSuggestionsLoading) ? "lg:col-span-2" : "w-full"
+          )}>
             <Card className="border-border/40 shadow-2xl shadow-primary/5 overflow-hidden bg-card/50 backdrop-blur-sm">
               <CardContent className="p-4 md:p-8">
             <Form {...form}>
@@ -730,9 +736,9 @@ const NewTicket = () => {
         </Card>
       </div>
       
-      <div className="lg:col-span-1">
-        {/* Suggestions Panel */}
-        {(suggestions.length > 0 || isSuggestionsLoading) && (
+      {(suggestions.length > 0 || isSuggestionsLoading) && (
+        <div className="lg:col-span-1">
+          {/* Suggestions Panel */}
           <Card className="border-border/40 shadow-2xl shadow-primary/5 overflow-hidden bg-card/50 backdrop-blur-sm sticky top-8 animate-in slide-in-from-right-8 duration-500">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -767,26 +773,30 @@ const NewTicket = () => {
               )}
             </CardContent>
           </Card>
-        )}
-      </div>
+        </div>
+      )}
     </div>
 
-        {/* User Info Footnote */}
-        <div className="flex flex-col md:flex-row items-center justify-center gap-8 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40 text-center md:text-left">
+        {/* Informações do Solicitante */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground/60 text-center pt-2">
           <div className="flex items-center gap-2">
-            <span className="text-primary opacity-40">Requester</span>
-            <span>{userInfo.name || '---'}</span>
+            <span className="text-primary font-semibold">Solicitante:</span>
+            <span className="text-foreground/80">{userInfo.name || userInfo.email || '—'}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-primary opacity-40">Organization</span>
-            <span>{userInfo.company || 'Não vinculado'}</span>
+            <span className="text-primary font-semibold">Empresa:</span>
+            <span className="text-foreground/80">{userInfo.company || 'Não vinculada'}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-primary opacity-40">Auth Level</span>
-            <span>{userRole || 'User'}</span>
+            <span className="text-primary font-semibold">Nível de Acesso:</span>
+            <span className="text-foreground/80">{
+              userRole === 'developer' ? 'Desenvolvedor' :
+              userRole === 'admin' ? 'Gestor' :
+              userRole === 'technician' ? 'Técnico' :
+              'Colaborador'
+            }</span>
           </div>
         </div>
-      </main>
     </div>
   );
 };
