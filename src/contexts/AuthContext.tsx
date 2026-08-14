@@ -28,36 +28,69 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    let isMounted = true;
+
+    // Timeout de segurança absoluto: nunca deixa o app preso em loading caso a rede trave
+    const safetyTimer = setTimeout(() => {
+      if (isMounted && loading) {
+        console.warn('[AuthContext] Safety timeout acionado. Liberando loading do app.');
         setLoading(false);
+      }
+    }, 3000);
+
+    // 1. Escuta mudanças de estado do Supabase Auth
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, currentSession) => {
+        if (!isMounted) return;
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
       }
     );
 
-    // THEN check for existing session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          // ⚠️ Somente em ambiente de desenvolvimento, e só com ?testAuth=1
-          // explícito na URL. NUNCA usar só import.meta.env.DEV como guarda:
-          // o script "build:dev" (vite build --mode development) gera um
-          // bundle de PRODUÇÃO com DEV=true, e sem esse segundo fator
-          // qualquer visitante de um deploy feito com esse script ganharia
-          // sessão fake automaticamente, sem precisar de parâmetro nenhum.
-          if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('testAuth')) {
-            const testUserId = new URLSearchParams(window.location.search).get('testUserId') || 'test-user';
-            setSession({ access_token: 'test', user: { id: testUserId, email: 'test@orion.com' } } as any);
-            setUser({ id: testUserId, email: 'test@orion.com' } as any);
-            setLoading(false);
-            return;
-          }
-          setSession(session);
-          setUser(session?.user ?? null);
-          setLoading(false);
-        });
+    // 2. Recupera sessão inicial com tratamento defensivo de erros
+    supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (!isMounted) return;
 
-    return () => subscription.unsubscribe();
+        // Modo teste em DEV via parâmetro explícito na URL
+        if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('testAuth')) {
+          const testUserId = new URLSearchParams(window.location.search).get('testUserId') || 'test-user';
+          setSession({ access_token: 'test', user: { id: testUserId, email: 'test@orion.com' } } as any);
+          setUser({ id: testUserId, email: 'test@orion.com' } as any);
+          setLoading(false);
+          return;
+        }
+
+        if (error) {
+          console.error("Error getting session:", error.message);
+          setSession(null);
+          setUser(null);
+          return;
+        }
+
+        const currentSession = data?.session ?? null;
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+      })
+      .catch((err) => {
+        console.error('[AuthContext] Falha ao obter sessão do Supabase:', err);
+        if (isMounted) {
+          setSession(null);
+          setUser(null);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          clearTimeout(safetyTimer);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const value = useMemo(() => ({ user, session, loading }), [user, session, loading]);

@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from '@/lib/useErrorHandler';
 import { fetchWithTimeout } from '@/lib/fetch-client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/theme-provider';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
@@ -138,11 +139,19 @@ const orbitIcons: OrbitIconConfig[] = [
 
 const Auth = () => {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const { handleError } = useErrorHandler();
   const { resolvedTheme } = useTheme();
   const [machineToken, setMachineToken] = useState<string | null>(null);
   const [isDetectingAgent, setIsDetectingAgent] = useState(false);
+
+  // Se o usuário já estiver logado, redireciona para o painel principal
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, authLoading, navigate]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
