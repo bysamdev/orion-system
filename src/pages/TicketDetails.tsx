@@ -256,16 +256,15 @@ const TicketDetails: React.FC = () => {
     enabled: !!ticket?.contract_id
   });
 
-  // Fetch contract details for company
-  const { data: companyContract } = useQuery({
-    queryKey: ['ticket-company-contract', ticket?.company_id],
+  // Fetch company details to check has_contract
+  const { data: ticketCompany } = useQuery({
+    queryKey: ['ticket-company-data', ticket?.company_id],
     queryFn: async () => {
       if (!ticket?.company_id) return null;
       const { data, error } = await supabase
-        .from('contracts')
-        .select('*')
-        .eq('company_id', ticket.company_id)
-        .eq('is_active', true)
+        .from('companies')
+        .select('id, name, has_contract')
+        .eq('id', ticket.company_id)
         .maybeSingle();
       if (error) return null;
       return data;
@@ -273,7 +272,8 @@ const TicketDetails: React.FC = () => {
     enabled: !!ticket?.company_id
   });
 
-  const isSporadic = !ticket?.contract_id && !companyContract;
+  // Toda empresa é um cliente. Se has_contract for false, é esporádico. Caso contrário (true/default), possui contrato.
+  const isSporadic = ticketCompany ? ticketCompany.has_contract === false : false;
 
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [escalateDialogOpen, setEscalateDialogOpen] = useState(false);

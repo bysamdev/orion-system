@@ -9,10 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Trash2, Pencil, Building2, Zap } from 'lucide-react';
+import { Plus, Loader2, Trash2, Pencil, Building2, Zap, CheckCircle2, Timer } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { companyNameSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
-import { formatDate } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,9 +31,10 @@ interface CompanyForm {
   phone: string;
   address: string;
   domain: string;
+  has_contract: boolean;
 }
 
-const emptyForm: CompanyForm = { name: '', cnpj: '', phone: '', address: '', domain: '' };
+const emptyForm: CompanyForm = { name: '', cnpj: '', phone: '', address: '', domain: '', has_contract: true };
 
 export const CompanyManagement = () => {
   const { toast } = useToast();
@@ -109,6 +111,26 @@ export const CompanyManagement = () => {
     }
   });
 
+  const toggleContractMutation = useMutation({
+    mutationFn: async ({ id, has_contract }: { id: string; has_contract: boolean }) => {
+      const { error } = await supabase.from('companies').update({ has_contract }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      queryClient.invalidateQueries({ queryKey: ['company-options'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-company-data'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket'] });
+      toast({
+        title: 'Modalidade atualizada',
+        description: variables.has_contract ? 'Empresa definida como "Com Contrato".' : 'Empresa definida como "Esporádico (Sem Contrato)".',
+      });
+    },
+    onError: (error) => {
+      toast({ title: 'Erro ao atualizar', description: mapDatabaseError(error), variant: 'destructive' });
+    }
+  });
+
   const saveMutation = useMutation({
     mutationFn: async (data: CompanyForm & { id?: string }) => {
       const validationResult = companyNameSchema.safeParse(data.name);
@@ -121,6 +143,8 @@ export const CompanyManagement = () => {
         cnpj: data.cnpj.trim() || null,
         phone: data.phone.trim() || null,
         address: data.address.trim() || null,
+        domain: data.domain.trim() || null,
+        has_contract: data.has_contract ?? true,
       };
 
       if (data.id) {
@@ -133,6 +157,9 @@ export const CompanyManagement = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
+      queryClient.invalidateQueries({ queryKey: ['company-options'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-company-data'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket'] });
       setShowDialog(false);
       setFormData(emptyForm);
       setEditingId(null);
@@ -166,13 +193,14 @@ export const CompanyManagement = () => {
     setShowDialog(true);
   };
 
-  const openEdit = (company: { id: string; name: string | null; cnpj: string | null; phone: string | null; address: string | null; domain?: string | null }) => {
+  const openEdit = (company: { id: string; name: string | null; cnpj: string | null; phone: string | null; address: string | null; domain?: string | null; has_contract?: boolean | null }) => {
     setFormData({
       name: company.name || '',
       cnpj: company.cnpj || '',
       phone: company.phone || '',
       address: company.address || '',
       domain: company.domain || '',
+      has_contract: company.has_contract !== false,
     });
     setEditingId(company.id);
     setShowDialog(true);
@@ -195,7 +223,7 @@ export const CompanyManagement = () => {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Gerenciar Empresas</CardTitle>
-              <CardDescription>Adicione e gerencie as empresas que utilizam o sistema</CardDescription>
+              <CardDescription>Adicione e gerencie os clientes e empresas que utilizam o sistema</CardDescription>
             </div>
             <ButtonPrimary onClick={openCreate} className="gap-2 font-bold" icon={<Plus className="h-4 w-4" />}>
               Nova Empresa
@@ -206,7 +234,8 @@ export const CompanyManagement = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
+                <TableHead>Nome da Empresa / Cliente</TableHead>
+                <TableHead>Modalidade / Contrato</TableHead>
                 <TableHead>Domínio</TableHead>
                 <TableHead>CNPJ</TableHead>
                 <TableHead>Telefone</TableHead>
@@ -220,11 +249,30 @@ export const CompanyManagement = () => {
                   <TableCell className="font-medium max-w-[200px]">
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="truncate">{company.name}</span>
+                      <span className="truncate font-bold">{company.name}</span>
                     </div>
                   </TableCell>
+                  <TableCell>
+                    <button
+                      type="button"
+                      onClick={() => toggleContractMutation.mutate({ id: company.id, has_contract: !(company.has_contract !== false) })}
+                      disabled={toggleContractMutation.isPending}
+                      className="cursor-pointer group flex items-center gap-1.5 transition-transform active:scale-95"
+                      title="Clique para alternar entre Com Contrato e Esporádico"
+                    >
+                      {company.has_contract !== false ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Com Contrato
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 group-hover:bg-amber-500/20 transition-colors">
+                          <Timer className="w-3.5 h-3.5" /> Esporádico (Sem Contrato)
+                        </span>
+                      )}
+                    </button>
+                  </TableCell>
                   <TableCell className="text-primary font-mono text-xs">
-                    {'—'}
+                    {company.domain || '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {company.cnpj || '—'}
@@ -257,7 +305,7 @@ export const CompanyManagement = () => {
               ))}
               {(!companies || companies.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     Nenhuma empresa cadastrada.
                   </TableCell>
                 </TableRow>
@@ -392,6 +440,31 @@ export const CompanyManagement = () => {
                 onChange={(e) => setFormData(p => ({ ...p, address: e.target.value }))}
                 placeholder="Rua, Número, Cidade - UF"
               />
+            </div>
+
+            {/* Modalidade / Contrato do Cliente */}
+            <div className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-muted/20">
+              <div className="space-y-0.5 pr-4">
+                <Label htmlFor="has_contract" className="text-sm font-bold text-foreground">Modalidade do Cliente</Label>
+                <p className="text-xs text-muted-foreground">
+                  {formData.has_contract
+                    ? 'Com Contrato: O chamado contabiliza o tempo automaticamente e oculta o cronógrafo.'
+                    : 'Esporádico (Sem Contrato): Libera menu de apontamento manual de horas faturáveis.'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Switch
+                  id="has_contract"
+                  checked={formData.has_contract}
+                  onCheckedChange={(checked) => setFormData(p => ({ ...p, has_contract: checked }))}
+                />
+                <span className={cn(
+                  "text-xs font-bold px-2 py-0.5 rounded-md",
+                  formData.has_contract ? "text-emerald-600 bg-emerald-500/10" : "text-amber-600 bg-amber-500/10"
+                )}>
+                  {formData.has_contract ? 'Com Contrato' : 'Esporádico'}
+                </span>
+              </div>
             </div>
           </div>
           <DialogFooter>
