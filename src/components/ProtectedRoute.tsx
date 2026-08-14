@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 import { useUserRole, UserRole } from '@/hooks/useUserRole';
@@ -21,15 +21,8 @@ export const ProtectedRoute = ({
 }) => {
   const { user, loading } = useAuth();
   const { data: role, isLoading: isRoleLoading } = useUserRole();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
-
-  if (loading || isRoleLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -38,15 +31,21 @@ export const ProtectedRoute = ({
   }
 
   if (!user) {
-    return null;
+    return <Navigate to={{ pathname: "/auth", search: window.location.search }} replace />;
+  }
+
+  if (isRoleLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   const effectiveRole = role || 'customer';
 
   if (allowedRoles && allowedRoles.length > 0) {
-    console.log("ProtectedRoute RBAC check:", { role: effectiveRole, allowedRoles });
     if (!allowedRoles.includes(effectiveRole)) {
-      console.log("Redirecionando! Usuário não tem permissão.");
       return <RedirectWithToast />;
     }
   }
