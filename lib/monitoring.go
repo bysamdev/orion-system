@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -280,13 +281,10 @@ func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, com
 func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, currentUserSID, companyID, deviceType, macAddress string) (string, error) {
 	var id string
 
-	// Format hostname as requested: Hostname - User - IP
-	prettyHostname := hostname
-	if currentUser != "" {
-		prettyHostname += " - " + currentUser
-	}
-	if ip != "" {
-		prettyHostname += " - " + ip
+	// Salva apenas o Hostname puro da máquina (sem IP ou usuário concatenados)
+	cleanHostname := strings.TrimSpace(hostname)
+	if idx := strings.Index(cleanHostname, " - "); idx != -1 {
+		cleanHostname = strings.TrimSpace(cleanHostname[:idx])
 	}
 
 	// device_type vem do agente com best-effort (WMI no Windows, /sys no
@@ -314,7 +312,7 @@ INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, sta
 VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13)
 ON CONFLICT (machine_token) DO UPDATE
   SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=$11, local_ip=$3, logged_in_user=$9, mac_address=$12, device_type=$13
-RETURNING id::text`, groupID, prettyHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID), NilIfEmpty(macAddress), deviceType).Scan(&id)
+RETURNING id::text`, groupID, cleanHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID), NilIfEmpty(macAddress), deviceType).Scan(&id)
 	return id, err
 }
 

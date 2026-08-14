@@ -303,10 +303,14 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           const ticketsCount = ticketsCountMap.get(m.id) || 0;
           const status = baseStatus === 'online' && alertsCount > 0 ? 'alerta' : baseStatus;
 
+          const rawHost = m.hostname || `HOST-${m.id.slice(0, 6)}`;
+          const cleanHostname = rawHost.includes(' - ') ? rawHost.split(' - ')[0].trim() : rawHost.trim();
+          const cleanName = m.name ? (m.name.includes(' - ') ? m.name.split(' - ')[0].trim() : m.name) : cleanHostname;
+
           return {
             id: m.id,
-            name: m.name || m.hostname,
-            hostname: m.hostname || `HOST-${m.id.slice(0, 6)}`,
+            name: cleanName,
+            hostname: cleanHostname,
             company_id: m.company_id || '',
             company_name: compName,
             device_type: deviceType,
