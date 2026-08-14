@@ -15,7 +15,8 @@ import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, Send, Loader2, Paperclip, CheckCircle2, Sparkles,
   Cpu, Mail, HardDrive, Globe, MoreHorizontal, Layout,
-  ChevronRight, ChevronLeft, ShieldCheck, AlertCircle, BookOpen, ExternalLink
+  ChevronRight, ChevronLeft, ShieldCheck, AlertCircle, BookOpen, ExternalLink,
+  X, Clipboard, Image as ImageIcon
 } from 'lucide-react';
 import { FileUpload } from '@/components/ticket/FileUpload';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
@@ -53,6 +54,19 @@ const CATEGORY_PLACEHOLDERS: Record<string, string> = {
   outros: "Descreva o problema com detalhes:\nQuando começou: \nO que você já tentou: ",
 };
 
+const DEFAULT_DEPARTMENTS = [
+  'Geral',
+  'TI / Suporte',
+  'Administrativo',
+  'Financeiro / Contábil',
+  'Comercial / Vendas',
+  'Recursos Humanos / DP',
+  'Diretoria / Gestão',
+  'Operações / Logística',
+  'Marketing',
+  'Atendimento / SAC',
+];
+
 const NewTicket = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -72,7 +86,6 @@ const NewTicket = () => {
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [anyDropdownOpen, setAnyDropdownOpen] = useState(false);
   const [createdTicket, setCreatedTicket] = useState<{ id: string; number: number; priority: string } | null>(null);
-  const [customFieldsJson, setCustomFieldsJson] = useState('{}');
 
   // ── Smart: VIP Client detection ─────────────────
   const { data: companyInfo } = useQuery({
@@ -120,6 +133,18 @@ const NewTicket = () => {
     enabled: !!profile?.company_id
   });
 
+  const availableDepartments = React.useMemo(() => {
+    const list = new Set<string>();
+    if (profile?.department) list.add(profile.department);
+    if (departments && departments.length > 0) {
+      departments.forEach((d: { name: string }) => {
+        if (d.name) list.add(d.name);
+      });
+    }
+    DEFAULT_DEPARTMENTS.forEach(d => list.add(d));
+    return Array.from(list);
+  }, [departments, profile?.department]);
+
   const { data: activeSla, isLoading: isSLALoading } = useSLAConfigs();
 
   const userInfo = {
@@ -133,6 +158,63 @@ const NewTicket = () => {
     mode: 'onChange',
     defaultValues: { title: '', category: '', priority: 'medium', description: '', department: 'Geral' },
   });
+
+  // ── Paste (Ctrl + V) Image Handler ──────────────────────────
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const pastedFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/')) {
+          const blob = item.getAsFile();
+          if (blob) {
+            const ext = item.type.split('/')[1] || 'png';
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const file = new File([blob], `screenshot-${timestamp}.${ext}`, { type: item.type });
+            
+            if (file.size <= 10 * 1024 * 1024) {
+              pastedFiles.push(file);
+            } else {
+              toast({
+                title: "Imagem muito grande",
+                description: "A imagem colada ultrapassa o limite de 10MB.",
+                variant: "destructive",
+              });
+            }
+          }
+        }
+      }
+
+      if (pastedFiles.length > 0) {
+        setPendingFiles((prev) => {
+          if (prev.length + pastedFiles.length > 5) {
+            toast({
+              title: "Limite de anexos atingido",
+              description: "Você pode anexar no máximo 5 arquivos por chamado.",
+              variant: "destructive",
+            });
+            const allowed = 5 - prev.length;
+            return allowed > 0 ? [...prev, ...pastedFiles.slice(0, allowed)] : prev;
+          }
+          toast({
+            title: "Imagem anexada! 📋",
+            description: `${pastedFiles.length} imagem(ns) colada(s) da área de transferência.`,
+          });
+          return [...prev, ...pastedFiles];
+        });
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [toast]);
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   // ── Smart: VIP clients default to high priority ─────────────
   useEffect(() => {
@@ -153,8 +235,6 @@ const NewTicket = () => {
   const watchedDescription = form.watch('description');
 
   const { suggestions, isLoading: isSuggestionsLoading } = useKBSuggestions(watchedTitle, currentCategory || '');
-
-  // ── Smart: Description placeholder is derived from selected category (no pre-fill) ──
 
   // ── Smart: Auto-suggest category from title/description ─────
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
@@ -186,7 +266,7 @@ const NewTicket = () => {
         priority: data.priority,
         description: data.description,
         requester_name: userInfo.name,
-        department: data.department || 'Geral',
+        department: data.department || profile?.department || 'Geral',
         status: 'open',
         user_id: user.id,
         company_id: profile.company_id,
@@ -194,13 +274,7 @@ const NewTicket = () => {
         remote_password: remotePassword.trim() || null,
         contract_id: selectedContractId || null,
         asset_id: selectedAssetId || null,
-        custom_fields: (() => {
-          try {
-            return JSON.parse(customFieldsJson);
-          } catch {
-            return {};
-          }
-        })(),
+        custom_fields: {},
       }).select().single();
 
       if (ticketError) {
@@ -306,7 +380,6 @@ const NewTicket = () => {
                 setRemotePassword('');
                 setSelectedContractId('');
                 setSelectedAssetId('');
-                setCustomFieldsJson('{}');
               }} className="h-12 w-full font-bold">
                 Abrir Outro Chamado
               </Button>
@@ -528,37 +601,19 @@ const NewTicket = () => {
                         name="department"
                         render={({ field }) => (
                           <FormItem className="space-y-4">
-                            <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Seu Departamento</FormLabel>
-                            {departments && departments.length > 0 ? (
-                              <Select onValueChange={field.onChange} value={field.value || 'Geral'} onOpenChange={setAnyDropdownOpen}>
-                                <FormControl>
-                                  <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
-                                    <SelectValue placeholder="Selecione um departamento" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="Geral">Geral</SelectItem>
-                                  {departments.map((dept: { id: string; name: string }) => (
-                                    <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <div className="space-y-2">
-                                <Select disabled value="Geral">
-                                  <FormControl>
-                                    <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl opacity-50">
-                                      <SelectValue placeholder="Geral" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                </Select>
-                                {userRole === 'admin' && (
-                                  <p className="text-[11px] text-muted-foreground">
-                                    Nenhum departamento cadastrado. <button type="button" onClick={() => navigate('/admin')} className="text-primary hover:underline font-bold">Cadastrar agora</button>
-                                  </p>
-                                )}
-                              </div>
-                            )}
+                            <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Seu Departamento / Setor</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || profile?.department || 'Geral'} onOpenChange={setAnyDropdownOpen}>
+                              <FormControl>
+                                <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
+                                  <SelectValue placeholder="Selecione seu departamento" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {availableDepartments.map((deptName) => (
+                                  <SelectItem key={deptName} value={deptName}>{deptName}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -575,16 +630,19 @@ const NewTicket = () => {
                         <Input placeholder="Senha temporária" value={remotePassword} onChange={(e) => setRemotePassword(e.target.value)} className="bg-background border-border/40" />
                       </div>
                     </section>
-                    
-                    <section className="space-y-4">
-                      <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Campos Customizados (JSON)</Label>
-                      <Textarea 
-                        value={customFieldsJson} 
-                        onChange={(e) => setCustomFieldsJson(e.target.value)}
-                        className="bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl font-mono text-xs min-h-[100px]"
-                        placeholder='{"key": "value"}'
-                      />
-                    </section>
+
+                    {/* Dica de Cola Rápida (Ctrl + V) */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-muted/20 border border-border/40 rounded-2xl text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Clipboard className="w-4 h-4 text-primary shrink-0" />
+                        <span>Você pode colar capturas de tela (<kbd className="px-1.5 py-0.5 bg-background font-mono rounded border text-[11px] font-bold text-foreground">Ctrl + V</kbd>) diretamente para anexar.</span>
+                      </div>
+                      {pendingFiles.length > 0 && (
+                        <span className="font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-md shrink-0">
+                          {pendingFiles.length} {pendingFiles.length === 1 ? 'imagem anexada' : 'imagens anexadas'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -601,11 +659,19 @@ const NewTicket = () => {
                         />
                       </div>
                       {pendingFiles.length > 0 && (
-                        <div className="flex gap-2 flex-wrap">
+                        <div className="flex gap-2 flex-wrap pt-2">
                           {pendingFiles.map((f, i) => (
-                            <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border/60 rounded-lg text-xs font-medium">
-                              <Paperclip className="w-3 h-3 text-muted-foreground" />
-                              {f.name}
+                            <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border/60 rounded-lg text-xs font-medium group">
+                              <Paperclip className="w-3.5 h-3.5 text-primary shrink-0" />
+                              <span className="truncate max-w-[180px]">{f.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => removePendingFile(i)}
+                                className="text-muted-foreground hover:text-destructive transition-colors ml-1 p-0.5 rounded"
+                                title="Remover anexo"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           ))}
                         </div>

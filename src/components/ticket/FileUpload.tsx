@@ -138,7 +138,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             Arraste arquivos aqui ou clique para selecionar
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Máx. {maxSizeMB}MB por arquivo • JPG, PNG, PDF, DOC, XLS, TXT
+            Máx. {maxSizeMB}MB por arquivo • JPG, PNG, PDF, DOC, XLS • Cole com Ctrl+V
           </p>
         </label>
       </div>
