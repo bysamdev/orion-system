@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from '@/lib/useErrorHandler';
 import { fetchWithTimeout } from '@/lib/fetch-client';
+import { useTheme } from '@/components/theme-provider';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Ripple,
   TechOrbitDisplay,
@@ -27,7 +30,7 @@ import { Sparkles, Star, ShieldCheck, Orbit, Compass, Loader2 } from 'lucide-rea
 import orionLogo from '@/assets/orion-logo.png';
 import orionLogoLight from '@/assets/orion-logo-light.png';
 
-// Ícones e estrelas da Constelação de Orion orbitando a marca central
+// Constelação de estrelas orbitando suavemente ao redor da logo
 const orbitIcons: OrbitIconConfig[] = [
   {
     component: () => (
@@ -38,7 +41,7 @@ const orbitIcons: OrbitIconConfig[] = [
     className: 'border-none bg-transparent',
     duration: 20,
     delay: 20,
-    radius: 110,
+    radius: 120,
     path: true,
     reverse: false,
   },
@@ -51,7 +54,7 @@ const orbitIcons: OrbitIconConfig[] = [
     className: 'border-none bg-transparent',
     duration: 20,
     delay: 10,
-    radius: 110,
+    radius: 120,
     path: true,
     reverse: false,
   },
@@ -62,9 +65,9 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    duration: 22,
+    duration: 24,
     delay: 20,
-    radius: 160,
+    radius: 180,
     path: true,
     reverse: true,
   },
@@ -75,9 +78,9 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    duration: 22,
+    duration: 24,
     delay: 10,
-    radius: 160,
+    radius: 180,
     path: true,
     reverse: true,
   },
@@ -88,8 +91,8 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    radius: 220,
-    duration: 24,
+    radius: 250,
+    duration: 28,
     path: true,
     reverse: false,
   },
@@ -100,8 +103,8 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    radius: 220,
-    duration: 24,
+    radius: 250,
+    duration: 28,
     delay: 20,
     path: true,
     reverse: false,
@@ -113,8 +116,8 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    radius: 280,
-    duration: 28,
+    radius: 320,
+    duration: 32,
     path: true,
     reverse: true,
   },
@@ -125,8 +128,8 @@ const orbitIcons: OrbitIconConfig[] = [
       </div>
     ),
     className: 'border-none bg-transparent',
-    radius: 280,
-    duration: 28,
+    radius: 320,
+    duration: 32,
     delay: 40,
     path: true,
     reverse: true,
@@ -137,6 +140,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { handleError } = useErrorHandler();
+  const { resolvedTheme } = useTheme();
   const [machineToken, setMachineToken] = useState<string | null>(null);
   const [isDetectingAgent, setIsDetectingAgent] = useState(false);
 
@@ -252,28 +256,48 @@ const Auth = () => {
     },
   ];
 
+  const isDark = resolvedTheme === 'dark';
+
   return (
-    <section className="flex max-lg:justify-center min-h-screen w-full bg-background overflow-hidden">
-      {/* Lado Esquerdo (50% Desktop): Logo do Orion + Estrelas Orbitando + Ripple */}
-      <span className="flex flex-col justify-center items-center w-1/2 max-lg:hidden relative overflow-hidden bg-gradient-to-br from-purple-950/10 via-background to-purple-900/10 border-r border-border/40">
-        <Ripple mainCircleSize={120} />
+    <section className="flex max-lg:justify-center min-h-screen w-full bg-background relative overflow-hidden transition-colors duration-300">
+      {/* Botão de Alternância de Tema no Canto Superior Direito */}
+      <div className="absolute top-6 right-6 z-50 flex items-center gap-2">
+        <div className="p-1 rounded-full bg-card/80 dark:bg-zinc-900/80 backdrop-blur-md border border-border shadow-sm">
+          <ThemeToggle />
+        </div>
+      </div>
+
+      {/* Lado Esquerdo (50% Desktop): Logo do Orion Sem Fundo em Órbita Central + Ripple */}
+      <span className="flex flex-col justify-center items-center w-1/2 max-lg:hidden relative overflow-hidden">
+        <Ripple mainCircleSize={140} />
         
         <TechOrbitDisplay
           iconsArray={orbitIcons}
-          text="Bem Vindo(a)"
           centerElement={
-            <div className="relative group flex items-center justify-center p-6 rounded-3xl bg-background/80 dark:bg-zinc-950/80 backdrop-blur-xl border border-purple-500/20 shadow-[0_0_35px_rgba(168,85,247,0.15)] transition-transform duration-500 hover:scale-105">
+            <motion.div
+              animate={{
+                y: [-6, 6, -6],
+                rotate: [-2, 2, -2],
+                scale: [1, 1.03, 1],
+              }}
+              transition={{
+                duration: 6,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+              className="relative flex items-center justify-center select-none"
+            >
+              {/* Logo sem fundo / container - muda automaticamente com o tema */}
               <img
-                src={orionLogo}
+                src={isDark ? orionLogoLight : orionLogo}
                 alt="Orion System Logo"
-                className="h-28 w-auto dark:hidden drop-shadow-md"
+                className={`h-32 w-auto object-contain transition-all duration-300 ${
+                  isDark
+                    ? 'drop-shadow-[0_0_30px_rgba(168,85,247,0.55)]'
+                    : 'drop-shadow-[0_4px_20px_rgba(40,1,55,0.15)]'
+                }`}
               />
-              <img
-                src={orionLogoLight}
-                alt="Orion System Logo"
-                className="h-28 w-auto hidden dark:block drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]"
-              />
-            </div>
+            </motion.div>
           }
         />
       </span>
@@ -294,18 +318,13 @@ const Auth = () => {
             setForgotPasswordOpen(true);
           }}
           extraHeaderContent={
-            <div className="flex items-center gap-2 mb-2 lg:hidden">
+            <div className="flex items-center gap-3 mb-3 lg:hidden">
               <img
-                src={orionLogo}
+                src={isDark ? orionLogoLight : orionLogo}
                 alt="Orion System Logo"
-                className="h-10 w-auto dark:hidden"
+                className="h-10 w-auto object-contain"
               />
-              <img
-                src={orionLogoLight}
-                alt="Orion System Logo"
-                className="h-10 w-auto hidden dark:block"
-              />
-              <span className="font-semibold text-lg text-purple-950 dark:text-purple-100">
+              <span className="font-semibold text-xl text-foreground">
                 Orion System
               </span>
             </div>

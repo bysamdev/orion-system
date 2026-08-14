@@ -25,7 +25,7 @@ const Input = memo(
     { className, type, ...props }: React.InputHTMLAttributes<HTMLInputElement>,
     ref: React.ForwardedRef<HTMLInputElement>
   ) {
-    const radius = 100; // change this to increase the radius of the hover effect
+    const radius = 100;
     const [visible, setVisible] = useState(false);
 
     const mouseX = useMotionValue(0);
@@ -61,7 +61,7 @@ const Input = memo(
         <input
           type={type}
           className={cn(
-            `shadow-input dark:placeholder-text-neutral-600 flex h-10 w-full rounded-md border-none bg-gray-50 px-3 py-2 text-sm text-black transition duration-400 group-hover/input:shadow-none file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-neutral-400 focus-visible:ring-[2px] focus-visible:ring-neutral-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-900 dark:text-white dark:shadow-[0px_0px_1px_1px_#404040] dark:focus-visible:ring-neutral-600`,
+            'flex h-10 w-full rounded-md border border-input bg-card text-foreground px-3 py-2 text-sm shadow-sm transition duration-300 group-hover/input:shadow-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
             className
           )}
           ref={ref}
@@ -290,20 +290,19 @@ type TechnologyOrbitDisplayProps = {
 
 const TechOrbitDisplay = memo(function TechOrbitDisplay({
   iconsArray,
-  text = 'Bem Vindo(a)',
+  text,
   centerElement,
 }: TechnologyOrbitDisplayProps) {
   return (
     <div className='relative flex h-full w-full flex-col items-center justify-center overflow-hidden'>
-      {centerElement ? (
-        <div className="z-30 flex flex-col items-center justify-center gap-4">
+      {centerElement && (
+        <div className="z-30 flex flex-col items-center justify-center">
           {centerElement}
-          <span className='pointer-events-none whitespace-pre-wrap bg-gradient-to-b from-purple-950 via-purple-700 to-purple-400 dark:from-white dark:via-purple-200 dark:to-purple-400/30 bg-clip-text text-center text-4xl sm:text-5xl font-bold tracking-tight text-transparent drop-shadow-sm'>
-            {text}
-          </span>
         </div>
-      ) : (
-        <span className='pointer-events-none whitespace-pre-wrap bg-gradient-to-b from-purple-950 via-purple-700 to-purple-400 dark:from-white dark:via-purple-200 dark:to-purple-400/30 bg-clip-text text-center text-5xl sm:text-6xl font-bold tracking-tight text-transparent'>
+      )}
+
+      {text && (
+        <span className='pointer-events-none whitespace-pre-wrap bg-gradient-to-b from-purple-950 via-purple-700 to-purple-400 dark:from-white dark:via-purple-200 dark:to-purple-400/30 bg-clip-text text-center text-4xl sm:text-5xl font-bold tracking-tight text-transparent drop-shadow-sm mt-4'>
           {text}
         </span>
       )}
@@ -416,14 +415,14 @@ const AnimatedForm = memo(function AnimatedForm({
       )}
 
       <BoxReveal boxColor='var(--skeleton)' duration={0.3}>
-        <h2 className='font-bold text-3xl text-neutral-800 dark:text-neutral-100 tracking-tight'>
+        <h2 className='font-bold text-3xl text-foreground tracking-tight'>
           {header}
         </h2>
       </BoxReveal>
 
       {subHeader && (
         <BoxReveal boxColor='var(--skeleton)' duration={0.3} className='pb-2'>
-          <p className='text-neutral-600 text-sm max-w-sm dark:text-neutral-300'>
+          <p className='text-muted-foreground text-sm max-w-sm'>
             {subHeader}
           </p>
         </BoxReveal>
@@ -436,7 +435,7 @@ const AnimatedForm = memo(function AnimatedForm({
           {fields.map((field) => (
             <section key={field.label} className='flex flex-col gap-1.5'>
               <BoxReveal boxColor='var(--skeleton)' duration={0.3}>
-                <Label htmlFor={field.name || field.label}>
+                <Label htmlFor={field.name || field.label} className="text-foreground text-xs font-semibold">
                   {field.label} {field.required && <span className='text-red-500'>*</span>}
                 </Label>
               </BoxReveal>
@@ -468,7 +467,7 @@ const AnimatedForm = memo(function AnimatedForm({
                     <button
                       type='button'
                       onClick={toggleVisibility}
-                      className='absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                      className='absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-muted-foreground hover:text-foreground'
                     >
                       {visible ? (
                         <Eye className='h-4 w-4' />
@@ -480,7 +479,7 @@ const AnimatedForm = memo(function AnimatedForm({
                 </section>
 
                 {errors[field.label] && (
-                  <p className='text-red-500 text-xs mt-1'>
+                  <p className='text-destructive text-xs mt-1 font-medium'>
                     {errors[field.label]}
                   </p>
                 )}
@@ -491,7 +490,7 @@ const AnimatedForm = memo(function AnimatedForm({
 
         {errorField && (
           <BoxReveal width='100%' boxColor='var(--skeleton)' duration={0.3}>
-            <p className='text-red-500 text-sm mb-4'>{errorField}</p>
+            <p className='text-destructive text-sm mb-4 font-medium'>{errorField}</p>
           </BoxReveal>
         )}
 
@@ -502,7 +501,7 @@ const AnimatedForm = memo(function AnimatedForm({
           overflow='visible'
         >
           <button
-            className='bg-gradient-to-br relative group/btn from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 text-white block w-full rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] outline-hidden hover:cursor-pointer transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed'
+            className='bg-primary text-primary-foreground hover:bg-primary/90 relative group/btn block w-full rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:shadow-[0px_1px_0px_0px_var(--btn-border)_inset,0px_-1px_0px_0px_var(--btn-border)_inset] outline-hidden hover:cursor-pointer transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed'
             type='submit'
             disabled={isLoading}
           >
@@ -518,7 +517,7 @@ const AnimatedForm = memo(function AnimatedForm({
             <section className='mt-4 text-center'>
               <button
                 type='button'
-                className='text-xs text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 hover:underline outline-hidden'
+                className='text-xs text-primary/80 hover:text-primary dark:text-purple-400 dark:hover:text-purple-300 hover:underline outline-hidden'
                 onClick={goTo}
               >
                 {textVariantButton}
