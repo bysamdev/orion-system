@@ -15,6 +15,17 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useMeusTickets } from '@/hooks/useMyTickets';
 
+const statusLabels: Record<string, string> = {
+  'open': 'Aberto',
+  'in-progress': 'Em Atendimento',
+  'awaiting-customer': 'Aguardando Resposta',
+  'awaiting-third-party': 'Aguardando Terceiro',
+  'resolved': 'Resolvido',
+  'closed': 'Concluído',
+  'reopened': 'Reaberto',
+  'cancelled': 'Cancelado',
+};
+
 const ClientPortal = () => {
   const navigate = useNavigate();
   // Buscamos o perfil detalhado para saudar o usuário pelo nome.
@@ -120,7 +131,7 @@ const ClientPortal = () => {
                       </div>
                       <div className="space-y-1">
                         <p className="font-bold leading-tight">{ticket.title}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">#{ticket.ticket_number} • {ticket.status}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">#{ticket.ticket_number} • {statusLabels[ticket.status] || ticket.status}</p>
                       </div>
                     </div>
                     <ArrowRight className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors" />

@@ -34,8 +34,8 @@ type TimelineItem = {
 };
 
 const statusLabels: Record<string, string> = {
-  'open': 'Aberto', 'in-progress': 'Em Andamento', 'awaiting-customer': 'Aguard. Cliente',
-  'awaiting-third-party': 'Aguard. Terceiro', 'resolved': 'Resolvido', 'closed': 'Fechado',
+  'open': 'Aberto', 'in-progress': 'Em Atendimento', 'awaiting-customer': 'Aguardando Resposta',
+  'awaiting-third-party': 'Aguardando Terceiro', 'resolved': 'Resolvido', 'closed': 'Concluído',
   'reopened': 'Reaberto', 'cancelled': 'Cancelado',
 };
 

@@ -14,7 +14,7 @@ const statusConfig: Record<string, { label: string; dotColor: string; badgeClass
     badgeClass: 'bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-400',
   },
   'in-progress': {
-    label: 'Em Andamento',
+    label: 'Em Atendimento',
     dotColor: 'bg-yellow-500',
     badgeClass: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20 dark:text-yellow-400',
   },
@@ -34,7 +34,7 @@ const statusConfig: Record<string, { label: string; dotColor: string; badgeClass
     badgeClass: 'bg-green-500/10 text-green-700 border-green-500/20 dark:text-green-400',
   },
   'closed': {
-    label: 'Fechado',
+    label: 'Concluído',
     dotColor: 'bg-muted-foreground',
     badgeClass: 'bg-muted text-muted-foreground border-border',
   },
