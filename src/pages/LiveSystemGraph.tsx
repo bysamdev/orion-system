@@ -3,6 +3,8 @@ import type { GraphCanvasRef } from 'reagraph';
 import { useSystemGraphSocket } from '@/hooks/useSystemGraphSocket';
 import { GraphView } from '@/components/systemGraph/GraphView';
 import { NodeDetailsSheet } from '@/components/systemGraph/NodeDetailsSheet';
+import { EventLogPanel } from '@/components/systemGraph/EventLogPanel';
+import { LegendPanel } from '@/components/systemGraph/LegendPanel';
 import { useSystemGraphStore } from '@/lib/systemGraph/store';
 import type { ArchNode } from '@/lib/systemGraph/architecture';
 
@@ -22,15 +24,19 @@ export default function LiveSystemGraph() {
           Conexão: {status === 'open' ? 'ao vivo' : status === 'connecting' ? 'conectando…' : 'desconectado'}
         </p>
       </div>
-      <div className="flex-1 relative">
-        <GraphView
-          ref={graphRef}
-          selections={selections}
-          actives={activeEdgeIds}
-          nodeStatus={nodeStatus}
-          onNodeClick={(node) => setDetailsNode(node)}
-          onCanvasClick={() => setSelections([])}
-        />
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 relative">
+          <GraphView
+            ref={graphRef}
+            selections={selections}
+            actives={activeEdgeIds}
+            nodeStatus={nodeStatus}
+            onNodeClick={(node) => setDetailsNode(node)}
+            onCanvasClick={() => setSelections([])}
+          />
+          <LegendPanel />
+        </div>
+        <EventLogPanel />
       </div>
       <NodeDetailsSheet node={detailsNode} open={!!detailsNode} onClose={() => setDetailsNode(null)} />
     </div>
