@@ -59,6 +59,7 @@ export default function LiveSystemGraph() {
             ref={graphRef}
             selections={selections}
             actives={[...activeEdgeIds, ...pathActives]}
+            activeEdgeIds={activeEdgeIds}
             nodeStatus={nodeStatus}
             onNodeClick={handleNodeClick}
             onCanvasClick={clearPath}

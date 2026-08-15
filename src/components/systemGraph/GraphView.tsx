@@ -2,6 +2,7 @@ import { forwardRef, useMemo } from 'react';
 import { GraphCanvas, GraphCanvasRef, GraphNode as ReaGraphNode, GraphEdge as ReaGraphEdge } from 'reagraph';
 import { ARCH_NODES, ARCH_EDGES, ArchNode, ArchEdge, NodeKind } from '@/lib/systemGraph/architecture';
 import type { NodeStatus } from '@/lib/systemGraph/types';
+import { EdgeParticles } from './EdgeParticles';
 
 export const NODE_KIND_COLOR: Record<NodeKind, string> = {
   frontend: '#3b82f6',
@@ -37,13 +38,14 @@ const reaEdges: ReaGraphEdge[] = ARCH_EDGES.map((e: ArchEdge) => ({
 interface GraphViewProps {
   selections: string[];
   actives: string[];
+  activeEdgeIds: string[];
   nodeStatus: Record<string, NodeStatus>;
   onNodeClick?: (node: ArchNode) => void;
   onCanvasClick?: () => void;
 }
 
 export const GraphView = forwardRef<GraphCanvasRef, GraphViewProps>(
-  ({ selections, actives, nodeStatus, onNodeClick, onCanvasClick }, ref) => {
+  ({ selections, actives, activeEdgeIds, nodeStatus, onNodeClick, onCanvasClick }, ref) => {
     const reaNodes: ReaGraphNode[] = useMemo(() => ARCH_NODES.map((n: ArchNode) => ({
       id: n.id,
       label: n.label,
@@ -63,7 +65,9 @@ export const GraphView = forwardRef<GraphCanvasRef, GraphViewProps>(
         actives={actives}
         onNodeClick={(node) => onNodeClick?.(node.data as ArchNode)}
         onCanvasClick={() => onCanvasClick?.()}
-      />
+      >
+        <EdgeParticles activeEdgeIds={activeEdgeIds} />
+      </GraphCanvas>
     );
   }
 );
