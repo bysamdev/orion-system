@@ -94,6 +94,7 @@ Este é o contrato final — tanto o gerador simulado quanto uma futura instrume
 ## Frontend
 
 - Rota `/grafo-sistema`, lazy-loaded, registrada em `App.tsx` via `AppRoute allowedRoles={['admin','developer','technician']}` — mesmo padrão de `/sistemas`.
+- Item novo no menu lateral (`src/components/dashboard/Sidebar.tsx`), no mesmo grupo de `/sistemas`/`/monitoramento-web`/`/ativos`: `{ icon: Waypoints, label: 'Live System Graph', path: '/grafo-sistema', roles: ['admin','developer','technician'] }`. Sem isso a página só seria acessível digitando a URL direto.
 - Arquivos: `src/pages/LiveSystemGraph.tsx` + `src/components/systemGraph/{GraphView,NodeDetailsPanel,EventLogPanel,LegendPanel}.tsx`.
 - `layoutType="forceDirected3d"`; `cameraMode` configurado para permitir pan/zoom/rotação livre pelo usuário (valor exato da prop a confirmar na API do reagraph durante a implementação — a doc oficial confirma pan e um modo de órbita entre as opções, mas não fechei o literal exato).
 - Cada `NodeKind` tem ícone (lucide-react, consistente com o resto do app) e cor via `renderNode` customizado.
