@@ -80,14 +80,23 @@ func (h *SystemGraphHub) isRegistered(c *SafeConn) bool {
 	return h.clients[c]
 }
 
+// broadcast copia a lista de clientes sob o lock e escreve fora dele: cada
+// WriteMessage é uma syscall de rede com deadline de 10s (SafeConn), e
+// segurar o mutex durante a escrita deixaria um único cliente lento travando
+// todo register/unregister/broadcast concorrente por até esse tempo.
 func (h *SystemGraphHub) broadcast(payload []byte) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
+	conexoes := make([]*SafeConn, 0, len(h.clients))
 	for c := range h.clients {
+		conexoes = append(conexoes, c)
+	}
+	h.mu.Unlock()
+
+	for _, c := range conexoes {
 		if err := c.WriteMessage(websocket.TextMessage, payload); err != nil {
-			// Falha de escrita: a leitura desse cliente (em bombearSystemGraph)
+			// Falha de escrita: a leitura desse cliente (em WsSystemGraphHandler)
 			// vai detectar a conexão morta e desregistrar — não fazemos isso
-			// aqui pra não desregistrar durante a iteração do map.
+			// aqui pra não desregistrar durante a iteração da lista.
 			continue
 		}
 	}
@@ -175,6 +184,44 @@ func simularEventos(hub *SystemGraphHub, pararEm <-chan struct{}) {
 	}
 }
 
+var (
+	simMu      sync.Mutex
+	simRunning bool
+	simStop    chan struct{}
+)
+
+// garantirSimulador inicia o simulador compartilhado se ainda não estiver
+// rodando. Idempotente: com N clientes conectados, deve existir exatamente
+// UM ticker emitindo pro hub, não um por conexão (senão o fan-out vira
+// O(N²) — cada cliente veria N× a taxa de eventos pretendida).
+func garantirSimulador(hub *SystemGraphHub) {
+	simMu.Lock()
+	defer simMu.Unlock()
+	if simRunning {
+		return
+	}
+	simRunning = true
+	simStop = make(chan struct{})
+	go simularEventos(hub, simStop)
+}
+
+// pararSimuladorSeVazio para o simulador compartilhado quando o último
+// cliente já desconectou (chamar depois de hub.unregister).
+func pararSimuladorSeVazio(hub *SystemGraphHub) {
+	simMu.Lock()
+	defer simMu.Unlock()
+	if !simRunning {
+		return
+	}
+	hub.mu.Lock()
+	vazio := len(hub.clients) == 0
+	hub.mu.Unlock()
+	if vazio {
+		close(simStop)
+		simRunning = false
+	}
+}
+
 // WsSystemGraphHandler liga o navegador ao hub de broadcast do grafo.
 func WsSystemGraphHandler(w http.ResponseWriter, r *http.Request) {
 	if !autorizarSystemGraph(w, r) {
@@ -192,11 +239,17 @@ func WsSystemGraphHandler(w http.ResponseWriter, r *http.Request) {
 	defer safeConn.Close()
 
 	graphHub.register(safeConn)
-	defer graphHub.unregister(safeConn)
-
-	pararSimulacao := make(chan struct{})
-	defer close(pararSimulacao)
-	go simularEventos(graphHub, pararSimulacao)
+	garantirSimulador(graphHub)
+	// unregister precisa terminar antes de pararSimuladorSeVazio checar
+	// len(hub.clients) — por isso os dois vivem no mesmo defer, em vez de
+	// dois defer separados: defers em Go rodam em ordem LIFO (o último a
+	// ser "deferido" roda primeiro), então dois `defer` distintos aqui
+	// executariam nessa ordem trocada e o simulador nunca pararia depois
+	// do último cliente sair.
+	defer func() {
+		graphHub.unregister(safeConn)
+		pararSimuladorSeVazio(graphHub)
+	}()
 
 	// O cliente não manda nada relevante — só lemos pra detectar
 	// desconexão (o navegador fecha o TCP) e responder a pings, mesmo

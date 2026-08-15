@@ -35,6 +35,59 @@ func TestAutorizarSystemGraph_SemToken(t *testing.T) {
 	}
 }
 
+// TestSimulador_Singleton prova que garantirSimulador/pararSimuladorSeVazio
+// mantêm UM simulador compartilhado por processo, não um por conexão: chamar
+// garantirSimulador de novo enquanto já roda não inicia um segundo ticker
+// (idempotente), e pararSimuladorSeVazio só efetivamente para quando o hub
+// fica vazio (não no primeiro cliente que sai, se outro ainda está
+// conectado). Não exercita o caminho de rede real — só a contabilidade do
+// singleton, com SafeConn zero-value como em TestSystemGraphHub_RegisterUnregister.
+func TestSimulador_Singleton(t *testing.T) {
+	hub := &SystemGraphHub{clients: make(map[*SafeConn]bool)}
+	conn1 := &SafeConn{}
+	conn2 := &SafeConn{}
+
+	hub.register(conn1)
+	garantirSimulador(hub)
+	garantirSimulador(hub) // segunda chamada deve ser no-op (idempotente)
+
+	simMu.Lock()
+	running := simRunning
+	stopCh := simStop
+	simMu.Unlock()
+	if !running {
+		t.Fatal("esperado simulador rodando após garantirSimulador")
+	}
+
+	hub.register(conn2)
+	hub.unregister(conn1)
+	pararSimuladorSeVazio(hub) // ainda tem conn2 registrado: não deve parar
+
+	simMu.Lock()
+	running = simRunning
+	simMu.Unlock()
+	if !running {
+		t.Fatal("esperado simulador continuar rodando com um cliente ainda conectado")
+	}
+
+	hub.unregister(conn2)
+	pararSimuladorSeVazio(hub) // hub agora vazio: deve parar
+
+	simMu.Lock()
+	running = simRunning
+	simMu.Unlock()
+	if running {
+		t.Fatal("esperado simulador parado após todos os clientes desconectarem")
+	}
+
+	select {
+	case <-stopCh:
+		// canal fechado, como esperado — sem isso a goroutine do ticker vazaria.
+	default:
+		t.Fatal("esperado stopCh fechado após pararSimuladorSeVazio")
+	}
+}
+
 func newTestResponseRecorder() *httptest.ResponseRecorder {
 	return httptest.NewRecorder()
 }
