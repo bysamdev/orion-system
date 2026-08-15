@@ -22,6 +22,7 @@ export function useSystemGraphSocket(): { status: SocketStatus } {
       setStatus('connecting');
 
       const { data: sessionData } = await supabase.auth.getSession();
+      if (stoppedRef.current) return; // effect was torn down while we awaited — bail before creating anything
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) {
         // Sem sessão válida ainda (ex.: app recém carregou) — tenta de novo em breve
@@ -38,6 +39,10 @@ export function useSystemGraphSocket(): { status: SocketStatus } {
       const ws = new WebSocket(wsUrl, ['orion-bearer', accessToken]);
 
       ws.onopen = () => {
+        if (stoppedRef.current) {
+          ws.close();
+          return;
+        }
         attemptRef.current = 0;
         setStatus('open');
       };
