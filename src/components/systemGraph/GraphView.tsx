@@ -11,9 +11,19 @@ export const NODE_KIND_COLOR: Record<NodeKind, string> = {
   ai: '#ec4899',
 };
 
+const KIND_LABEL: Record<NodeKind, string> = {
+  frontend: 'Frontend',
+  backend: 'Backend',
+  database: 'Database',
+  service: 'Service',
+  api: 'API',
+  ai: 'AI',
+};
+
 const reaNodes: ReaGraphNode[] = ARCH_NODES.map((n: ArchNode) => ({
   id: n.id,
   label: n.label,
+  subLabel: KIND_LABEL[n.kind],
   fill: NODE_KIND_COLOR[n.kind],
   data: n,
 }));
