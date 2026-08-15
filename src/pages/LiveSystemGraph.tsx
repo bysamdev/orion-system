@@ -2,12 +2,15 @@ import { useRef, useState } from 'react';
 import type { GraphCanvasRef } from 'reagraph';
 import { useSystemGraphSocket } from '@/hooks/useSystemGraphSocket';
 import { GraphView } from '@/components/systemGraph/GraphView';
+import { NodeDetailsSheet } from '@/components/systemGraph/NodeDetailsSheet';
 import { useSystemGraphStore } from '@/lib/systemGraph/store';
+import type { ArchNode } from '@/lib/systemGraph/architecture';
 
 export default function LiveSystemGraph() {
   const { status } = useSystemGraphSocket();
   const graphRef = useRef<GraphCanvasRef | null>(null);
   const [selections, setSelections] = useState<string[]>([]);
+  const [detailsNode, setDetailsNode] = useState<ArchNode | null>(null);
   const nodeStatus = useSystemGraphStore(s => s.nodeStatus);
   const activeEdgeIds = useSystemGraphStore(s => s.activeEdgeIds);
 
@@ -25,9 +28,11 @@ export default function LiveSystemGraph() {
           selections={selections}
           actives={activeEdgeIds}
           nodeStatus={nodeStatus}
+          onNodeClick={(node) => setDetailsNode(node)}
           onCanvasClick={() => setSelections([])}
         />
       </div>
+      <NodeDetailsSheet node={detailsNode} open={!!detailsNode} onClose={() => setDetailsNode(null)} />
     </div>
   );
 }
