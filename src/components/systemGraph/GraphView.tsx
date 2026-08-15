@@ -1,6 +1,7 @@
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 import { GraphCanvas, GraphCanvasRef, GraphNode as ReaGraphNode, GraphEdge as ReaGraphEdge } from 'reagraph';
 import { ARCH_NODES, ARCH_EDGES, ArchNode, ArchEdge, NodeKind } from '@/lib/systemGraph/architecture';
+import type { NodeStatus } from '@/lib/systemGraph/types';
 
 export const NODE_KIND_COLOR: Record<NodeKind, string> = {
   frontend: '#3b82f6',
@@ -9,6 +10,12 @@ export const NODE_KIND_COLOR: Record<NodeKind, string> = {
   service: '#f59e0b',
   api: '#06b6d4',
   ai: '#ec4899',
+};
+
+const STATUS_OVERRIDE_COLOR: Partial<Record<NodeStatus, string>> = {
+  processing: '#fbbf24', // amber pulse
+  success: '#22c55e',
+  error: '#ef4444',
 };
 
 const KIND_LABEL: Record<NodeKind, string> = {
@@ -20,14 +27,6 @@ const KIND_LABEL: Record<NodeKind, string> = {
   ai: 'AI',
 };
 
-const reaNodes: ReaGraphNode[] = ARCH_NODES.map((n: ArchNode) => ({
-  id: n.id,
-  label: n.label,
-  subLabel: KIND_LABEL[n.kind],
-  fill: NODE_KIND_COLOR[n.kind],
-  data: n,
-}));
-
 const reaEdges: ReaGraphEdge[] = ARCH_EDGES.map((e: ArchEdge) => ({
   id: e.id,
   source: e.source,
@@ -38,12 +37,21 @@ const reaEdges: ReaGraphEdge[] = ARCH_EDGES.map((e: ArchEdge) => ({
 interface GraphViewProps {
   selections: string[];
   actives: string[];
+  nodeStatus: Record<string, NodeStatus>;
   onNodeClick?: (node: ArchNode) => void;
   onCanvasClick?: () => void;
 }
 
 export const GraphView = forwardRef<GraphCanvasRef, GraphViewProps>(
-  ({ selections, actives, onNodeClick, onCanvasClick }, ref) => {
+  ({ selections, actives, nodeStatus, onNodeClick, onCanvasClick }, ref) => {
+    const reaNodes: ReaGraphNode[] = useMemo(() => ARCH_NODES.map((n: ArchNode) => ({
+      id: n.id,
+      label: n.label,
+      subLabel: KIND_LABEL[n.kind],
+      fill: STATUS_OVERRIDE_COLOR[nodeStatus[n.id]] ?? NODE_KIND_COLOR[n.kind],
+      data: n,
+    })), [nodeStatus]);
+
     return (
       <GraphCanvas
         ref={ref}

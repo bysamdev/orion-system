@@ -2,11 +2,14 @@ import { useRef, useState } from 'react';
 import type { GraphCanvasRef } from 'reagraph';
 import { useSystemGraphSocket } from '@/hooks/useSystemGraphSocket';
 import { GraphView } from '@/components/systemGraph/GraphView';
+import { useSystemGraphStore } from '@/lib/systemGraph/store';
 
 export default function LiveSystemGraph() {
   const { status } = useSystemGraphSocket();
   const graphRef = useRef<GraphCanvasRef | null>(null);
   const [selections, setSelections] = useState<string[]>([]);
+  const nodeStatus = useSystemGraphStore(s => s.nodeStatus);
+  const activeEdgeIds = useSystemGraphStore(s => s.activeEdgeIds);
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col">
@@ -20,7 +23,8 @@ export default function LiveSystemGraph() {
         <GraphView
           ref={graphRef}
           selections={selections}
-          actives={[]}
+          actives={activeEdgeIds}
+          nodeStatus={nodeStatus}
           onCanvasClick={() => setSelections([])}
         />
       </div>
