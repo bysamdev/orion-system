@@ -1,20 +1,49 @@
 import { useRef, useState } from 'react';
 import type { GraphCanvasRef } from 'reagraph';
+import { useSelection } from 'reagraph';
 import { useSystemGraphSocket } from '@/hooks/useSystemGraphSocket';
 import { GraphView } from '@/components/systemGraph/GraphView';
 import { NodeDetailsSheet } from '@/components/systemGraph/NodeDetailsSheet';
 import { EventLogPanel } from '@/components/systemGraph/EventLogPanel';
 import { LegendPanel } from '@/components/systemGraph/LegendPanel';
+import { GraphToolbar } from '@/components/systemGraph/GraphToolbar';
 import { useSystemGraphStore } from '@/lib/systemGraph/store';
+import { ARCH_NODES, ARCH_EDGES } from '@/lib/systemGraph/architecture';
 import type { ArchNode } from '@/lib/systemGraph/architecture';
 
 export default function LiveSystemGraph() {
   const { status } = useSystemGraphSocket();
   const graphRef = useRef<GraphCanvasRef | null>(null);
-  const [selections, setSelections] = useState<string[]>([]);
-  const [detailsNode, setDetailsNode] = useState<ArchNode | null>(null);
   const nodeStatus = useSystemGraphStore(s => s.nodeStatus);
   const activeEdgeIds = useSystemGraphStore(s => s.activeEdgeIds);
+  const [detailsNode, setDetailsNode] = useState<ArchNode | null>(null);
+  const [pathSource, setPathSource] = useState<string | null>(null);
+
+  const { selections, actives: pathActives, selectNodePaths, clearSelections } = useSelection({
+    ref: graphRef,
+    nodes: ARCH_NODES,
+    edges: ARCH_EDGES,
+    pathSelectionType: 'all',
+  });
+
+  const handleNodeClick = (node: ArchNode) => {
+    if (!pathSource) {
+      setPathSource(node.id);
+      return;
+    }
+    if (node.id === pathSource) {
+      setPathSource(null);
+      clearSelections();
+      return;
+    }
+    selectNodePaths(pathSource, node.id);
+    setDetailsNode(node);
+  };
+
+  const clearPath = () => {
+    setPathSource(null);
+    clearSelections();
+  };
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col">
@@ -29,12 +58,13 @@ export default function LiveSystemGraph() {
           <GraphView
             ref={graphRef}
             selections={selections}
-            actives={activeEdgeIds}
+            actives={[...activeEdgeIds, ...pathActives]}
             nodeStatus={nodeStatus}
-            onNodeClick={(node) => setDetailsNode(node)}
-            onCanvasClick={() => setSelections([])}
+            onNodeClick={handleNodeClick}
+            onCanvasClick={clearPath}
           />
           <LegendPanel />
+          <GraphToolbar pathSource={pathSource} pathTarget={selections[selections.length - 1] ?? null} onClear={clearPath} />
         </div>
         <EventLogPanel />
       </div>
