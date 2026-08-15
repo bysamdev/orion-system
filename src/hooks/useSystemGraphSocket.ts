@@ -13,6 +13,7 @@ export function useSystemGraphSocket(): { status: SocketStatus } {
   const wsRef = useRef<WebSocket | null>(null);
   const attemptRef = useRef(0);
   const stoppedRef = useRef(false);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     stoppedRef.current = false;
@@ -70,9 +71,12 @@ export function useSystemGraphSocket(): { status: SocketStatus } {
     };
 
     const scheduleReconnect = () => {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+      }
       const attempt = attemptRef.current++;
       const delay = Math.min(1000 * 2 ** attempt, MAX_BACKOFF_MS);
-      setTimeout(() => {
+      reconnectTimerRef.current = setTimeout(() => {
         if (!stoppedRef.current) connect();
       }, delay);
     };
@@ -81,6 +85,9 @@ export function useSystemGraphSocket(): { status: SocketStatus } {
 
     return () => {
       stoppedRef.current = true;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+      }
       wsRef.current?.close();
     };
   }, [applyEvent]);
