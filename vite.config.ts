@@ -54,4 +54,8 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
+  test: {
+    environment: 'node',
+    globals: true,
+  },
 }));
