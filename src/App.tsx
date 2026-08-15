@@ -33,6 +33,7 @@ const Automacoes = lazy(() => import("./pages/Automacoes"));
 const PatchManagement = lazy(() => import("./pages/PatchManagement"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const WebMonitoring = lazy(() => import("./pages/WebMonitoring"));
+const LiveSystemGraph = lazy(() => import("./pages/LiveSystemGraph"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -94,6 +95,7 @@ const App = () => (
               <Route path="/conhecimento" element={<AppRoute><KnowledgeBase /></AppRoute>} />
               <Route path="/ativos" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><Assets /></AppRoute>} />
               <Route path="/monitoramento-web" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><WebMonitoring /></AppRoute>} />
+              <Route path="/grafo-sistema" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><LiveSystemGraph /></AppRoute>} />
               <Route path="/portal" element={<AppRoute><ClientPortal /></AppRoute>} />
               <Route path="/debug" element={<AppRoute><DebugTools /></AppRoute>} />
               <Route path="/automacoes" element={<AppRoute allowedRoles={['admin', 'developer']}><Automacoes /></AppRoute>} />
