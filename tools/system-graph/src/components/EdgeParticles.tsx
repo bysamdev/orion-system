@@ -9,21 +9,21 @@ interface EdgeParticlesProps {
   speedMultiplier?: number;
 }
 
-const BASE_CYCLE_SECONDS = 1.2;
+const BASE_CYCLE_SECONDS = 1.3;
 
-// Shared singleton low-poly geometries for maximum WebGL performance
-const SHARED_CORE_GEO = new SphereGeometry(1.6, 8, 8);
-const SHARED_AURA_GEO = new SphereGeometry(3.0, 8, 8);
+// Shared singleton low-poly geometries - larger and highly visible
+const SHARED_CORE_GEO = new SphereGeometry(2.5, 10, 10);
+const SHARED_AURA_GEO = new SphereGeometry(5.5, 10, 10);
 
-// Cached materials by kind color
-const CORE_MATERIAL = new MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.95 });
+// Cached materials by kind color with enhanced opacity and brightness
+const CORE_MATERIAL = new MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 1.0 });
 const AURA_MATERIALS: Record<NodeKind, MeshBasicMaterial> = {
-  frontend: new MeshBasicMaterial({ color: KIND_COLORS.frontend, transparent: true, opacity: 0.35, depthWrite: false }),
-  backend: new MeshBasicMaterial({ color: KIND_COLORS.backend, transparent: true, opacity: 0.35, depthWrite: false }),
-  database: new MeshBasicMaterial({ color: KIND_COLORS.database, transparent: true, opacity: 0.35, depthWrite: false }),
-  service: new MeshBasicMaterial({ color: KIND_COLORS.service, transparent: true, opacity: 0.35, depthWrite: false }),
-  api: new MeshBasicMaterial({ color: KIND_COLORS.api, transparent: true, opacity: 0.35, depthWrite: false }),
-  ai: new MeshBasicMaterial({ color: KIND_COLORS.ai, transparent: true, opacity: 0.35, depthWrite: false }),
+  frontend: new MeshBasicMaterial({ color: KIND_COLORS.frontend, transparent: true, opacity: 0.5, depthWrite: false }),
+  backend: new MeshBasicMaterial({ color: KIND_COLORS.backend, transparent: true, opacity: 0.5, depthWrite: false }),
+  database: new MeshBasicMaterial({ color: KIND_COLORS.database, transparent: true, opacity: 0.5, depthWrite: false }),
+  service: new MeshBasicMaterial({ color: KIND_COLORS.service, transparent: true, opacity: 0.5, depthWrite: false }),
+  api: new MeshBasicMaterial({ color: KIND_COLORS.api, transparent: true, opacity: 0.5, depthWrite: false }),
+  ai: new MeshBasicMaterial({ color: KIND_COLORS.ai, transparent: true, opacity: 0.5, depthWrite: false }),
 };
 
 function StreamParticle({
@@ -48,7 +48,7 @@ function StreamParticle({
   useFrame(({ clock }) => {
     if (!edge || !groupRef.current) return;
 
-    // Fast O(1) cache lookup - ZERO scene traversals!
+    // Fast O(1) cache lookup - zero CPU waste!
     const from = nodeMapRef.current.get(edge.source);
     const to = nodeMapRef.current.get(edge.target);
     if (!from || !to) return;
@@ -66,9 +66,9 @@ function StreamParticle({
 
   return (
     <group ref={groupRef} scale={scale}>
-      {/* Outer Glow Halo */}
+      {/* Radiant Glowing Aura */}
       <mesh geometry={SHARED_AURA_GEO} material={auraMat} />
-      {/* Bright Core Orb */}
+      {/* High-Intensity Core Photon */}
       <mesh geometry={SHARED_CORE_GEO} material={CORE_MATERIAL} />
     </group>
   );
@@ -78,10 +78,8 @@ export function EdgeParticles({ activeEdgeIds, speedMultiplier = 1.0 }: EdgePart
   const nodeMapRef = useRef<Map<string, Object3D>>(new Map());
   const frameCountRef = useRef(0);
 
-  // Index scene nodes ONCE per frame for all particles (O(N) instead of O(P * N))
   useFrame(({ scene }) => {
     frameCountRef.current++;
-    // Only refresh the node map every 3 frames for ultra-smooth 120fps performance
     if (frameCountRef.current % 3 === 0 || nodeMapRef.current.size === 0) {
       const map = new Map<string, Object3D>();
       scene.traverse(obj => {
@@ -97,10 +95,12 @@ export function EdgeParticles({ activeEdgeIds, speedMultiplier = 1.0 }: EdgePart
     <>
       {activeEdgeIds.map(edgeId => (
         <group key={edgeId}>
-          {/* Main Lead Photon Orb */}
-          <StreamParticle edgeId={edgeId} offset={0} scale={1.1} speedMultiplier={speedMultiplier} nodeMapRef={nodeMapRef} />
-          {/* Trailing Comet Orb */}
-          <StreamParticle edgeId={edgeId} offset={-0.12} scale={0.7} speedMultiplier={speedMultiplier} nodeMapRef={nodeMapRef} />
+          {/* Main Massive Photon */}
+          <StreamParticle edgeId={edgeId} offset={0} scale={1.2} speedMultiplier={speedMultiplier} nodeMapRef={nodeMapRef} />
+          {/* Trailing Comet Photon 1 */}
+          <StreamParticle edgeId={edgeId} offset={-0.12} scale={0.85} speedMultiplier={speedMultiplier} nodeMapRef={nodeMapRef} />
+          {/* Trailing Comet Photon 2 */}
+          <StreamParticle edgeId={edgeId} offset={-0.24} scale={0.55} speedMultiplier={speedMultiplier} nodeMapRef={nodeMapRef} />
         </group>
       ))}
     </>

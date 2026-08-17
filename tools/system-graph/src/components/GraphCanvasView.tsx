@@ -18,6 +18,7 @@ interface GraphCanvasViewProps {
   layoutMode?: LayoutMode;
   speedMultiplier?: number;
   onNodeClick?: (node: ArchNode) => void;
+  onNodeHover?: (node: ArchNode | null) => void;
   onCanvasClick?: () => void;
 }
 
@@ -30,21 +31,24 @@ export const GraphCanvasView = memo(
       layoutMode = 'forceDirected3d',
       speedMultiplier = 1.0,
       onNodeClick,
+      onNodeHover,
       onCanvasClick,
     },
     ref
   ) {
-    // Stable static nodes - avoids restarting d3-force layout on dynamic simulation pulses!
+    // Highly visible and scaled node sizing
     const reaNodes: GraphNode[] = useMemo(
       () =>
         ARCH_NODES.map(node => {
-          let nodeSize = 14;
+          let nodeSize = 22;
           if (node.id === 'db-supabase-postgres' || node.id === 'hnd-router' || node.id === 'app-shell') {
-            nodeSize = 20;
+            nodeSize = 34; // Master Hub
           } else if (node.kind === 'database' || node.kind === 'backend') {
-            nodeSize = 17;
+            nodeSize = 27;
           } else if (node.kind === 'ai') {
-            nodeSize = 16;
+            nodeSize = 26;
+          } else if (node.kind === 'service') {
+            nodeSize = 24;
           }
 
           return {
@@ -59,17 +63,22 @@ export const GraphCanvasView = memo(
       []
     );
 
+    const activeSet = useMemo(() => new Set(activeEdgeIds), [activeEdgeIds]);
+
     const reaEdges: GraphEdge[] = useMemo(
       () =>
-        ARCH_EDGES.map(edge => ({
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-          label: edge.protocol || edge.label,
-          size: 1.8,
-          fill: '#334155',
-        })),
-      []
+        ARCH_EDGES.map(edge => {
+          const isActive = activeSet.has(edge.id);
+          return {
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            label: edge.protocol || edge.label,
+            size: isActive ? 4.8 : 2.6,
+            fill: isActive ? '#38bdf8' : '#334155',
+          };
+        }),
+      [activeSet]
     );
 
     return (
@@ -80,6 +89,7 @@ export const GraphCanvasView = memo(
           edges={reaEdges}
           layoutType={layoutMode}
           cameraMode="orbit"
+          draggable={true}
           selections={selections}
           actives={actives}
           theme={{
@@ -92,7 +102,7 @@ export const GraphCanvasView = memo(
               activeFill: '#38bdf8',
               opacity: 0.95,
               selectedOpacity: 1,
-              inactiveOpacity: 0.2,
+              inactiveOpacity: 0.25,
               label: {
                 color: '#f8fafc',
                 stroke: '#090d16',
@@ -107,17 +117,17 @@ export const GraphCanvasView = memo(
             edge: {
               fill: '#334155',
               activeFill: '#38bdf8',
-              opacity: 0.7,
+              opacity: 0.75,
               selectedOpacity: 1,
-              inactiveOpacity: 0.1,
+              inactiveOpacity: 0.15,
               label: {
-                color: '#94a3b8',
+                color: '#cbd5e1',
                 stroke: '#090d16',
                 activeColor: '#38bdf8',
               },
             },
             arrow: {
-              fill: '#475569',
+              fill: '#64748b',
               activeFill: '#38bdf8',
             },
             ring: {
@@ -130,6 +140,8 @@ export const GraphCanvasView = memo(
             },
           }}
           onNodeClick={node => onNodeClick?.(node.data as ArchNode)}
+          onNodePointerOver={node => onNodeHover?.(node.data as ArchNode)}
+          onNodePointerOut={() => onNodeHover?.(null)}
           onCanvasClick={() => onCanvasClick?.()}
         >
           <EdgeParticles activeEdgeIds={activeEdgeIds} speedMultiplier={speedMultiplier} />

@@ -7,6 +7,7 @@ import { GraphCanvasView, type LayoutMode } from './components/GraphCanvasView';
 import { HUDHeader } from './components/HUDHeader';
 import { LegendHUD } from './components/LegendHUD';
 import { NodeInspectorSheet } from './components/NodeInspectorSheet';
+import { NodeHoverCard } from './components/NodeHoverCard';
 import { LiveTelemetryPanel } from './components/LiveTelemetryPanel';
 
 const INTENSITY_CONFIG: Record<TrafficIntensity, { batchSize: number; intervalMs: number; speed: number }> = {
@@ -29,6 +30,7 @@ export function App() {
 
   // States
   const [selectedNode, setSelectedNode] = useState<ArchNode | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<ArchNode | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKind, setSelectedKind] = useState<NodeKind | 'all'>('all');
   const [isSimulating, setIsSimulating] = useState(true);
@@ -143,6 +145,7 @@ export function App() {
 
   const handleCanvasClick = useCallback(() => {
     setSelectedNode(null);
+    setHoveredNode(null);
     setPathFrom(null);
     setPathTo(null);
     clearSelections();
@@ -150,6 +153,7 @@ export function App() {
 
   const handleResetView = useCallback(() => {
     setSelectedNode(null);
+    setHoveredNode(null);
     setSearchQuery('');
     setSelectedKind('all');
     setPathFrom(null);
@@ -236,8 +240,14 @@ export function App() {
         layoutMode={layoutMode}
         speedMultiplier={INTENSITY_CONFIG[trafficIntensity].speed}
         onNodeClick={handleNodeClick}
+        onNodeHover={setHoveredNode}
         onCanvasClick={handleCanvasClick}
       />
+
+      {/* Quick Hover Insight Card (when not clicking inspector) */}
+      {!selectedNode && hoveredNode && (
+        <NodeHoverCard node={hoveredNode} />
+      )}
 
       {/* Floating Legend HUD */}
       <LegendHUD
@@ -257,7 +267,7 @@ export function App() {
       {/* Sliding Node Inspector */}
       <NodeInspectorSheet
         node={selectedNode}
-        status={selectedNode ? 'idle' : 'idle'}
+        status="idle"
         onClose={() => setSelectedNode(null)}
         onSelectNode={node => handleNodeClick(node)}
       />
