@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "graph": "npm --prefix tools/system-graph run dev"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

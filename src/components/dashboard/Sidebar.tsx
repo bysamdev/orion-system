@@ -17,7 +17,6 @@ import {
   Activity,
   Settings,
   Globe,
-  Waypoints,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import orionLogo from '@/assets/orion-logo.png';
@@ -73,7 +72,6 @@ const navGroups: NavGroup[] = [
       { icon: Layers,        label: 'Instaladores & Updates', path: '/instaladores',   roles: ['admin', 'developer', 'technician'] },
       { icon: Cpu,           label: 'Ativos (CMDB)',    path: '/ativos',     roles: ['admin', 'technician', 'developer'] },
       { icon: Globe,         label: 'Monitoramento Web', path: '/monitoramento-web', roles: ['admin', 'technician', 'developer'] },
-      { icon: Waypoints,     label: 'Live System Graph', path: '/grafo-sistema', roles: ['admin', 'developer', 'technician'] },
     ],
   },
   {
