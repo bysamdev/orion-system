@@ -41,6 +41,7 @@ export const useRealtimeTickets = () => {
             queryClient.invalidateQueries({ queryKey: ['technician-workload'] });
             queryClient.invalidateQueries({ queryKey: ['team-workload'] });
             queryClient.invalidateQueries({ queryKey: ['meus-tickets'] });
+            queryClient.invalidateQueries({ queryKey: ['portal-open-tickets'] });
             
             // Se houver um ID específico, invalidar também
             if (payload.new && 'id' in payload.new) {
