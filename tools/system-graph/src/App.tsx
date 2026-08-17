@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { GraphCanvasRef } from 'reagraph';
 import { useSelection } from 'reagraph';
 import { ARCH_NODES, ARCH_EDGES, NODE_BY_ID } from './architecture';
-import type { ArchNode, NodeKind, NodeStatus, TrafficIntensity, LiveTelemetryEvent } from './types';
+import type { ArchNode, NodeKind, TrafficIntensity, LiveTelemetryEvent } from './types';
 import { GraphCanvasView, type LayoutMode } from './components/GraphCanvasView';
 import { HUDHeader } from './components/HUDHeader';
 import { LegendHUD } from './components/LegendHUD';
@@ -10,10 +10,10 @@ import { NodeInspectorSheet } from './components/NodeInspectorSheet';
 import { LiveTelemetryPanel } from './components/LiveTelemetryPanel';
 
 const INTENSITY_CONFIG: Record<TrafficIntensity, { batchSize: number; intervalMs: number; speed: number }> = {
-  low: { batchSize: 2, intervalMs: 2200, speed: 0.9 },
-  normal: { batchSize: 4, intervalMs: 1400, speed: 1.4 },
-  high: { batchSize: 7, intervalMs: 800, speed: 2.0 },
-  warp: { batchSize: 12, intervalMs: 400, speed: 3.2 },
+  low: { batchSize: 2, intervalMs: 2500, speed: 0.9 },
+  normal: { batchSize: 4, intervalMs: 1600, speed: 1.3 },
+  high: { batchSize: 6, intervalMs: 1000, speed: 1.8 },
+  warp: { batchSize: 9, intervalMs: 600, speed: 2.6 },
 };
 
 export function App() {
@@ -36,7 +36,6 @@ export function App() {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('forceDirected3d');
 
   const [activeEdgeIds, setActiveEdgeIds] = useState<string[]>([]);
-  const [nodeStatus, setNodeStatus] = useState<Record<string, NodeStatus>>({});
   const [telemetryEvents, setTelemetryEvents] = useState<LiveTelemetryEvent[]>([]);
   const [rps, setRps] = useState(14);
 
@@ -72,48 +71,31 @@ export function App() {
     return Array.from(new Set([...activeEdgeIds, ...(pathActives || [])]));
   }, [activeEdgeIds, pathActives]);
 
-  // Enhanced Multi-Pulse Traffic Simulation Loop
+  // Optimized smooth simulation loop
   useEffect(() => {
     if (!isSimulating) {
       setActiveEdgeIds([]);
-      setNodeStatus({});
       setRps(0);
       return;
     }
 
     const config = INTENSITY_CONFIG[trafficIntensity];
-    const baseRps = trafficIntensity === 'warp' ? 84 : trafficIntensity === 'high' ? 38 : trafficIntensity === 'normal' ? 18 : 6;
-    setRps(baseRps + Math.floor(Math.random() * 5));
+    const baseRps = trafficIntensity === 'warp' ? 72 : trafficIntensity === 'high' ? 34 : trafficIntensity === 'normal' ? 16 : 6;
+    setRps(baseRps + Math.floor(Math.random() * 4));
 
     const interval = setInterval(() => {
-      // Pick multiple random edges per cycle based on intensity
-      const chosenEdges: typeof ARCH_EDGES = [];
       const shuffled = [...ARCH_EDGES].sort(() => 0.5 - Math.random());
       const count = Math.min(config.batchSize, shuffled.length);
-
-      for (let i = 0; i < count; i++) {
-        chosenEdges.push(shuffled[i]);
-      }
-
+      const chosenEdges = shuffled.slice(0, count);
       const newIds = chosenEdges.map(e => e.id);
+
       setActiveEdgeIds(prev => Array.from(new Set([...prev, ...newIds])));
 
-      // Update Node Status
-      setNodeStatus(prev => {
-        const next = { ...prev };
-        chosenEdges.forEach(e => {
-          next[e.source] = 'processing';
-          next[e.target] = 'processing';
-        });
-        return next;
-      });
-
-      // Generate Live Telemetry Events
+      // Batch generate telemetry
       const newEvents: LiveTelemetryEvent[] = chosenEdges.map(edge => {
         const src = NODE_BY_ID.get(edge.source);
         const tgt = NODE_BY_ID.get(edge.target);
         const isDbOrAi = tgt?.kind === 'database' || tgt?.kind === 'ai';
-        const isError = Math.random() < 0.03;
 
         return {
           id: Math.random().toString(36).substring(2, 9),
@@ -124,38 +106,17 @@ export function App() {
           sourceKind: src?.kind || 'frontend',
           targetKind: tgt?.kind || 'backend',
           protocol: edge.protocol || 'HTTPS / REST',
-          latencyMs: isDbOrAi ? Math.floor(Math.random() * 45) + 18 : Math.floor(Math.random() * 15) + 4,
-          status: isError ? 'AI INFERENCE' : isDbOrAi ? 'CACHE HIT' : '200 OK',
+          latencyMs: isDbOrAi ? Math.floor(Math.random() * 35) + 12 : Math.floor(Math.random() * 12) + 3,
+          status: isDbOrAi ? 'CACHE HIT' : '200 OK',
         };
       });
 
-      setTelemetryEvents(prev => [...newEvents, ...prev].slice(0, 50));
+      setTelemetryEvents(prev => [...newEvents, ...prev].slice(0, 30));
 
-      // Resolve packet cycle
-      const duration = (1200 / config.speed);
+      // Clean up active edges after pulse completes
       setTimeout(() => {
         setActiveEdgeIds(prev => prev.filter(id => !newIds.includes(id)));
-
-        setNodeStatus(prev => {
-          const next = { ...prev };
-          chosenEdges.forEach(e => {
-            next[e.target] = Math.random() < 0.04 ? 'error' : 'success';
-          });
-          return next;
-        });
-
-        // Decay back to idle
-        setTimeout(() => {
-          setNodeStatus(prev => {
-            const next = { ...prev };
-            chosenEdges.forEach(e => {
-              delete next[e.source];
-              delete next[e.target];
-            });
-            return next;
-          });
-        }, 1800);
-      }, duration);
+      }, 1400 / config.speed);
     }, config.intervalMs);
 
     return () => clearInterval(interval);
@@ -272,7 +233,6 @@ export function App() {
         selections={effectiveSelections}
         actives={effectiveActives}
         activeEdgeIds={activeEdgeIds}
-        nodeStatus={nodeStatus}
         layoutMode={layoutMode}
         speedMultiplier={INTENSITY_CONFIG[trafficIntensity].speed}
         onNodeClick={handleNodeClick}
@@ -297,7 +257,7 @@ export function App() {
       {/* Sliding Node Inspector */}
       <NodeInspectorSheet
         node={selectedNode}
-        status={selectedNode ? nodeStatus[selectedNode.id] : 'idle'}
+        status={selectedNode ? 'idle' : 'idle'}
         onClose={() => setSelectedNode(null)}
         onSelectNode={node => handleNodeClick(node)}
       />

@@ -1,106 +1,106 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import type { Mesh, Scene, Object3D } from 'three';
+import { SphereGeometry, MeshBasicMaterial, type Mesh, type Scene, type Object3D, type Group } from 'three';
 import { EDGE_BY_ID, NODE_BY_ID, KIND_COLORS } from '../architecture';
+import type { NodeKind } from '../types';
 
 interface EdgeParticlesProps {
   activeEdgeIds: string[];
   speedMultiplier?: number;
 }
 
-const BASE_CYCLE_SECONDS = 1.0;
+const BASE_CYCLE_SECONDS = 1.2;
 
-function findNodeObject3D(scene: Scene, id: string): Object3D | undefined {
-  let found: Object3D | undefined;
-  scene.traverse(obj => {
-    if (!found && obj.userData?.type === 'node' && obj.userData?.id === id) {
-      found = obj;
-    }
-  });
-  return found;
-}
+// Shared singleton low-poly geometries for maximum WebGL performance
+const SHARED_CORE_GEO = new SphereGeometry(1.6, 8, 8);
+const SHARED_AURA_GEO = new SphereGeometry(3.0, 8, 8);
+
+// Cached materials by kind color
+const CORE_MATERIAL = new MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.95 });
+const AURA_MATERIALS: Record<NodeKind, MeshBasicMaterial> = {
+  frontend: new MeshBasicMaterial({ color: KIND_COLORS.frontend, transparent: true, opacity: 0.35, depthWrite: false }),
+  backend: new MeshBasicMaterial({ color: KIND_COLORS.backend, transparent: true, opacity: 0.35, depthWrite: false }),
+  database: new MeshBasicMaterial({ color: KIND_COLORS.database, transparent: true, opacity: 0.35, depthWrite: false }),
+  service: new MeshBasicMaterial({ color: KIND_COLORS.service, transparent: true, opacity: 0.35, depthWrite: false }),
+  api: new MeshBasicMaterial({ color: KIND_COLORS.api, transparent: true, opacity: 0.35, depthWrite: false }),
+  ai: new MeshBasicMaterial({ color: KIND_COLORS.ai, transparent: true, opacity: 0.35, depthWrite: false }),
+};
 
 function StreamParticle({
   edgeId,
   offset = 0,
   scale = 1.0,
-  opacity = 0.9,
   speedMultiplier = 1.0,
+  nodeMapRef,
 }: {
   edgeId: string;
   offset?: number;
   scale?: number;
-  opacity?: number;
   speedMultiplier?: number;
+  nodeMapRef: React.MutableRefObject<Map<string, Object3D>>;
 }) {
-  const coreRef = useRef<Mesh | null>(null);
-  const auraRef = useRef<Mesh | null>(null);
+  const groupRef = useRef<Group | null>(null);
 
   const edge = EDGE_BY_ID.get(edgeId);
   const sourceNode = edge ? NODE_BY_ID.get(edge.source) : null;
-  const particleColor = sourceNode ? KIND_COLORS[sourceNode.kind] : '#38bdf8';
+  const auraMat = sourceNode ? AURA_MATERIALS[sourceNode.kind] || AURA_MATERIALS.frontend : AURA_MATERIALS.frontend;
 
-  useFrame(({ clock, scene }) => {
-    if (!edge) return;
+  useFrame(({ clock }) => {
+    if (!edge || !groupRef.current) return;
 
-    const from = findNodeObject3D(scene, edge.source);
-    const to = findNodeObject3D(scene, edge.target);
+    // Fast O(1) cache lookup - ZERO scene traversals!
+    const from = nodeMapRef.current.get(edge.source);
+    const to = nodeMapRef.current.get(edge.target);
     if (!from || !to) return;
 
     const cycle = BASE_CYCLE_SECONDS / Math.max(0.2, speedMultiplier);
     const rawT = (clock.getElapsedTime() + offset) % cycle / cycle;
-    // Linear progression 0 -> 1
-    const t = rawT;
+    const t = rawT < 0 ? rawT + 1 : rawT;
 
-    const x = from.position.x + (to.position.x - from.position.x) * t;
-    const y = from.position.y + (to.position.y - from.position.y) * t;
-    const z = from.position.z + (to.position.z - from.position.z) * t;
-
-    if (coreRef.current) {
-      coreRef.current.position.set(x, y, z);
-    }
-    if (auraRef.current) {
-      auraRef.current.position.set(x, y, z);
-    }
+    groupRef.current.position.set(
+      from.position.x + (to.position.x - from.position.x) * t,
+      from.position.y + (to.position.y - from.position.y) * t,
+      from.position.z + (to.position.z - from.position.z) * t,
+    );
   });
 
   return (
-    <group>
+    <group ref={groupRef} scale={scale}>
       {/* Outer Glow Halo */}
-      <mesh ref={auraRef}>
-        <sphereGeometry args={[3.2 * scale, 12, 12]} />
-        <meshBasicMaterial
-          color={particleColor}
-          transparent={true}
-          opacity={0.35 * opacity}
-          depthWrite={false}
-        />
-      </mesh>
-
+      <mesh geometry={SHARED_AURA_GEO} material={auraMat} />
       {/* Bright Core Orb */}
-      <mesh ref={coreRef}>
-        <sphereGeometry args={[1.8 * scale, 12, 12]} />
-        <meshBasicMaterial
-          color="#ffffff"
-          transparent={true}
-          opacity={opacity}
-        />
-      </mesh>
+      <mesh geometry={SHARED_CORE_GEO} material={CORE_MATERIAL} />
     </group>
   );
 }
 
 export function EdgeParticles({ activeEdgeIds, speedMultiplier = 1.0 }: EdgeParticlesProps) {
+  const nodeMapRef = useRef<Map<string, Object3D>>(new Map());
+  const frameCountRef = useRef(0);
+
+  // Index scene nodes ONCE per frame for all particles (O(N) instead of O(P * N))
+  useFrame(({ scene }) => {
+    frameCountRef.current++;
+    // Only refresh the node map every 3 frames for ultra-smooth 120fps performance
+    if (frameCountRef.current % 3 === 0 || nodeMapRef.current.size === 0) {
+      const map = new Map<string, Object3D>();
+      scene.traverse(obj => {
+        if (obj.userData?.type === 'node' && obj.userData?.id) {
+          map.set(obj.userData.id, obj);
+        }
+      });
+      nodeMapRef.current = map;
+    }
+  });
+
   return (
     <>
       {activeEdgeIds.map(edgeId => (
         <group key={edgeId}>
           {/* Main Lead Photon Orb */}
-          <StreamParticle edgeId={edgeId} offset={0} scale={1.2} opacity={1.0} speedMultiplier={speedMultiplier} />
-          {/* Trail Comet Particle 1 */}
-          <StreamParticle edgeId={edgeId} offset={-0.12} scale={0.85} opacity={0.65} speedMultiplier={speedMultiplier} />
-          {/* Trail Comet Particle 2 */}
-          <StreamParticle edgeId={edgeId} offset={-0.24} scale={0.55} opacity={0.35} speedMultiplier={speedMultiplier} />
+          <StreamParticle edgeId={edgeId} offset={0} scale={1.1} speedMultiplier={speedMultiplier} nodeMapRef={nodeMapRef} />
+          {/* Trailing Comet Orb */}
+          <StreamParticle edgeId={edgeId} offset={-0.12} scale={0.7} speedMultiplier={speedMultiplier} nodeMapRef={nodeMapRef} />
         </group>
       ))}
     </>
