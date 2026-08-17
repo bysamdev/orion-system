@@ -277,7 +277,7 @@ export function computeBulletKpis(tickets: Ticket[], target: SlaTarget | null): 
     if (!Number.isFinite(meta) || meta <= 0) continue;
 
     kpis.push({
-      label: `MTTR ${ROTULO_PRIORIDADE[p]}`,
+      label: `Meta de SLA - ${ROTULO_PRIORIDADE[p]}`,
       value: arredonda1(horas.reduce((a, b) => a + b, 0) / horas.length),
       target: meta,
       unit: 'h',
