@@ -123,7 +123,7 @@ func buildRouter() http.Handler {
 	//   commands/poll|respond      X-Agent-Key
 	//   self-heal-event            X-Agent-Key (+ confere empresa da máquina)
 	//   cron/*                     CRON_SECRET, fail-closed
-	//   ws/terminal*, ws/system-graph  token no subprotocolo (WS não aceita header Authorization)
+	//   ws/terminal*               token no subprotocolo (WS não aceita header Authorization)
 	r.Post("/api/functions/reset-password-with-token", resetPasswordWithToken)
 	r.Get("/api/auth/machine-login", machineLogin)
 
@@ -137,7 +137,6 @@ func buildRouter() http.Handler {
 
 	r.Get("/api/ws/terminal", WsTerminalBrowserHandler)
 	r.Get("/api/ws/terminal/agent", WsTerminalAgentHandler)
-	r.Get("/api/ws/system-graph", WsSystemGraphHandler)
 
 	// ── Rotas de usuário: escopo de empresa OBRIGATÓRIO ───────────────────────
 	//
