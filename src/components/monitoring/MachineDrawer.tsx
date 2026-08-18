@@ -271,51 +271,44 @@ export function RemoteSoftwareCard({
   remoteSoftware?: RemoteSoftwareInfo[];
 }) {
   const list = remoteSoftware ?? [];
-  const hasRunning = list.some((s) => s.is_running);
+
+  const cleanVersion = (v?: string) => {
+    if (!v) return null;
+    const trimmed = v.trim();
+    if (trimmed.startsWith('v') || trimmed.startsWith('V')) return trimmed;
+    if (trimmed.startsWith('ad ')) return `v${trimmed.replace('ad ', '').trim()}`;
+    return `v${trimmed}`;
+  };
 
   return (
     <Card className="p-4 bg-muted/10 border-border/40 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div
-            className={cn(
-              'p-2 rounded-xl',
-              hasRunning
-                ? 'bg-orange-500/10 text-orange-600'
-                : list.length > 0
-                ? 'bg-blue-500/10 text-blue-600'
-                : 'bg-emerald-500/10 text-emerald-600'
-            )}
-          >
-            <Eye className="w-4 h-4" />
+          <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+            <Radio className="w-4 h-4" />
           </div>
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
-              Softwares de Acesso Remoto Detectados
+              Softwares de Acesso Remoto Instalados
             </h4>
             <p className="text-[10px] text-muted-foreground">
-              TeamViewer, AnyDesk, RustDesk, etc.
+              AnyDesk, TeamViewer, RustDesk, etc.
             </p>
           </div>
         </div>
-        {hasRunning ? (
+        {list.length > 0 ? (
           <Badge
-            variant="outline"
-            className="text-[10px] font-bold text-orange-600 dark:text-orange-400 border-orange-500/30 bg-orange-500/10 gap-1 animate-pulse"
+            variant="secondary"
+            className="text-[10px] font-semibold font-mono"
           >
-            <AlertTriangle className="w-2.5 h-2.5 text-orange-500" />
-            Processo em Execução
-          </Badge>
-        ) : list.length > 0 ? (
-          <Badge variant="outline" className="text-[10px] font-medium text-muted-foreground">
-            Instalado (Inativo)
+            {list.length} instalado{list.length > 1 ? 's' : ''}
           </Badge>
         ) : remoteSoftware !== undefined ? (
           <Badge
             variant="outline"
-            className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+            className="text-[10px] font-medium text-muted-foreground"
           >
-            Conforme
+            Nenhum
           </Badge>
         ) : (
           <span className="text-xs text-muted-foreground">Não coletado</span>
@@ -324,47 +317,35 @@ export function RemoteSoftwareCard({
 
       {list.length > 0 ? (
         <div className="space-y-2 pt-1">
-          {list.map((item, idx) => (
-            <div
-              key={idx}
-              className={cn(
-                'flex items-center justify-between p-2.5 rounded-lg border text-xs transition-colors',
-                item.is_running
-                  ? 'bg-orange-500/5 border-orange-500/30 text-foreground'
-                  : 'bg-muted/20 border-border/30 text-muted-foreground'
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-foreground">{item.name}</span>
-                {item.version && (
-                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 font-mono">
-                    v{item.version}
+          {list.map((item, idx) => {
+            const vFormatted = cleanVersion(item.version);
+            return (
+              <div
+                key={idx}
+                className="flex items-center justify-between p-2.5 rounded-lg border border-border/40 bg-card/60 text-xs text-foreground transition-colors hover:bg-muted/20"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-foreground">{item.name}</span>
+                  {vFormatted && (
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 font-mono">
+                      {vFormatted}
+                    </Badge>
+                  )}
+                </div>
+                <div>
+                  <Badge variant="outline" className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 border-sky-500/30 bg-sky-500/5">
+                    Instalado
                   </Badge>
-                )}
+                </div>
               </div>
-              <div>
-                {item.is_running ? (
-                  <Badge className="bg-orange-500/15 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30 text-[10px] font-bold gap-1">
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-500" />
-                    </span>
-                    Processo Ativo
-                  </Badge>
-                ) : (
-                  <span className="text-[10px] text-muted-foreground font-medium">
-                    Instalado (Parado)
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : remoteSoftware !== undefined ? (
-        <div className="bg-emerald-500/5 border border-emerald-500/15 rounded-xl p-3 flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-500" />
+        <div className="bg-muted/20 border border-border/30 rounded-xl p-3 flex items-center gap-2.5 text-muted-foreground">
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
           <span className="text-xs font-medium">
-            Nenhuma ferramenta de acesso remoto não autorizada (TeamViewer, AnyDesk, etc.) detectada.
+            Nenhuma ferramenta de acesso remoto instalada.
           </span>
         </div>
       ) : (
