@@ -19,7 +19,7 @@ func TestGrafanaWebhook_SemSegredoConfiguradoSempreRejeita(t *testing.T) {
 	defer func() { cfg.GrafanaWebhookSecret = original }()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/monitoring/alerts/webhook/grafana", strings.NewReader(`{}`))
-	req.Header.Set("X-Webhook-Secret", "") // mesmo uma string vazia enviada não deve "casar" com uma config vazia
+	// mesmo um Authorization vazio não deve "casar" com uma config vazia
 	rec := httptest.NewRecorder()
 
 	monitoringGrafanaAlertWebhook(rec, req)
@@ -35,7 +35,7 @@ func TestGrafanaWebhook_SegredoIncorretoRejeita(t *testing.T) {
 	defer func() { cfg.GrafanaWebhookSecret = original }()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/monitoring/alerts/webhook/grafana", strings.NewReader(`{}`))
-	req.Header.Set("X-Webhook-Secret", "segredo-errado")
+	req.Header.Set("Authorization", "Bearer segredo-errado")
 	rec := httptest.NewRecorder()
 
 	monitoringGrafanaAlertWebhook(rec, req)
@@ -51,7 +51,7 @@ func TestGrafanaWebhook_CorpoInvalidoAposSegredoCorretoRejeitaSemPanico(t *testi
 	defer func() { cfg.GrafanaWebhookSecret = original }()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/monitoring/alerts/webhook/grafana", strings.NewReader(`{nao-e-json`))
-	req.Header.Set("X-Webhook-Secret", "segredo-correto-de-teste")
+	req.Header.Set("Authorization", "Bearer segredo-correto-de-teste")
 	rec := httptest.NewRecorder()
 
 	monitoringGrafanaAlertWebhook(rec, req)

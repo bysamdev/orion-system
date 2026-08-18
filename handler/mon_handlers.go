@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -978,13 +979,18 @@ func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Segredo compartilhado configurado no contact point do Grafana (header
-	// custom) — Grafana não é um usuário nem um agente, então nem
-	// requireAuth nem X-Agent-Key se aplicam aqui. Sem GRAFANA_WEBHOOK_SECRET
-	// configurado no ambiente, o endpoint fica permanentemente fechado (nunca
-	// aceita string vazia == string vazia).
-	secret := r.Header.Get("X-Webhook-Secret")
-	if cfg.GrafanaWebhookSecret == "" || secret != cfg.GrafanaWebhookSecret {
+	// Segredo compartilhado configurado no contact point do Grafana via
+	// "Authorization Header - Credentials" — campo que o próprio Grafana
+	// marca como "secure" (criptografado em repouso, nunca devolvido em
+	// GETs subsequentes da API), diferente de um header customizado solto.
+	// Grafana não é um usuário nem um agente, então nem requireAuth nem
+	// X-Agent-Key se aplicam aqui. Sem GRAFANA_WEBHOOK_SECRET configurado no
+	// ambiente, o endpoint fica permanentemente fechado (nunca aceita
+	// string vazia == string vazia).
+	const esquemaEsperado = "Bearer "
+	auth := r.Header.Get("Authorization")
+	secret := strings.TrimPrefix(auth, esquemaEsperado)
+	if !strings.HasPrefix(auth, esquemaEsperado) || cfg.GrafanaWebhookSecret == "" || secret != cfg.GrafanaWebhookSecret {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "não autorizado"})
 		return
 	}
