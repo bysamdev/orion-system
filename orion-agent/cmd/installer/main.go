@@ -1,3 +1,5 @@
+//go:build windows
+
 // Command installer é um instalador autônomo do Orion Agent: um único .exe
 // que já carrega o binário do agente embutido (go:embed), pede elevação de
 // Administrador via UAC quando necessário (registrar um serviço Windows

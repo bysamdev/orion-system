@@ -2,6 +2,7 @@ package collector
 
 import (
 	"os"
+	"os/user"
 	"strings"
 )
 
@@ -95,5 +96,16 @@ func resolverIdentidadeDoUsuario() (dominio, usuario, sid string) {
 			dominio = "WORKGROUP"
 		}
 	}
+
+	// 4. Último recurso: quando nem a sessão WTS nem as variáveis de ambiente
+	// resolveram um usuário (comum em serviços/contêineres Linux sem
+	// USER/USERNAME no ambiente), consulta o usuário do processo via
+	// os/user — sempre disponível a partir do uid, independente de env vars.
+	if uEnv == "" {
+		if u, err := user.Current(); err == nil && u.Username != "" {
+			uEnv = u.Username
+		}
+	}
+
 	return dominio, uEnv, ""
 }
