@@ -40,6 +40,36 @@ async function apiPost<T>(path: string, body: any): Promise<T> {
   return res.json();
 }
 
+// ─── Compliance & Telemetry Types ─────────────────────────
+export interface AntivirusInfo {
+  name: string;
+  active: boolean;
+  updated: boolean;
+}
+
+export interface SecurityInfo {
+  antivirus?: AntivirusInfo[];
+  firewall_active?: boolean;
+  bitlocker_active?: boolean;
+}
+
+export interface RemoteSoftwareInfo {
+  name: string;
+  version?: string;
+  is_running?: boolean;
+}
+
+export interface BatteryInfo {
+  has_battery: boolean;
+  percentage?: number;
+  is_plugged?: boolean;
+}
+
+export interface UpdateStatusInfo {
+  reboot_required?: boolean;
+  pending_count?: number;
+}
+
 // ─── Types ───────────────────────────────────────────────
 export interface MachineGroup {
   id: string;
@@ -71,6 +101,11 @@ export interface MachineWithMetric {
   disk_used: number | null;
   uptime: number | null;
   collected_at: string | null;
+  // Endpoint Security, Remote Software, Battery, and Update status
+  security_info?: SecurityInfo;
+  remote_software?: RemoteSoftwareInfo[];
+  battery_info?: BatteryInfo;
+  update_status?: UpdateStatusInfo;
 }
 
 export interface MetricRow {
@@ -104,6 +139,11 @@ export interface HardwareRow {
   network_interfaces: any;
   gpu: string | null;
   updated_at: string;
+  // Endpoint Security, Remote Software, Battery, and Update status
+  security_info?: SecurityInfo;
+  remote_software?: RemoteSoftwareInfo[];
+  battery_info?: BatteryInfo;
+  update_status?: UpdateStatusInfo;
 }
 
 export interface CommandRow {

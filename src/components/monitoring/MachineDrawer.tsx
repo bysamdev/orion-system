@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,16 @@ import {
   Clock,
   Trash2,
   Layers,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  Lock,
+  Unlock,
+  RotateCcw,
+  Zap,
+  Battery,
+  Eye,
+  Radio,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -45,7 +55,14 @@ import {
   formatBytes,
   formatUptime,
 } from '@/hooks/useMonitoring';
-import type { MetricPeriod, MachineWithMetric } from '@/hooks/useMonitoring';
+import type {
+  MetricPeriod,
+  MachineWithMetric,
+  SecurityInfo,
+  RemoteSoftwareInfo,
+  BatteryInfo,
+  UpdateStatusInfo,
+} from '@/hooks/useMonitoring';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { PerformanceChart } from './PerformanceChart';
@@ -62,6 +79,441 @@ const severityColor: Record<string, string> = {
   medium:   'bg-yellow-500/10 text-yellow-600 border-yellow-500/30',
   low:      'bg-blue-500/10 text-blue-600 border-blue-500/30',
 };
+
+// ─── Sub-components for Security & Endpoint Compliance ───
+
+export function EndpointSecurityCard({
+  securityInfo,
+}: {
+  securityInfo?: SecurityInfo;
+}) {
+  const avList = securityInfo?.antivirus ?? [];
+  const hasAv = avList.length > 0;
+  const isAvActive = hasAv && avList.every((a) => a.active);
+  const isFirewallActive = securityInfo?.firewall_active;
+  const isBitlockerActive = securityInfo?.bitlocker_active;
+
+  const isCompliant =
+    (hasAv ? isAvActive : true) &&
+    isFirewallActive !== false &&
+    isBitlockerActive !== false;
+
+  return (
+    <Card className="p-4 bg-muted/10 border-border/40 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={cn(
+              'p-2 rounded-xl',
+              isCompliant
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+            )}
+          >
+            {isCompliant ? (
+              <ShieldCheck className="w-4 h-4" />
+            ) : (
+              <ShieldAlert className="w-4 h-4" />
+            )}
+          </div>
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              Segurança do Endpoint
+            </h4>
+            <p className="text-[10px] text-muted-foreground">
+              Antivírus, Firewall do Windows e Criptografia
+            </p>
+          </div>
+        </div>
+        <Badge
+          variant="outline"
+          className={cn(
+            'text-[10px] font-bold',
+            isCompliant
+              ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+              : 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10'
+          )}
+        >
+          {isCompliant ? 'Protegido' : 'Atenção Necessária'}
+        </Badge>
+      </div>
+
+      <div className="divide-y divide-border/20">
+        {/* Antivírus */}
+        <div className="py-2.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <Shield className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+            <span className="text-xs text-muted-foreground">Antivírus Detectado:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+            {hasAv ? (
+              avList.map((av, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs font-bold text-foreground">{av.name}</span>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'text-[10px] font-semibold gap-1',
+                      av.active
+                        ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5'
+                        : 'text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 animate-pulse'
+                    )}
+                  >
+                    {av.active ? (
+                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
+                    ) : (
+                      <AlertTriangle className="w-2.5 h-2.5 text-red-500" />
+                    )}
+                    {av.active ? 'Proteção Ativa' : 'Proteção Desativada'}
+                  </Badge>
+                  {av.updated != null && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-[9px]',
+                        av.updated
+                          ? 'text-muted-foreground border-border/30'
+                          : 'text-amber-600 border-amber-500/30 bg-amber-500/5'
+                      )}
+                    >
+                      {av.updated ? 'Atualizado' : 'Definições Desatualizadas'}
+                    </Badge>
+                  )}
+                </div>
+              ))
+            ) : (
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                Windows Defender / Padrão
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Firewall */}
+        <div className="py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Radio className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+            <span className="text-xs text-muted-foreground">Firewall do Windows:</span>
+          </div>
+          <div>
+            {isFirewallActive == null ? (
+              <span className="text-xs text-muted-foreground">Não coletado</span>
+            ) : isFirewallActive ? (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
+              >
+                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
+                Firewall Ativo
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-semibold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
+              >
+                <AlertTriangle className="w-2.5 h-2.5 text-red-500" />
+                Firewall Inativo
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* BitLocker */}
+        <div className="py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isBitlockerActive ? (
+              <Lock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+            ) : (
+              <Unlock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+            )}
+            <span className="text-xs text-muted-foreground">Criptografia C: (BitLocker):</span>
+          </div>
+          <div>
+            {isBitlockerActive == null ? (
+              <span className="text-xs text-muted-foreground">Não coletado</span>
+            ) : isBitlockerActive ? (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
+              >
+                <Lock className="w-2.5 h-2.5 text-emerald-500" />
+                Criptografia Ativa
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 gap-1"
+              >
+                <Unlock className="w-2.5 h-2.5 text-amber-500" />
+                Desprotegido
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+export function RemoteSoftwareCard({
+  remoteSoftware,
+}: {
+  remoteSoftware?: RemoteSoftwareInfo[];
+}) {
+  const list = remoteSoftware ?? [];
+  const hasRunning = list.some((s) => s.is_running);
+
+  return (
+    <Card className="p-4 bg-muted/10 border-border/40 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={cn(
+              'p-2 rounded-xl',
+              hasRunning
+                ? 'bg-orange-500/10 text-orange-600'
+                : list.length > 0
+                ? 'bg-blue-500/10 text-blue-600'
+                : 'bg-emerald-500/10 text-emerald-600'
+            )}
+          >
+            <Eye className="w-4 h-4" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              Softwares de Acesso Remoto Detectados
+            </h4>
+            <p className="text-[10px] text-muted-foreground">
+              TeamViewer, AnyDesk, RustDesk, etc.
+            </p>
+          </div>
+        </div>
+        {hasRunning ? (
+          <Badge
+            variant="outline"
+            className="text-[10px] font-bold text-orange-600 dark:text-orange-400 border-orange-500/30 bg-orange-500/10 gap-1 animate-pulse"
+          >
+            <AlertTriangle className="w-2.5 h-2.5 text-orange-500" />
+            Processo em Execução
+          </Badge>
+        ) : list.length > 0 ? (
+          <Badge variant="outline" className="text-[10px] font-medium text-muted-foreground">
+            Instalado (Inativo)
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+          >
+            Conforme
+          </Badge>
+        )}
+      </div>
+
+      {list.length > 0 ? (
+        <div className="space-y-2 pt-1">
+          {list.map((item, idx) => (
+            <div
+              key={idx}
+              className={cn(
+                'flex items-center justify-between p-2.5 rounded-lg border text-xs transition-colors',
+                item.is_running
+                  ? 'bg-orange-500/5 border-orange-500/30 text-foreground'
+                  : 'bg-muted/20 border-border/30 text-muted-foreground'
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-foreground">{item.name}</span>
+                {item.version && (
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 font-mono">
+                    v{item.version}
+                  </Badge>
+                )}
+              </div>
+              <div>
+                {item.is_running ? (
+                  <Badge className="bg-orange-500/15 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30 text-[10px] font-bold gap-1">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-500" />
+                    </span>
+                    Processo Ativo
+                  </Badge>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    Inativo / Parado
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-emerald-500/5 border border-emerald-500/15 rounded-xl p-3 flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400">
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-500" />
+          <span className="text-xs font-medium">
+            Nenhuma ferramenta de acesso remoto não autorizada em execução.
+          </span>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+export function BatteryMobilityCard({
+  batteryInfo,
+}: {
+  batteryInfo?: BatteryInfo;
+}) {
+  if (!batteryInfo?.has_battery && batteryInfo?.percentage == null) {
+    return null;
+  }
+
+  const pctValue = batteryInfo.percentage ?? 0;
+  const isPlugged = batteryInfo.is_plugged ?? false;
+  const isLow = pctValue <= 20 && !isPlugged;
+
+  return (
+    <Card className="p-4 bg-muted/10 border-border/40 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={cn(
+              'p-2 rounded-xl',
+              isPlugged
+                ? 'bg-emerald-500/10 text-emerald-600'
+                : isLow
+                ? 'bg-red-500/10 text-red-600'
+                : 'bg-blue-500/10 text-blue-600'
+            )}
+          >
+            {isPlugged ? (
+              <Zap className="w-4 h-4 text-emerald-500" />
+            ) : (
+              <Battery className="w-4 h-4" />
+            )}
+          </div>
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              Bateria & Mobilidade
+            </h4>
+            <p className="text-[10px] text-muted-foreground">
+              {isPlugged ? 'Conectado à rede elétrica' : 'Operando na bateria'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn('text-xl font-black font-mono', isLow ? 'text-red-500' : 'text-foreground')}>
+            {pctValue}%
+          </span>
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-[10px] font-semibold gap-1',
+              isPlugged
+                ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5'
+                : isLow
+                ? 'text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 animate-pulse'
+                : 'text-blue-600 dark:text-blue-400 border-blue-500/30 bg-blue-500/5'
+            )}
+          >
+            {isPlugged ? (
+              <Zap className="w-2.5 h-2.5 text-emerald-500" />
+            ) : (
+              <Battery className="w-2.5 h-2.5" />
+            )}
+            {isPlugged ? 'Carregando' : 'Na Bateria'}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Progress
+          value={pctValue}
+          className={cn(
+            'h-2',
+            isLow
+              ? '[&>div]:bg-red-500'
+              : pctValue < 50
+              ? '[&>div]:bg-amber-500'
+              : '[&>div]:bg-emerald-500'
+          )}
+        />
+        <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+          <span>Fonte: {isPlugged ? 'Alimentação AC conectada' : 'Descarga ativa'}</span>
+          {isLow && <span className="text-red-500 font-bold">Carga Crítica (&lt; 20%)</span>}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+export function UpdateStatusCard({
+  updateStatus,
+}: {
+  updateStatus?: UpdateStatusInfo;
+}) {
+  const rebootRequired = updateStatus?.reboot_required ?? false;
+  const pendingCount = updateStatus?.pending_count ?? 0;
+
+  if (rebootRequired) {
+    return (
+      <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-xl p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl animate-pulse">
+              <RotateCcw className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                Reinicialização Pendente (Reboot Required)
+              </h4>
+              <p className="text-[11px] text-amber-600/90 dark:text-amber-400/90">
+                O dispositivo requer reinicialização para aplicar atualizações e patches instalados.
+              </p>
+            </div>
+          </div>
+          <Badge className="bg-amber-500 text-white font-bold text-[10px]">
+            Ação Requerida
+          </Badge>
+        </div>
+        {pendingCount > 0 && (
+          <p className="text-[10px] text-amber-600 dark:text-amber-400/80 pl-1">
+            • {pendingCount} {pendingCount === 1 ? 'atualização pendente' : 'atualizações pendentes'} aguardando conclusão do ciclo.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Card className="p-4 bg-muted/10 border-border/40 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              Atualizações &amp; Reinicialização
+            </h4>
+            <p className="text-[10px] text-muted-foreground">
+              {pendingCount > 0
+                ? `${pendingCount} atualizações pendentes para instalação`
+                : 'Nenhuma reinicialização pendente. Sistema operacional atualizado.'}
+            </p>
+          </div>
+        </div>
+        <Badge
+          variant="outline"
+          className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5"
+        >
+          OK
+        </Badge>
+      </div>
+    </Card>
+  );
+}
 
 interface MachineDrawerProps {
   machine: MachineWithMetric | null;
@@ -84,7 +536,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const { data: detail, isLoading: detailLoading } = useMachineDetail(machineId);
+  const { data: detail } = useMachineDetail(machineId);
   const { data: alerts = [], isLoading: alertsLoading } = useMachineAlerts(machineId);
   const { data: role } = useUserRole();
   const { data: profile } = useUserProfile();
@@ -96,6 +548,12 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
   const canManage = role === 'admin' || role === 'developer';
   const isOnline = machine?.status === 'online';
   const ledColor = isOnline ? 'bg-green-400 shadow-green-400/60' : 'bg-red-400 shadow-red-400/60';
+
+  // Extract compliance & telemetry data safely from machine or detail
+  const securityInfo = detail?.machine?.security_info ?? machine?.security_info ?? detail?.hardware?.security_info;
+  const remoteSoftware = detail?.machine?.remote_software ?? machine?.remote_software ?? detail?.hardware?.remote_software;
+  const batteryInfo = detail?.machine?.battery_info ?? machine?.battery_info ?? detail?.hardware?.battery_info;
+  const updateStatus = detail?.machine?.update_status ?? machine?.update_status ?? detail?.hardware?.update_status;
 
   // Synchronize activeTab when initialTab or machine changes
   React.useEffect(() => {
@@ -183,13 +641,19 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <div className="px-6 border-b border-border/40 bg-muted/5">
               <TabsList className="h-12 w-full justify-start bg-transparent p-0 gap-6">
-                {['overview', 'telemetry', 'inventory', 'actions'].map(tab => (
+                {['overview', 'telemetry', 'security', 'inventory', 'actions'].map(tab => (
                   <TabsTrigger
                     key={tab}
                     value={tab}
                     className="h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-2 text-xs font-bold uppercase tracking-wider"
                   >
-                    {{ overview: 'Resumo', telemetry: 'Telemetria', inventory: 'Inventário', actions: 'Terminal' }[tab]}
+                    {{
+                      overview: 'Resumo',
+                      telemetry: 'Telemetria',
+                      security: 'Segurança',
+                      inventory: 'Inventário',
+                      actions: 'Terminal',
+                    }[tab]}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -199,7 +663,12 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
               <div className="p-6">
 
                 {/* ── Overview tab ── */}
-                <TabsContent value="overview" className="mt-0 space-y-8">
+                <TabsContent value="overview" className="mt-0 space-y-6">
+                  {/* Reboot Alert Banner if required */}
+                  {updateStatus?.reboot_required && (
+                    <UpdateStatusCard updateStatus={updateStatus} />
+                  )}
+
                   {/* KPI cards */}
                   <section className="space-y-4">
                     <div className="grid grid-cols-3 gap-3">
@@ -225,6 +694,34 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           <span className="text-xs font-semibold text-foreground">{value}</span>
                         </div>
                       ))}
+                    </div>
+                  </section>
+
+                  {/* 4 Módulos: Endpoint Security, Remote Software & Battery */}
+                  <section className="space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                        🛡️ Endpoint &amp; Conformidade
+                      </h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px] text-primary px-2"
+                        onClick={() => setActiveTab('security')}
+                      >
+                        Ver Detalhes &rarr;
+                      </Button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <EndpointSecurityCard securityInfo={securityInfo} />
+                      <RemoteSoftwareCard remoteSoftware={remoteSoftware} />
+                      {batteryInfo?.has_battery && (
+                        <BatteryMobilityCard batteryInfo={batteryInfo} />
+                      )}
+                      {!updateStatus?.reboot_required && (
+                        <UpdateStatusCard updateStatus={updateStatus} />
+                      )}
                     </div>
                   </section>
 
@@ -414,6 +911,18 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                     </Card>
                   </div>
 
+                  {/* Telemetry Endpoint Summary Mini Bar */}
+                  {(batteryInfo?.has_battery || updateStatus?.reboot_required) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {batteryInfo?.has_battery && (
+                        <BatteryMobilityCard batteryInfo={batteryInfo} />
+                      )}
+                      {updateStatus?.reboot_required && (
+                        <UpdateStatusCard updateStatus={updateStatus} />
+                      )}
+                    </div>
+                  )}
+
                   {/* Grafana Host Telemetry Embed */}
                   <GrafanaTelemetryView
                     hostname={machine?.hostname}
@@ -422,6 +931,34 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                     height="520px"
                     title={`Telemetria do Host: ${machine?.hostname ?? 'Máquina'}`}
                   />
+                </TabsContent>
+
+                {/* ── Security & Compliance tab ── */}
+                <TabsContent value="security" className="mt-0 space-y-6">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">Segurança &amp; Conformidade do Endpoint</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Visão aprofundada dos módulos de proteção, antivírus, criptografia BitLocker, softwares de acesso remoto e atualizações.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* 1. Endpoint Security */}
+                      <EndpointSecurityCard securityInfo={securityInfo} />
+
+                      {/* 2. Remote Access Software */}
+                      <RemoteSoftwareCard remoteSoftware={remoteSoftware} />
+
+                      {/* 3. Battery & Mobility */}
+                      {batteryInfo?.has_battery && (
+                        <BatteryMobilityCard batteryInfo={batteryInfo} />
+                      )}
+
+                      {/* 4. Updates & Reboot */}
+                      <UpdateStatusCard updateStatus={updateStatus} />
+                    </div>
+                  </div>
                 </TabsContent>
 
                 {/* ── Inventory tab ── */}
@@ -483,3 +1020,4 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
     </>
   );
 };
+

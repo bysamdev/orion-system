@@ -13,6 +13,13 @@ import {
   Terminal,
   Trash2,
   Server,
+  ShieldCheck,
+  ShieldAlert,
+  Lock,
+  Unlock,
+  RotateCcw,
+  Zap,
+  Battery,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -315,6 +322,114 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                 <p className="text-[11px] text-muted-foreground/80 truncate">
                   {machine.os} {machine.os_version}
                 </p>
+              )}
+
+              {/* Compliance & Endpoint Mini-Badges */}
+              {(machine.security_info || (machine.remote_software && machine.remote_software.length > 0) || machine.update_status || machine.battery_info?.has_battery) && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  {/* Antivírus */}
+                  {machine.security_info?.antivirus && machine.security_info.antivirus.length > 0 && (
+                    machine.security_info.antivirus.every((a) => a.active) ? (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] px-1.5 py-0 h-4 font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
+                        title={`Antivírus Ativo: ${machine.security_info.antivirus.map((a) => a.name).join(', ')}`}
+                      >
+                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-500" />
+                        AV OK
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] px-1.5 py-0 h-4 font-semibold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
+                        title="Alerta de Proteção: Antivírus Inativo ou Desatualizado"
+                      >
+                        <ShieldAlert className="w-2.5 h-2.5 text-red-500" />
+                        AV Alerta
+                      </Badge>
+                    )
+                  )}
+
+                  {/* BitLocker */}
+                  {machine.security_info?.bitlocker_active != null && (
+                    machine.security_info.bitlocker_active ? (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] px-1.5 py-0 h-4 font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
+                        title="Criptografia C: Ativa (BitLocker)"
+                      >
+                        <Lock className="w-2.5 h-2.5 text-emerald-500" />
+                        BitLocker
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] px-1.5 py-0 h-4 font-semibold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 gap-1"
+                        title="BitLocker Desativado / Desprotegido"
+                      >
+                        <Unlock className="w-2.5 h-2.5 text-amber-500" />
+                        Sem BitLocker
+                      </Badge>
+                    )
+                  )}
+
+                  {/* Firewall Inativo */}
+                  {machine.security_info?.firewall_active === false && (
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] px-1.5 py-0 h-4 font-semibold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1"
+                      title="Firewall do Windows Desativado"
+                    >
+                      <ShieldAlert className="w-2.5 h-2.5 text-red-500" />
+                      Firewall Off
+                    </Badge>
+                  )}
+
+                  {/* Reboot Pendente */}
+                  {machine.update_status?.reboot_required && (
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] px-1.5 py-0 h-4 font-bold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 gap-1 animate-pulse"
+                      title="Reinicialização Necessária para Aplicar Atualizações"
+                    >
+                      <RotateCcw className="w-2.5 h-2.5 text-amber-500" />
+                      Reboot Pendente
+                    </Badge>
+                  )}
+
+                  {/* Acesso Remoto em Execução */}
+                  {machine.remote_software?.some((s) => s.is_running) && (
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] px-1.5 py-0 h-4 font-semibold text-orange-600 dark:text-orange-400 border-orange-500/30 bg-orange-500/10 gap-1 animate-pulse"
+                      title={`Acesso Remoto Detectado em Execução: ${machine.remote_software.filter((s) => s.is_running).map((s) => s.name).join(', ')}`}
+                    >
+                      <AlertTriangle className="w-2.5 h-2.5 text-orange-500" />
+                      {machine.remote_software.find((s) => s.is_running)?.name || 'Remoto Ativo'}
+                    </Badge>
+                  )}
+
+                  {/* Bateria (se notebook) */}
+                  {machine.battery_info?.has_battery && machine.battery_info.percentage != null && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-[9px] px-1.5 py-0 h-4 font-mono font-medium gap-1',
+                        machine.battery_info.percentage <= 20 && !machine.battery_info.is_plugged
+                          ? 'text-red-500 border-red-500/30 bg-red-500/10'
+                          : 'text-muted-foreground border-border/40 bg-muted/20'
+                      )}
+                      title={`Bateria: ${machine.battery_info.percentage}% ${machine.battery_info.is_plugged ? '(Carregando)' : '(Na bateria)'}`}
+                    >
+                      {machine.battery_info.is_plugged ? (
+                        <Zap className="w-2.5 h-2.5 text-emerald-500" />
+                      ) : (
+                        <Battery className="w-2.5 h-2.5" />
+                      )}
+                      {machine.battery_info.percentage}%
+                    </Badge>
+                  )}
+                </div>
               )}
             </div>
 
