@@ -468,23 +468,8 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Avaliação de reinicialização pendente pós-atualizações
-	if len(req.UpdateStatus) > 0 && string(req.UpdateStatus) != "null" {
-		var upd updateStatusData
-		if err := json.Unmarshal(req.UpdateStatus, &upd); err == nil {
-			if upd.RebootRequired {
-				_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
-					MachineID: machineID,
-					Type:      "updates",
-					Severity:  "warning",
-					Message:   "Reinicialização pendente pós-atualizações",
-				})
-				hasAlert = true
-			} else {
-				_ = db.ResolveAlertsByType(ctx, machineID, "updates")
-			}
-		}
-	}
+	// Atualizações de sistema (sem geração de alerta de reinicialização conforme preferência)
+	_ = db.ResolveAlertsByType(ctx, machineID, "updates")
 
 	// Verifica se ainda existem alertas não resolvidos para esta máquina
 	if hasActive, err := db.HasUnresolvedAlerts(ctx, machineID); err == nil {

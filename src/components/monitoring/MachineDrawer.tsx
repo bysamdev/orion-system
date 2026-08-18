@@ -464,73 +464,6 @@ export function BatteryMobilityCard({
   );
 }
 
-export function UpdateStatusCard({
-  updateStatus,
-}: {
-  updateStatus?: UpdateStatusInfo;
-}) {
-  const rebootRequired = updateStatus?.reboot_required ?? false;
-  const pendingCount = updateStatus?.pending_count ?? 0;
-
-  if (rebootRequired) {
-    return (
-      <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-xl p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl animate-pulse">
-              <RotateCcw className="w-4 h-4" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-amber-700 dark:text-amber-300">
-                Reinicialização Pendente (Reboot Required)
-              </h4>
-              <p className="text-[11px] text-amber-600/90 dark:text-amber-400/90">
-                O dispositivo requer reinicialização para aplicar atualizações e patches instalados.
-              </p>
-            </div>
-          </div>
-          <Badge className="bg-amber-500 text-white font-bold text-[10px]">
-            Ação Requerida
-          </Badge>
-        </div>
-        {pendingCount > 0 && (
-          <p className="text-[10px] text-amber-600 dark:text-amber-400/80 pl-1">
-            • {pendingCount} {pendingCount === 1 ? 'atualização pendente' : 'atualizações pendentes'} aguardando conclusão do ciclo.
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <Card className="p-4 bg-muted/10 border-border/40 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 className="w-4 h-4" />
-          </div>
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
-              Atualizações &amp; Reinicialização
-            </h4>
-            <p className="text-[10px] text-muted-foreground">
-              {pendingCount > 0
-                ? `${pendingCount} atualizações pendentes para instalação`
-                : 'Nenhuma reinicialização pendente. Sistema operacional atualizado.'}
-            </p>
-          </div>
-        </div>
-        <Badge
-          variant="outline"
-          className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5"
-        >
-          OK
-        </Badge>
-      </div>
-    </Card>
-  );
-}
-
 interface MachineDrawerProps {
   machine: MachineWithMetric | null;
   open: boolean;
@@ -752,11 +685,6 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
 
                 {/* ── Overview tab ── */}
                 <TabsContent value="overview" className="mt-0 space-y-6">
-                  {/* Reboot Alert Banner if required */}
-                  {updateStatus?.reboot_required && (
-                    <UpdateStatusCard updateStatus={updateStatus} />
-                  )}
-
                   {/* KPI cards */}
                   <section className="space-y-4">
                     <div className="grid grid-cols-3 gap-3">
@@ -840,9 +768,6 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                       <RemoteSoftwareCard remoteSoftware={remoteSoftware} />
                       {batteryInfo?.has_battery && (
                         <BatteryMobilityCard batteryInfo={batteryInfo} />
-                      )}
-                      {!updateStatus?.reboot_required && (
-                        <UpdateStatusCard updateStatus={updateStatus} />
                       )}
                     </div>
                   </section>
@@ -1468,9 +1393,6 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                       {batteryInfo?.has_battery && (
                         <BatteryMobilityCard batteryInfo={batteryInfo} />
                       )}
-
-                      {/* Update & Reboot Status Card */}
-                      <UpdateStatusCard updateStatus={updateStatus} />
                     </div>
                   </section>
                 </TabsContent>
@@ -1481,7 +1403,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                     <div>
                       <h3 className="text-sm font-bold text-foreground">Segurança &amp; Conformidade do Endpoint</h3>
                       <p className="text-xs text-muted-foreground">
-                        Visão aprofundada dos módulos de proteção, antivírus, criptografia BitLocker, softwares de acesso remoto e atualizações.
+                        Visão aprofundada dos módulos de proteção, antivírus, criptografia BitLocker e softwares de acesso remoto.
                       </p>
                     </div>
 
@@ -1496,9 +1418,6 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                       {batteryInfo?.has_battery && (
                         <BatteryMobilityCard batteryInfo={batteryInfo} />
                       )}
-
-                      {/* 4. Updates & Reboot */}
-                      <UpdateStatusCard updateStatus={updateStatus} />
                     </div>
                   </div>
                 </TabsContent>

@@ -382,27 +382,6 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
         }
       }
 
-      // 🔄 Updates / Reboot Pendente
-      if (m.update_status?.reboot_required) {
-        const key = `${m.id}-updates`;
-        if (!seenKeys.has(key)) {
-          seenKeys.add(key);
-          list.push({
-            machine_id: m.id,
-            hostname: m.hostname,
-            domain: m.domain || 'WORKGROUP',
-            current_user: m.current_user || null,
-            ip_address: m.ip_address || null,
-            group_name: m.domain || null,
-            status: m.status,
-            last_seen: m.last_seen,
-            alert_type: 'updates',
-            severity: 'warning',
-            message: `Reinicialização necessária para concluir atualizações pendentes`,
-          });
-        }
-      }
-
       // 🔴 Máquinas Offline: APENAS se m.status === 'offline' OU se last_seen > 5 min.
       // Máquinas com status 'alerta' que estão ativas NUNCA devem aparecer como offline.
       if (offline) {
@@ -479,12 +458,11 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
     () => ({
       antivirus: mergedAlerts.filter((a) => a.alert_type === 'antivirus'),
       firewall: mergedAlerts.filter((a) => a.alert_type === 'firewall'),
-      updates: mergedAlerts.filter((a) => a.alert_type === 'updates'),
       offline: mergedAlerts.filter((a) => a.alert_type === 'offline'),
       disk: mergedAlerts.filter((a) => a.alert_type === 'disk'),
       cpu: mergedAlerts.filter((a) => a.alert_type === 'cpu'),
       alert: mergedAlerts.filter(
-        (a) => !['antivirus', 'firewall', 'updates', 'offline', 'disk', 'cpu'].includes(a.alert_type)
+        (a) => !['antivirus', 'firewall', 'offline', 'disk', 'cpu'].includes(a.alert_type)
       ),
     }),
     [mergedAlerts]
@@ -633,15 +611,6 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
                 icon={Shield}
                 colorClass="bg-red-600"
                 alerts={grouped.firewall}
-                onOpenMachine={handleOpenMachine}
-              />
-
-              {/* 3. 🔄 Patch Management & Reboot Pendente */}
-              <AlertSection
-                title="Patch Management & Reboot Pendente"
-                icon={RotateCcw}
-                colorClass="bg-amber-600"
-                alerts={grouped.updates}
                 onOpenMachine={handleOpenMachine}
               />
 

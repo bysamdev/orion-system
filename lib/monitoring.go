@@ -585,13 +585,13 @@ WHERE lm.cpu_usage > 85
 
 UNION ALL
 
--- Alertas não resolvidos do sistema (antivirus, firewall, updates, etc.)
+-- Alertas não resolvidos do sistema (antivirus, firewall, etc.)
 SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
        a.type::text AS alert_type, a.severity, a.message, NULL::float8
 FROM public.machine_alerts a
 JOIN public.machines m ON m.id = a.machine_id
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
-WHERE a.resolved = false
+WHERE a.resolved = false AND a.type <> 'updates'
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 ORDER BY severity DESC, alert_type
 `, companyID)
