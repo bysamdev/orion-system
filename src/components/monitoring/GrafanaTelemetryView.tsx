@@ -49,7 +49,10 @@ export interface GrafanaTelemetryViewProps {
   title?: string;
 }
 
-const DEFAULT_GRAFANA_URL = 'http://192.168.1.200:3000';
+const isHttpsProtocol = typeof window !== 'undefined' && window.location.protocol === 'https:';
+const DEFAULT_GRAFANA_URL = isHttpsProtocol
+  ? 'https://monitor-orion.bysam.dev'
+  : 'http://192.168.1.200:3000';
 const STORAGE_KEY_URL = 'orion_grafana_base_url';
 const STORAGE_KEY_PATH = 'orion_grafana_dashboard_path';
 
@@ -97,23 +100,48 @@ export const GrafanaTelemetryView: React.FC<GrafanaTelemetryViewProps> = ({
 
   // Base URL resolution
   const [baseUrl, setBaseUrl] = useState<string>(() => {
+    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
     const saved = localStorage.getItem(STORAGE_KEY_URL);
-    if (saved) return saved.replace(/\/+$/, '');
+    if (saved) {
+      if (isHttps && saved.startsWith('http://192.168.1.200')) {
+        return 'https://monitor-orion.bysam.dev';
+      }
+      return saved.replace(/\/+$/, '');
+    }
     const envUrl = (import.meta as any).env?.VITE_GRAFANA_URL;
     if (envUrl) return envUrl.replace(/\/+$/, '');
-    return DEFAULT_GRAFANA_URL;
+    return isHttps ? 'https://monitor-orion.bysam.dev' : DEFAULT_GRAFANA_URL;
   });
 
   const [customPath, setCustomPath] = useState<string>(() => {
     if (initialDashboardPath) return initialDashboardPath;
     const saved = localStorage.getItem(STORAGE_KEY_PATH);
-    return saved || '';
+    if (saved) return saved;
+    if (hostname) return '/d/orion-agent-dashboard/orion-agent-visao-geral-do-host';
+    if (isNocMode) return '/d/orion-agent-dashboard';
+    return '';
   });
 
   // Temp settings for config popover
   const [tempUrl, setTempUrl] = useState(baseUrl);
   const [tempPath, setTempPath] = useState(customPath);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Synchronize path and settings when props change
+  useEffect(() => {
+    if (initialDashboardPath) {
+      setCustomPath(initialDashboardPath);
+      setTempPath(initialDashboardPath);
+    } else if (hostname) {
+      const defaultHostPath = '/d/orion-agent-dashboard/orion-agent-visao-geral-do-host';
+      setCustomPath(defaultHostPath);
+      setTempPath(defaultHostPath);
+    } else if (isNocMode) {
+      const defaultNocPath = '/d/orion-agent-dashboard';
+      setCustomPath(defaultNocPath);
+      setTempPath(defaultNocPath);
+    }
+  }, [initialDashboardPath, hostname, isNocMode]);
 
   // Fullscreen event listener
   useEffect(() => {
@@ -130,10 +158,18 @@ export const GrafanaTelemetryView: React.FC<GrafanaTelemetryViewProps> = ({
   const grafanaSrc = useMemo(() => {
     let cleanBase = baseUrl.trim().replace(/\/+$/, '');
     if (!cleanBase.startsWith('http://') && !cleanBase.startsWith('https://')) {
-      cleanBase = `http://${cleanBase}`;
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+      cleanBase = `${isHttps ? 'https://' : 'http://'}${cleanBase}`;
     }
 
     let path = customPath.trim();
+    if (!path) {
+      if (hostname) {
+        path = '/d/orion-agent-dashboard/orion-agent-visao-geral-do-host';
+      } else if (isNocMode) {
+        path = '/d/orion-agent-dashboard';
+      }
+    }
     if (path && !path.startsWith('/')) {
       path = `/${path}`;
     }
@@ -161,10 +197,13 @@ export const GrafanaTelemetryView: React.FC<GrafanaTelemetryViewProps> = ({
       url.searchParams.delete('kiosk');
     }
 
+    // Scrape job variable for Orion Agents
+    url.searchParams.set('var-job', 'orion_agents');
+
     // Filter variables for Prometheus / Node Exporter / Host metrics
     if (hostname) {
-      url.searchParams.set('var-node', hostname);
       url.searchParams.set('var-hostname', hostname);
+      url.searchParams.set('var-node', hostname);
       url.searchParams.set('var-instance', hostname);
       url.searchParams.set('var-host', hostname);
     }
@@ -173,7 +212,7 @@ export const GrafanaTelemetryView: React.FC<GrafanaTelemetryViewProps> = ({
     }
 
     return url.toString();
-  }, [baseUrl, customPath, resolvedTheme, period, refreshInterval, kioskMode, hostname, machineId]);
+  }, [baseUrl, customPath, resolvedTheme, period, refreshInterval, kioskMode, hostname, machineId, isNocMode]);
 
   // Test Grafana connectivity
   const handleTestConnection = async (targetUrl = baseUrl) => {
@@ -399,7 +438,7 @@ export const GrafanaTelemetryView: React.FC<GrafanaTelemetryViewProps> = ({
                     <Globe className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       className="pl-9 h-9 text-xs rounded-xl"
-                      placeholder="http://192.168.1.200:3000"
+                      placeholder={DEFAULT_GRAFANA_URL}
                       value={tempUrl}
                       onChange={(e) => setTempUrl(e.target.value)}
                     />
@@ -428,13 +467,29 @@ export const GrafanaTelemetryView: React.FC<GrafanaTelemetryViewProps> = ({
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">Caminho do Dashboard (Opcional)</Label>
                   <Input
-                    className="h-9 text-xs rounded-xl"
-                    placeholder="/d/orion-nodes/telemetry"
+                    className="h-9 text-xs rounded-xl font-mono text-[11px]"
+                    placeholder={hostname ? '/d/orion-agent-dashboard/orion-agent-visao-geral-do-host' : '/d/orion-agent-dashboard'}
                     value={tempPath}
                     onChange={(e) => setTempPath(e.target.value)}
                   />
+                  <div className="flex gap-1.5 pt-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setTempPath('/d/orion-agent-dashboard/orion-agent-visao-geral-do-host')}
+                      className="px-2 py-0.5 text-[10px] font-semibold bg-muted hover:bg-muted/80 text-muted-foreground rounded border border-border/40 transition-all"
+                    >
+                      📊 Host Dashboard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTempPath('/d/orion-agent-dashboard')}
+                      className="px-2 py-0.5 text-[10px] font-semibold bg-muted hover:bg-muted/80 text-muted-foreground rounded border border-border/40 transition-all"
+                    >
+                      🌐 NOC Geral
+                    </button>
+                  </div>
                   <p className="text-[10px] text-muted-foreground">
-                    Deixe em branco para usar a página inicial ou insira o UID/slug do dashboard.
+                    Deixe em branco para usar o padrão automático ou insira o UID/slug do dashboard.
                   </p>
                 </div>
 
