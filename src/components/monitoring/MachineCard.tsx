@@ -21,9 +21,7 @@ import {
   Zap,
   Battery,
   Globe,
-  Network,
   User,
-  Hash,
   HardDrive,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -471,55 +469,27 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                 </div>
               </div>
 
-              {/* Grid Compacta de Identificação do Host (2x2) */}
-              <div className="bg-muted/30 dark:bg-muted/15 rounded-lg p-2 border border-border/30 grid grid-cols-2 gap-x-2.5 gap-y-1.5 text-[11px]">
-                {/* Domínio / Cliente */}
-                <div
-                  className="flex items-center gap-1.5 min-w-0"
-                  title={`Cliente / Domínio: ${machine.domain && machine.domain !== 'WORKGROUP' && machine.domain !== 'NT SERVICE' ? machine.domain : 'Cliente'}`}
-                >
-                  <Network className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
-                  <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">DOM:</span>
-                  <span className="font-semibold text-foreground truncate text-[11px]">
-                    {machine.domain && machine.domain !== 'WORKGROUP' && machine.domain !== 'NT SERVICE'
-                      ? machine.domain
-                      : 'iBReady'}
-                  </span>
-                </div>
-
+              {/* Identificação do Host: Usuário Ativo e IP */}
+              <div className="bg-muted/40 dark:bg-muted/20 rounded-md px-2.5 py-1.5 border border-border/30 flex items-center justify-between gap-2 text-xs">
                 {/* Usuário Ativo */}
                 <div
-                  className="flex items-center gap-1.5 min-w-0"
+                  className="flex items-center gap-1.5 min-w-0 flex-1"
                   title={`Usuário Ativo: ${machine.current_user || '–'}`}
                 >
-                  <User className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                  <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">USR:</span>
-                  <span className="font-semibold text-foreground truncate text-[11px]">
+                  <User className="w-3.5 h-3.5 text-indigo-500/90 dark:text-indigo-400 shrink-0" />
+                  <span className="font-medium text-foreground truncate text-[11.5px]">
                     {machine.current_user || '–'}
                   </span>
                 </div>
 
                 {/* IP Interno */}
                 <div
-                  className="flex items-center gap-1.5 min-w-0"
-                  title={`IP Interno: ${machine.ip_address || '–'}`}
+                  className="flex items-center gap-1.5 shrink-0"
+                  title={`IP Local: ${machine.ip_address || '–'}`}
                 >
-                  <Globe className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                  <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">IP:</span>
-                  <span className="font-mono text-muted-foreground text-[10.5px] truncate">
+                  <Globe className="w-3.5 h-3.5 text-emerald-500/90 dark:text-emerald-400 shrink-0" />
+                  <span className="font-mono text-muted-foreground text-[11px]">
                     {machine.ip_address || '–'}
-                  </span>
-                </div>
-
-                {/* MAC Address */}
-                <div
-                  className="flex items-center gap-1.5 min-w-0"
-                  title={`MAC Address: ${machine.mac_address || '–'}`}
-                >
-                  <Hash className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
-                  <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">MAC:</span>
-                  <span className="font-mono text-muted-foreground text-[10px] truncate">
-                    {machine.mac_address || '–'}
                   </span>
                 </div>
               </div>
