@@ -518,8 +518,8 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
   }
 
   return (
-    <div className="w-full h-full bg-background">
-      <main className="p-6 max-w-[1600px] mx-auto w-full space-y-6">
+    <div className="w-full space-y-6">
+      <div className="w-full space-y-6">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -652,7 +652,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
             </div>
           </ScrollArea>
         )}
-      </main>
+      </div>
 
       {/* Machine Details Drawer */}
       <MachineDrawer

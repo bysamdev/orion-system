@@ -347,8 +347,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
   const selectedGroup = groups?.find((g) => g.id === selectedGroupId);
 
   return (
-    <div className="w-full h-full bg-background">
-      <main className="p-6 max-w-[1600px] mx-auto w-full">
+    <div className="w-full space-y-6">
+      <div className="w-full">
 
         {/* ── Page Header ── */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-border/40">
@@ -535,7 +535,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
             )}
           </div>
         </div>
-      </main>
+      </div>
 
       {/* Group Dialog */}
       <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
