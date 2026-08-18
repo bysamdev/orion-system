@@ -97,6 +97,16 @@ export function EndpointSecurityCard({
   const isFirewallActive = securityInfo?.firewall_active;
   const isBitlockerActive = securityInfo?.bitlocker_active;
 
+  // Se houver outro antivírus ativo (ex: Kaspersky), o Windows desativa o Defender automaticamente.
+  // Nesse caso, o Defender inativo não é exibido como alerta para não poluir a interface.
+  const hasOtherActiveAv = avList.some(
+    (a) => a.active && !a.name.toLowerCase().includes('defender')
+  );
+
+  const displayAvList = hasOtherActiveAv
+    ? avList.filter((a) => a.active || !a.name.toLowerCase().includes('defender'))
+    : avList;
+
   const isCompliant =
     (securityInfo ? (hasAv && isAvActive) : true) &&
     isFirewallActive !== false &&
@@ -150,8 +160,8 @@ export function EndpointSecurityCard({
             <span className="text-xs text-muted-foreground">Antivírus Detectado:</span>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
-            {hasAv ? (
-              avList.map((av, i) => (
+            {displayAvList.length > 0 ? (
+              displayAvList.map((av, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-1.5">
                   <span className="text-xs font-bold text-foreground">{av.name}</span>
                   <Badge
