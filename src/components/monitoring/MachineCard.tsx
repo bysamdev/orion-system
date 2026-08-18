@@ -198,7 +198,12 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
     const [isDeleting, setIsDeleting] = useState(false);
     const deleteMachineMutation = useDeleteMachine();
 
-    const isOnline = machine.status === 'online';
+    const isAlertState = machine.status === 'alerta';
+    const isOnline =
+      machine.status === 'online' ||
+      isAlertState ||
+      (machine.last_seen ? Date.now() - new Date(machine.last_seen).getTime() < 5 * 60 * 1000 : false);
+
     const offlineMinutes =
       !isOnline && machine.last_seen
         ? Math.floor((Date.now() - new Date(machine.last_seen).getTime()) / 60000)
@@ -208,7 +213,7 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
     const hasAvAlert =
       machine.security_info?.antivirus &&
       machine.security_info.antivirus.length > 0 &&
-      machine.security_info.antivirus.some((a) => !a.active);
+      !machine.security_info.antivirus.some((a) => a.active);
 
     const hasFirewallAlert = machine.security_info?.firewall_active === false;
     const hasRebootAlert = !!machine.update_status?.reboot_required;
@@ -218,7 +223,8 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
       isOfflineLongAlert ||
       hasAvAlert ||
       hasFirewallAlert ||
-      hasRebootAlert;
+      hasRebootAlert ||
+      isAlertState;
 
     const cpuPct = machine.cpu_usage != null ? Math.round(machine.cpu_usage) : null;
     const ramPct = pct(machine.ram_used, machine.ram_total);

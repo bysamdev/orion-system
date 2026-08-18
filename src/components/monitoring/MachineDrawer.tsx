@@ -562,8 +562,16 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
   const deleteMachine = useDeleteMachine();
 
   const canManage = role === 'admin' || role === 'developer';
-  const isOnline = machine?.status === 'online';
-  const ledColor = isOnline ? 'bg-green-400 shadow-green-400/60' : 'bg-red-400 shadow-red-400/60';
+  const isAlertState = machine?.status === 'alerta';
+  const isOnline =
+    machine?.status === 'online' ||
+    isAlertState ||
+    (machine?.last_seen ? new Date().getTime() - new Date(machine.last_seen).getTime() < 5 * 60 * 1000 : false);
+  const ledColor = isOnline
+    ? isAlertState
+      ? 'bg-amber-400 shadow-amber-400/60'
+      : 'bg-green-400 shadow-green-400/60'
+    : 'bg-red-400 shadow-red-400/60';
 
   // Extract compliance & telemetry data safely from machine or detail
   const securityInfo = detail?.machine?.security_info ?? machine?.security_info ?? detail?.hardware?.security_info;
@@ -661,10 +669,14 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                 ) : null}
                 <Badge variant="outline" className={cn(
                   'text-[10px] font-bold gap-1.5',
-                  isOnline ? 'text-green-600 border-green-500/30 bg-green-500/5' : 'text-red-500 border-red-500/30 bg-red-500/5',
+                  isOnline
+                    ? isAlertState
+                      ? 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10'
+                      : 'text-green-600 dark:text-green-400 border-green-500/30 bg-green-500/5'
+                    : 'text-red-500 border-red-500/30 bg-red-500/5',
                 )}>
                   {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-                  {isOnline ? 'Online' : 'Offline'}
+                  {isOnline ? (isAlertState ? 'Online (Alerta)' : 'Online') : 'Offline'}
                 </Badge>
               </div>
             </div>
@@ -922,14 +934,37 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                       {/* Card 1: CPU */}
-                      <Card className="p-4 bg-muted/20 border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                      <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
                         <div className="flex items-center justify-between gap-1 mb-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            CPU em Tempo Real
-                          </span>
-                          <Cpu className="w-4 h-4 text-indigo-500" />
+                          <div className="flex items-center gap-1.5">
+                            <Cpu className="w-4 h-4 text-indigo-500" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              CPU / Processamento
+                            </span>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] font-bold uppercase px-1.5 py-0",
+                              cpuUsage != null
+                                ? cpuUsage > 85
+                                ? "text-red-600 border-red-500/30 bg-red-500/10"
+                                : cpuUsage > 70
+                                ? "text-amber-600 border-amber-500/30 bg-amber-500/10"
+                                : "text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
+                                : "text-muted-foreground border-border/40"
+                            )}
+                          >
+                            {cpuUsage != null
+                              ? cpuUsage > 85
+                                ? "Carga Crítica"
+                                : cpuUsage > 70
+                                ? "Carga Alta"
+                                : "Carga Normal"
+                              : "Sem Dados"}
+                          </Badge>
                         </div>
                         <div>
                           <div className="flex items-baseline justify-between gap-2">
@@ -947,33 +982,15 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             >
                               {cpuUsage != null ? `${cpuUsage}%` : '–'}
                             </span>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[9px] font-bold uppercase px-1.5 py-0",
-                                cpuUsage != null
-                                  ? cpuUsage > 85
-                                    ? "text-red-600 border-red-500/30 bg-red-500/10"
-                                    : cpuUsage > 70
-                                    ? "text-amber-600 border-amber-500/30 bg-amber-500/10"
-                                    : "text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
-                                  : "text-muted-foreground border-border/40"
-                              )}
-                            >
-                              {cpuUsage != null
-                                ? cpuUsage > 85
-                                  ? "Carga Crítica"
-                                  : cpuUsage > 70
-                                  ? "Carga Alta"
-                                  : "Carga Normal"
-                                : "Sem Dados"}
-                            </Badge>
+                            <span className="text-[10px] text-muted-foreground font-medium">
+                              {isOnline ? '🟢 Ao Vivo' : '⚪ Estático'}
+                            </span>
                           </div>
-                          <p className="text-[10px] text-muted-foreground truncate mt-1" title={cpuModel || 'CPU Host'}>
+                          <p className="text-[10px] text-foreground font-medium truncate mt-1" title={cpuModel || 'Processador do Host'}>
                             {cpuModel || (isOnline ? 'Processador Ativo' : 'Offline')}
                           </p>
                         </div>
-                        <div className="mt-3 space-y-1">
+                        <div className="mt-3 space-y-1.5 pt-2 border-t border-border/20">
                           <Progress
                             value={cpuUsage ?? 0}
                             className={cn(
@@ -985,21 +1002,35 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                                 : "[&>div]:bg-emerald-500"
                             )}
                           />
-                          <div className="flex justify-between text-[9px] text-muted-foreground">
-                            <span>0%</span>
-                            <span>Uso de Processamento</span>
-                            <span>100%</span>
+                          <div className="flex justify-between items-center text-[9px] text-muted-foreground">
+                            <span>Uso: <strong className="text-foreground">{cpuUsage ?? 0}%</strong></span>
+                            <span>Status: <strong className="text-foreground">{isOnline ? (isAlertState ? 'Alerta Ativo' : 'Operação Estável') : 'Offline'}</strong></span>
                           </div>
                         </div>
                       </Card>
 
                       {/* Card 2: RAM */}
-                      <Card className="p-4 bg-muted/20 border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                      <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
                         <div className="flex items-center justify-between gap-1 mb-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Memória RAM
-                          </span>
-                          <Layers className="w-4 h-4 text-emerald-500" />
+                          <div className="flex items-center gap-1.5">
+                            <Layers className="w-4 h-4 text-emerald-500" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              Memória RAM
+                            </span>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] font-bold uppercase px-1.5 py-0",
+                              ramUsagePct > 85
+                                ? "text-red-600 border-red-500/30 bg-red-500/10"
+                                : ramUsagePct > 70
+                                ? "text-amber-600 border-amber-500/30 bg-amber-500/10"
+                                : "text-blue-600 border-blue-500/30 bg-blue-500/10"
+                            )}
+                          >
+                            {ramUsagePct > 85 ? "Crítico" : ramUsagePct > 70 ? "Elevado" : "Normal"}
+                          </Badge>
                         </div>
                         <div>
                           <div className="flex items-baseline justify-between gap-2">
@@ -1015,25 +1046,15 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             >
                               {ramUsagePct}%
                             </span>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[9px] font-bold uppercase px-1.5 py-0",
-                                ramUsagePct > 85
-                                  ? "text-red-600 border-red-500/30 bg-red-500/10"
-                                  : ramUsagePct > 70
-                                  ? "text-amber-600 border-amber-500/30 bg-amber-500/10"
-                                  : "text-blue-600 border-blue-500/30 bg-blue-500/10"
-                              )}
-                            >
-                              {ramUsagePct > 85 ? "Crítico" : ramUsagePct > 70 ? "Elevado" : "Normal"}
-                            </Badge>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {formatBytes(machine?.ram_used)}
+                            </span>
                           </div>
-                          <p className="text-[10px] text-muted-foreground truncate mt-1">
-                            {formatBytes(machine?.ram_used)} / {formatBytes(machine?.ram_total)}
+                          <p className="text-[10px] text-foreground font-medium truncate mt-1">
+                            {formatBytes(machine?.ram_used)} usado de {formatBytes(machine?.ram_total)}
                           </p>
                         </div>
-                        <div className="mt-3 space-y-1">
+                        <div className="mt-3 space-y-1.5 pt-2 border-t border-border/20">
                           <Progress
                             value={ramUsagePct}
                             className={cn(
@@ -1045,24 +1066,35 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                                 : "[&>div]:bg-emerald-500"
                             )}
                           />
-                          <div className="flex justify-between text-[9px] text-muted-foreground">
-                            <span>
-                              {machine?.ram_total && machine?.ram_used != null
-                                ? `${formatBytes(Math.max(0, machine.ram_total - machine.ram_used))} livre`
-                                : '–'}
-                            </span>
-                            <span>Total: {formatBytes(machine?.ram_total)}</span>
+                          <div className="flex justify-between items-center text-[9px] text-muted-foreground">
+                            <span>Livre: <strong className="text-foreground">{machine?.ram_total && machine?.ram_used != null ? formatBytes(Math.max(0, machine.ram_total - machine.ram_used)) : '–'}</strong></span>
+                            <span>Total: <strong className="text-foreground">{formatBytes(machine?.ram_total)}</strong></span>
                           </div>
                         </div>
                       </Card>
 
                       {/* Card 3: Storage */}
-                      <Card className="p-4 bg-muted/20 border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                      <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
                         <div className="flex items-center justify-between gap-1 mb-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Armazenamento / Disco
-                          </span>
-                          <HardDrive className="w-4 h-4 text-amber-500" />
+                          <div className="flex items-center gap-1.5">
+                            <HardDrive className="w-4 h-4 text-amber-500" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              Armazenamento (C:)
+                            </span>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] font-bold uppercase px-1.5 py-0",
+                              diskUsagePct > 90
+                                ? "text-red-600 border-red-500/30 bg-red-500/10"
+                                : diskUsagePct > 75
+                                ? "text-amber-600 border-amber-500/30 bg-amber-500/10"
+                                : "text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
+                            )}
+                          >
+                            {diskUsagePct > 90 ? "Alerta" : diskUsagePct > 75 ? "Moderado" : "Normal"}
+                          </Badge>
                         </div>
                         <div>
                           <div className="flex items-baseline justify-between gap-2">
@@ -1078,25 +1110,15 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             >
                               {diskUsagePct}%
                             </span>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[9px] font-bold uppercase px-1.5 py-0",
-                                diskUsagePct > 90
-                                  ? "text-red-600 border-red-500/30 bg-red-500/10"
-                                  : diskUsagePct > 75
-                                  ? "text-amber-600 border-amber-500/30 bg-amber-500/10"
-                                  : "text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
-                              )}
-                            >
-                              {diskUsagePct > 90 ? "Alerta" : diskUsagePct > 75 ? "Moderado" : "Normal"}
-                            </Badge>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {formatBytes(machine?.disk_used)}
+                            </span>
                           </div>
-                          <p className="text-[10px] text-muted-foreground truncate mt-1">
-                            {formatBytes(machine?.disk_used)} / {formatBytes(machine?.disk_total)}
+                          <p className="text-[10px] text-foreground font-medium truncate mt-1">
+                            {formatBytes(machine?.disk_used)} usado de {formatBytes(machine?.disk_total)}
                           </p>
                         </div>
-                        <div className="mt-3 space-y-1">
+                        <div className="mt-3 space-y-1.5 pt-2 border-t border-border/20">
                           <Progress
                             value={diskUsagePct}
                             className={cn(
@@ -1105,62 +1127,69 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                                 ? "[&>div]:bg-red-500"
                                 : diskUsagePct > 75
                                 ? "[&>div]:bg-amber-500"
-                                : "[&>div]:bg-amber-500"
+                                : "[&>div]:bg-emerald-500"
                             )}
                           />
-                          <div className="flex justify-between text-[9px] text-muted-foreground">
-                            <span>
-                              {machine?.disk_total && machine?.disk_used != null
-                                ? `${formatBytes(Math.max(0, machine.disk_total - machine.disk_used))} livre`
-                                : '–'}
-                            </span>
-                            <span>Total: {formatBytes(machine?.disk_total)}</span>
+                          <div className="flex justify-between items-center text-[9px] text-muted-foreground">
+                            <span>Disponível: <strong className="text-foreground">{machine?.disk_total && machine?.disk_used != null ? formatBytes(Math.max(0, machine.disk_total - machine.disk_used)) : '–'}</strong></span>
+                            <span>Total: <strong className="text-foreground">{formatBytes(machine?.disk_total)}</strong></span>
                           </div>
                         </div>
                       </Card>
 
-                      {/* Card 4: Uptime */}
-                      <Card className="p-4 bg-muted/20 border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                      {/* Card 4: Uptime & Agent Connectivity */}
+                      <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
                         <div className="flex items-center justify-between gap-1 mb-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Uptime do Sistema
-                          </span>
-                          <Clock className="w-4 h-4 text-emerald-500" />
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-4 h-4 text-emerald-500" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              Uptime &amp; Conexão
+                            </span>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] font-bold uppercase px-1.5 py-0 gap-1",
+                              isOnline
+                                ? isAlertState
+                                  ? "text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10"
+                                  : "text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
+                                : "text-red-500 border-red-500/30 bg-red-500/10"
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                isOnline
+                                  ? isAlertState
+                                    ? "bg-amber-500 animate-pulse"
+                                    : "bg-emerald-500 animate-pulse"
+                                  : "bg-red-500"
+                              )}
+                            />
+                            {isOnline ? (isAlertState ? "Online (Alerta)" : "Online") : "Offline"}
+                          </Badge>
                         </div>
                         <div>
                           <div className="flex items-baseline justify-between gap-2">
                             <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-foreground">
                               {formatUptime(machine?.uptime)}
                             </span>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[9px] font-bold uppercase px-1.5 py-0 gap-1",
-                                isOnline
-                                  ? "text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
-                                  : "text-red-500 border-red-500/30 bg-red-500/10"
-                              )}
-                            >
-                              <div
-                                className={cn(
-                                  "w-1.5 h-1.5 rounded-full",
-                                  isOnline ? "bg-emerald-500 animate-pulse" : "bg-red-500"
-                                )}
-                              />
-                              {isOnline ? "Online" : "Offline"}
-                            </Badge>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              v{machine?.agent_version || '1.0.0'}
+                            </span>
                           </div>
-                          <p className="text-[10px] text-muted-foreground truncate mt-1">
-                            {isOnline ? 'Em operação contínua' : 'Dispositivo offline'}
+                          <p className="text-[10px] text-foreground font-medium truncate mt-1">
+                            {isOnline
+                              ? `Último sync: ${machine?.last_seen ? formatDistanceToNow(new Date(machine.last_seen), { addSuffix: true, locale: ptBR }) : 'agora'}`
+                              : 'Dispositivo offline'}
                           </p>
                         </div>
-                        <div className="mt-3 pt-1 border-t border-border/20 flex items-center justify-between text-[9px] text-muted-foreground">
-                          <span>Último sync:</span>
-                          <span className="font-medium text-foreground">
-                            {machine?.last_seen
-                              ? formatDistanceToNow(new Date(machine.last_seen), { addSuffix: true, locale: ptBR })
-                              : '–'}
-                          </span>
+                        <div className="mt-3 space-y-1.5 pt-2 border-t border-border/20">
+                          <div className="flex justify-between items-center text-[9px] text-muted-foreground">
+                            <span>IP: <strong className="text-foreground font-mono">{ipAddress}</strong></span>
+                            <span>Host: <strong className="text-foreground">{machine?.hostname}</strong></span>
+                          </div>
                         </div>
                       </Card>
                     </div>
