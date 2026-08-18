@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -153,21 +154,23 @@ func (s *Svc) Stop(svc service.Service) error {
 
 // GetPortalURL gera a URL de acesso ao portal já autenticada para esta máquina específica.
 func (s *Svc) GetPortalURL() string {
-	token := s.getMachineToken()
-	if token == "" {
+	tok := strings.TrimSpace(s.getMachineToken())
+	if tok == "" {
 		return ""
 	}
+	apiURL := strings.TrimRight(s.cfg.APIURL, "/")
 	// Usamos o redirecionador de login automático para que o usuário não precise digitar senha.
-	return fmt.Sprintf("%s/api/auth/machine-login?token=%s", s.cfg.APIURL, token)
+	return fmt.Sprintf("%s/api/auth/machine-login?token=%s", apiURL, url.QueryEscape(tok))
 }
 
 // GetTicketURL gera a URL que leva direto à página de abertura de chamado, já autenticada.
 func (s *Svc) GetTicketURL() string {
-	token := s.getMachineToken()
-	if token == "" {
+	tok := strings.TrimSpace(s.getMachineToken())
+	if tok == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/api/auth/machine-login?token=%s&redirect_to=/novo-ticket", s.cfg.APIURL, token)
+	apiURL := strings.TrimRight(s.cfg.APIURL, "/")
+	return fmt.Sprintf("%s/api/auth/machine-login?token=%s&redirect_to=/novo-ticket", apiURL, url.QueryEscape(tok))
 }
 
 // run é o loop principal do agente: coleta dados → envia para o servidor → aguarda o próximo intervalo.

@@ -195,13 +195,8 @@ func TestPortalETicketCompartilhamMesmoEndpointETokens(t *testing.T) {
 	}
 }
 
-// BUG (baixo/médio): GetPortalURL concatena APIURL com "/api/..." sem normalizar a
-// barra final, ao contrário de sender.Send, que faz strings.TrimSuffix(url, "/").
-// Com api_url terminando em "/" no agent.yaml, a URL sai com barra dupla.
+// BUG (baixo/médio) CORRIGIDO: GetPortalURL normaliza a barra final de cfg.APIURL.
 func TestGetPortalURLNaoDeveDuplicarBarraQuandoAPIURLTerminaComBarra(t *testing.T) {
-	pularSeBugConhecido(t, "GetPortalURL/GetTicketURL nao normalizam a barra final de cfg.APIURL "+
-		"(sender.Send normaliza), gerando '//api/auth/machine-login' quando api_url termina em '/'")
-
 	s := novoSvcDeTeste("https://orion.exemplo.test/")
 	s.machineToken = "abc123token"
 
@@ -214,16 +209,10 @@ func TestGetPortalURLNaoDeveDuplicarBarraQuandoAPIURLTerminaComBarra(t *testing.
 	}
 }
 
-// BUG (médio): token.LoadToken devolve o conteúdo do arquivo sem TrimSpace e
-// GetPortalURL não escapa o token. Um machine.token gravado/editado com quebra
-// de linha (bloco de notas, GPO, cópia manual) produz uma URL com caractere de
-// controle — inválida para url.Parse e para o navegador.
+// BUG (médio) CORRIGIDO: token é sanitizado e escapado em GetPortalURL.
 func TestGetPortalURLDeveGerarURLValidaComTokenComQuebraDeLinha(t *testing.T) {
-	pularSeBugConhecido(t, "token nao e sanitizado/escapado; token.LoadToken nao faz TrimSpace "+
-		"e GetPortalURL usa fmt.Sprintf sem url.QueryEscape, gerando URL invalida")
-
 	s := novoSvcDeTeste("https://orion.exemplo.test")
-	s.machineToken = "abc123token\r\n" // exatamente o que LoadToken devolveria
+	s.machineToken = "abc123token\r\n"
 
 	bruta := s.GetPortalURL()
 	if _, err := url.Parse(bruta); err != nil {
