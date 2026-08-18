@@ -35,6 +35,18 @@ func TestGeneratePrometheusMetrics(t *testing.T) {
 				Used:       100000000000,
 			},
 		},
+		Interfaces: []NetworkInterface{
+			{
+				Name: "Ethernet0",
+				MAC:  "00:11:22:33:44:55",
+				IPs:  []string{"192.168.1.50"},
+			},
+			{
+				Name: "Wi-Fi",
+				MAC:  "AA:BB:CC:DD:EE:FF",
+				IPs:  []string{"192.168.1.51"},
+			},
+		},
 	}
 
 	output := GeneratePrometheusMetrics(mockPayload)
@@ -69,6 +81,14 @@ func TestGeneratePrometheusMetrics(t *testing.T) {
 		"# HELP orion_agent_uptime_seconds Tempo de atividade do sistema em segundos",
 		"# TYPE orion_agent_uptime_seconds gauge",
 		`orion_agent_uptime_seconds{hostname="orion-server-01"} 86400`,
+
+		"# HELP orion_network_interfaces_count Quantidade de interfaces de rede ativas",
+		"# TYPE orion_network_interfaces_count gauge",
+		`orion_network_interfaces_count{hostname="orion-server-01"} 2`,
+
+		"# HELP orion_network_status Status de conectividade da rede local (1 para conectado, 0 para desconectado)",
+		"# TYPE orion_network_status gauge",
+		`orion_network_status{hostname="orion-server-01"} 1`,
 
 		"# HELP orion_agent_info Metadados informativos da máquina e versão do agente Orion",
 		"# TYPE orion_agent_info gauge",
@@ -147,6 +167,21 @@ func TestFormatPrometheusMetricsAlias(t *testing.T) {
 	}
 }
 
+func TestGeneratePrometheusMetricsNetworkDisconnected(t *testing.T) {
+	mock := &Payload{
+		Hostname:   "disconnected-host",
+		IP:         "",
+		Interfaces: nil,
+	}
+	output := GeneratePrometheusMetrics(mock)
+	if !strings.Contains(output, `orion_network_interfaces_count{hostname="disconnected-host"} 0`) {
+		t.Errorf("esperava 0 interfaces de rede, obtido:\n%s", output)
+	}
+	if !strings.Contains(output, `orion_network_status{hostname="disconnected-host"} 0`) {
+		t.Errorf("esperava network status 0, obtido:\n%s", output)
+	}
+}
+
 func TestGetHardwareInfoEExportPrometheusMetrics(t *testing.T) {
 	payload, err := GetHardwareInfo()
 	if err != nil {
@@ -166,4 +201,11 @@ func TestGetHardwareInfoEExportPrometheusMetrics(t *testing.T) {
 	if !strings.Contains(metrics, "orion_memory_total_bytes") {
 		t.Errorf("ExportPrometheusMetrics não contém orion_memory_total_bytes:\n%s", metrics)
 	}
+	if !strings.Contains(metrics, "orion_network_interfaces_count") {
+		t.Errorf("ExportPrometheusMetrics não contém orion_network_interfaces_count:\n%s", metrics)
+	}
+	if !strings.Contains(metrics, "orion_network_status") {
+		t.Errorf("ExportPrometheusMetrics não contém orion_network_status:\n%s", metrics)
+	}
 }
+

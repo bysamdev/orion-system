@@ -104,9 +104,23 @@ func GeneratePrometheusMetrics(p *Payload) string {
 	// 7. Uptime Seconds
 	sb.WriteString("# HELP orion_agent_uptime_seconds Tempo de atividade do sistema em segundos\n")
 	sb.WriteString("# TYPE orion_agent_uptime_seconds gauge\n")
-	sb.WriteString(fmt.Sprintf("orion_agent_uptime_seconds{hostname=\"%s\"} %d\n", escapedHost, p.Uptime))
+	sb.WriteString(fmt.Sprintf("orion_agent_uptime_seconds{hostname=\"%s\"} %d\n\n", escapedHost, p.Uptime))
 
-	// 8. Orion Agent Info (Metadata)
+	// 8. Network Interfaces Count
+	sb.WriteString("# HELP orion_network_interfaces_count Quantidade de interfaces de rede ativas\n")
+	sb.WriteString("# TYPE orion_network_interfaces_count gauge\n")
+	sb.WriteString(fmt.Sprintf("orion_network_interfaces_count{hostname=\"%s\"} %d\n\n", escapedHost, len(p.Interfaces)))
+
+	// 9. Network Status (1 = online/conectado, 0 = desconectado)
+	networkStatus := 0
+	if len(p.Interfaces) > 0 || p.IP != "" {
+		networkStatus = 1
+	}
+	sb.WriteString("# HELP orion_network_status Status de conectividade da rede local (1 para conectado, 0 para desconectado)\n")
+	sb.WriteString("# TYPE orion_network_status gauge\n")
+	sb.WriteString(fmt.Sprintf("orion_network_status{hostname=\"%s\"} %d\n", escapedHost, networkStatus))
+
+	// 10. Orion Agent Info (Metadata)
 	if p.AgentVersion != "" || p.OS != "" || p.DeviceType != "" {
 		sb.WriteString("\n# HELP orion_agent_info Metadados informativos da máquina e versão do agente Orion\n")
 		sb.WriteString("# TYPE orion_agent_info gauge\n")
