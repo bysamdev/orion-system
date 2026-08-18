@@ -2,6 +2,7 @@ package lib
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -10,30 +11,36 @@ import (
 // ─── Structs ─────────────────────────────────────────────────────────────────
 
 type MachineGroupRow struct {
-	ID             string  `json:"id"`
-	Name           string  `json:"name"`
-	Description    *string `json:"description"`
-	ClientContact  *string `json:"client_contact"`
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	Description    *string   `json:"description"`
+	ClientContact  *string   `json:"client_contact"`
 	CreatedAt      time.Time `json:"created_at"`
-	TotalMachines  int     `json:"total_machines"`
-	OnlineMachines int     `json:"online_machines"`
+	TotalMachines  int       `json:"total_machines"`
+	OnlineMachines int       `json:"online_machines"`
 }
 
 type MachineRow struct {
-	ID           string     `json:"id"`
-	GroupID      *string    `json:"group_id"`
-	CompanyID    *string    `json:"company_id"`
-	Hostname     string     `json:"hostname"`
-	IPAddress    *string    `json:"ip_address"`
-	OS           *string    `json:"os"`
-	OSVersion    *string    `json:"os_version"`
-	Status       string     `json:"status"`
-	LastSeen     *time.Time `json:"last_seen"`
-	AgentVersion *string    `json:"agent_version"`
-	CreatedAt    time.Time  `json:"created_at"`
-	MachineToken *string    `json:"machine_token"`
-	MachineUUID  *string    `json:"machine_uuid"`
-	CurrentUser  *string    `json:"current_user"`
+	ID             string           `json:"id"`
+	GroupID        *string          `json:"group_id"`
+	CompanyID      *string          `json:"company_id"`
+	Hostname       string           `json:"hostname"`
+	IPAddress      *string          `json:"ip_address"`
+	OS             *string          `json:"os"`
+	OSVersion      *string          `json:"os_version"`
+	Status         string           `json:"status"`
+	LastSeen       *time.Time       `json:"last_seen"`
+	AgentVersion   *string          `json:"agent_version"`
+	CreatedAt      time.Time        `json:"created_at"`
+	MachineToken   *string          `json:"machine_token"`
+	MachineUUID    *string          `json:"machine_uuid"`
+	CurrentUser    *string          `json:"current_user"`
+	Domain         *string          `json:"domain"`
+	MACAddress     *string          `json:"mac_address"`
+	SecurityInfo   *json.RawMessage `json:"security_info,omitempty"`
+	RemoteSoftware *json.RawMessage `json:"remote_software,omitempty"`
+	BatteryInfo    *json.RawMessage `json:"battery_info,omitempty"`
+	UpdateStatus   *json.RawMessage `json:"update_status,omitempty"`
 }
 
 type MachineWithMetric struct {
@@ -60,14 +67,18 @@ type MetricRow struct {
 }
 
 type HardwareRow struct {
-	ID                string    `json:"id"`
-	MachineID         string    `json:"machine_id"`
-	CPUModel          *string   `json:"cpu_model"`
-	RAMSlots          []byte    `json:"ram_slots"`
-	Disks             []byte    `json:"disks"`
-	NetworkInterfaces []byte    `json:"network_interfaces"`
-	GPU               *string   `json:"gpu"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	ID                string           `json:"id"`
+	MachineID         string           `json:"machine_id"`
+	CPUModel          *string          `json:"cpu_model"`
+	RAMSlots          []byte           `json:"ram_slots"`
+	Disks             []byte           `json:"disks"`
+	NetworkInterfaces []byte           `json:"network_interfaces"`
+	GPU               *string          `json:"gpu"`
+	SecurityInfo      *json.RawMessage `json:"security_info,omitempty"`
+	RemoteSoftware    *json.RawMessage `json:"remote_software,omitempty"`
+	BatteryInfo       *json.RawMessage `json:"battery_info,omitempty"`
+	UpdateStatus      *json.RawMessage `json:"update_status,omitempty"`
+	UpdatedAt         time.Time        `json:"updated_at"`
 }
 
 type AlertRow struct {
@@ -148,9 +159,12 @@ func (d *DB) MachinesByGroupID(ctx context.Context, groupID string, companyID *s
 	rows, err := d.pool.Query(ctx, `
 SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_version,
        m.status, m.last_seen, m.agent_version, m.created_at,
+       m.domain, m.mac_address, m.current_user,
+       hw.security_info, hw.remote_software, hw.battery_info, hw.update_status,
        lm.cpu_usage, lm.ram_total, lm.ram_used, lm.disk_total, lm.disk_used, lm.uptime, lm.collected_at
 FROM public.machines m
 JOIN public.machine_groups mg ON mg.id = m.group_id
+LEFT JOIN public.machine_hardware hw ON hw.machine_id = m.id
 LEFT JOIN LATERAL (
   SELECT cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, collected_at
   FROM public.machine_metrics WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
@@ -167,6 +181,8 @@ ORDER BY m.hostname`, groupID, companyID)
 		var r MachineWithMetric
 		if err := rows.Scan(&r.ID, &r.GroupID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
 			&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt,
+			&r.Domain, &r.MACAddress, &r.CurrentUser,
+			&r.SecurityInfo, &r.RemoteSoftware, &r.BatteryInfo, &r.UpdateStatus,
 			&r.CPUUsage, &r.RAMTotal, &r.RAMUsed, &r.DiskTotal, &r.DiskUsed, &r.Uptime, &r.CollectedAt); err != nil {
 			return nil, err
 		}
@@ -179,10 +195,10 @@ func (d *DB) MachineByID(ctx context.Context, id string) (*MachineRow, error) {
 	var r MachineRow
 	err := d.pool.QueryRow(ctx, `
 SELECT id::text, group_id::text, company_id::text, hostname, ip_address, os, os_version,
-       status, last_seen, agent_version, created_at
+       status, last_seen, agent_version, created_at, domain, mac_address, "current_user"
 FROM public.machines WHERE id = $1`, id).Scan(
 		&r.ID, &r.GroupID, &r.CompanyID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
-		&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt)
+		&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt, &r.Domain, &r.MACAddress, &r.CurrentUser)
 	if err != nil {
 		return nil, err
 	}
@@ -192,9 +208,11 @@ FROM public.machines WHERE id = $1`, id).Scan(
 func (d *DB) MachineHardwareByMachineID(ctx context.Context, machineID string) (*HardwareRow, error) {
 	var r HardwareRow
 	err := d.pool.QueryRow(ctx, `
-SELECT id::text, machine_id::text, cpu_model, ram_slots, disks, network_interfaces, gpu, updated_at
+SELECT id::text, machine_id::text, cpu_model, ram_slots, disks, network_interfaces, gpu,
+       security_info, remote_software, battery_info, update_status, updated_at
 FROM public.machine_hardware WHERE machine_id = $1`, machineID).
-		Scan(&r.ID, &r.MachineID, &r.CPUModel, &r.RAMSlots, &r.Disks, &r.NetworkInterfaces, &r.GPU, &r.UpdatedAt)
+		Scan(&r.ID, &r.MachineID, &r.CPUModel, &r.RAMSlots, &r.Disks, &r.NetworkInterfaces, &r.GPU,
+			&r.SecurityInfo, &r.RemoteSoftware, &r.BatteryInfo, &r.UpdateStatus, &r.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +296,7 @@ func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, com
 	return id, err
 }
 
-func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, currentUserSID, companyID, deviceType, macAddress string) (string, error) {
+func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, currentUserSID, companyID, deviceType, macAddress, domain string) (string, error) {
 	var id string
 
 	// Salva apenas o Hostname puro da máquina (sem IP ou usuário concatenados)
@@ -308,11 +326,11 @@ func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, o
 	// sessão de console ativa, ou versão do agente anterior a esta
 	// correção), em vez de string vazia.
 	err := d.pool.QueryRow(ctx, `
-INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type)
-VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13)
+INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type, domain)
+VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $14)
 ON CONFLICT (machine_token) DO UPDATE
-  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=$11, local_ip=$3, logged_in_user=$9, mac_address=$12, device_type=$13
-RETURNING id::text`, groupID, cleanHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID), NilIfEmpty(macAddress), deviceType).Scan(&id)
+  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=$11, local_ip=$3, logged_in_user=$9, mac_address=$12, device_type=$13, domain=$14
+RETURNING id::text`, groupID, cleanHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID), NilIfEmpty(macAddress), deviceType, NilIfEmpty(domain)).Scan(&id)
 	return id, err
 }
 
@@ -342,15 +360,48 @@ type UpsertHardwareInput struct {
 	Disks             []byte
 	NetworkInterfaces []byte
 	GPU               string
+	SecurityInfo      []byte
+	RemoteSoftware    []byte
+	BatteryInfo       []byte
+	UpdateStatus      []byte
 }
 
 func (d *DB) UpsertHardware(ctx context.Context, in UpsertHardwareInput) error {
+	ramSlots := string(in.RAMSlots)
+	if len(in.RAMSlots) == 0 {
+		ramSlots = "null"
+	}
+	disks := string(in.Disks)
+	if len(in.Disks) == 0 {
+		disks = "[]"
+	}
+	ifaces := string(in.NetworkInterfaces)
+	if len(in.NetworkInterfaces) == 0 {
+		ifaces = "[]"
+	}
+	secInfo := string(in.SecurityInfo)
+	if len(in.SecurityInfo) == 0 {
+		secInfo = "null"
+	}
+	remoteSoft := string(in.RemoteSoftware)
+	if len(in.RemoteSoftware) == 0 {
+		remoteSoft = "null"
+	}
+	battery := string(in.BatteryInfo)
+	if len(in.BatteryInfo) == 0 {
+		battery = "null"
+	}
+	upStatus := string(in.UpdateStatus)
+	if len(in.UpdateStatus) == 0 {
+		upStatus = "null"
+	}
+
 	_, err := d.pool.Exec(ctx, `
-INSERT INTO public.machine_hardware (machine_id, cpu_model, ram_slots, disks, network_interfaces, gpu, updated_at)
-VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6, now())
+INSERT INTO public.machine_hardware (machine_id, cpu_model, ram_slots, disks, network_interfaces, gpu, security_info, remote_software, battery_info, update_status, updated_at)
+VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10::jsonb, now())
 ON CONFLICT (machine_id) DO UPDATE
-  SET cpu_model=$2, ram_slots=$3::jsonb, disks=$4::jsonb, network_interfaces=$5::jsonb, gpu=$6, updated_at=now()`,
-		in.MachineID, in.CPUModel, string(in.RAMSlots), string(in.Disks), string(in.NetworkInterfaces), in.GPU)
+  SET cpu_model=$2, ram_slots=$3::jsonb, disks=$4::jsonb, network_interfaces=$5::jsonb, gpu=$6, security_info=$7::jsonb, remote_software=$8::jsonb, battery_info=$9::jsonb, update_status=$10::jsonb, updated_at=now()`,
+		in.MachineID, in.CPUModel, ramSlots, disks, ifaces, in.GPU, secInfo, remoteSoft, battery, upStatus)
 	return err
 }
 
@@ -478,8 +529,8 @@ SELECT
 	return s, err
 }
 
-// CriticalAlerts agrega offline/disco/CPU/alertas. companyID nil = todas as
-// empresas; caso contrário cada ramo do UNION filtra por m.company_id.
+// CriticalAlerts agrega offline/disco/CPU/alertas (incluindo antivírus, firewall, updates).
+// companyID nil = todas as empresas; caso contrário cada ramo do UNION filtra por m.company_id.
 func (d *DB) CriticalAlerts(ctx context.Context, companyID *string) ([]CriticalAlertItem, error) {
 	rows, err := d.pool.Query(ctx, `
 -- Máquinas offline há mais de 1 hora
@@ -526,9 +577,9 @@ WHERE lm.cpu_usage > 85
 
 UNION ALL
 
--- Alertas não resolvidos do sistema
+-- Alertas não resolvidos do sistema (antivirus, firewall, updates, etc.)
 SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
-       'alert'::text, a.severity, a.message, NULL::float8
+       a.type::text AS alert_type, a.severity, a.message, NULL::float8
 FROM public.machine_alerts a
 JOIN public.machines m ON m.id = a.machine_id
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id

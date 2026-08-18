@@ -87,6 +87,9 @@ export interface MachineWithMetric {
   company_id: string | null;
   hostname: string;
   ip_address: string | null;
+  mac_address?: string | null;
+  domain?: string | null;
+  current_user?: string | null;
   os: string | null;
   os_version: string | null;
   status: 'online' | 'offline' | string;
@@ -192,6 +195,28 @@ export function useGroupMachines(groupId: string | null) {
     queryKey: ['monitoring', 'group-machines', groupId],
     queryFn: () => apiGet(`/api/monitoring/groups/${groupId}/machines`),
     enabled: !!groupId,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useAllMachines() {
+  const { data: groups = [] } = useMonitoringGroups();
+  return useQuery<MachineWithMetric[]>({
+    queryKey: ['monitoring', 'all-machines', groups.map(g => g.id).join(',')],
+    queryFn: async () => {
+      if (groups.length === 0) return [];
+      const results = await Promise.all(
+        groups.map(g =>
+          apiGet<MachineWithMetric[]>(`/api/monitoring/groups/${g.id}/machines`).catch(() => [])
+        )
+      );
+      const map = new Map<string, MachineWithMetric>();
+      results.flat().forEach(m => {
+        if (m && m.id) map.set(m.id, m);
+      });
+      return Array.from(map.values());
+    },
+    enabled: groups.length > 0,
     refetchInterval: 30_000,
   });
 }
@@ -430,13 +455,16 @@ export function formatUptime(seconds: number | null | undefined): string {
 export interface CriticalAlertItem {
   machine_id: string;
   hostname: string;
-  group_name: string | null;
+  group_name?: string | null;
+  domain?: string | null;
+  current_user?: string | null;
+  ip_address?: string | null;
   status: string;
   last_seen: string | null;
-  alert_type: 'offline' | 'disk' | 'cpu' | 'alert';
+  alert_type: 'offline' | 'disk' | 'cpu' | 'antivirus' | 'firewall' | 'updates' | 'alert' | string;
   severity: 'critical' | 'warning' | string;
   message: string;
-  metric_value: number | null;
+  metric_value?: number | null;
 }
 
 export function useCriticalAlerts() {

@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"encoding/json"
 	"net"
 	"os"
 	"regexp"
@@ -451,4 +452,113 @@ func TestCollect_MacAddressPertenceAInterfaceDoIPPrincipal(t *testing.T) {
 		}
 	}
 	t.Errorf("nenhuma interface encontrada com o IP %q reportado em Payload.IP", p.IP)
+}
+
+func TestPayloadJSONTagsExactas(t *testing.T) {
+	p := &Payload{
+		MachineToken: "tok-123",
+		MachineUUID:  "uuid-456",
+		Hostname:     "host-test",
+		IP:           "192.168.1.100",
+		OS:           "windows",
+		OSVersion:    "11.0",
+		Domain:       "ORION.LOCAL",
+		CurrentUser:  `ORION\suporte`,
+		MACAddress:   "00:11:22:33:44:55",
+		DeviceType:   "desktop",
+		AgentVersion: "1.2.0",
+		Security: SecurityInfo{
+			Antivirus: []AntivirusInfo{
+				{Name: "Defender", Active: true},
+			},
+			FirewallActive:  true,
+			BitLocker:       []BitLockerInfo{{Mount: "C:", Status: "Protected", Active: true}},
+			BitLockerActive: true,
+		},
+		RemoteSoftware: []RemoteSoftwareInfo{
+			{Name: "AnyDesk", Version: "8.0", IsRunning: true},
+		},
+		Battery: BatteryInfo{
+			HasBattery: true,
+			Percent:    95,
+			PluggedIn:  true,
+			Status:     "Charging",
+		},
+		UpdateStatus: UpdateStatus{
+			RebootRequired: false,
+		},
+	}
+
+	data, err := json.Marshal(p)
+	if err != nil {
+		t.Fatalf("Marshal falhou: %v", err)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Unmarshal raw falhou: %v", err)
+	}
+
+	// Verifica tags do topo
+	chavesObrigatorias := []string{"domain", "current_user", "ip", "mac_address", "hostname", "security", "remote_software", "battery", "update_status"}
+	for _, k := range chavesObrigatorias {
+		if _, ok := raw[k]; !ok {
+			t.Errorf("Campo obrigatório %q ausente no JSON do Payload", k)
+		}
+	}
+
+	// Verifica security
+	sec, ok := raw["security"].(map[string]any)
+	if !ok {
+		t.Fatalf("security não é um objeto JSON: %v", raw["security"])
+	}
+	if _, ok := sec["antivirus"]; !ok {
+		t.Errorf("security.antivirus ausente")
+	}
+	if _, ok := sec["firewall_active"]; !ok {
+		t.Errorf("security.firewall_active ausente")
+	}
+	if _, ok := sec["bitlocker"]; !ok {
+		t.Errorf("security.bitlocker ausente")
+	}
+
+	// Verifica remote_software
+	rem, ok := raw["remote_software"].([]any)
+	if !ok || len(rem) == 0 {
+		t.Fatalf("remote_software inválido ou vazio: %v", raw["remote_software"])
+	}
+	rem0 := rem[0].(map[string]any)
+	if _, ok := rem0["name"]; !ok {
+		t.Errorf("remote_software[0].name ausente")
+	}
+	if _, ok := rem0["version"]; !ok {
+		t.Errorf("remote_software[0].version ausente")
+	}
+	if _, ok := rem0["is_running"]; !ok {
+		t.Errorf("remote_software[0].is_running ausente")
+	}
+
+	// Verifica battery
+	bat, ok := raw["battery"].(map[string]any)
+	if !ok {
+		t.Fatalf("battery não é um objeto JSON: %v", raw["battery"])
+	}
+	if _, ok := bat["has_battery"]; !ok {
+		t.Errorf("battery.has_battery ausente")
+	}
+	if _, ok := bat["percent"]; !ok {
+		t.Errorf("battery.percent ausente")
+	}
+	if _, ok := bat["plugged_in"]; !ok {
+		t.Errorf("battery.plugged_in ausente")
+	}
+
+	// Verifica update_status
+	upd, ok := raw["update_status"].(map[string]any)
+	if !ok {
+		t.Fatalf("update_status não é um objeto JSON: %v", raw["update_status"])
+	}
+	if _, ok := upd["reboot_required"]; !ok {
+		t.Errorf("update_status.reboot_required ausente")
+	}
 }

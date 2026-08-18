@@ -52,9 +52,10 @@ type BitLockerInfo struct {
 
 // SecurityInfo agrupa dados de conformidade de segurança (AV, Firewall, BitLocker).
 type SecurityInfo struct {
-	Antivirus      []AntivirusInfo `json:"antivirus"`
-	FirewallActive bool            `json:"firewall_active"`
-	BitLocker      []BitLockerInfo `json:"bitlocker"`
+	Antivirus       []AntivirusInfo `json:"antivirus"`
+	FirewallActive  bool            `json:"firewall_active"`
+	BitLocker       []BitLockerInfo `json:"bitlocker"`
+	BitLockerActive bool            `json:"bitlocker_active"`
 }
 
 // RemoteSoftwareInfo representa ferramentas de acesso remoto conhecidas instaladas ou em execução.
@@ -218,6 +219,15 @@ func modeloDaCPU() string {
 // Collect faz uma varredura completa no sistema para extrair métricas de hardware atuais.
 func Collect() (*Payload, error) {
 	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = os.Getenv("COMPUTERNAME")
+		if hostname == "" {
+			hostname = os.Getenv("HOSTNAME")
+		}
+		if hostname == "" {
+			hostname = "unknown-host"
+		}
+	}
 
 	// 1. Dados Básicos do Host (Sistema Operacional, Versão e Tempo de Atividade)
 	hi, err := host.Info()
@@ -356,6 +366,22 @@ func Collect() (*Payload, error) {
 				MAC:  iface.HardwareAddr.String(),
 				IPs:  ips,
 			})
+		}
+	}
+
+	// Fallback para garantir IP e MACAddress caso a varredura primária não encontre
+	if ip == "" {
+		ip = primaryIP()
+		if ip == "" {
+			ip = "127.0.0.1"
+		}
+	}
+	if macAddress == "" && len(interfaces) > 0 {
+		for _, iface := range interfaces {
+			if iface.MAC != "" {
+				macAddress = iface.MAC
+				break
+			}
 		}
 	}
 

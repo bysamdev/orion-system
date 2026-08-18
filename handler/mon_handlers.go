@@ -223,29 +223,45 @@ func monitoringMachineAlerts(w http.ResponseWriter, r *http.Request) {
 // ─── Heartbeat ───────────────────────────────────────────────────────────────
 
 type heartbeatReq struct {
-	AgentKey     string            `json:"agent_key"`
-	MachineToken string            `json:"machine_token"`
-	MachineUUID  string            `json:"machine_uuid"`
-	CurrentUser  string            `json:"current_user"`
+	AgentKey       string          `json:"agent_key"`
+	MachineToken   string          `json:"machine_token"`
+	MachineUUID    string          `json:"machine_uuid"`
+	CurrentUser    string          `json:"current_user"`
 	CurrentUserSID string          `json:"current_user_sid"`
-	Hostname     string            `json:"hostname"`
-	IP           string            `json:"ip"`
-	OS           string            `json:"os"`
-	OSVersion    string            `json:"os_version"`
-	AgentVersion string            `json:"agent_version"`
-	CPUUsage     float64           `json:"cpu_usage"`
-	RAMTotal     int64             `json:"ram_total"`
-	RAMUsed      int64             `json:"ram_used"`
-	DiskTotal    int64             `json:"disk_total"`
-	DiskUsed     int64             `json:"disk_used"`
-	Uptime       int64             `json:"uptime"`
-	CPUModel     string            `json:"cpu_model"`
-	GPU          string            `json:"gpu"`
-	Disks        json.RawMessage   `json:"disks"`
-	Interfaces   json.RawMessage   `json:"interfaces"`
-	Domain       string            `json:"domain"`
-	MACAddress   string            `json:"mac_address"`
-	DeviceType   string            `json:"device_type"`
+	Hostname       string          `json:"hostname"`
+	IP             string          `json:"ip"`
+	OS             string          `json:"os"`
+	OSVersion      string          `json:"os_version"`
+	AgentVersion   string          `json:"agent_version"`
+	CPUUsage       float64         `json:"cpu_usage"`
+	RAMTotal       int64           `json:"ram_total"`
+	RAMUsed        int64           `json:"ram_used"`
+	DiskTotal      int64           `json:"disk_total"`
+	DiskUsed       int64           `json:"disk_used"`
+	Uptime         int64           `json:"uptime"`
+	CPUModel       string          `json:"cpu_model"`
+	GPU            string          `json:"gpu"`
+	Disks          json.RawMessage `json:"disks"`
+	Interfaces     json.RawMessage `json:"interfaces"`
+	Domain         string          `json:"domain"`
+	MACAddress     string          `json:"mac_address"`
+	DeviceType     string          `json:"device_type"`
+	Security       json.RawMessage `json:"security"`
+	RemoteSoftware json.RawMessage `json:"remote_software"`
+	Battery        json.RawMessage `json:"battery"`
+	UpdateStatus   json.RawMessage `json:"update_status"`
+}
+
+type securityData struct {
+	Antivirus []struct {
+		Name   string `json:"name"`
+		Active bool   `json:"active"`
+	} `json:"antivirus"`
+	FirewallActive bool `json:"firewall_active"`
+}
+
+type updateStatusData struct {
+	RebootRequired bool `json:"reboot_required"`
 }
 
 func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
@@ -338,7 +354,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	machineID, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser, req.CurrentUserSID, targetCompanyID, req.DeviceType, req.MACAddress)
+	machineID, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser, req.CurrentUserSID, targetCompanyID, req.DeviceType, req.MACAddress, req.Domain)
 	if err != nil {
 		fmt.Println("Erro UpsertMachine:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar máquina: %v", err)})
@@ -363,8 +379,16 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		ifacesJSON = json.RawMessage(`[]`)
 	}
 	_ = db.UpsertHardware(ctx, lib.UpsertHardwareInput{
-		MachineID: machineID, CPUModel: req.CPUModel,
-		RAMSlots: []byte(`null`), Disks: disksJSON, NetworkInterfaces: ifacesJSON, GPU: req.GPU,
+		MachineID:         machineID,
+		CPUModel:          req.CPUModel,
+		RAMSlots:          []byte(`null`),
+		Disks:             disksJSON,
+		NetworkInterfaces: ifacesJSON,
+		GPU:               req.GPU,
+		SecurityInfo:      req.Security,
+		RemoteSoftware:    req.RemoteSoftware,
+		BatteryInfo:       req.Battery,
+		UpdateStatus:      req.UpdateStatus,
 	})
 
 	hasAlert := false
@@ -402,6 +426,61 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 			hasAlert = true
 		} else {
 			_ = db.ResolveAlertsByType(ctx, machineID, "disk")
+		}
+	}
+
+	// Avaliação de conformidade para a Zona Vermelha (Segurança & Antivírus)
+	if len(req.Security) > 0 && string(req.Security) != "null" {
+		var sec securityData
+		if err := json.Unmarshal(req.Security, &sec); err == nil {
+			hasActiveAV := false
+			for _, av := range sec.Antivirus {
+				if av.Active {
+					hasActiveAV = true
+					break
+				}
+			}
+			if !hasActiveAV {
+				_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
+					MachineID: machineID,
+					Type:      "antivirus",
+					Severity:  "critical",
+					Message:   "Antivírus desativado ou ausente",
+				})
+				hasAlert = true
+			} else {
+				_ = db.ResolveAlertsByType(ctx, machineID, "antivirus")
+			}
+
+			if !sec.FirewallActive {
+				_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
+					MachineID: machineID,
+					Type:      "firewall",
+					Severity:  "warning",
+					Message:   "Firewall do Windows desativado",
+				})
+				hasAlert = true
+			} else {
+				_ = db.ResolveAlertsByType(ctx, machineID, "firewall")
+			}
+		}
+	}
+
+	// Avaliação de reinicialização pendente pós-atualizações
+	if len(req.UpdateStatus) > 0 && string(req.UpdateStatus) != "null" {
+		var upd updateStatusData
+		if err := json.Unmarshal(req.UpdateStatus, &upd); err == nil {
+			if upd.RebootRequired {
+				_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
+					MachineID: machineID,
+					Type:      "updates",
+					Severity:  "warning",
+					Message:   "Reinicialização pendente pós-atualizações",
+				})
+				hasAlert = true
+			} else {
+				_ = db.ResolveAlertsByType(ctx, machineID, "updates")
+			}
 		}
 	}
 

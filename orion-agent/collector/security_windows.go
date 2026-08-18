@@ -40,12 +40,24 @@ func isProductStateActive(state uint32) bool {
 
 // coletarSeguranca executa a coleta dos status de Antivírus, Firewall e BitLocker no Windows.
 func coletarSeguranca() SecurityInfo {
-	sec := SecurityInfo{
-		Antivirus:      coletarAntivirus(),
-		FirewallActive: coletarFirewall(),
-		BitLocker:      coletarBitLocker(),
+	av := coletarAntivirus()
+	fw := coletarFirewall()
+	bl := coletarBitLocker()
+
+	blActive := false
+	for _, b := range bl {
+		if b.Active {
+			blActive = true
+			break
+		}
 	}
-	return sec
+
+	return SecurityInfo{
+		Antivirus:       av,
+		FirewallActive:  fw,
+		BitLocker:       bl,
+		BitLockerActive: blActive,
+	}
 }
 
 // coletarAntivirus consulta o WMI root\SecurityCenter2 para obter os antivírus instalados e seu estado.

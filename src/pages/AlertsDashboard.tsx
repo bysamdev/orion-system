@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,94 +12,216 @@ import {
   Cpu,
   RefreshCw,
   ShieldAlert,
+  ShieldCheck,
   Loader2,
   Lock,
   Clock,
+  Globe,
+  Network,
+  User,
+  RotateCcw,
+  Activity,
+  ExternalLink,
+  Shield,
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
-import { useCriticalAlerts, useMonitoringDashboard } from '@/hooks/useMonitoring';
-import type { CriticalAlertItem } from '@/hooks/useMonitoring';
+import {
+  useCriticalAlerts,
+  useMonitoringDashboard,
+  useAllMachines,
+  pct,
+} from '@/hooks/useMonitoring';
+import type { CriticalAlertItem, MachineWithMetric } from '@/hooks/useMonitoring';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useQueryClient } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 
 export interface AlertsDashboardProps {
   onAlertClick?: (machineId: string) => void;
 }
 
 // ── Alert Card ──────────────────────────────────────────────
-function AlertCard({ alert, onClick }: { alert: CriticalAlertItem; onClick?: () => void }) {
-  const iconMap = {
+function AlertCard({
+  alert,
+  onOpenMachine,
+}: {
+  alert: CriticalAlertItem;
+  onOpenMachine: (machineId: string) => void;
+}) {
+  const iconMap: Record<string, any> = {
+    antivirus: ShieldAlert,
+    firewall: ShieldAlert,
+    updates: RotateCcw,
     offline: WifiOff,
     disk: HardDrive,
     cpu: Cpu,
-    alert: ShieldAlert,
+    alert: AlertTriangle,
   };
-  const colorMap = {
-    offline: { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-600', icon: 'bg-red-600' },
-    disk: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-600', icon: 'bg-orange-600' },
-    cpu: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-600', icon: 'bg-amber-600' },
-    alert: { bg: 'bg-rose-500/10', border: 'border-rose-500/30', text: 'text-rose-600', icon: 'bg-rose-600' },
+
+  const colorMap: Record<string, { bg: string; border: string; text: string; icon: string; badge: string }> = {
+    antivirus: {
+      bg: 'bg-rose-500/10 dark:bg-rose-950/20',
+      border: 'border-rose-500/30',
+      text: 'text-rose-600 dark:text-rose-400',
+      icon: 'bg-rose-600 shadow-rose-600/30',
+      badge: 'bg-rose-500 text-white',
+    },
+    firewall: {
+      bg: 'bg-red-500/10 dark:bg-red-950/20',
+      border: 'border-red-500/30',
+      text: 'text-red-600 dark:text-red-400',
+      icon: 'bg-red-600 shadow-red-600/30',
+      badge: 'bg-red-500 text-white',
+    },
+    updates: {
+      bg: 'bg-amber-500/10 dark:bg-amber-950/20',
+      border: 'border-amber-500/30',
+      text: 'text-amber-600 dark:text-amber-400',
+      icon: 'bg-amber-600 shadow-amber-600/30',
+      badge: 'bg-amber-500 text-white',
+    },
+    offline: {
+      bg: 'bg-red-500/10 dark:bg-red-950/20',
+      border: 'border-red-500/30',
+      text: 'text-red-600 dark:text-red-400',
+      icon: 'bg-red-600 shadow-red-600/30',
+      badge: 'bg-red-500 text-white',
+    },
+    disk: {
+      bg: 'bg-orange-500/10 dark:bg-orange-950/20',
+      border: 'border-orange-500/30',
+      text: 'text-orange-600 dark:text-orange-400',
+      icon: 'bg-orange-600 shadow-orange-600/30',
+      badge: 'bg-orange-500 text-white',
+    },
+    cpu: {
+      bg: 'bg-amber-500/10 dark:bg-amber-950/20',
+      border: 'border-amber-500/30',
+      text: 'text-amber-600 dark:text-amber-400',
+      icon: 'bg-amber-500 shadow-amber-500/30',
+      badge: 'bg-amber-500 text-white',
+    },
+    alert: {
+      bg: 'bg-rose-500/10 dark:bg-rose-950/20',
+      border: 'border-rose-500/30',
+      text: 'text-rose-600 dark:text-rose-400',
+      icon: 'bg-rose-600 shadow-rose-600/30',
+      badge: 'bg-rose-500 text-white',
+    },
   };
 
   const Icon = iconMap[alert.alert_type] || AlertTriangle;
   const colors = colorMap[alert.alert_type] || colorMap.alert;
 
   return (
-    <Card 
-      onClick={onClick}
+    <Card
+      onClick={() => onOpenMachine(alert.machine_id)}
       className={cn(
-        'border overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg group',
-        onClick && 'cursor-pointer',
-        colors.bg, colors.border
+        'border overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg group cursor-pointer relative',
+        colors.bg,
+        colors.border
       )}
     >
-      <CardContent className="p-5">
-        <div className="flex items-start gap-4">
-          <div className={cn(
-            'p-2.5 rounded-xl text-white shadow-lg flex-shrink-0 transition-transform group-hover:scale-110',
-            colors.icon,
-            alert.severity === 'critical' && 'animate-pulse'
-          )}>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start gap-3.5">
+          <div
+            className={cn(
+              'p-2.5 rounded-xl text-white shadow-md flex-shrink-0 transition-transform group-hover:scale-105',
+              colors.icon,
+              alert.severity === 'critical' && 'animate-pulse'
+            )}
+          >
             <Icon className="w-5 h-5" />
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
-              <h4 className="font-bold text-sm text-foreground truncate">{alert.hostname}</h4>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <h4 className="font-bold text-sm text-foreground truncate tracking-tight" title={alert.hostname}>
+                {alert.hostname}
+              </h4>
               <Badge
-                variant={alert.severity === 'critical' ? 'destructive' : 'secondary'}
-                className="text-[9px] font-black uppercase tracking-widest px-2 py-0"
+                className={cn(
+                  'text-[9px] font-black uppercase tracking-wider px-2 py-0 h-4 border-none shrink-0',
+                  colors.badge
+                )}
               >
-                {alert.severity === 'critical' ? 'CRÍTICO' : 'AVISO'}
+                {alert.severity === 'critical' ? 'CRÍTICO' : 'ATENÇÃO'}
               </Badge>
             </div>
 
-            <p className={cn('text-xs font-medium', colors.text)}>
+            <p className={cn('text-xs font-semibold leading-snug', colors.text)}>
               {alert.message}
             </p>
+          </div>
+        </div>
 
-            <div className="flex items-center gap-3 mt-2.5">
-              {alert.group_name && (
-                <span className="text-[10px] font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-md truncate max-w-[140px]">
-                  {alert.group_name}
-                </span>
-              )}
-              {alert.metric_value != null && (
-                <span className={cn('text-xs font-black', colors.text)}>
+        {/* Identification Grid (Domínio, Usuário, IP, Last Seen / Metric) */}
+        <div className="bg-background/60 dark:bg-background/40 rounded-lg p-2 border border-border/30 grid grid-cols-2 gap-x-2.5 gap-y-1.5 text-[11px]">
+          {/* Domínio / Cliente */}
+          <div className="flex items-center gap-1.5 min-w-0" title={`Domínio/Cliente: ${alert.domain || alert.group_name || 'WORKGROUP'}`}>
+            <Network className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+            <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">DOM:</span>
+            <span className="font-medium text-foreground truncate text-[10.5px]">
+              {alert.domain || alert.group_name || 'WORKGROUP'}
+            </span>
+          </div>
+
+          {/* Usuário Ativo */}
+          <div className="flex items-center gap-1.5 min-w-0" title={`Usuário Ativo: ${alert.current_user || '–'}`}>
+            <User className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+            <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">USR:</span>
+            <span className="font-medium text-foreground truncate text-[10.5px]">
+              {alert.current_user || '–'}
+            </span>
+          </div>
+
+          {/* IP Interno */}
+          <div className="flex items-center gap-1.5 min-w-0" title={`IP Interno: ${alert.ip_address || '–'}`}>
+            <Globe className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+            <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">IP:</span>
+            <span className="font-mono text-muted-foreground text-[10.5px] truncate">
+              {alert.ip_address || '–'}
+            </span>
+          </div>
+
+          {/* Metric / Last seen */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            {alert.metric_value != null ? (
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">USO:</span>
+                <span className={cn('font-bold font-mono text-[10.5px]', colors.text)}>
                   {alert.metric_value}%
                 </span>
-              )}
-              {alert.last_seen && (
-                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {formatDistanceToNow(new Date(alert.last_seen), { locale: ptBR, addSuffix: true })}
-                </span>
-              )}
-            </div>
+              </div>
+            ) : alert.last_seen ? (
+              <div className="flex items-center gap-1 text-muted-foreground text-[10px] truncate" title={`Visto por último: ${formatDistanceToNow(new Date(alert.last_seen), { locale: ptBR, addSuffix: true })}`}>
+                <Clock className="w-3 h-3 text-muted-foreground/70 shrink-0" />
+                <span className="truncate">{formatDistanceToNow(new Date(alert.last_seen), { locale: ptBR, addSuffix: true })}</span>
+              </div>
+            ) : (
+              <span className="text-[10px] text-muted-foreground font-mono">–</span>
+            )}
           </div>
+        </div>
+
+        {/* Footer with Button to Open Machine */}
+        <div className="pt-1 flex items-center justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2.5 text-xs font-semibold rounded-lg gap-1.5 bg-background/80 hover:bg-background shadow-sm group-hover:border-primary/40 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenMachine(alert.machine_id);
+            }}
+          >
+            <Activity className="w-3.5 h-3.5 text-primary" />
+            Abrir Máquina
+            <ExternalLink className="w-3 h-3 opacity-60 ml-0.5" />
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -111,34 +233,43 @@ function AlertSection({
   title,
   icon: Icon,
   colorClass,
+  badgeColor,
   alerts,
+  onOpenMachine,
 }: {
   title: string;
   icon: React.ElementType;
   colorClass: string;
+  badgeColor?: string;
   alerts: CriticalAlertItem[];
-  onAlertClick?: (machineId: string) => void;
+  onOpenMachine: (machineId: string) => void;
 }) {
   if (alerts.length === 0) return null;
   return (
-    <section className="space-y-4">
+    <section className="space-y-3.5">
       <div className="flex items-center gap-3">
-        <div className={cn('p-2 rounded-xl text-white', colorClass)}>
+        <div className={cn('p-2 rounded-xl text-white shadow-md', colorClass)}>
           <Icon className="w-4 h-4" />
         </div>
-        <h2 className="text-sm font-black uppercase tracking-widest text-foreground">
+        <h2 className="text-sm font-black uppercase tracking-wider text-foreground">
           {title}
         </h2>
-        <Badge variant="outline" className={cn('text-[10px] font-black', colorClass.replace('bg-', 'text-').replace('-600', '-500'))}>
+        <Badge
+          variant="outline"
+          className={cn(
+            'text-[10px] font-black',
+            badgeColor || colorClass.replace('bg-', 'text-').replace('-600', '-500')
+          )}
+        >
           {alerts.length}
         </Badge>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {alerts.map((a, i) => (
-          <AlertCard 
-            key={`${a.machine_id}-${a.alert_type}-${i}`} 
-            alert={a} 
-            onClick={() => onAlertClick?.(a.machine_id)} 
+          <AlertCard
+            key={`${a.machine_id}-${a.alert_type}-${i}`}
+            alert={a}
+            onOpenMachine={onOpenMachine}
           />
         ))}
       </div>
@@ -149,23 +280,217 @@ function AlertSection({
 // ── Main Page ───────────────────────────────────────────────
 const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
   const { data: role, isLoading: roleLoading } = useUserRole();
-  const { data: alerts = [], isLoading } = useCriticalAlerts();
+  const { data: apiAlerts = [], isLoading: alertsLoading } = useCriticalAlerts();
+  const { data: allMachines = [], isLoading: machinesLoading } = useAllMachines();
   const { data: dashboard } = useMonitoringDashboard();
   const queryClient = useQueryClient();
-  const [refreshing, setRefreshing] = React.useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null);
 
-  const grouped = useMemo(() => ({
-    offline: (alerts || []).filter(a => a.alert_type === 'offline'),
-    disk: (alerts || []).filter(a => a.alert_type === 'disk'),
-    cpu: (alerts || []).filter(a => a.alert_type === 'cpu'),
-    alert: (alerts || []).filter(a => a.alert_type === 'alert'),
-  }), [alerts]);
+  const machinesMap = useMemo(() => {
+    const map = new Map<string, MachineWithMetric>();
+    for (const m of allMachines) {
+      map.set(m.id, m);
+    }
+    return map;
+  }, [allMachines]);
+
+  // Consolidate backend alerts with client-evaluated telemetry & compliance items
+  const mergedAlerts = useMemo(() => {
+    const list: CriticalAlertItem[] = [];
+    const seenKeys = new Set<string>();
+
+    // 1. Process API alerts
+    for (const alert of apiAlerts) {
+      const machine = machinesMap.get(alert.machine_id);
+      const enriched: CriticalAlertItem = {
+        ...alert,
+        domain: alert.domain || machine?.domain || 'WORKGROUP',
+        current_user: alert.current_user || machine?.current_user || null,
+        ip_address: alert.ip_address || machine?.ip_address || null,
+        group_name: alert.group_name || machine?.domain || null,
+      };
+      const key = `${enriched.machine_id}-${enriched.alert_type}`;
+      seenKeys.add(key);
+      list.push(enriched);
+    }
+
+    // 2. Scan machines for compliance, security, and hardware alerts
+    for (const m of allMachines) {
+      // 🛡️ Antivirus
+      if (m.security_info?.antivirus && m.security_info.antivirus.length > 0) {
+        const inactiveAvs = m.security_info.antivirus.filter((a) => !a.active);
+        if (inactiveAvs.length > 0) {
+          const key = `${m.id}-antivirus`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            list.push({
+              machine_id: m.id,
+              hostname: m.hostname,
+              domain: m.domain || 'WORKGROUP',
+              current_user: m.current_user || null,
+              ip_address: m.ip_address || null,
+              group_name: m.domain || null,
+              status: m.status,
+              last_seen: m.last_seen,
+              alert_type: 'antivirus',
+              severity: 'critical',
+              message: `Proteção desativada: ${inactiveAvs.map((a) => a.name).join(', ')}`,
+            });
+          }
+        }
+      }
+
+      // 🧱 Firewall
+      if (m.security_info?.firewall_active === false) {
+        const key = `${m.id}-firewall`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            machine_id: m.id,
+            hostname: m.hostname,
+            domain: m.domain || 'WORKGROUP',
+            current_user: m.current_user || null,
+            ip_address: m.ip_address || null,
+            group_name: m.domain || null,
+            status: m.status,
+            last_seen: m.last_seen,
+            alert_type: 'firewall',
+            severity: 'critical',
+            message: 'Firewall do Windows desligado no dispositivo',
+          });
+        }
+      }
+
+      // 🔄 Updates / Reboot Pendente
+      if (m.update_status?.reboot_required) {
+        const key = `${m.id}-updates`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            machine_id: m.id,
+            hostname: m.hostname,
+            domain: m.domain || 'WORKGROUP',
+            current_user: m.current_user || null,
+            ip_address: m.ip_address || null,
+            group_name: m.domain || null,
+            status: m.status,
+            last_seen: m.last_seen,
+            alert_type: 'updates',
+            severity: 'warning',
+            message: `Reinicialização necessária para concluir atualizações pendentes`,
+          });
+        }
+      }
+
+      // 🔴 Offline (fallback if not in API list)
+      if (m.status !== 'online') {
+        const key = `${m.id}-offline`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            machine_id: m.id,
+            hostname: m.hostname,
+            domain: m.domain || 'WORKGROUP',
+            current_user: m.current_user || null,
+            ip_address: m.ip_address || null,
+            group_name: m.domain || null,
+            status: m.status,
+            last_seen: m.last_seen,
+            alert_type: 'offline',
+            severity: 'critical',
+            message: 'Máquina offline / sem comunicação com o agente',
+          });
+        }
+      }
+
+      // 💾 Disk Alert (fallback if not in API list)
+      const diskPct = pct(m.disk_used, m.disk_total);
+      if (diskPct > 90) {
+        const key = `${m.id}-disk`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            machine_id: m.id,
+            hostname: m.hostname,
+            domain: m.domain || 'WORKGROUP',
+            current_user: m.current_user || null,
+            ip_address: m.ip_address || null,
+            group_name: m.domain || null,
+            status: m.status,
+            last_seen: m.last_seen,
+            alert_type: 'disk',
+            severity: 'critical',
+            message: `Armazenamento crítico (${diskPct}% utilizado)`,
+            metric_value: diskPct,
+          });
+        }
+      }
+
+      // ⚡ CPU Alert (fallback if not in API list)
+      if (m.status === 'online' && m.cpu_usage != null && m.cpu_usage > 85) {
+        const key = `${m.id}-cpu`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            machine_id: m.id,
+            hostname: m.hostname,
+            domain: m.domain || 'WORKGROUP',
+            current_user: m.current_user || null,
+            ip_address: m.ip_address || null,
+            group_name: m.domain || null,
+            status: m.status,
+            last_seen: m.last_seen,
+            alert_type: 'cpu',
+            severity: 'warning',
+            message: `CPU sob estresse elevado (${Math.round(m.cpu_usage)}% de uso)`,
+            metric_value: Math.round(m.cpu_usage),
+          });
+        }
+      }
+    }
+
+    return list;
+  }, [apiAlerts, allMachines, machinesMap]);
+
+  // Grouped into the 6 designated Red Zone categories
+  const grouped = useMemo(
+    () => ({
+      antivirus: mergedAlerts.filter((a) => a.alert_type === 'antivirus'),
+      firewall: mergedAlerts.filter((a) => a.alert_type === 'firewall'),
+      updates: mergedAlerts.filter((a) => a.alert_type === 'updates'),
+      offline: mergedAlerts.filter((a) => a.alert_type === 'offline'),
+      disk: mergedAlerts.filter((a) => a.alert_type === 'disk'),
+      cpu: mergedAlerts.filter((a) => a.alert_type === 'cpu'),
+      alert: mergedAlerts.filter(
+        (a) => !['antivirus', 'firewall', 'updates', 'offline', 'disk', 'cpu'].includes(a.alert_type)
+      ),
+    }),
+    [mergedAlerts]
+  );
+
+  const selectedMachine = useMemo(
+    () => allMachines.find((m) => m.id === selectedMachineId) || null,
+    [allMachines, selectedMachineId]
+  );
+
+  const handleOpenMachine = (machineId: string) => {
+    if (onAlertClick) {
+      onAlertClick(machineId);
+    }
+    setSelectedMachineId(machineId);
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await queryClient.invalidateQueries({ queryKey: ['monitoring', 'alerts', 'critical'] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'alerts', 'critical'] }),
+      queryClient.invalidateQueries({ queryKey: ['monitoring'] }),
+    ]);
     setTimeout(() => setRefreshing(false), 800);
   };
+
+  const isLoading = alertsLoading && machinesLoading;
 
   if (roleLoading) {
     return (
@@ -182,7 +507,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
   if (role && !['admin', 'developer', 'technician'].includes(role)) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh] p-8 space-y-4 animate-in fade-in zoom-in duration-500">
-        <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+        <div className="w-20 h-20 bg-red-100 dark:bg-red-950/40 rounded-full flex items-center justify-center">
           <Lock className="w-10 h-10 text-red-600" />
         </div>
         <h2 className="text-2xl font-bold">Acesso Restrito</h2>
@@ -195,16 +520,15 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
 
   return (
     <div className="w-full h-full bg-background">
-      <main className="p-6 max-w-[1600px] mx-auto w-full">
-
+      <main className="p-6 max-w-[1600px] mx-auto w-full space-y-6">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="p-3 rounded-2xl bg-red-600 text-white shadow-lg shadow-red-600/30">
                 <AlertTriangle className="w-7 h-7" />
               </div>
-              {alerts.length > 0 && (
+              {mergedAlerts.length > 0 && (
                 <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full animate-ping" />
               )}
             </div>
@@ -213,25 +537,31 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
                 Central de Alertas
               </h1>
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                Zona Vermelha — Atenção Imediata
+                Zona Vermelha — Atenção Imediata &amp; Conformidade
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {dashboard && (
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="gap-1.5 text-red-600 border-red-500/30 bg-red-500/10 font-bold">
-                  <AlertTriangle className="w-3 h-3" />
-                  {alerts.length} alerta{alerts.length !== 1 ? 's' : ''}
-                </Badge>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className={cn(
+                  'gap-1.5 font-bold',
+                  mergedAlerts.length > 0
+                    ? 'text-red-600 border-red-500/30 bg-red-500/10'
+                    : 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10'
+                )}
+              >
+                <AlertTriangle className="w-3 h-3" />
+                {mergedAlerts.length} alerta{mergedAlerts.length !== 1 ? 's' : ''} ativo{mergedAlerts.length !== 1 ? 's' : ''}
+              </Badge>
+            </div>
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              className="gap-2 rounded-xl"
+              className="gap-2 rounded-xl font-bold"
               disabled={refreshing}
             >
               <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
@@ -244,59 +574,103 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-28 rounded-xl" />
+              <Skeleton key={i} className="h-32 rounded-xl" />
             ))}
           </div>
-        ) : alerts.length === 0 ? (
+        ) : mergedAlerts.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[400px] text-center gap-6 animate-in fade-in zoom-in duration-500">
             <div className="relative">
-              <div className="p-8 bg-green-500/10 rounded-full">
-                <ShieldAlert className="h-16 w-16 text-green-500" />
+              <div className="p-8 bg-emerald-500/10 rounded-full">
+                <ShieldCheck className="h-16 w-16 text-emerald-500" />
               </div>
-              <span className="absolute bottom-2 right-2 h-6 w-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-black">✓</span>
+              <span className="absolute bottom-2 right-2 h-6 w-6 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-black">
+                ✓
+              </span>
             </div>
             <div>
-              <h2 className="text-xl font-black text-foreground mb-2">Tudo Tranquilo!</h2>
+              <h2 className="text-xl font-black text-foreground mb-2">Tudo Conforme &amp; Seguro!</h2>
               <p className="text-sm text-muted-foreground max-w-md">
-                Nenhum alerta crítico no momento. Todas as máquinas estão operando dentro dos limites normais.
+                Nenhum alerta crítico no momento. Todos os dispositivos monitorados estão operando com segurança, conformidade e limites saudáveis.
               </p>
             </div>
           </div>
         ) : (
-          <ScrollArea className="h-[calc(100vh-220px)]">
-            <div className="space-y-10 pr-4">
+          <ScrollArea className="h-[calc(100vh-210px)]">
+            <div className="space-y-8 pr-4 pb-12">
+              {/* 1. 🛡️ Segurança & Antivírus Crítico */}
               <AlertSection
-                title="Máquinas Offline"
+                title="Segurança & Antivírus Crítico (Zona Vermelha)"
+                icon={ShieldAlert}
+                colorClass="bg-rose-600"
+                alerts={grouped.antivirus}
+                onOpenMachine={handleOpenMachine}
+              />
+
+              {/* 2. 🧱 Conformidade & Firewall */}
+              <AlertSection
+                title="Conformidade & Firewall Inativo"
+                icon={Shield}
+                colorClass="bg-red-600"
+                alerts={grouped.firewall}
+                onOpenMachine={handleOpenMachine}
+              />
+
+              {/* 3. 🔄 Patch Management & Reboot Pendente */}
+              <AlertSection
+                title="Patch Management & Reboot Pendente"
+                icon={RotateCcw}
+                colorClass="bg-amber-600"
+                alerts={grouped.updates}
+                onOpenMachine={handleOpenMachine}
+              />
+
+              {/* 4. 🔴 Máquinas Offline */}
+              <AlertSection
+                title="Máquinas Offline / Desconectadas"
                 icon={WifiOff}
                 colorClass="bg-red-600"
                 alerts={grouped.offline}
-                onAlertClick={onAlertClick}
+                onOpenMachine={handleOpenMachine}
               />
+
+              {/* 5. 💾 Disco Crítico (>90%) */}
               <AlertSection
                 title="Disco Crítico (>90%)"
                 icon={HardDrive}
                 colorClass="bg-orange-600"
                 alerts={grouped.disk}
-                onAlertClick={onAlertClick}
+                onOpenMachine={handleOpenMachine}
               />
+
+              {/* 6. ⚡ CPU sob Pressão (>85%) */}
               <AlertSection
                 title="CPU Sob Pressão (>85%)"
                 icon={Cpu}
-                colorClass="bg-amber-600"
+                colorClass="bg-amber-500"
                 alerts={grouped.cpu}
-                onAlertClick={onAlertClick}
+                onOpenMachine={handleOpenMachine}
               />
+
+              {/* 7. ⚠️ Alertas Gerais do Sistema */}
               <AlertSection
-                title="Alertas do Sistema"
-                icon={ShieldAlert}
-                colorClass="bg-rose-600"
+                title="Alertas Gerais do Sistema"
+                icon={AlertTriangle}
+                colorClass="bg-rose-500"
                 alerts={grouped.alert}
-                onAlertClick={onAlertClick}
+                onOpenMachine={handleOpenMachine}
               />
             </div>
           </ScrollArea>
         )}
       </main>
+
+      {/* Machine Details Drawer */}
+      <MachineDrawer
+        machine={selectedMachine}
+        open={!!selectedMachineId}
+        onClose={() => setSelectedMachineId(null)}
+        initialTab="overview"
+      />
     </div>
   );
 };
@@ -308,3 +682,4 @@ const AlertsDashboardWrapper: React.FC<AlertsDashboardProps> = (props) => (
 );
 
 export default AlertsDashboardWrapper;
+

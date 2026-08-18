@@ -39,6 +39,10 @@ import {
   Battery,
   Eye,
   Radio,
+  Globe,
+  Network,
+  User,
+  Hash,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -604,14 +608,25 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
   const diskUsagePct = pct(machine?.disk_used, machine?.disk_total);
   const cpuModel = detail?.hardware?.cpu_model;
 
+  const domainName = machine?.domain || detail?.machine?.domain || 'WORKGROUP';
+  const currentUser = machine?.current_user || detail?.machine?.current_user || '–';
+  const ipAddress = machine?.ip_address || detail?.machine?.ip_address || '–';
+  const macAddress =
+    machine?.mac_address ||
+    detail?.machine?.mac_address ||
+    (Array.isArray(detail?.hardware?.network_interfaces) && detail?.hardware?.network_interfaces[0]?.mac
+      ? detail.hardware.network_interfaces[0].mac
+      : null) ||
+    '–';
+
   return (
     <>
       <Sheet open={open} onOpenChange={v => !v && onClose()}>
         <SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-3xl p-0 flex flex-col border-l border-border/40 shadow-2xl">
           {/* Header */}
-          <SheetHeader className="px-6 py-6 border-b border-border/40 bg-muted/10">
+          <SheetHeader className="px-6 py-5 border-b border-border/40 bg-muted/10 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3.5">
                 <div className="relative">
                   <div className={cn('h-3.5 w-3.5 rounded-full shadow-lg', ledColor)} />
                   {isOnline && <div className={cn('absolute inset-0 rounded-full animate-ping opacity-30', ledColor)} />}
@@ -621,19 +636,68 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                     {machine?.hostname ?? 'Máquina Desconhecida'}
                   </SheetTitle>
                   <SheetDescription className="text-xs font-medium flex items-center gap-2 mt-0.5">
-                    <span className="px-1.5 py-0.5 bg-primary/10 text-primary rounded">{machine?.ip_address}</span>
-                    <span className="text-muted-foreground/60">·</span>
-                    <span className="text-muted-foreground">{machine?.os} {machine?.os_version}</span>
+                    <span className="text-foreground font-semibold">{machine?.os} {machine?.os_version}</span>
                   </SheetDescription>
                 </div>
               </div>
-              <Badge variant="outline" className={cn(
-                'text-[10px] font-bold gap-1.5',
-                isOnline ? 'text-green-600 border-green-500/30 bg-green-500/5' : 'text-red-500 border-red-500/30 bg-red-500/5',
-              )}>
-                {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-                {isOnline ? 'Online' : 'Offline'}
-              </Badge>
+              <div className="flex items-center gap-2">
+                {isOnline && machine?.uptime ? (
+                  <Badge variant="secondary" className="text-[10px] font-mono px-2 py-0.5 bg-muted/80 text-muted-foreground gap-1 flex items-center">
+                    <Clock className="w-2.5 h-2.5 text-muted-foreground/70" />
+                    ⏱️ {formatUptime(machine.uptime)}
+                  </Badge>
+                ) : null}
+                <Badge variant="outline" className={cn(
+                  'text-[10px] font-bold gap-1.5',
+                  isOnline ? 'text-green-600 border-green-500/30 bg-green-500/5' : 'text-red-500 border-red-500/30 bg-red-500/5',
+                )}>
+                  {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                  {isOnline ? 'Online' : 'Offline'}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Header Identification Grid (Domínio AD, Usuário Ativo, IP Interno, MAC Address) */}
+            <div className="bg-background/70 dark:bg-background/40 rounded-xl p-2.5 border border-border/30 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+              <div className="flex items-center gap-1.5 min-w-0" title={`Domínio AD / Grupo: ${domainName}`}>
+                <Network className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground block leading-tight">Domínio AD</span>
+                  <span className="font-semibold text-foreground truncate block text-[11px] leading-tight">
+                    {domainName}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 min-w-0" title={`Usuário Ativo: ${currentUser}`}>
+                <User className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground block leading-tight">Usuário Ativo</span>
+                  <span className="font-semibold text-foreground truncate block text-[11px] leading-tight">
+                    {currentUser}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 min-w-0" title={`IP Interno: ${ipAddress}`}>
+                <Globe className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground block leading-tight">IP Interno</span>
+                  <span className="font-mono text-muted-foreground truncate block text-[11px] leading-tight">
+                    {ipAddress}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 min-w-0" title={`Endereço MAC: ${macAddress}`}>
+                <Hash className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground block leading-tight">MAC Address</span>
+                  <span className="font-mono text-muted-foreground truncate block text-[10.5px] leading-tight">
+                    {macAddress}
+                  </span>
+                </div>
+              </div>
             </div>
           </SheetHeader>
 
@@ -684,16 +748,50 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                       ))}
                     </div>
                     <div className="bg-muted/10 border border-border/40 rounded-xl p-4 space-y-1">
-                      {[
-                        { label: 'Visto pela última vez', value: machine?.last_seen ? formatDistanceToNow(new Date(machine.last_seen), { addSuffix: true, locale: ptBR }) : '–' },
-                        { label: 'Uptime do Sistema',     value: formatUptime(machine?.uptime) },
-                        { label: 'Agente Orion',          value: `v${machine?.agent_version}` },
-                      ].map(({ label, value }) => (
-                        <div key={label} className="flex justify-between items-center py-2">
-                          <span className="text-xs text-muted-foreground">{label}</span>
-                          <span className="text-xs font-semibold text-foreground">{value}</span>
-                        </div>
-                      ))}
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Network className="w-3.5 h-3.5 text-sky-500" /> Domínio AD / Grupo
+                        </span>
+                        <span className="text-xs font-semibold text-foreground">{domainName}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                          <User className="w-3.5 h-3.5 text-indigo-500" /> Usuário Ativo
+                        </span>
+                        <span className="text-xs font-semibold text-foreground">{currentUser}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Globe className="w-3.5 h-3.5 text-emerald-500" /> IP Interno
+                        </span>
+                        <span className="text-xs font-mono font-semibold text-foreground">{ipAddress}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Hash className="w-3.5 h-3.5 text-purple-500" /> MAC Address
+                        </span>
+                        <span className="text-xs font-mono font-semibold text-foreground">{macAddress}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5 text-muted-foreground" /> Visto pela última vez
+                        </span>
+                        <span className="text-xs font-semibold text-foreground">
+                          {machine?.last_seen ? formatDistanceToNow(new Date(machine.last_seen), { addSuffix: true, locale: ptBR }) : '–'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5 text-muted-foreground" /> Uptime do Sistema
+                        </span>
+                        <span className="text-xs font-semibold text-foreground">{formatUptime(machine?.uptime)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Shield className="w-3.5 h-3.5 text-muted-foreground" /> Agente Orion
+                        </span>
+                        <span className="text-xs font-mono font-semibold text-foreground">v{machine?.agent_version || '–'}</span>
+                      </div>
                     </div>
                   </section>
 

@@ -4,6 +4,8 @@ package collector
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -13,6 +15,10 @@ var (
 	modWtsapi32                     = windows.NewLazySystemDLL("wtsapi32.dll")
 	procWTSQuerySessionInformationW = modWtsapi32.NewProc("WTSQuerySessionInformationW")
 	procWTSFreeMemory               = modWtsapi32.NewProc("WTSFreeMemory")
+
+	modNetapi32               = windows.NewLazySystemDLL("netapi32.dll")
+	procNetGetJoinInformation = modNetapi32.NewProc("NetGetJoinInformation")
+	procNetApiBufferFree      = modNetapi32.NewProc("NetApiBufferFree")
 )
 
 type wtsInfoClass uint32
@@ -21,6 +27,43 @@ const (
 	wtsUserName   wtsInfoClass = 5
 	wtsDomainName wtsInfoClass = 7
 )
+
+// obterDominioMaquina consulta a API Win32 NetGetJoinInformation para identificar com precisão
+// se a máquina faz parte de um Domínio Active Directory (NetSetupDomainName = 3) ou WORKGROUP.
+func obterDominioMaquina() string {
+	var nameBuf *uint16
+	var joinStatus uint32
+
+	r, _, _ := procNetGetJoinInformation.Call(
+		0,
+		uintptr(unsafe.Pointer(&nameBuf)),
+		uintptr(unsafe.Pointer(&joinStatus)),
+	)
+	if r == 0 && nameBuf != nil {
+		defer procNetApiBufferFree.Call(uintptr(unsafe.Pointer(nameBuf)))
+		name := windows.UTF16PtrToString(nameBuf)
+		name = strings.TrimSpace(name)
+		if name != "" {
+			// joinStatus 3 = NetSetupDomainName (Domínio Active Directory)
+			// joinStatus 2 = NetSetupWorkgroupName (Grupo de Trabalho)
+			return name
+		}
+	}
+
+	// Fallback via USERDNSDOMAIN (definido em ambientes Active Directory)
+	if dnsDomain := strings.TrimSpace(os.Getenv("USERDNSDOMAIN")); dnsDomain != "" {
+		return dnsDomain
+	}
+
+	// Fallback se USERDOMAIN for diferente do COMPUTERNAME
+	userDomain := strings.TrimSpace(os.Getenv("USERDOMAIN"))
+	computerName := strings.TrimSpace(os.Getenv("COMPUTERNAME"))
+	if userDomain != "" && computerName != "" && !strings.EqualFold(userDomain, computerName) {
+		return userDomain
+	}
+
+	return "WORKGROUP"
+}
 
 // usuarioDaSessaoAtiva resolve domínio, usuário e SID da sessão de CONSOLE
 // ativa no momento (WTSGetActiveConsoleSessionId) — não do processo do
@@ -64,6 +107,10 @@ func usuarioDaSessaoAtiva() (dominio, usuario, sid string, err error) {
 	}
 	sidResolvido, _, _, sidErr := windows.LookupSID("", nomeCompleto)
 	if sidErr != nil {
+		// Tenta resolver apenas com o usuário local se falhar com DOMINIO\usuario
+		if sidResolvido2, _, _, sidErr2 := windows.LookupSID("", usuario); sidErr2 == nil {
+			return dominio, usuario, sidResolvido2.String(), nil
+		}
 		// Não é fatal: ainda devolvemos domínio/usuário mesmo sem o SID.
 		return dominio, usuario, "", nil
 	}

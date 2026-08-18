@@ -20,6 +20,10 @@ import {
   RotateCcw,
   Zap,
   Battery,
+  Globe,
+  Network,
+  User,
+  Hash,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -120,7 +124,7 @@ function StatusDot({ status, hasAlert }: { status: string; hasAlert: boolean }) 
     );
   }
   return (
-    <span className="inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)] flex-shrink-0" />
+    <span className="inline-flex rounded-full h-2.5 w-2.5 bg-zinc-400 dark:bg-zinc-600 shadow-[0_0_4px_rgba(161,161,170,0.5)] flex-shrink-0" />
   );
 }
 
@@ -152,7 +156,7 @@ function MetricBar({
   const getTextColor = (v: number) => {
     if (!isOnline) return 'text-muted-foreground';
     if (v > 85) return 'text-red-500 dark:text-red-400 font-black';
-    if (v >= 70) return 'text-amber-500 dark:text-amber-400 font-black';
+    if (v >= 70) return 'text-amber-500 dark:text-amber-400 font-bold';
     return 'text-emerald-600 dark:text-emerald-400 font-bold';
   };
 
@@ -164,16 +168,16 @@ function MetricBar({
   return (
     <div className="space-y-1 group/bar">
       <div className="flex items-center justify-between text-[11px]">
-        <span className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground group-hover/bar:text-foreground transition-colors">
+        <span className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground group-hover/bar:text-foreground transition-colors">
           {label}
         </span>
         <div className="flex items-center gap-1.5">
           {bytesText && isOnline && (
-            <span className="text-[10px] text-muted-foreground font-mono">
+            <span className="text-[10px] text-muted-foreground font-mono font-medium">
               {bytesText}
             </span>
           )}
-          <span className={cn('text-xs font-mono', getTextColor(safeValue))}>
+          <span className={cn('text-[11px] font-mono', getTextColor(safeValue))}>
             {isOnline && value != null ? `${Math.round(safeValue)}%` : '–'}
           </span>
         </div>
@@ -201,7 +205,20 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
         : 0;
     const isOfflineLongAlert = !isOnline && offlineMinutes >= 30;
 
-    const alerting = hasDiskAlert(machine) || isOfflineLongAlert;
+    const hasAvAlert =
+      machine.security_info?.antivirus &&
+      machine.security_info.antivirus.length > 0 &&
+      machine.security_info.antivirus.some((a) => !a.active);
+
+    const hasFirewallAlert = machine.security_info?.firewall_active === false;
+    const hasRebootAlert = !!machine.update_status?.reboot_required;
+
+    const alerting =
+      hasDiskAlert(machine) ||
+      isOfflineLongAlert ||
+      hasAvAlert ||
+      hasFirewallAlert ||
+      hasRebootAlert;
 
     const cpuPct = machine.cpu_usage != null ? Math.round(machine.cpu_usage) : null;
     const ramPct = pct(machine.ram_used, machine.ram_total);
@@ -234,63 +251,72 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
         <Card
           onClick={() => onSelect(machine, 'overview')}
           className={cn(
-            'cursor-pointer transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1 relative overflow-hidden',
-            'glass-card group flex flex-col justify-between border',
+            'cursor-pointer transition-all duration-300 transform hover:scale-[1.015] hover:-translate-y-0.5 relative overflow-hidden',
+            'glass-card group flex flex-col justify-between border shadow-sm hover:shadow-md',
             alerting
-              ? 'border-yellow-500/40 shadow-sm shadow-yellow-500/10'
+              ? 'border-amber-500/40 shadow-sm shadow-amber-500/10'
               : isOnline
               ? 'border-emerald-500/20 hover:border-emerald-500/40'
-              : 'border-red-500/20 opacity-85 hover:border-red-500/40'
+              : 'border-border/60 opacity-90 hover:border-border'
           )}
         >
-          {/* Glossy overlay effect */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+          {/* Subtle top accent gradient */}
+          <div
+            className={cn(
+              'absolute top-0 left-0 right-0 h-[2px] pointer-events-none',
+              alerting
+                ? 'bg-amber-500'
+                : isOnline
+                ? 'bg-emerald-500'
+                : 'bg-zinc-400 dark:bg-zinc-600'
+            )}
+          />
 
-          <CardContent className="p-4 space-y-3.5 relative z-10 flex-1 flex flex-col justify-between">
+          <CardContent className="p-3.5 space-y-3 relative z-10 flex-1 flex flex-col justify-between">
             {/* Header */}
-            <div className="space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <OsIcon os={machine.os} />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <StatusDot status={machine.status} hasAlert={alerting} />
-                      <p
-                        className="font-bold text-sm text-foreground truncate"
-                        title={machine.hostname}
-                      >
-                        {machine.hostname}
-                      </p>
-                    </div>
-                    <p className="text-xs text-muted-foreground truncate font-mono mt-0.5">
-                      {machine.ip_address || '–'}
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <StatusDot status={machine.status} hasAlert={alerting} />
+                    <p
+                      className="font-bold text-sm text-foreground truncate tracking-tight"
+                      title={machine.hostname}
+                    >
+                      {machine.hostname}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {alerting && (
-                    <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0 animate-pulse" />
+                    <AlertTriangle
+                      className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 animate-pulse"
+                      title="Alerta no Dispositivo"
+                    />
                   )}
 
+                  {/* Uptime compacto */}
                   {isOnline && machine.uptime ? (
                     <Badge
                       variant="secondary"
-                      className="text-[10px] px-1.5 py-0.5 bg-muted/80 text-muted-foreground font-mono font-medium gap-1 flex items-center"
-                      title="Uptime do sistema"
+                      className="text-[10px] px-1.5 py-0 h-5 bg-muted/80 text-muted-foreground font-mono font-medium gap-1 flex items-center"
+                      title={`Tempo de atividade contínuo: ${formatUptime(machine.uptime)}`}
                     >
-                      <Clock className="w-2.5 h-2.5" />
+                      <Clock className="w-2.5 h-2.5 text-muted-foreground/70" />
                       ⏱️ {formatUptime(machine.uptime)}
                     </Badge>
                   ) : null}
 
+                  {/* Status Badge */}
                   <Badge
                     variant="outline"
                     className={cn(
-                      'text-[10px] font-bold px-1.5 py-0.5 flex items-center gap-1',
+                      'text-[10px] font-bold px-1.5 py-0 h-5 flex items-center gap-1',
                       isOnline
                         ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                        : 'text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10'
+                        : 'text-zinc-600 dark:text-zinc-400 border-zinc-400/30 bg-zinc-400/10'
                     )}
                   >
                     {isOnline ? (
@@ -317,18 +343,65 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                 </div>
               </div>
 
-              {/* OS Subtitle if available */}
-              {machine.os && (
-                <p className="text-[11px] text-muted-foreground/80 truncate">
-                  {machine.os} {machine.os_version}
-                </p>
-              )}
+              {/* Grid Compacta de Identificação do Host (2x2) */}
+              <div className="bg-muted/30 dark:bg-muted/15 rounded-lg p-2 border border-border/30 grid grid-cols-2 gap-x-2.5 gap-y-1.5 text-[11px]">
+                {/* Domínio / Cliente */}
+                <div
+                  className="flex items-center gap-1.5 min-w-0"
+                  title={`Domínio/Cliente: ${machine.domain || 'WORKGROUP'}`}
+                >
+                  <Network className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                  <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">DOM:</span>
+                  <span className="font-semibold text-foreground truncate text-[11px]">
+                    {machine.domain || 'WORKGROUP'}
+                  </span>
+                </div>
 
-              {/* Compliance & Endpoint Mini-Badges */}
-              {(machine.security_info || (machine.remote_software && machine.remote_software.length > 0) || machine.update_status || machine.battery_info?.has_battery) && (
-                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                {/* Usuário Ativo */}
+                <div
+                  className="flex items-center gap-1.5 min-w-0"
+                  title={`Usuário Ativo: ${machine.current_user || '–'}`}
+                >
+                  <User className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                  <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">USR:</span>
+                  <span className="font-semibold text-foreground truncate text-[11px]">
+                    {machine.current_user || '–'}
+                  </span>
+                </div>
+
+                {/* IP Interno */}
+                <div
+                  className="flex items-center gap-1.5 min-w-0"
+                  title={`IP Interno: ${machine.ip_address || '–'}`}
+                >
+                  <Globe className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                  <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">IP:</span>
+                  <span className="font-mono text-muted-foreground text-[10.5px] truncate">
+                    {machine.ip_address || '–'}
+                  </span>
+                </div>
+
+                {/* MAC Address */}
+                <div
+                  className="flex items-center gap-1.5 min-w-0"
+                  title={`MAC Address: ${machine.mac_address || '–'}`}
+                >
+                  <Hash className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
+                  <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">MAC:</span>
+                  <span className="font-mono text-muted-foreground text-[10px] truncate">
+                    {machine.mac_address || '–'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Linha de Conformidade & Auditoria (Micro-Badges com Ícones Expressivos) */}
+              {(machine.security_info ||
+                (machine.remote_software && machine.remote_software.length > 0) ||
+                machine.update_status ||
+                machine.battery_info?.has_battery) && (
+                <div className="flex flex-wrap items-center gap-1 pt-0.5">
                   {/* Antivírus */}
-                  {machine.security_info?.antivirus && machine.security_info.antivirus.length > 0 && (
+                  {machine.security_info?.antivirus && machine.security_info.antivirus.length > 0 ? (
                     machine.security_info.antivirus.every((a) => a.active) ? (
                       <Badge
                         variant="outline"
@@ -336,16 +409,41 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                         title={`Antivírus Ativo: ${machine.security_info.antivirus.map((a) => a.name).join(', ')}`}
                       >
                         <ShieldCheck className="w-2.5 h-2.5 text-emerald-500" />
-                        AV OK
+                        {machine.security_info.antivirus[0]?.name
+                          ? `${machine.security_info.antivirus[0].name.split(' ')[0]} OK`
+                          : 'AV OK'}
                       </Badge>
                     ) : (
                       <Badge
                         variant="outline"
-                        className="text-[9px] px-1.5 py-0 h-4 font-semibold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
+                        className="text-[9px] px-1.5 py-0 h-4 font-bold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
                         title="Alerta de Proteção: Antivírus Inativo ou Desatualizado"
                       >
                         <ShieldAlert className="w-2.5 h-2.5 text-red-500" />
                         AV Alerta
+                      </Badge>
+                    )
+                  ) : null}
+
+                  {/* Firewall */}
+                  {machine.security_info?.firewall_active != null && (
+                    machine.security_info.firewall_active ? (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] px-1.5 py-0 h-4 font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
+                        title="Firewall do Sistema Ativo"
+                      >
+                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-500" />
+                        Firewall OK
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] px-1.5 py-0 h-4 font-bold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
+                        title="Firewall do Windows Desativado"
+                      >
+                        <ShieldAlert className="w-2.5 h-2.5 text-red-500" />
+                        Firewall Off
                       </Badge>
                     )
                   )}
@@ -373,15 +471,45 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                     )
                   )}
 
-                  {/* Firewall Inativo */}
-                  {machine.security_info?.firewall_active === false && (
+                  {/* Acesso Remoto (TeamViewer, AnyDesk, etc) */}
+                  {machine.remote_software?.some((s) => s.is_running) ? (
                     <Badge
                       variant="outline"
-                      className="text-[9px] px-1.5 py-0 h-4 font-semibold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1"
-                      title="Firewall do Windows Desativado"
+                      className="text-[9px] px-1.5 py-0 h-4 font-semibold text-orange-600 dark:text-orange-400 border-orange-500/30 bg-orange-500/10 gap-1 animate-pulse"
+                      title={`Acesso Remoto Detectado em Execução: ${machine.remote_software.filter((s) => s.is_running).map((s) => s.name).join(', ')}`}
                     >
-                      <ShieldAlert className="w-2.5 h-2.5 text-red-500" />
-                      Firewall Off
+                      <Zap className="w-2.5 h-2.5 text-orange-500" />
+                      {machine.remote_software.find((s) => s.is_running)?.name || 'Remoto Ativo'}
+                    </Badge>
+                  ) : machine.remote_software && machine.remote_software.length > 0 ? (
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] px-1.5 py-0 h-4 font-medium text-muted-foreground border-border/30 bg-muted/20 gap-1"
+                      title={`Acesso Remoto Instalado (Inativo): ${machine.remote_software.map((s) => s.name).join(', ')}`}
+                    >
+                      <Zap className="w-2.5 h-2.5 text-muted-foreground" />
+                      {machine.remote_software[0]?.name || 'Remoto'}
+                    </Badge>
+                  ) : null}
+
+                  {/* Bateria (se notebook) */}
+                  {machine.battery_info?.has_battery && machine.battery_info.percentage != null && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-[9px] px-1.5 py-0 h-4 font-mono font-medium gap-1',
+                        machine.battery_info.percentage <= 20 && !machine.battery_info.is_plugged
+                          ? 'text-red-500 border-red-500/30 bg-red-500/10'
+                          : 'text-muted-foreground border-border/40 bg-muted/20'
+                      )}
+                      title={`Bateria: ${machine.battery_info.percentage}% ${machine.battery_info.is_plugged ? '(Carregando AC)' : '(Na bateria)'}`}
+                    >
+                      {machine.battery_info.is_plugged ? (
+                        <Zap className="w-2.5 h-2.5 text-emerald-500" />
+                      ) : (
+                        <Battery className="w-2.5 h-2.5" />
+                      )}
+                      {machine.battery_info.percentage}%
                     </Badge>
                   )}
 
@@ -396,45 +524,12 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                       Reboot Pendente
                     </Badge>
                   )}
-
-                  {/* Acesso Remoto em Execução */}
-                  {machine.remote_software?.some((s) => s.is_running) && (
-                    <Badge
-                      variant="outline"
-                      className="text-[9px] px-1.5 py-0 h-4 font-semibold text-orange-600 dark:text-orange-400 border-orange-500/30 bg-orange-500/10 gap-1 animate-pulse"
-                      title={`Acesso Remoto Detectado em Execução: ${machine.remote_software.filter((s) => s.is_running).map((s) => s.name).join(', ')}`}
-                    >
-                      <AlertTriangle className="w-2.5 h-2.5 text-orange-500" />
-                      {machine.remote_software.find((s) => s.is_running)?.name || 'Remoto Ativo'}
-                    </Badge>
-                  )}
-
-                  {/* Bateria (se notebook) */}
-                  {machine.battery_info?.has_battery && machine.battery_info.percentage != null && (
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'text-[9px] px-1.5 py-0 h-4 font-mono font-medium gap-1',
-                        machine.battery_info.percentage <= 20 && !machine.battery_info.is_plugged
-                          ? 'text-red-500 border-red-500/30 bg-red-500/10'
-                          : 'text-muted-foreground border-border/40 bg-muted/20'
-                      )}
-                      title={`Bateria: ${machine.battery_info.percentage}% ${machine.battery_info.is_plugged ? '(Carregando)' : '(Na bateria)'}`}
-                    >
-                      {machine.battery_info.is_plugged ? (
-                        <Zap className="w-2.5 h-2.5 text-emerald-500" />
-                      ) : (
-                        <Battery className="w-2.5 h-2.5" />
-                      )}
-                      {machine.battery_info.percentage}%
-                    </Badge>
-                  )}
                 </div>
               )}
             </div>
 
             {/* Metrics */}
-            <div className="space-y-2 py-1">
+            <div className="space-y-1.5 py-1">
               <MetricBar
                 label="CPU"
                 value={cpuPct}
@@ -459,10 +554,10 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
             </div>
 
             {/* Footer and Quick Actions */}
-            <div className="pt-2.5 border-t border-border/40 flex flex-col gap-2">
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <div className="pt-2 border-t border-border/40 flex flex-col gap-2">
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                 <div className="flex items-center gap-1 truncate" title={`Visto por último: ${lastSeen}`}>
-                  <Clock className="w-3 h-3 flex-shrink-0" />
+                  <Clock className="w-3 h-3 flex-shrink-0 text-muted-foreground/70" />
                   <span className="truncate">{lastSeen}</span>
                 </div>
                 {machine.agent_version && (
@@ -473,12 +568,12 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-1.5 pt-1">
+              <div className="flex items-center justify-end gap-1.5 pt-0.5">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 px-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-lg"
+                  className="h-7 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-lg"
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelect(machine, 'telemetry');
@@ -493,7 +588,7 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 px-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-lg"
+                  className="h-7 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-lg"
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelect(machine, 'actions');
@@ -504,21 +599,19 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                   Terminal
                 </Button>
 
-                {!isOnline && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowDeleteDialog(true);
-                    }}
-                    title="Excluir máquina offline"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDeleteDialog(true);
+                  }}
+                  title="Excluir registro da máquina"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -542,7 +635,7 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                   ({machine.ip_address || 'sem IP'})?
                 </span>
                 <span className="block text-xs opacity-80">
-                  Esta ação removerá os registros órfãos de métricas, hardware, alertas e comandos associados a este dispositivo.
+                  Esta ação removerá os registros de métricas, hardware, alertas e comandos associados a este dispositivo.
                 </span>
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -575,28 +668,33 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
 MachineCard.displayName = 'MachineCard';
 
 export const MachineCardSkeleton: React.FC = () => (
-  <Card className="glass-card">
-    <CardContent className="p-4 space-y-4">
+  <Card className="glass-card border">
+    <CardContent className="p-3.5 space-y-3">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5 flex-1">
+        <div className="flex items-center gap-2 flex-1">
           <Skeleton className="h-4 w-4 rounded" />
-          <div className="space-y-1.5 flex-1">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-20" />
+          <div className="space-y-1 flex-1">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-3 w-16" />
           </div>
         </div>
         <Skeleton className="h-5 w-16 rounded-full" />
       </div>
-      <div className="space-y-2.5">
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-full" />
+
+      <Skeleton className="h-14 w-full rounded-lg" />
+
+      <div className="space-y-2">
+        <Skeleton className="h-2 w-full" />
+        <Skeleton className="h-2 w-full" />
+        <Skeleton className="h-2 w-full" />
       </div>
-      <div className="pt-2.5 border-t border-border/40 flex items-center justify-between">
-        <Skeleton className="h-3 w-24" />
+
+      <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+        <Skeleton className="h-3 w-20" />
         <div className="flex gap-1.5">
           <Skeleton className="h-7 w-20 rounded-lg" />
           <Skeleton className="h-7 w-16 rounded-lg" />
+          <Skeleton className="h-7 w-7 rounded-lg" />
         </div>
       </div>
     </CardContent>
