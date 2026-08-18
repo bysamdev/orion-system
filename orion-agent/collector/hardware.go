@@ -78,6 +78,12 @@ type UpdateStatus struct {
 	RebootRequired bool `json:"reboot_required"`
 }
 
+// ActivationInfo informa se a licença do Windows está ativada e em que estado.
+type ActivationInfo struct {
+	Activated bool   `json:"activated"`
+	Status    string `json:"status"`
+}
+
 // Payload é o corpo principal do "Check-in" enviado ao servidor Orion.
 // Contém o estado atual completo da saúde do hardware.
 type Payload struct {
@@ -113,6 +119,7 @@ type Payload struct {
 	RemoteSoftware []RemoteSoftwareInfo `json:"remote_software"`
 	Battery        BatteryInfo          `json:"battery"`
 	UpdateStatus   UpdateStatus         `json:"update_status"`
+	Activation     ActivationInfo       `json:"activation"`
 }
 
 // HardwarePayload é um alias semântico para Payload.
@@ -425,6 +432,7 @@ func Collect() (*Payload, error) {
 		RemoteSoftware: softwareRemotoComCache(),
 		Battery:        bateriaComCache(),
 		UpdateStatus:   atualizacoesComCache(),
+		Activation:     ativacaoComCache(),
 	}, nil
 }
 

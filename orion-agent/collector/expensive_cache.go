@@ -47,6 +47,10 @@ var (
 	atualizacoesMu    sync.Mutex
 	atualizacoesCache UpdateStatus
 	atualizacoesEm    time.Time
+
+	ativacaoMu    sync.Mutex
+	ativacaoCache ActivationInfo
+	ativacaoEm    time.Time
 )
 
 // segurancaComCache devolve coletarSeguranca() reaproveitado dentro de
@@ -105,4 +109,20 @@ func atualizacoesComCache() UpdateStatus {
 	atualizacoesCache = coletarStatusAtualizacoes()
 	atualizacoesEm = time.Now()
 	return atualizacoesCache
+}
+
+// ativacaoComCache devolve coletarAtivacao() reaproveitado dentro de
+// ttlColetaCara. Ativação de licença muda com ainda menos frequência que os
+// outros três (só em reinstalação de SO ou transferência de licença), mas
+// usamos o mesmo TTL dos demais por simplicidade — não há necessidade de
+// mais um valor de expiração diferente para um dado tão estável.
+func ativacaoComCache() ActivationInfo {
+	ativacaoMu.Lock()
+	defer ativacaoMu.Unlock()
+	if time.Since(ativacaoEm) < ttlColetaCara {
+		return ativacaoCache
+	}
+	ativacaoCache = coletarAtivacao()
+	ativacaoEm = time.Now()
+	return ativacaoCache
 }

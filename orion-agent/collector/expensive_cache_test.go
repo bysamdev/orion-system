@@ -134,3 +134,33 @@ func TestAtualizacoesComCache_RecolheAposExpirarTTL(t *testing.T) {
 		t.Error("atualizacoesComCache() não recoletou após o TTL expirar")
 	}
 }
+
+func TestAtivacaoComCache_ReaproveitaDentroDoTTL(t *testing.T) {
+	ativacaoEm = time.Time{}
+	original := ttlColetaCara
+	ttlColetaCara = time.Minute
+	defer func() { ttlColetaCara = original }()
+
+	ativacaoComCache()
+	primeiraColeta := ativacaoEm
+
+	ativacaoComCache()
+	if !ativacaoEm.Equal(primeiraColeta) {
+		t.Error("ativacaoComCache() recoletou dentro do TTL — cache não foi reaproveitado")
+	}
+}
+
+func TestAtivacaoComCache_RecolheAposExpirarTTL(t *testing.T) {
+	original := ttlColetaCara
+	ttlColetaCara = time.Millisecond
+	defer func() { ttlColetaCara = original }()
+
+	ativacaoComCache()
+	primeiraColeta := ativacaoEm
+
+	time.Sleep(5 * time.Millisecond)
+	ativacaoComCache()
+	if !ativacaoEm.After(primeiraColeta) {
+		t.Error("ativacaoComCache() não recoletou após o TTL expirar")
+	}
+}

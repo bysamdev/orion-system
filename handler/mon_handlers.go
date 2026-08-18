@@ -67,7 +67,7 @@ func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}
-	
+
 	escopo, err := escopoDoUsuario(ctx, user.ID)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
@@ -298,7 +298,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if key == "" {
 		key = req.AgentKey
 	}
-	
+
 	companyIDFromKey, err := lib.ValidateAgentKey(&http.Request{Header: http.Header{"X-Agent-Key": {key}}}, cfg.AgentKey, db)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
@@ -306,7 +306,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// targetCompanyID is already determined above
-	
+
 	// Utilizando o contexto com timeout criado acima
 
 	// Final company assignment logic
@@ -346,7 +346,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if domain == "" {
 		domain = "WORKGROUP"
 	}
-	
+
 	groupID, err := db.GetOrCreateMachineGroup(ctx, domain, targetCompanyID)
 	if err != nil {
 		fmt.Println("Erro GetOrCreateMachineGroup:", err)
@@ -942,6 +942,101 @@ func monitoringSelfHealEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
+// ─── Grafana Alerting → Orion (webhook) ────────────────────────────────────────
+//
+// Fecha o lado "Prometheus/Grafana ➔ Orion" da integração de alertas: uma
+// regra de Grafana Alerting (ver provisioning/alerting no servidor Debian)
+// dispara, o contact point do tipo "webhook" chama este endpoint, e cada
+// alerta vira uma linha em machine_alerts — a mesma tabela que já alimenta a
+// Central de Alertas / zona vermelha do Orion. Nenhuma tabela nova, nenhuma
+// tela nova: os alertas do Grafana só passam a aparecer onde os alertas do
+// Orion já aparecem.
+//
+// machine_id chega como label da métrica que disparou o alerta — Prometheus
+// herda esse label de agents.json (gerado pelo orion-bridge a partir de
+// get_all_monitoring_targets()), então toda métrica do job "orion_agents" já
+// carrega machine_id/company_id sem o agente precisar expor isso ele mesmo.
+// Alertas de endpoints web/links de rede (que usam endpoint_id/link_id, não
+// machine_id) ficam fora de escopo deste handler por ora.
+
+type grafanaWebhookAlert struct {
+	Status      string            `json:"status"` // "firing" ou "resolved"
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
+}
+
+type grafanaWebhookPayload struct {
+	Alerts []grafanaWebhookAlert `json:"alerts"`
+}
+
+func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
+	ip := lib.ClientIP(r)
+	if !limiterGrafanaWebhook.Permitir(ip) {
+		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "muitas requisições — aguarde e tente novamente"})
+		return
+	}
+
+	// Segredo compartilhado configurado no contact point do Grafana (header
+	// custom) — Grafana não é um usuário nem um agente, então nem
+	// requireAuth nem X-Agent-Key se aplicam aqui. Sem GRAFANA_WEBHOOK_SECRET
+	// configurado no ambiente, o endpoint fica permanentemente fechado (nunca
+	// aceita string vazia == string vazia).
+	secret := r.Header.Get("X-Webhook-Secret")
+	if cfg.GrafanaWebhookSecret == "" || secret != cfg.GrafanaWebhookSecret {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "não autorizado"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	var payload grafanaWebhookPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "corpo inválido"})
+		return
+	}
+
+	processados := 0
+	for _, alerta := range payload.Alerts {
+		machineID := alerta.Labels["machine_id"]
+		alertType := alerta.Labels["alertname"]
+		if machineID == "" || alertType == "" {
+			continue // sem machine_id (ex.: alerta de endpoint web/link) — fora de escopo aqui
+		}
+
+		switch alerta.Status {
+		case "firing":
+			severity := alerta.Labels["severity"]
+			if severity == "" {
+				severity = "warning"
+			}
+			message := alerta.Annotations["summary"]
+			if message == "" {
+				message = alerta.Annotations["description"]
+			}
+			if message == "" {
+				message = alertType
+			}
+			if err := db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
+				MachineID: machineID, Type: alertType, Severity: severity, Message: message,
+			}); err != nil {
+				log.Printf("[GRAFANA-WEBHOOK] erro ao inserir alerta %s/%s: %v", machineID, alertType, err)
+				continue
+			}
+		case "resolved":
+			if err := db.ResolveAlertsByType(ctx, machineID, alertType); err != nil {
+				log.Printf("[GRAFANA-WEBHOOK] erro ao resolver alerta %s/%s: %v", machineID, alertType, err)
+				continue
+			}
+		default:
+			continue
+		}
+		processados++
+	}
+
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "processed": processados})
 }
 
 // ─── Critical Alerts (Red Zone Dashboard) ─────────────────────────────────────

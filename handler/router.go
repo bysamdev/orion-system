@@ -45,6 +45,13 @@ var (
 	// apertado aqui derrubaria heartbeats legítimos.
 	limiterMachineLogin = lib.NewRateLimiter(1*time.Minute, 20)
 	limiterHeartbeat    = lib.NewRateLimiter(1*time.Minute, 300)
+
+	// grafanaWebhook: autenticado por segredo compartilhado (não por IP nem
+	// login), mas ainda assim limitado — o Grafana pode reenviar em lote
+	// (re-notify) se o Orion ficar fora do ar por um tempo; o limite é
+	// generoso o bastante pra absorver isso sem abrir a porta pra um
+	// segredo vazado inundar a tabela de alertas.
+	limiterGrafanaWebhook = lib.NewRateLimiter(1*time.Minute, 120)
 )
 
 func init() {
@@ -131,6 +138,11 @@ func buildRouter() http.Handler {
 	r.Get("/api/monitoring/commands/poll", monitoringPollCommands)
 	r.Post("/api/monitoring/commands/respond", monitoringCommandResponse)
 	r.Post("/api/monitoring/self-heal-event", monitoringSelfHealEvent)
+
+	// Autenticado por segredo compartilhado (X-Webhook-Secret), não por
+	// login nem X-Agent-Key — é o Grafana chamando, não um usuário nem um
+	// agente. Ver monitoringGrafanaAlertWebhook.
+	r.Post("/api/monitoring/alerts/webhook/grafana", monitoringGrafanaAlertWebhook)
 
 	r.Get("/api/monitoring/cron/mark-offline", cronMarkOffline)
 	r.Get("/api/monitoring/cron/probe-network-links", cronProbeNetworkLinks)
@@ -258,7 +270,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 // Pontos de injeção para teste — permitem exercitar RequireCompanyScope sem
 // Supabase nem banco.
 var (
-	autenticar = func(r *http.Request) (*lib.AuthUser, error) { return lib.RequireAuth(r, sb) }
+	autenticar     = func(r *http.Request) (*lib.AuthUser, error) { return lib.RequireAuth(r, sb) }
 	resolverEscopo = func(r *http.Request, userID string) (lib.UserScope, error) {
 		return db.UserScopeByID(r.Context(), userID)
 	}
@@ -379,4 +391,3 @@ func maxBodySizeMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
