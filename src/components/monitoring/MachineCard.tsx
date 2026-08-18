@@ -478,52 +478,20 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
               />
             </div>
 
-            {/* Footer and Quick Actions */}
-            <div className="pt-2 border-t border-border/40 flex flex-col gap-2">
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                <div className="flex items-center gap-1 truncate" title={`Visto por último: ${lastSeen}`}>
-                  <Clock className="w-3 h-3 flex-shrink-0 text-muted-foreground/70" />
-                  <span className="truncate">{lastSeen}</span>
-                </div>
+            {/* Footer with Last Seen and Delete Action */}
+            <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0 text-[10px] text-muted-foreground" title={`Visto por último: ${lastSeen}`}>
+                <Clock className="w-3 h-3 flex-shrink-0 text-muted-foreground/70" />
+                <span className="truncate">{lastSeen}</span>
                 {machine.agent_version && (
-                  <span className="text-[10px] opacity-60 font-mono">
+                  <span className="text-[10px] opacity-60 font-mono shrink-0 ml-1">
                     v{machine.agent_version}
                   </span>
                 )}
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-1.5 pt-0.5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-lg"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelect(machine, 'telemetry');
-                  }}
-                  title="Abrir Telemetria"
-                >
-                  <Activity className="w-3.5 h-3.5 mr-1 text-indigo-500" />
-                  Telemetria
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-lg"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelect(machine, 'actions');
-                  }}
-                  title="Abrir Terminal Remoto"
-                >
-                  <Terminal className="w-3.5 h-3.5 mr-1 text-emerald-500" />
-                  Terminal
-                </Button>
-
+              {/* Action Buttons (Apenas Lixeira com Confirmação) */}
+              <div className="flex items-center shrink-0">
                 <Button
                   type="button"
                   variant="ghost"

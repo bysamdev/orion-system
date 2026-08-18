@@ -98,6 +98,18 @@ func (s *Svc) setMachineID(id string) {
 	s.machineID = id
 }
 
+func (s *Svc) getLastPayload() *collector.Payload {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.lastPayload
+}
+
+func (s *Svc) setLastPayload(p *collector.Payload) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastPayload = p
+}
+
 // New cria uma nova instância do serviço com as dependências necessárias.
 func New(cfg *config.Config, logger *log.Logger) *Svc {
 	return &Svc{cfg: cfg, logger: logger}
@@ -225,7 +237,12 @@ func (s *Svc) tick() {
 	}
 	machineToken := s.getMachineToken()
 	payload.MachineToken = machineToken
-	
+
+	// Alimenta o cache do endpoint /metrics (ver lastPayload) com este mesmo
+	// snapshot — inclusive já com MachineToken e AgentVersion preenchidos,
+	// então NewMetricsHandler não precisa repetir essa montagem.
+	s.setLastPayload(payload)
+
 	// Garantimos que o atalho de "Abrir Portal" esteja sempre presente no Desktop do usuário.
 	if err := shortcut.CreatePortalShortcut(s.cfg.APIURL, machineToken); err != nil {
 		s.logger.Printf("[AVISO] Não foi possível atualizar o atalho no Desktop: %v", err)
@@ -564,20 +581,39 @@ func (s *Svc) reportSelfHealingEvent(alertType, status, output string) {
 func NewMetricsHandler(s *Svc) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-		payload, err := collector.GetHardwareInfo()
-		if err != nil {
-			if s != nil && s.logger != nil {
-				s.logger.Printf("[METRICS] Erro ao coletar métricas de hardware: %v", err)
-			}
-			http.Error(w, fmt.Sprintf("Erro ao coletar métricas: %v", err), http.StatusInternalServerError)
-			return
-		}
+		// Serve o snapshot já coletado pelo ciclo normal do heartbeat
+		// (s.lastPayload, atualizado em tick()) em vez de rodar
+		// collector.Collect() do zero a cada scrape do Prometheus — essa
+		// coleta já inclui os módulos caros de Security/RemoteSoftware
+		// (com seu próprio cache por TTL, ver expensive_cache.go), então
+		// repeti-la aqui só duplicava o custo sem ganhar atualidade real:
+		// o scrape (15s) é mais frequente que o heartbeat (30s por
+		// padrão), então o snapshot nunca fica "velho" o suficiente para
+		// justificar recoletar.
+		var payload *collector.Payload
 		if s != nil {
-			if tok := s.getMachineToken(); tok != "" && payload.MachineToken == "" {
-				payload.MachineToken = tok
-			}
+			payload = s.getLastPayload()
 		}
-		payload.AgentVersion = version.Version
+		if payload == nil {
+			// Só acontece em janelas raras: processo acabou de subir e o
+			// primeiro tick() ainda não completou. Coleta avulsa aqui é o
+			// preço aceitável de não deixar o primeiro scrape vazio.
+			p, err := collector.GetHardwareInfo()
+			if err != nil {
+				if s != nil && s.logger != nil {
+					s.logger.Printf("[METRICS] Erro ao coletar métricas de hardware: %v", err)
+				}
+				http.Error(w, fmt.Sprintf("Erro ao coletar métricas: %v", err), http.StatusInternalServerError)
+				return
+			}
+			if s != nil {
+				if tok := s.getMachineToken(); tok != "" {
+					p.MachineToken = tok
+				}
+			}
+			p.AgentVersion = version.Version
+			payload = p
+		}
 
 		metricsText := collector.GeneratePrometheusMetrics(payload)
 
