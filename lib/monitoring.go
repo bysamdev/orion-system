@@ -132,7 +132,7 @@ func (d *DB) ListMachineGroups(ctx context.Context, companyID *string) ([]Machin
 	rows, err := d.pool.Query(ctx, `
 SELECT MAX(mg.id::text) AS id, mg.name, MAX(mg.description), MAX(mg.client_contact), MIN(mg.created_at),
        COUNT(m.id)                                              AS total_machines,
-       COUNT(m.id) FILTER (WHERE m.status = 'online')          AS online_machines
+       COUNT(m.id) FILTER (WHERE m.status = 'online' OR m.status = 'alerta' OR (m.last_seen > NOW() - INTERVAL '5 minutes')) AS online_machines
 FROM public.machine_groups mg
 LEFT JOIN public.machines m
        ON m.group_id = mg.id
@@ -527,9 +527,9 @@ SELECT
   (SELECT COUNT(*) FROM public.machines
     WHERE $1::uuid IS NULL OR company_id = $1::uuid) AS total,
   (SELECT COUNT(*) FROM public.machines
-    WHERE status = 'online'  AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS online,
+    WHERE (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS online,
   (SELECT COUNT(*) FROM public.machines
-    WHERE status <> 'online' AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS offline,
+    WHERE NOT (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS offline,
   (SELECT COUNT(*) FROM public.machine_alerts a
     JOIN public.machines m ON m.id = a.machine_id
     WHERE a.resolved = false AND ($1::uuid IS NULL OR m.company_id = $1::uuid)) AS active_alerts

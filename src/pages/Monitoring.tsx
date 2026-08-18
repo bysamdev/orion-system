@@ -149,9 +149,14 @@ function MachinesGrid({
   const filtered = useMemo(() => {
     if (!machines) return [];
     return (machines || []).filter((m) => {
-      if (statusFilter === 'online' && m.status !== 'online') return false;
-      if (statusFilter === 'offline' && m.status !== 'offline') return false;
-      if (statusFilter === 'alert' && !hasDiskAlert(m)) return false;
+      const isOnline =
+        m.status === 'online' ||
+        m.status === 'alerta' ||
+        (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false);
+
+      if (statusFilter === 'online' && !isOnline) return false;
+      if (statusFilter === 'offline' && isOnline) return false;
+      if (statusFilter === 'alert' && m.status !== 'alerta' && !hasDiskAlert(m)) return false;
       if (search && !m.hostname.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });

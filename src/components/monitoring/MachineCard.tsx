@@ -321,17 +321,29 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                     className={cn(
                       'text-[10px] font-bold px-1.5 py-0 h-5 flex items-center gap-1',
                       isOnline
-                        ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                        ? isAlertState
+                          ? 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10'
+                          : 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
                         : 'text-zinc-600 dark:text-zinc-400 border-zinc-400/30 bg-zinc-400/10'
                     )}
                   >
                     {isOnline ? (
                       <>
                         <span className="relative flex h-1.5 w-1.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                          <span
+                            className={cn(
+                              'animate-ping absolute inline-flex h-full w-full rounded-full opacity-75',
+                              isAlertState ? 'bg-amber-400' : 'bg-emerald-400'
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              'relative inline-flex rounded-full h-1.5 w-1.5',
+                              isAlertState ? 'bg-amber-500' : 'bg-emerald-500'
+                            )}
+                          />
                         </span>
-                        Online
+                        {isAlertState ? 'Online (Alerta)' : 'Online'}
                       </>
                     ) : (
                       <>
@@ -408,22 +420,22 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                 <div className="flex flex-wrap items-center gap-1 pt-0.5">
                   {/* Antivírus */}
                   {machine.security_info?.antivirus && machine.security_info.antivirus.length > 0 ? (
-                    machine.security_info.antivirus.every((a) => a.active) ? (
+                    machine.security_info.antivirus.some((a) => a.active) ? (
                       <Badge
                         variant="outline"
                         className="text-[9px] px-1.5 py-0 h-4 font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
-                        title={`Antivírus Ativo: ${machine.security_info.antivirus.map((a) => a.name).join(', ')}`}
+                        title={`Antivírus Ativo: ${machine.security_info.antivirus.filter((a) => a.active).map((a) => a.name).join(', ')}`}
                       >
                         <ShieldCheck className="w-2.5 h-2.5 text-emerald-500" />
-                        {machine.security_info.antivirus[0]?.name
-                          ? `${machine.security_info.antivirus[0].name.split(' ')[0]} OK`
+                        {machine.security_info.antivirus.find((a) => a.active)?.name
+                          ? `${machine.security_info.antivirus.find((a) => a.active)!.name.split(' ')[0]} OK`
                           : 'AV OK'}
                       </Badge>
                     ) : (
                       <Badge
                         variant="outline"
                         className="text-[9px] px-1.5 py-0 h-4 font-bold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
-                        title="Alerta de Proteção: Antivírus Inativo ou Desatualizado"
+                        title="Alerta de Proteção: Nenhum Antivírus Ativo Detectado"
                       >
                         <ShieldAlert className="w-2.5 h-2.5 text-red-500" />
                         AV Alerta
