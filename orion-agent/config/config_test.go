@@ -347,6 +347,49 @@ log_file: custom.log
 	}
 }
 
+// TestMetricsConfigDefaults garante que metrics_port e metrics_enabled recebem defaults apropriados.
+func TestMetricsConfigDefaults(t *testing.T) {
+	const bruto = `agent_key: chave-real
+api_url: https://orion.exemplo.local
+`
+	cfg, err := carregarDoDisco(t, bruto)
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if cfg.MetricsPort != 9182 {
+		t.Errorf("MetricsPort = %d, esperado 9182", cfg.MetricsPort)
+	}
+	if !cfg.IsMetricsEnabled() {
+		t.Errorf("IsMetricsEnabled() = false, esperado true por padrão")
+	}
+	if cfg.MetricsEnabled == nil || !*cfg.MetricsEnabled {
+		t.Errorf("MetricsEnabled deveria ser true por padrão")
+	}
+}
+
+// TestMetricsConfigExplicitValues garante que configurações customizadas de métricas são respeitadas.
+func TestMetricsConfigExplicitValues(t *testing.T) {
+	const bruto = `agent_key: chave-real
+api_url: https://orion.exemplo.local
+metrics_enabled: false
+metrics_port: 9999
+`
+	cfg, err := carregarDoDisco(t, bruto)
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if cfg.MetricsPort != 9999 {
+		t.Errorf("MetricsPort = %d, esperado 9999", cfg.MetricsPort)
+	}
+	if cfg.IsMetricsEnabled() {
+		t.Errorf("IsMetricsEnabled() = true, esperado false")
+	}
+	if cfg.MetricsEnabled == nil || *cfg.MetricsEnabled {
+		t.Errorf("MetricsEnabled deveria ser false")
+	}
+}
+
+
 // ---------------------------------------------------------------------------
 // Achado de testabilidade
 // ---------------------------------------------------------------------------

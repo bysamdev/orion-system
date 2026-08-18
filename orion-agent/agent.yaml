@@ -17,3 +17,8 @@ interval_seconds: 30
 
 # Nome do arquivo de log (relativo ao diretório do .exe)
 log_file: agent.log
+
+# Exposição de métricas no padrão Prometheus (/metrics)
+metrics_enabled: true
+metrics_port: 9182
+

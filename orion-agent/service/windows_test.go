@@ -736,3 +736,94 @@ func TestServiceConfigExpoeNomeEstavelDoServico(t *testing.T) {
 		t.Error("DisplayName e Description não deveriam ser vazios")
 	}
 }
+
+// ─────────────────────────────────────────────────────────────
+// Endpoint de Métricas Prometheus (/metrics) e Healthcheck (/health)
+// ─────────────────────────────────────────────────────────────
+
+func TestMetricsEndpointRetorna200EMetricasPrometheus(t *testing.T) {
+	s := novoSvcDeTeste("https://backend.invalido")
+	s.setMachineToken("token-teste-prometheus")
+
+	handler := NewMetricsHandler(s)
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/metrics")
+	if err != nil {
+		t.Fatalf("falha ao requisitar /metrics: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status HTTP esperado 200, obtido: %d", resp.StatusCode)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "text/plain") {
+		t.Errorf("Content-Type esperado text/plain, obtido: %q", contentType)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("falha ao ler corpo da resposta: %v", err)
+	}
+	corpoStr := string(body)
+
+	metricasObrigatorias := []string{
+		"orion_cpu_usage_percent",
+		"orion_memory_total_bytes",
+		"orion_memory_used_bytes",
+		"orion_memory_usage_percent",
+		"orion_disk_total_bytes",
+		"orion_disk_used_bytes",
+		"orion_agent_uptime_seconds",
+	}
+
+	for _, m := range metricasObrigatorias {
+		if !strings.Contains(corpoStr, m) {
+			t.Errorf("corpo de /metrics não contém a métrica esperada %q", m)
+		}
+	}
+}
+
+func TestHealthEndpointRetorna200OK(t *testing.T) {
+	s := novoSvcDeTeste("https://backend.invalido")
+	handler := NewMetricsHandler(s)
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/health")
+	if err != nil {
+		t.Fatalf("falha ao requisitar /health: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status HTTP esperado 200, obtido: %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != "OK" {
+		t.Errorf("corpo esperado 'OK', obtido: %q", string(body))
+	}
+}
+
+func TestMetricsServerDesabilitadoNaoSobe(t *testing.T) {
+	desabilitado := false
+	cfg := &config.Config{
+		APIURL:          "https://backend.invalido",
+		AgentKey:        "chave-teste",
+		MetricsEnabled:  &desabilitado,
+		MetricsPort:     9182,
+		IntervalSeconds: 60,
+	}
+	s := New(cfg, log.New(io.Discard, "", 0))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Deve retornar sem erro e sem travar
+	s.startMetricsServer(ctx)
+}
+

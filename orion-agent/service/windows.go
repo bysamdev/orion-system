@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -151,6 +152,7 @@ func (s *Svc) GetTicketURL() string {
 // run é o loop principal do agente: coleta dados → envia para o servidor → aguarda o próximo intervalo.
 func (s *Svc) run(ctx context.Context) {
 	s.logger.Println("🚀 Orion Agent iniciado com sucesso")
+	s.startMetricsServer(ctx)
 	s.tick() // Fazemos a primeira coleta imediatamente ao subir
 
 	ticker := time.NewTicker(time.Duration(s.cfg.IntervalSeconds) * time.Second)
@@ -548,3 +550,82 @@ func (s *Svc) reportSelfHealingEvent(alertType, status, output string) {
 		}
 	}
 }
+
+// NewMetricsHandler constrói o roteador HTTP para o endpoint de métricas Prometheus (/metrics) e healthcheck (/health).
+func NewMetricsHandler(s *Svc) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		payload, err := collector.GetHardwareInfo()
+		if err != nil {
+			if s != nil && s.logger != nil {
+				s.logger.Printf("[METRICS] Erro ao coletar métricas de hardware: %v", err)
+			}
+			http.Error(w, fmt.Sprintf("Erro ao coletar métricas: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if s != nil {
+			if tok := s.getMachineToken(); tok != "" && payload.MachineToken == "" {
+				payload.MachineToken = tok
+			}
+		}
+		payload.AgentVersion = version.Version
+
+		metricsText := collector.GeneratePrometheusMetrics(payload)
+
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(metricsText))
+	})
+
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
+
+	return mux
+}
+
+// startMetricsServer inicia o servidor HTTP leve para expor métricas Prometheus na porta configurada.
+func (s *Svc) startMetricsServer(ctx context.Context) {
+	if s.cfg == nil || !s.cfg.IsMetricsEnabled() {
+		if s.logger != nil {
+			s.logger.Println("[METRICS] Servidor de métricas Prometheus desabilitado por configuração.")
+		}
+		return
+	}
+
+	port := s.cfg.MetricsPort
+	if port <= 0 {
+		port = 9182
+	}
+
+	addr := fmt.Sprintf(":%d", port)
+	server := &http.Server{
+		Addr:    addr,
+		Handler: NewMetricsHandler(s),
+	}
+
+	go func() {
+		if s.logger != nil {
+			s.logger.Printf("📊 Servidor de métricas Prometheus ativo em http://0.0.0.0:%d/metrics", port)
+		}
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if s.logger != nil {
+				s.logger.Printf("[METRICS] Erro no servidor HTTP de métricas: %v", err)
+			}
+		}
+	}()
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			if s.logger != nil {
+				s.logger.Printf("[METRICS] Erro ao encerrar servidor de métricas: %v", err)
+			}
+		}
+	}()
+}
+

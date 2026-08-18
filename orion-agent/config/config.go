@@ -19,6 +19,16 @@ type Config struct {
 	AgentKey        string `yaml:"agent_key"`
 	IntervalSeconds int    `yaml:"interval_seconds"`
 	LogFile         string `yaml:"log_file"`
+	MetricsEnabled  *bool  `yaml:"metrics_enabled"`
+	MetricsPort     int    `yaml:"metrics_port"`
+}
+
+// IsMetricsEnabled indica se o servidor de métricas Prometheus deve ser iniciado (padrão: true).
+func (c *Config) IsMetricsEnabled() bool {
+	if c == nil || c.MetricsEnabled == nil {
+		return true
+	}
+	return *c.MetricsEnabled
 }
 
 const defaultYAML = `# Orion Agent Configuration
@@ -27,6 +37,8 @@ api_url: http://localhost:8080
 agent_key: COLOQUE_SUA_CHAVE_AQUI
 interval_seconds: 60
 log_file: agent.log
+metrics_enabled: true
+metrics_port: 9182
 `
 
 // Load reads agent.yaml from the same directory as the executable.
@@ -118,6 +130,13 @@ func aplicarDefaultsEValidar(cfg *Config, path string) error {
 		// saíam quebradas (".../heartbeat/api/auth/machine-login"). O default
 		// agora é a URL base, como api_url é documentado em agent.yaml.
 		cfg.APIURL = "http://localhost:8080"
+	}
+	if cfg.MetricsPort <= 0 {
+		cfg.MetricsPort = 9182
+	}
+	if cfg.MetricsEnabled == nil {
+		padrao := true
+		cfg.MetricsEnabled = &padrao
 	}
 
 	if cfg.AgentKey == "" || cfg.AgentKey == "COLOQUE_SUA_CHAVE_AQUI" {
