@@ -809,6 +809,44 @@ func TestHealthEndpointRetorna200OK(t *testing.T) {
 	}
 }
 
+// TestMetricsEndpointServeSnapshotDoLastPayload é o teste de regressão
+// direto da otimização de leveza: antes, /metrics chamava collector.Collect()
+// do zero a cada scrape, dobrando (ou mais) a frequência real de coleta em
+// relação ao heartbeat. Agora deve servir s.lastPayload (preenchido por
+// tick()) sem recoletar — provamos isso plantando um Hostname sintético que
+// nenhuma coleta real desta máquina produziria.
+func TestMetricsEndpointServeSnapshotDoLastPayload(t *testing.T) {
+	s := novoSvcDeTeste("https://backend.invalido")
+	s.setLastPayload(&collector.Payload{
+		Hostname:  "HOSTNAME-SINTETICO-DO-CACHE",
+		CPUUsage:  42.5,
+		RAMTotal:  1000,
+		RAMUsed:   500,
+		DiskTotal: 2000,
+		DiskUsed:  1000,
+	})
+
+	handler := NewMetricsHandler(s)
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/metrics")
+	if err != nil {
+		t.Fatalf("falha ao requisitar /metrics: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	corpoStr := string(body)
+
+	if !strings.Contains(corpoStr, `hostname="HOSTNAME-SINTETICO-DO-CACHE"`) {
+		t.Errorf("/metrics não refletiu o lastPayload plantado — provável recoleta indevida.\nCorpo:\n%s", corpoStr)
+	}
+	if !strings.Contains(corpoStr, "orion_cpu_usage_percent") || !strings.Contains(corpoStr, "42.50") {
+		t.Errorf("/metrics não contém o valor de CPU do lastPayload plantado (42.50)")
+	}
+}
+
 func TestMetricsServerDesabilitadoNaoSobe(t *testing.T) {
 	desabilitado := false
 	cfg := &config.Config{

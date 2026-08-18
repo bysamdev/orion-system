@@ -18,14 +18,18 @@ import (
 // (interval_seconds, 30s por padrão) E cada scrape do Prometheus
 // (scrape_interval do lado do servidor, 15s) — sem cache, os módulos caros
 // rodavam até 6x por minuto, não 2x como o design original previa.
-const ttlColetaCara = 10 * time.Minute
+//
+// São var, não const — mesmo padrão de sender.retryBaseDelay — só para que
+// os testes possam reduzi-las e exercitar a expiração do cache em
+// milissegundos, sem esperar 10 minutos de verdade.
+var ttlColetaCara = 10 * time.Minute
 
 // ttlBateria é mais curto que ttlColetaCara porque, ao contrário dos outros
 // três módulos, o percentual de carga é um dado que varia continuamente por
 // natureza — cachear pelos mesmos 10 minutos deixaria o painel de bateria
 // visivelmente desatualizado. Mesmo 1 minuto já reduz a consulta WMI
 // (Win32_Battery) para 1/4 da frequência do scrape de métricas.
-const ttlBateria = 1 * time.Minute
+var ttlBateria = 1 * time.Minute
 
 var (
 	segurancaMu    sync.Mutex

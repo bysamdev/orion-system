@@ -72,6 +72,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { PerformanceChart } from './PerformanceChart';
 import { InventoryTab } from './InventoryTab';
+import { OsIcon, parseOsInfo } from './MachineCard';
 
 const RemoteTerminal = React.lazy(() =>
   import('./RemoteTerminal').then((m) => ({ default: m.RemoteTerminal }))
@@ -581,11 +582,19 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                   {isOnline && <div className={cn('absolute inset-0 rounded-full animate-ping opacity-30', ledColor)} />}
                 </div>
                 <div>
-                  <SheetTitle className="text-xl font-bold tracking-tight">
-                    {machine?.hostname ?? 'Máquina Desconhecida'}
+                  <SheetTitle className="text-xl font-bold tracking-tight flex items-center gap-2">
+                    <OsIcon os={machine?.os} osVersion={machine?.os_version} />
+                    <span>{machine?.hostname ?? 'Máquina Desconhecida'}</span>
                   </SheetTitle>
                   <SheetDescription className="text-xs font-medium flex items-center gap-2 mt-0.5">
-                    <span className="text-foreground font-semibold">{machine?.os} {machine?.os_version}</span>
+                    <span className="text-foreground font-semibold">
+                      {parseOsInfo(machine?.os, machine?.os_version).name}
+                    </span>
+                    {machine?.os_version && (
+                      <span className="text-muted-foreground font-mono text-[10.5px]">
+                        ({machine.os_version})
+                      </span>
+                    )}
                   </SheetDescription>
                 </div>
               </div>

@@ -54,57 +54,167 @@ export interface MachineCardProps {
   onDelete?: (machine: MachineWithMetric) => void;
 }
 
-function OsIcon({ os }: { os?: string | null }) {
-  const normalized = (os || '').toLowerCase();
-  if (normalized.includes('win')) {
-    return (
-      <svg
-        className="w-4 h-4 text-sky-500 flex-shrink-0"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        title={os || 'Windows'}
-      >
-        <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-13.051-1.801" />
-      </svg>
-    );
-  }
+export function parseOsInfo(os?: string | null, osVersion?: string | null): {
+  name: string;
+  shortLabel: string;
+  type: 'win11' | 'win10' | 'winserver' | 'windows' | 'linux' | 'mac' | 'other';
+} {
+  const normOs = (os || '').toLowerCase();
+  const normVer = (osVersion || '').toLowerCase();
+
+  // Windows Server Check
   if (
-    normalized.includes('mac') ||
-    normalized.includes('darwin') ||
-    normalized.includes('apple')
+    normVer.includes('server') ||
+    normOs.includes('server') ||
+    normVer.includes('2016') ||
+    normVer.includes('2019') ||
+    normVer.includes('2022') ||
+    normVer.includes('2025')
   ) {
-    return (
-      <svg
-        className="w-4 h-4 text-neutral-400 dark:text-neutral-300 flex-shrink-0"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        title={os || 'macOS'}
-      >
-        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.61-.75 1.04-1.8 0.92-2.87-.93.04-2.02.63-2.67 1.38-.58.66-1.09 1.74-.96 2.78 1.05.08 2.09-.54 2.71-1.29z" />
-      </svg>
-    );
+    let year = '';
+    if (normVer.includes('2025')) year = ' 2025';
+    else if (normVer.includes('2022')) year = ' 2022';
+    else if (normVer.includes('2019')) year = ' 2019';
+    else if (normVer.includes('2016')) year = ' 2016';
+    else if (normVer.includes('2012')) year = ' 2012';
+    return { name: `Windows Server${year}`, shortLabel: `Server${year}`, type: 'winserver' };
   }
+
+  // Windows 11 vs Windows 10 vs other Windows
+  if (normOs.includes('win') || normVer.includes('windows')) {
+    const match = normVer.match(/build\s*(\d+)/i) || normVer.match(/10\.0\.(\d+)/i);
+    let buildNum = 0;
+    if (match && match[1]) {
+      buildNum = parseInt(match[1], 10);
+    }
+
+    const isWin11 =
+      normVer.includes('11') ||
+      normOs.includes('11') ||
+      buildNum >= 22000;
+
+    if (isWin11) {
+      return { name: 'Windows 11', shortLabel: 'Win 11', type: 'win11' };
+    }
+
+    if (normVer.includes('10') || normOs.includes('10') || (buildNum >= 10240 && buildNum < 22000)) {
+      return { name: 'Windows 10', shortLabel: 'Win 10', type: 'win10' };
+    }
+
+    if (normVer.includes('8.1')) {
+      return { name: 'Windows 8.1', shortLabel: 'Win 8.1', type: 'windows' };
+    }
+    if (normVer.includes('7')) {
+      return { name: 'Windows 7', shortLabel: 'Win 7', type: 'windows' };
+    }
+
+    return { name: 'Windows', shortLabel: 'Windows', type: 'windows' };
+  }
+
+  // Linux
   if (
-    normalized.includes('linux') ||
-    normalized.includes('ubuntu') ||
-    normalized.includes('debian') ||
-    normalized.includes('centos') ||
-    normalized.includes('fedora') ||
-    normalized.includes('redhat') ||
-    normalized.includes('arch')
+    normOs.includes('linux') ||
+    normVer.includes('ubuntu') ||
+    normVer.includes('debian') ||
+    normVer.includes('centos') ||
+    normVer.includes('redhat') ||
+    normVer.includes('rhel') ||
+    normVer.includes('arch') ||
+    normVer.includes('fedora') ||
+    normVer.includes('alpine')
   ) {
-    return (
-      <svg
-        className="w-4 h-4 text-amber-500 flex-shrink-0"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        title={os || 'Linux'}
-      >
-        <path d="M12 2C9.5 2 7.5 3.8 7.5 6c0 1.2.6 2.3 1.5 3-.1.4-.2.9-.2 1.4 0 1.5.5 2.8 1.4 3.8-.7.8-1.7 1.4-2.7 1.8-.8.3-1.5.9-1.5 1.8 0 1.2 1.3 2.2 4 2.2 1.3 0 2.5-.2 3.5-.6 1 .4 2.2.6 3.5.6 2.7 0 4-1 4-2.2 0-.9-.7-1.5-1.5-1.8-1-.4-2-1-2.7-1.8.9-1 1.4-2.3 1.4-3.8 0-.5-.1-1-.2-1.4.9-.7 1.5-1.8 1.5-3 0-2.2-2-4-4.5-4h-3.8z" />
-      </svg>
-    );
+    let distro = 'Linux';
+    if (normVer.includes('ubuntu') || normOs.includes('ubuntu')) distro = 'Ubuntu';
+    else if (normVer.includes('debian') || normOs.includes('debian')) distro = 'Debian';
+    else if (normVer.includes('centos') || normOs.includes('centos')) distro = 'CentOS';
+    else if (normVer.includes('fedora') || normOs.includes('fedora')) distro = 'Fedora';
+    else if (normVer.includes('redhat') || normVer.includes('rhel')) distro = 'Red Hat';
+    else if (normVer.includes('arch')) distro = 'Arch';
+    else if (normVer.includes('alpine')) distro = 'Alpine';
+
+    return { name: distro, shortLabel: distro, type: 'linux' };
   }
-  return <Server className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
+
+  // macOS
+  if (
+    normOs.includes('mac') ||
+    normOs.includes('darwin') ||
+    normOs.includes('apple')
+  ) {
+    return { name: 'macOS', shortLabel: 'macOS', type: 'mac' };
+  }
+
+  return { name: os || 'Desconhecido', shortLabel: os || 'Host', type: 'other' };
+}
+
+export function OsIcon({ os, osVersion }: { os?: string | null; osVersion?: string | null }) {
+  const osInfo = parseOsInfo(os, osVersion);
+
+  switch (osInfo.type) {
+    case 'win11':
+      return (
+        <svg
+          className="w-4 h-4 text-sky-500 flex-shrink-0"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          title={osInfo.name}
+        >
+          {/* Windows 11 Modern Grid */}
+          <path d="M2.5 3.5h8.5v8.5H2.5zm10.5 0H21.5v8.5H13zm-10.5 10.5h8.5v8.5H2.5zm10.5 0H21.5v8.5H13z" />
+        </svg>
+      );
+    case 'win10':
+      return (
+        <svg
+          className="w-4 h-4 text-sky-400 flex-shrink-0"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          title={osInfo.name}
+        >
+          {/* Windows 10 Tilted Grid */}
+          <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-13.051-1.801" />
+        </svg>
+      );
+    case 'winserver':
+      return (
+        <div className="relative flex items-center justify-center shrink-0" title={osInfo.name}>
+          <Server className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+        </div>
+      );
+    case 'linux':
+      return (
+        <svg
+          className="w-4 h-4 text-amber-500 flex-shrink-0"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          title={osInfo.name}
+        >
+          <path d="M12 2C9.5 2 7.5 3.8 7.5 6c0 1.2.6 2.3 1.5 3-.1.4-.2.9-.2 1.4 0 1.5.5 2.8 1.4 3.8-.7.8-1.7 1.4-2.7 1.8-.8.3-1.5.9-1.5 1.8 0 1.2 1.3 2.2 4 2.2 1.3 0 2.5-.2 3.5-.6 1 .4 2.2.6 3.5.6 2.7 0 4-1 4-2.2 0-.9-.7-1.5-1.5-1.8-1-.4-2-1-2.7-1.8.9-1 1.4-2.3 1.4-3.8 0-.5-.1-1-.2-1.4.9-.7 1.5-1.8 1.5-3 0-2.2-2-4-4.5-4h-3.8z" />
+        </svg>
+      );
+    case 'mac':
+      return (
+        <svg
+          className="w-4 h-4 text-neutral-400 dark:text-neutral-300 flex-shrink-0"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          title={osInfo.name}
+        >
+          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.61-.75 1.04-1.8 0.92-2.87-.93.04-2.02.63-2.67 1.38-.58.66-1.09 1.74-.96 2.78 1.05.08 2.09-.54 2.71-1.29z" />
+        </svg>
+      );
+    default:
+      return (
+        <svg
+          className="w-4 h-4 text-sky-500 flex-shrink-0"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          title={osInfo.name}
+        >
+          <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-13.051-1.801" />
+        </svg>
+      );
+  }
 }
 
 function StatusDot({ status, hasAlert }: { status: string; hasAlert: boolean }) {
@@ -280,15 +390,18 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
             <div className="space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <OsIcon os={machine.os} />
+                  <OsIcon os={machine.os} osVersion={machine.os_version} />
                   <div className="flex items-center gap-1.5 min-w-0">
                     <StatusDot status={machine.status} hasAlert={alerting} />
                     <p
                       className="font-bold text-sm text-foreground truncate tracking-tight"
-                      title={machine.hostname}
+                      title={`${machine.hostname} (${parseOsInfo(machine.os, machine.os_version).name})`}
                     >
                       {machine.hostname}
                     </p>
+                    <span className="text-[10px] font-semibold text-muted-foreground/90 bg-muted/60 dark:bg-muted/40 px-1.5 py-0.5 rounded border border-border/40 shrink-0">
+                      {parseOsInfo(machine.os, machine.os_version).shortLabel}
+                    </span>
                   </div>
                 </div>
 
