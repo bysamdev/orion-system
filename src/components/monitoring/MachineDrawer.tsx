@@ -566,9 +566,9 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
   return (
     <>
       <Sheet open={open} onOpenChange={v => !v && onClose()}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-3xl p-0 flex flex-col border-l border-border/40 shadow-2xl">
+        <SheetContent side="right" className="w-full sm:max-w-3xl lg:max-w-4xl xl:max-w-5xl p-0 flex flex-col h-full overflow-hidden border-l border-border/40 shadow-2xl">
           {/* Header */}
-          <SheetHeader className="px-6 py-5 border-b border-border/40 bg-muted/10 space-y-3">
+          <SheetHeader className="px-6 py-4 border-b border-border/40 bg-muted/10 space-y-3 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3.5">
                 <div className="relative">
@@ -650,14 +650,14 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
           </SheetHeader>
 
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <div className="px-6 border-b border-border/40 bg-muted/5">
-              <TabsList className="h-12 w-full justify-start bg-transparent p-0 gap-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="px-6 border-b border-border/40 bg-muted/5 shrink-0">
+              <TabsList className="h-12 w-full justify-start bg-transparent p-0 gap-4 sm:gap-6 overflow-x-auto">
                 {['overview', 'telemetry', 'security', 'inventory', 'actions'].map(tab => (
                   <TabsTrigger
                     key={tab}
                     value={tab}
-                    className="h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-2 text-xs font-bold uppercase tracking-wider"
+                    className="h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-2 text-xs font-bold uppercase tracking-wider whitespace-nowrap"
                   >
                     {{
                       overview: 'Resumo',
@@ -671,8 +671,8 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
               </TabsList>
             </div>
 
-            <ScrollArea className="flex-1">
-              <div className="p-6">
+            <ScrollArea className="flex-1 h-full min-h-0 w-full overflow-y-auto">
+              <div className="p-4 sm:p-6 space-y-6">
 
                 {/* ── Overview tab ── */}
                 <TabsContent value="overview" className="mt-0 space-y-6">
@@ -850,20 +850,20 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
                       {/* Card 1: CPU */}
                       <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
-                        <div className="flex items-center justify-between gap-1 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <Cpu className="w-4 h-4 text-indigo-500" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              CPU / Processamento
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Cpu className="w-4 h-4 text-indigo-500 shrink-0" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                              CPU
                             </span>
                           </div>
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[9px] font-bold uppercase px-1.5 py-0",
+                              "text-[9px] font-bold uppercase px-1.5 py-0 shrink-0",
                               cpuUsage != null
                                 ? cpuUsage > 85
                                 ? "text-red-600 border-red-500/30 bg-red-500/10"
@@ -875,10 +875,10 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           >
                             {cpuUsage != null
                               ? cpuUsage > 85
-                                ? "Carga Crítica"
+                                ? "Crítico"
                                 : cpuUsage > 70
                                 ? "Carga Alta"
-                                : "Carga Normal"
+                                : "Normal"
                               : "Sem Dados"}
                           </Badge>
                         </div>
@@ -886,7 +886,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           <div className="flex items-baseline justify-between gap-2">
                             <span
                               className={cn(
-                                "text-3xl font-black font-mono tracking-tight",
+                                "text-2xl sm:text-3xl font-black font-mono tracking-tight",
                                 cpuUsage != null
                                   ? cpuUsage > 85
                                     ? "text-red-500"
@@ -898,7 +898,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             >
                               {cpuUsage != null ? `${cpuUsage}%` : '–'}
                             </span>
-                            <span className="text-[10px] text-muted-foreground font-medium">
+                            <span className="text-[10px] text-muted-foreground font-medium shrink-0">
                               {isOnline ? '🟢 Ao Vivo' : '⚪ Estático'}
                             </span>
                           </div>
@@ -920,24 +920,24 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           />
                           <div className="flex justify-between items-center text-[9px] text-muted-foreground">
                             <span>Uso: <strong className="text-foreground">{cpuUsage ?? 0}%</strong></span>
-                            <span>Status: <strong className="text-foreground">{isOnline ? (isAlertState ? 'Alerta Ativo' : 'Operação Estável') : 'Offline'}</strong></span>
+                            <span>Status: <strong className="text-foreground">{isOnline ? (isAlertState ? 'Alerta' : 'Estável') : 'Offline'}</strong></span>
                           </div>
                         </div>
                       </Card>
 
                       {/* Card 2: RAM */}
                       <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
-                        <div className="flex items-center justify-between gap-1 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <Layers className="w-4 h-4 text-emerald-500" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Layers className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
                               Memória RAM
                             </span>
                           </div>
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[9px] font-bold uppercase px-1.5 py-0",
+                              "text-[9px] font-bold uppercase px-1.5 py-0 shrink-0",
                               ramUsagePct > 85
                                 ? "text-red-600 border-red-500/30 bg-red-500/10"
                                 : ramUsagePct > 70
@@ -952,7 +952,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           <div className="flex items-baseline justify-between gap-2">
                             <span
                               className={cn(
-                                "text-3xl font-black font-mono tracking-tight",
+                                "text-2xl sm:text-3xl font-black font-mono tracking-tight",
                                 ramUsagePct > 85
                                   ? "text-red-500"
                                   : ramUsagePct > 70
@@ -962,12 +962,12 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             >
                               {ramUsagePct}%
                             </span>
-                            <span className="text-[10px] text-muted-foreground font-mono">
+                            <span className="text-[10px] text-muted-foreground font-mono shrink-0">
                               {formatBytes(machine?.ram_used)}
                             </span>
                           </div>
                           <p className="text-[10px] text-foreground font-medium truncate mt-1">
-                            {formatBytes(machine?.ram_used)} usado de {formatBytes(machine?.ram_total)}
+                            {formatBytes(machine?.ram_used)} de {formatBytes(machine?.ram_total)}
                           </p>
                         </div>
                         <div className="mt-3 space-y-1.5 pt-2 border-t border-border/20">
@@ -991,17 +991,17 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
 
                       {/* Card 3: Storage */}
                       <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
-                        <div className="flex items-center justify-between gap-1 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <HardDrive className="w-4 h-4 text-amber-500" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              Armazenamento (C:)
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <HardDrive className="w-4 h-4 text-amber-500 shrink-0" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                              Armazenamento
                             </span>
                           </div>
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[9px] font-bold uppercase px-1.5 py-0",
+                              "text-[9px] font-bold uppercase px-1.5 py-0 shrink-0",
                               diskUsagePct > 90
                                 ? "text-red-600 border-red-500/30 bg-red-500/10"
                                 : diskUsagePct > 75
@@ -1016,7 +1016,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           <div className="flex items-baseline justify-between gap-2">
                             <span
                               className={cn(
-                                "text-3xl font-black font-mono tracking-tight",
+                                "text-2xl sm:text-3xl font-black font-mono tracking-tight",
                                 diskUsagePct > 90
                                   ? "text-red-500"
                                   : diskUsagePct > 75
@@ -1026,12 +1026,12 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             >
                               {diskUsagePct}%
                             </span>
-                            <span className="text-[10px] text-muted-foreground font-mono">
+                            <span className="text-[10px] text-muted-foreground font-mono shrink-0">
                               {formatBytes(machine?.disk_used)}
                             </span>
                           </div>
                           <p className="text-[10px] text-foreground font-medium truncate mt-1">
-                            {formatBytes(machine?.disk_used)} usado de {formatBytes(machine?.disk_total)}
+                            {formatBytes(machine?.disk_used)} de {formatBytes(machine?.disk_total)}
                           </p>
                         </div>
                         <div className="mt-3 space-y-1.5 pt-2 border-t border-border/20">
@@ -1047,7 +1047,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             )}
                           />
                           <div className="flex justify-between items-center text-[9px] text-muted-foreground">
-                            <span>Disponível: <strong className="text-foreground">{machine?.disk_total && machine?.disk_used != null ? formatBytes(Math.max(0, machine.disk_total - machine.disk_used)) : '–'}</strong></span>
+                            <span>Livre: <strong className="text-foreground">{machine?.disk_total && machine?.disk_used != null ? formatBytes(Math.max(0, machine.disk_total - machine.disk_used)) : '–'}</strong></span>
                             <span>Total: <strong className="text-foreground">{formatBytes(machine?.disk_total)}</strong></span>
                           </div>
                         </div>
@@ -1055,17 +1055,17 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
 
                       {/* Card 4: Uptime & Agent Connectivity */}
                       <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
-                        <div className="flex items-center justify-between gap-1 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-4 h-4 text-emerald-500" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Clock className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
                               Uptime &amp; Conexão
                             </span>
                           </div>
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[9px] font-bold uppercase px-1.5 py-0 gap-1",
+                              "text-[9px] font-bold uppercase px-1.5 py-0 gap-1 shrink-0",
                               isOnline
                                 ? isAlertState
                                   ? "text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10"
@@ -1083,7 +1083,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                                   : "bg-red-500"
                               )}
                             />
-                            {isOnline ? (isAlertState ? "Online (Alerta)" : "Online") : "Offline"}
+                            {isOnline ? (isAlertState ? "Alerta" : "Online") : "Offline"}
                           </Badge>
                         </div>
                         <div>
@@ -1091,7 +1091,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-foreground">
                               {formatUptime(machine?.uptime)}
                             </span>
-                            <span className="text-[10px] text-muted-foreground font-mono">
+                            <span className="text-[10px] text-muted-foreground font-mono shrink-0">
                               v{machine?.agent_version || '1.0.0'}
                             </span>
                           </div>
@@ -1104,7 +1104,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                         <div className="mt-3 space-y-1.5 pt-2 border-t border-border/20">
                           <div className="flex justify-between items-center text-[9px] text-muted-foreground">
                             <span>IP: <strong className="text-foreground font-mono">{ipAddress}</strong></span>
-                            <span>Host: <strong className="text-foreground">{machine?.hostname}</strong></span>
+                            <span>Host: <strong className="text-foreground truncate max-w-[90px] inline-block align-bottom">{machine?.hostname}</strong></span>
                           </div>
                         </div>
                       </Card>
