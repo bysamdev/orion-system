@@ -109,8 +109,7 @@ export function EndpointSecurityCard({
 
   const isCompliant =
     (securityInfo ? (hasAv && isAvActive) : true) &&
-    isFirewallActive !== false &&
-    isBitlockerActive !== false;
+    isFirewallActive !== false;
 
   return (
     <Card className="p-4 bg-muted/10 border-border/40 space-y-4">
@@ -244,7 +243,7 @@ export function EndpointSecurityCard({
             {isBitlockerActive ? (
               <Lock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
             ) : (
-              <Unlock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+              <Unlock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
             )}
             <span className="text-xs text-muted-foreground">Criptografia C: (BitLocker):</span>
           </div>
@@ -257,15 +256,15 @@ export function EndpointSecurityCard({
                 className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
               >
                 <Lock className="w-2.5 h-2.5 text-emerald-500" />
-                Criptografia Ativa
+                Ativo
               </Badge>
             ) : (
               <Badge
                 variant="outline"
-                className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 gap-1"
+                className="text-[10px] font-medium text-muted-foreground border-border/40 bg-muted/20 gap-1"
               >
-                <Unlock className="w-2.5 h-2.5 text-amber-500" />
-                Desprotegido
+                <Unlock className="w-2.5 h-2.5 text-muted-foreground" />
+                Desativado
               </Badge>
             )}
           </div>
