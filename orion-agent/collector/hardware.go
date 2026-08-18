@@ -421,10 +421,10 @@ func Collect() (*Payload, error) {
 		CurrentUserSID: currentUserSID,
 		MACAddress:     macAddress,
 		DeviceType:     tipoDoDispositivo(),
-		Security:       coletarSeguranca(),
-		RemoteSoftware: coletarSoftwaresRemotos(),
-		Battery:        coletarBateria(),
-		UpdateStatus:   coletarStatusAtualizacoes(),
+		Security:       segurancaComCache(),
+		RemoteSoftware: softwareRemotoComCache(),
+		Battery:        bateriaComCache(),
+		UpdateStatus:   atualizacoesComCache(),
 	}, nil
 }
 

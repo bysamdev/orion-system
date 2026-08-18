@@ -363,12 +363,14 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                 {/* Domínio / Cliente */}
                 <div
                   className="flex items-center gap-1.5 min-w-0"
-                  title={`Domínio/Cliente: ${machine.domain || 'WORKGROUP'}`}
+                  title={`Cliente / Domínio: ${machine.domain && machine.domain !== 'WORKGROUP' && machine.domain !== 'NT SERVICE' ? machine.domain : 'Cliente'}`}
                 >
                   <Network className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
                   <span className="text-muted-foreground text-[10px] uppercase font-bold shrink-0">DOM:</span>
                   <span className="font-semibold text-foreground truncate text-[11px]">
-                    {machine.domain || 'WORKGROUP'}
+                    {machine.domain && machine.domain !== 'WORKGROUP' && machine.domain !== 'NT SERVICE'
+                      ? machine.domain
+                      : 'iBReady'}
                   </span>
                 </div>
 

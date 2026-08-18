@@ -553,7 +553,11 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
   const diskUsagePct = pct(machine?.disk_used, machine?.disk_total);
   const cpuModel = detail?.hardware?.cpu_model;
 
-  const domainName = machine?.domain || detail?.machine?.domain || 'WORKGROUP';
+  const rawDomain = machine?.domain || detail?.machine?.domain;
+  const domainName =
+    rawDomain && rawDomain !== 'WORKGROUP' && rawDomain !== 'NT SERVICE'
+      ? rawDomain
+      : 'iBReady';
   const currentUser = machine?.current_user || detail?.machine?.current_user || '–';
   const ipAddress = machine?.ip_address || detail?.machine?.ip_address || '–';
   const macAddress =

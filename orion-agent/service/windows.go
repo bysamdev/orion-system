@@ -63,6 +63,15 @@ type Svc struct {
 	mu           sync.RWMutex
 	machineID    string
 	machineToken string
+
+	// lastPayload é o snapshot mais recente produzido por tick() — reaproveitado
+	// pelo endpoint /metrics (startMetricsServer) em vez de cada scrape do
+	// Prometheus disparar um collector.Collect() novo. Sem isso, a coleta
+	// completa (incluindo os módulos caros de Security/RemoteSoftware — ver
+	// collector/expensive_cache.go) rodava tanto no ciclo do heartbeat
+	// (interval_seconds, 30s) quanto a cada scrape (15s), quase triplicando a
+	// frequência real de coleta.
+	lastPayload *collector.Payload
 }
 
 func (s *Svc) getMachineToken() string {

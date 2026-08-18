@@ -159,7 +159,12 @@ func (d *DB) MachinesByGroupID(ctx context.Context, groupID string, companyID *s
 	rows, err := d.pool.Query(ctx, `
 SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_version,
        m.status, m.last_seen, m.agent_version, m.created_at,
-       m.domain, m.mac_address, m.current_user,
+       CASE 
+         WHEN m.domain IS NOT NULL AND m.domain <> 'WORKGROUP' AND m.domain <> 'NT SERVICE' AND m.domain <> 'local' AND m.domain <> m.hostname THEN m.domain
+         WHEN mg.name IS NOT NULL THEN mg.name
+         ELSE 'Geral'
+       END AS domain,
+       m.mac_address, m.current_user,
        hw.security_info, hw.remote_software, hw.battery_info, hw.update_status,
        lm.cpu_usage, lm.ram_total, lm.ram_used, lm.disk_total, lm.disk_used, lm.uptime, lm.collected_at
 FROM public.machines m
@@ -194,9 +199,17 @@ ORDER BY m.hostname`, groupID, companyID)
 func (d *DB) MachineByID(ctx context.Context, id string) (*MachineRow, error) {
 	var r MachineRow
 	err := d.pool.QueryRow(ctx, `
-SELECT id::text, group_id::text, company_id::text, hostname, ip_address, os, os_version,
-       status, last_seen, agent_version, created_at, domain, mac_address, "current_user"
-FROM public.machines WHERE id = $1`, id).Scan(
+SELECT m.id::text, m.group_id::text, m.company_id::text, m.hostname, m.ip_address, m.os, m.os_version,
+       m.status, m.last_seen, m.agent_version, m.created_at,
+       CASE 
+         WHEN m.domain IS NOT NULL AND m.domain <> 'WORKGROUP' AND m.domain <> 'NT SERVICE' AND m.domain <> 'local' AND m.domain <> m.hostname THEN m.domain
+         WHEN mg.name IS NOT NULL THEN mg.name
+         ELSE 'Geral'
+       END AS domain,
+       m.mac_address, m."current_user"
+FROM public.machines m
+LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
+WHERE m.id = $1`, id).Scan(
 		&r.ID, &r.GroupID, &r.CompanyID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
 		&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt, &r.Domain, &r.MACAddress, &r.CurrentUser)
 	if err != nil {
@@ -260,39 +273,54 @@ FROM public.machine_alerts WHERE machine_id = $1 AND resolved = false ORDER BY c
 	return out, rows.Err()
 }
 
-// GetOrCreateMachineGroup returns the group ID for the given domain and company.
-// If the group doesn't exist, it creates it.
+// GetOrCreateMachineGroup returns the group ID for the given company/domain.
+// If generic domain or WORKGROUP is provided, it assigns to the Company group.
 func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, companyID string) (string, error) {
-	var id string
-	// Tenta buscar primeiro restringindo por empresa caso exista
-	var query string
-	var args []any
-	if companyID != "" {
-		query = `SELECT id::text FROM public.machine_groups WHERE name = $1 AND company_id = $2`
-		args = []any{domainName, companyID}
-	} else {
-		query = `SELECT id::text FROM public.machine_groups WHERE name = $1 AND company_id IS NULL`
-		args = []any{domainName}
+	groupName := strings.TrimSpace(domainName)
+	isGenericDomain := groupName == "" || strings.EqualFold(groupName, "WORKGROUP") || strings.EqualFold(groupName, "NT SERVICE") || strings.EqualFold(groupName, "local")
+
+	if isGenericDomain && companyID != "" {
+		var companyName string
+		_ = d.pool.QueryRow(ctx, `SELECT name FROM public.companies WHERE id = $1`, companyID).Scan(&companyName)
+		if companyName != "" {
+			groupName = companyName
+		} else {
+			groupName = "Geral"
+		}
 	}
 
-	err := d.pool.QueryRow(ctx, query, args...).Scan(&id)
+	if groupName == "" {
+		groupName = "Geral"
+	}
+
+	var id string
+	if companyID != "" {
+		// Procura grupo com esse nome para a empresa, ou grupo principal da empresa
+		err := d.pool.QueryRow(ctx, `
+			SELECT id::text FROM public.machine_groups 
+			WHERE (LOWER(name) = LOWER($1) OR LOWER(name) = LOWER((SELECT name FROM public.companies WHERE id = $2))) 
+			  AND company_id = $2 
+			ORDER BY created_at ASC LIMIT 1`, groupName, companyID).Scan(&id)
+		if err == nil {
+			return id, nil
+		}
+
+		err = d.pool.QueryRow(ctx, `
+			INSERT INTO public.machine_groups (name, company_id, description)
+			VALUES ($1, $2, 'Grupo da empresa sincronizado via token')
+			RETURNING id::text`, groupName, companyID).Scan(&id)
+		return id, err
+	}
+
+	err := d.pool.QueryRow(ctx, `SELECT id::text FROM public.machine_groups WHERE LOWER(name) = LOWER($1) AND company_id IS NULL LIMIT 1`, groupName).Scan(&id)
 	if err == nil {
 		return id, nil
 	}
 
-	// Se não achar, cria
-	if companyID != "" {
-		err = d.pool.QueryRow(ctx, `
-			INSERT INTO public.machine_groups (name, company_id, description)
-			VALUES ($1, $2, 'Grupo gerado automaticamente')
-			RETURNING id::text`, domainName, companyID).Scan(&id)
-	} else {
-		err = d.pool.QueryRow(ctx, `
-			INSERT INTO public.machine_groups (name, description)
-			VALUES ($1, 'Grupo gerado automaticamente')
-			RETURNING id::text`, domainName).Scan(&id)
-	}
-	
+	err = d.pool.QueryRow(ctx, `
+		INSERT INTO public.machine_groups (name, description)
+		VALUES ($1, 'Grupo gerado automaticamente')
+		RETURNING id::text`, groupName).Scan(&id)
 	return id, err
 }
 
