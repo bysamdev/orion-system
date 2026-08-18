@@ -210,25 +210,21 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
         : 0;
     const isOfflineLongAlert = !isOnline && offlineMinutes >= 30;
 
-    const hasAvAlert =
-      machine.security_info?.antivirus &&
-      machine.security_info.antivirus.length > 0 &&
-      !machine.security_info.antivirus.some((a) => a.active);
-
-    const hasFirewallAlert = machine.security_info?.firewall_active === false;
-    const hasRebootAlert = !!machine.update_status?.reboot_required;
-
-    const alerting =
-      hasDiskAlert(machine) ||
-      isOfflineLongAlert ||
-      hasAvAlert ||
-      hasFirewallAlert ||
-      hasRebootAlert ||
-      isAlertState;
+    const SEVEN_DAYS_SECONDS = 7 * 24 * 3600;
 
     const cpuPct = machine.cpu_usage != null ? Math.round(machine.cpu_usage) : null;
     const ramPct = pct(machine.ram_used, machine.ram_total);
     const diskPct = pct(machine.disk_used, machine.disk_total);
+
+    const hasNoAntivirus =
+      !machine.security_info?.antivirus ||
+      machine.security_info.antivirus.length === 0 ||
+      !machine.security_info.antivirus.some((a) => a.active);
+
+    const hasLowStorage = (diskPct != null && diskPct >= 85) || hasDiskAlert(machine);
+    const hasHighUptime = (machine.uptime ?? 0) >= SEVEN_DAYS_SECONDS;
+
+    const alerting = hasNoAntivirus || hasLowStorage || hasHighUptime || isOfflineLongAlert;
 
     const lastSeen = machine.last_seen
       ? formatDistanceToNow(new Date(machine.last_seen), { addSuffix: true, locale: ptBR })
@@ -321,7 +317,7 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                     className={cn(
                       'text-[10px] font-bold px-1.5 py-0 h-5 flex items-center gap-1',
                       isOnline
-                        ? isAlertState
+                        ? alerting
                           ? 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10'
                           : 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
                         : 'text-zinc-600 dark:text-zinc-400 border-zinc-400/30 bg-zinc-400/10'
@@ -333,17 +329,17 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                           <span
                             className={cn(
                               'animate-ping absolute inline-flex h-full w-full rounded-full opacity-75',
-                              isAlertState ? 'bg-amber-400' : 'bg-emerald-400'
+                              alerting ? 'bg-amber-400' : 'bg-emerald-400'
                             )}
                           />
                           <span
                             className={cn(
                               'relative inline-flex rounded-full h-1.5 w-1.5',
-                              isAlertState ? 'bg-amber-500' : 'bg-emerald-500'
+                              alerting ? 'bg-amber-500' : 'bg-emerald-500'
                             )}
                           />
                         </span>
-                        {isAlertState ? 'Online (Alerta)' : 'Online'}
+                        {alerting ? 'Online (Alerta)' : 'Online'}
                       </>
                     ) : (
                       <>
@@ -412,134 +408,42 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                 </div>
               </div>
 
-              {/* Linha de Conformidade & Auditoria (Micro-Badges com Ícones Expressivos) */}
-              {(machine.security_info ||
-                (machine.remote_software && machine.remote_software.length > 0) ||
-                machine.update_status ||
-                machine.battery_info?.has_battery) && (
+              {/* Linha de Alertas Rápidos do Card: Sem Antivírus, Pouco Armazenamento, >7 dias sem reiniciar */}
+              {(hasNoAntivirus || hasLowStorage || hasHighUptime) && (
                 <div className="flex flex-wrap items-center gap-1 pt-0.5">
-                  {/* Antivírus */}
-                  {machine.security_info?.antivirus && machine.security_info.antivirus.length > 0 ? (
-                    machine.security_info.antivirus.some((a) => a.active) ? (
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] px-1.5 py-0 h-4 font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
-                        title={`Antivírus Ativo: ${machine.security_info.antivirus.filter((a) => a.active).map((a) => a.name).join(', ')}`}
-                      >
-                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-500" />
-                        {machine.security_info.antivirus.find((a) => a.active)?.name
-                          ? `${machine.security_info.antivirus.find((a) => a.active)!.name.split(' ')[0]} OK`
-                          : 'AV OK'}
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] px-1.5 py-0 h-4 font-bold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
-                        title="Alerta de Proteção: Nenhum Antivírus Ativo Detectado"
-                      >
-                        <ShieldAlert className="w-2.5 h-2.5 text-red-500" />
-                        AV Alerta
-                      </Badge>
-                    )
-                  ) : null}
-
-                  {/* Firewall */}
-                  {machine.security_info?.firewall_active != null && (
-                    machine.security_info.firewall_active ? (
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] px-1.5 py-0 h-4 font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
-                        title="Firewall do Sistema Ativo"
-                      >
-                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-500" />
-                        Firewall OK
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] px-1.5 py-0 h-4 font-bold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
-                        title="Firewall do Windows Desativado"
-                      >
-                        <ShieldAlert className="w-2.5 h-2.5 text-red-500" />
-                        Firewall Off
-                      </Badge>
-                    )
-                  )}
-
-                  {/* BitLocker */}
-                  {machine.security_info?.bitlocker_active != null && (
-                    machine.security_info.bitlocker_active ? (
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] px-1.5 py-0 h-4 font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
-                        title="Criptografia C: Ativa (BitLocker)"
-                      >
-                        <Lock className="w-2.5 h-2.5 text-emerald-500" />
-                        BitLocker
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] px-1.5 py-0 h-4 font-semibold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 gap-1"
-                        title="BitLocker Desativado / Desprotegido"
-                      >
-                        <Unlock className="w-2.5 h-2.5 text-amber-500" />
-                        Sem BitLocker
-                      </Badge>
-                    )
-                  )}
-
-                  {/* Acesso Remoto (TeamViewer, AnyDesk, etc) */}
-                  {machine.remote_software?.some((s) => s.is_running) ? (
+                  {/* 1. Sem Antivírus */}
+                  {hasNoAntivirus && (
                     <Badge
                       variant="outline"
-                      className="text-[9px] px-1.5 py-0 h-4 font-semibold text-orange-600 dark:text-orange-400 border-orange-500/30 bg-orange-500/10 gap-1 animate-pulse"
-                      title={`Acesso Remoto Detectado em Execução: ${machine.remote_software.filter((s) => s.is_running).map((s) => s.name).join(', ')}`}
+                      className="text-[9px] px-1.5 py-0 h-4 font-bold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
+                      title="Alerta de Proteção: Nenhum antivírus ativo detectado nesta máquina"
                     >
-                      <Zap className="w-2.5 h-2.5 text-orange-500" />
-                      {machine.remote_software.find((s) => s.is_running)?.name || 'Remoto Ativo'}
-                    </Badge>
-                  ) : machine.remote_software && machine.remote_software.length > 0 ? (
-                    <Badge
-                      variant="outline"
-                      className="text-[9px] px-1.5 py-0 h-4 font-medium text-muted-foreground border-border/30 bg-muted/20 gap-1"
-                      title={`Acesso Remoto Instalado (Inativo): ${machine.remote_software.map((s) => s.name).join(', ')}`}
-                    >
-                      <Zap className="w-2.5 h-2.5 text-muted-foreground" />
-                      {machine.remote_software[0]?.name || 'Remoto'}
-                    </Badge>
-                  ) : null}
-
-                  {/* Bateria (se notebook) */}
-                  {machine.battery_info?.has_battery && machine.battery_info.percentage != null && (
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'text-[9px] px-1.5 py-0 h-4 font-mono font-medium gap-1',
-                        machine.battery_info.percentage <= 20 && !machine.battery_info.is_plugged
-                          ? 'text-red-500 border-red-500/30 bg-red-500/10'
-                          : 'text-muted-foreground border-border/40 bg-muted/20'
-                      )}
-                      title={`Bateria: ${machine.battery_info.percentage}% ${machine.battery_info.is_plugged ? '(Carregando AC)' : '(Na bateria)'}`}
-                    >
-                      {machine.battery_info.is_plugged ? (
-                        <Zap className="w-2.5 h-2.5 text-emerald-500" />
-                      ) : (
-                        <Battery className="w-2.5 h-2.5" />
-                      )}
-                      {machine.battery_info.percentage}%
+                      <ShieldAlert className="w-2.5 h-2.5 text-red-500" />
+                      Sem Antivírus
                     </Badge>
                   )}
 
-                  {/* Reboot Pendente */}
-                  {machine.update_status?.reboot_required && (
+                  {/* 2. Pouco Armazenamento */}
+                  {hasLowStorage && (
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] px-1.5 py-0 h-4 font-bold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
+                      title={`Alerta de Armazenamento: Disco principal com ${diskPct}% ocupado`}
+                    >
+                      <HardDrive className="w-2.5 h-2.5 text-red-500" />
+                      Pouco Armazenamento ({diskPct}%)
+                    </Badge>
+                  )}
+
+                  {/* 3. Mais de 7 dias ligada sem parar */}
+                  {hasHighUptime && (
                     <Badge
                       variant="outline"
                       className="text-[9px] px-1.5 py-0 h-4 font-bold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 gap-1 animate-pulse"
-                      title="Reinicialização Necessária para Aplicar Atualizações"
+                      title={`Alerta de Uptime: Sistema ligado continuamente há ${formatUptime(machine.uptime)} sem reiniciar`}
                     >
-                      <RotateCcw className="w-2.5 h-2.5 text-amber-500" />
-                      Reboot Pendente
+                      <Clock className="w-2.5 h-2.5 text-amber-500" />
+                      &gt;7 dias sem reiniciar
                     </Badge>
                   )}
                 </div>
