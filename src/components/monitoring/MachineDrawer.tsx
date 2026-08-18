@@ -521,9 +521,11 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
     if (!machineId) return;
     setIsSaving(true);
     try {
+      const matchedGroup = groups.find((g) => g.id === selectedGroupId);
+      const targetCompanyId = matchedGroup?.company_id || selectedCompanyId || '';
       await updateMachine.mutateAsync({
         id: machineId,
-        updates: { group_id: selectedGroupId || '', company_id: selectedCompanyId || '' },
+        updates: { group_id: selectedGroupId || '', company_id: targetCompanyId },
       });
       toast.success('Alterações salvas com sucesso!');
     } catch (err: any) {
@@ -799,21 +801,34 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                       <Separator className="border-border/20" />
                       <h3 className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest px-1">Configurações Administrativas</h3>
                       <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-4 space-y-4">
-                        {[
-                          { label: 'Grupo / Cliente', value: selectedGroupId, onChange: setSelectedGroupId, options: groups },
-                          { label: 'Empresa',         value: selectedCompanyId, onChange: setSelectedCompanyId, options: companies },
-                        ].map(({ label, value, onChange, options }) => (
-                          <div key={label} className="space-y-2">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">{label}</label>
-                            <Select value={value || 'none'} onValueChange={v => onChange(v === 'none' ? '' : v)}>
-                              <SelectTrigger className="bg-background border-indigo-500/20 rounded-xl"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Nenhum</SelectItem>
-                                {options.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        ))}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Cliente / Empresa</label>
+                          <Select
+                            value={selectedGroupId || 'none'}
+                            onValueChange={(v) => {
+                              const newGroupId = v === 'none' ? '' : v;
+                              setSelectedGroupId(newGroupId);
+                              const grp = groups.find((g) => g.id === newGroupId);
+                              if (grp && grp.company_id) {
+                                setSelectedCompanyId(grp.company_id);
+                              } else if (newGroupId === '') {
+                                setSelectedCompanyId('');
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="bg-background border-indigo-500/20 rounded-xl">
+                              <SelectValue placeholder="Selecione o Cliente / Empresa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhum (Sem vínculo)</SelectItem>
+                              {groups.map((o) => (
+                                <SelectItem key={o.id} value={o.id}>
+                                  {o.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <Button className="w-full font-bold gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/20" onClick={handleSaveChanges} disabled={isSaving}>
                           <RefreshCw className={cn('w-4 h-4', isSaving && 'animate-spin')} />
                           Salvar Alterações
