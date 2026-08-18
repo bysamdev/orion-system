@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchWithTimeout } from '@/lib/fetch-client';
@@ -42,6 +43,29 @@ export interface MonitoredEndpoint {
 }
 
 export function useWebEndpoints() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('monitored-endpoints-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'monitored_endpoints',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['webEndpoints'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['webEndpoints'],
     queryFn: async () => {
@@ -64,7 +88,7 @@ export function useWebEndpoints() {
         }));
       }
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 15000, // 15s cadência do Prometheus
   });
 }
 

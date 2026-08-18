@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchWithTimeout } from '@/lib/fetch-client';
@@ -56,6 +57,29 @@ export interface CreateNetworkLinkInput {
 }
 
 export function useNetworkLinks(companyId?: string) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('network-links-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'network_links',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['networkLinks'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['networkLinks', companyId || 'all'],
     queryFn: async (): Promise<NetworkLink[]> => {
@@ -95,7 +119,7 @@ export function useNetworkLinks(companyId?: string) {
         }));
       }
     },
-    refetchInterval: 30000,
+    refetchInterval: 15000,
   });
 }
 
