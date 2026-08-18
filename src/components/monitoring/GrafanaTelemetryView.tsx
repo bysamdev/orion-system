@@ -404,6 +404,22 @@ export const GrafanaTelemetryView: React.FC<GrafanaTelemetryViewProps> = ({
                       onChange={(e) => setTempUrl(e.target.value)}
                     />
                   </div>
+                  <div className="flex gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setTempUrl('https://monitor-orion.bysam.dev')}
+                      className="px-2 py-1 text-[10px] font-semibold bg-primary/10 hover:bg-primary/20 text-primary rounded-lg border border-primary/20 transition-all"
+                    >
+                      🌐 monitor-orion.bysam.dev
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTempUrl('http://192.168.1.200:3000')}
+                      className="px-2 py-1 text-[10px] font-semibold bg-muted hover:bg-muted/80 text-muted-foreground rounded-lg border border-border/40 transition-all"
+                    >
+                      🏠 IP Local (192.168.1.200)
+                    </button>
+                  </div>
                   <p className="text-[10px] text-muted-foreground">
                     IP ou endereço DNS onde o Grafana está hospedado.
                   </p>
