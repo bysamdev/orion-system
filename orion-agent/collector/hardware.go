@@ -37,6 +37,46 @@ type DiskInfo struct {
 	Used       uint64 `json:"used"`
 }
 
+// AntivirusInfo representa um software antivírus detectado no sistema.
+type AntivirusInfo struct {
+	Name   string `json:"name"`
+	Active bool   `json:"active"`
+}
+
+// BitLockerInfo representa o estado de proteção de um volume de disco.
+type BitLockerInfo struct {
+	Mount  string `json:"mount"`
+	Status string `json:"status"`
+	Active bool   `json:"active"`
+}
+
+// SecurityInfo agrupa dados de conformidade de segurança (AV, Firewall, BitLocker).
+type SecurityInfo struct {
+	Antivirus      []AntivirusInfo `json:"antivirus"`
+	FirewallActive bool            `json:"firewall_active"`
+	BitLocker      []BitLockerInfo `json:"bitlocker"`
+}
+
+// RemoteSoftwareInfo representa ferramentas de acesso remoto conhecidas instaladas ou em execução.
+type RemoteSoftwareInfo struct {
+	Name      string `json:"name"`
+	Version   string `json:"version"`
+	IsRunning bool   `json:"is_running"`
+}
+
+// BatteryInfo detalha a presença, percentual de carga e status de tomada/alimentação.
+type BatteryInfo struct {
+	HasBattery bool   `json:"has_battery"`
+	Percent    int    `json:"percent"`
+	PluggedIn  bool   `json:"plugged_in"`
+	Status     string `json:"status"`
+}
+
+// UpdateStatus informa se há reinicialização pendente decorrente de atualizações do sistema operacional.
+type UpdateStatus struct {
+	RebootRequired bool `json:"reboot_required"`
+}
+
 // Payload é o corpo principal do "Check-in" enviado ao servidor Orion.
 // Contém o estado atual completo da saúde do hardware.
 type Payload struct {
@@ -66,7 +106,16 @@ type Payload struct {
 	// serviço (mesmo motivo de MachineToken ficar de fora — ver
 	// service/windows.go tick() e version.Version).
 	AgentVersion string `json:"agent_version"`
+
+	// Novos módulos de coleta avançada
+	Security       SecurityInfo         `json:"security"`
+	RemoteSoftware []RemoteSoftwareInfo `json:"remote_software"`
+	Battery        BatteryInfo          `json:"battery"`
+	UpdateStatus   UpdateStatus         `json:"update_status"`
 }
+
+// HardwarePayload é um alias semântico para Payload.
+type HardwarePayload = Payload
 
 // diskRoot define qual o caminho raiz para medição de disco principal (C: no Windows).
 func diskRoot() string {
@@ -341,11 +390,15 @@ func Collect() (*Payload, error) {
 		GPU:        "",
 		Disks:      disks,
 		Interfaces: interfaces,
-		Domain:     domain,
-		CurrentUser: currentUser,
+		Domain:         domain,
+		CurrentUser:    currentUser,
 		CurrentUserSID: currentUserSID,
-		MACAddress: macAddress,
-		DeviceType: tipoDoDispositivo(),
+		MACAddress:     macAddress,
+		DeviceType:     tipoDoDispositivo(),
+		Security:       coletarSeguranca(),
+		RemoteSoftware: coletarSoftwaresRemotos(),
+		Battery:        coletarBateria(),
+		UpdateStatus:   coletarStatusAtualizacoes(),
 	}, nil
 }
 

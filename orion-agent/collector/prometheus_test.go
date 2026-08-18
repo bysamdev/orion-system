@@ -47,6 +47,30 @@ func TestGeneratePrometheusMetrics(t *testing.T) {
 				IPs:  []string{"192.168.1.51"},
 			},
 		},
+		Security: SecurityInfo{
+			Antivirus: []AntivirusInfo{
+				{Name: "Windows Defender", Active: true},
+				{Name: "Kaspersky", Active: false},
+			},
+			FirewallActive: true,
+			BitLocker: []BitLockerInfo{
+				{Mount: "C:", Status: "Protected", Active: true},
+				{Mount: "D:", Status: "Unprotected", Active: false},
+			},
+		},
+		RemoteSoftware: []RemoteSoftwareInfo{
+			{Name: "TeamViewer", Version: "15.80.6", IsRunning: true},
+			{Name: "AnyDesk", Version: "9.6.12", IsRunning: false},
+		},
+		Battery: BatteryInfo{
+			HasBattery: true,
+			Percent:    85,
+			PluggedIn:  true,
+			Status:     "Charging",
+		},
+		UpdateStatus: UpdateStatus{
+			RebootRequired: true,
+		},
 	}
 
 	output := GeneratePrometheusMetrics(mockPayload)
@@ -89,6 +113,37 @@ func TestGeneratePrometheusMetrics(t *testing.T) {
 		"# HELP orion_network_status Status de conectividade da rede local (1 para conectado, 0 para desconectado)",
 		"# TYPE orion_network_status gauge",
 		`orion_network_status{hostname="orion-server-01"} 1`,
+
+		"# HELP orion_security_antivirus_status Status do antivírus instalado (1 para ativo/em tempo real, 0 para inativo)",
+		"# TYPE orion_security_antivirus_status gauge",
+		`orion_security_antivirus_status{hostname="orion-server-01",name="Windows Defender"} 1`,
+		`orion_security_antivirus_status{hostname="orion-server-01",name="Kaspersky"} 0`,
+
+		"# HELP orion_security_firewall_status Status do firewall do sistema (1 para ativo, 0 para inativo)",
+		"# TYPE orion_security_firewall_status gauge",
+		`orion_security_firewall_status{hostname="orion-server-01"} 1`,
+
+		"# HELP orion_security_bitlocker_status Status de proteção BitLocker da unidade (1 para protegido, 0 para desprotegido)",
+		"# TYPE orion_security_bitlocker_status gauge",
+		`orion_security_bitlocker_status{hostname="orion-server-01",mount="C:"} 1`,
+		`orion_security_bitlocker_status{hostname="orion-server-01",mount="D:"} 0`,
+
+		"# HELP orion_software_remote_access Ferramentas de acesso remoto detectadas na máquina",
+		"# TYPE orion_software_remote_access gauge",
+		`orion_software_remote_access{hostname="orion-server-01",name="TeamViewer",running="true",version="15.80.6"} 1`,
+		`orion_software_remote_access{hostname="orion-server-01",name="AnyDesk",running="false",version="9.6.12"} 1`,
+
+		"# HELP orion_battery_level_percent Nível de carga da bateria em porcentagem",
+		"# TYPE orion_battery_level_percent gauge",
+		`orion_battery_level_percent{hostname="orion-server-01"} 85`,
+
+		"# HELP orion_battery_plugged_in Status de alimentação AC/tomada (1 para conectado, 0 para desconectado)",
+		"# TYPE orion_battery_plugged_in gauge",
+		`orion_battery_plugged_in{hostname="orion-server-01"} 1`,
+
+		"# HELP orion_windows_reboot_required Status de reinicialização pendente após atualizações (1 para pendente, 0 para não)",
+		"# TYPE orion_windows_reboot_required gauge",
+		`orion_windows_reboot_required{hostname="orion-server-01"} 1`,
 
 		"# HELP orion_agent_info Metadados informativos da máquina e versão do agente Orion",
 		"# TYPE orion_agent_info gauge",
