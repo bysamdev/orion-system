@@ -300,9 +300,27 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
     const list: CriticalAlertItem[] = [];
     const seenKeys = new Set<string>();
 
+    // Helper to evaluate if a machine is really offline (status is 'offline' or last_seen > 5 minutes ago)
+    const isMachineOffline = (status: string, lastSeen?: string | null) => {
+      if (status === 'offline') return true;
+      if (!lastSeen) return false;
+      const diffMs = new Date().getTime() - new Date(lastSeen).getTime();
+      return diffMs > 5 * 60 * 1000;
+    };
+
     // 1. Process API alerts
     for (const alert of apiAlerts) {
       const machine = machinesMap.get(alert.machine_id);
+
+      // Guard: If API returns an 'offline' alert, make sure the machine hasn't reconnected or is active in 'alerta' status
+      if (alert.alert_type === 'offline') {
+        const currentStatus = machine?.status || alert.status;
+        const currentLastSeen = machine?.last_seen || alert.last_seen;
+        if (!isMachineOffline(currentStatus, currentLastSeen)) {
+          continue;
+        }
+      }
+
       const enriched: CriticalAlertItem = {
         ...alert,
         domain: alert.domain || machine?.domain || 'WORKGROUP',
@@ -317,10 +335,12 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
 
     // 2. Scan machines for compliance, security, and hardware alerts
     for (const m of allMachines) {
-      // 🛡️ Antivirus
+      const offline = isMachineOffline(m.status, m.last_seen);
+
+      // 🛡️ Antivirus: Alert ONLY if antivirus list is non-empty and NO active protection is detected
       if (m.security_info?.antivirus && m.security_info.antivirus.length > 0) {
-        const inactiveAvs = m.security_info.antivirus.filter((a) => !a.active);
-        if (inactiveAvs.length > 0) {
+        const hasActiveAv = m.security_info.antivirus.some((a) => a.active);
+        if (!hasActiveAv) {
           const key = `${m.id}-antivirus`;
           if (!seenKeys.has(key)) {
             seenKeys.add(key);
@@ -335,7 +355,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
               last_seen: m.last_seen,
               alert_type: 'antivirus',
               severity: 'critical',
-              message: `Proteção desativada: ${inactiveAvs.map((a) => a.name).join(', ')}`,
+              message: `Antivírus desativado: ${m.security_info.antivirus.map((a) => a.name).join(', ')}`,
             });
           }
         }
@@ -383,8 +403,9 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
         }
       }
 
-      // 🔴 Offline (fallback if not in API list)
-      if (m.status !== 'online') {
+      // 🔴 Máquinas Offline: APENAS se m.status === 'offline' OU se last_seen > 5 min.
+      // Máquinas com status 'alerta' que estão ativas NUNCA devem aparecer como offline.
+      if (offline) {
         const key = `${m.id}-offline`;
         if (!seenKeys.has(key)) {
           seenKeys.add(key);
@@ -427,8 +448,8 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
         }
       }
 
-      // ⚡ CPU Alert (fallback if not in API list)
-      if (m.status === 'online' && m.cpu_usage != null && m.cpu_usage > 85) {
+      // ⚡ CPU Alert (fallback if not in API list - only for online or alert active machines)
+      if (!offline && m.cpu_usage != null && m.cpu_usage > 85) {
         const key = `${m.id}-cpu`;
         if (!seenKeys.has(key)) {
           seenKeys.add(key);

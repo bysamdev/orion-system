@@ -150,6 +150,20 @@ func TestSecurityComplianceEvaluation(t *testing.T) {
 			esperaAlertaUpdates: true,
 		},
 		{
+			nome: "Windows Defender ativo e outro AV inativo (sem falso positivo)",
+			secJSON: `{
+				"antivirus": [
+					{"name": "Windows Defender", "active": true},
+					{"name": "McAfee Remnant", "active": false}
+				],
+				"firewall_active": true
+			}`,
+			updJSON:             `{"reboot_required": false}`,
+			esperaAlertaAV:      false,
+			esperaAlertaFW:      false,
+			esperaAlertaUpdates: false,
+		},
+		{
 			nome: "Múltiplos problemas (AV inativo + Firewall inativo + Reboot pendente)",
 			secJSON: `{
 				"antivirus": [],

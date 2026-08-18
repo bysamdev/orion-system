@@ -4,10 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
   Loader2,
@@ -19,15 +17,10 @@ import {
   WifiOff,
   AlertTriangle,
   Search,
-  Server,
   Plus,
   Edit2,
   Trash2,
   Lock,
-  Activity,
-  Cpu,
-  HardDrive,
-  Layers,
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import {
@@ -36,8 +29,6 @@ import {
   useGroupMachines,
   useMachineDetail,
   hasDiskAlert,
-  pct,
-  formatBytes,
   useCreateGroup,
   useUpdateGroup,
   useDeleteGroup,
@@ -46,7 +37,6 @@ import type { MachineGroup, MachineWithMetric } from '@/hooks/useMonitoring';
 import { useCompanies } from '@/hooks/useCompanies';
 import { MachineCard, MachineCardSkeleton } from '@/components/monitoring/MachineCard';
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
-import { GrafanaTelemetryView } from '@/components/monitoring/GrafanaTelemetryView';
 import { useQueryClient } from '@tanstack/react-query';
 import { MonitoringOnboarding } from '@/components/monitoring/MonitoringOnboarding';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
@@ -56,7 +46,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -143,77 +132,6 @@ function GroupItem({
   );
 }
 
-// ── Componente de Métricas Globais (KPI Cards) ──────────────
-function MetricSection({
-  label,
-  value,
-  subtext,
-  icon: Icon,
-  colorClass,
-  gradient,
-  progress,
-  progressClass,
-  extraBadges,
-}: {
-  label: string;
-  value: string | number;
-  subtext?: React.ReactNode;
-  icon: any;
-  colorClass?: string;
-  gradient?: string;
-  progress?: number;
-  progressClass?: string;
-  extraBadges?: React.ReactNode;
-}) {
-  return (
-    <Card className={cn(
-      "flex-1 min-w-[220px] border border-border/40 shadow-sm overflow-hidden group transition-all duration-300 hover:-translate-y-1 relative",
-      gradient ? gradient : "bg-card"
-    )}>
-      <CardContent className="p-5 flex flex-col justify-between h-full relative z-10 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] opacity-70 mb-1 truncate">
-              {label}
-            </p>
-            <h4 className="text-2xl font-black text-foreground group-hover:text-primary transition-colors tracking-tight">
-              {value}
-            </h4>
-          </div>
-          <div className={cn(
-            "p-3 rounded-2xl flex-shrink-0 shadow-lg text-white", 
-            colorClass ? colorClass : "bg-primary"
-          )}>
-            <Icon className="w-5 h-5 transform group-hover:scale-110 transition-transform" />
-          </div>
-        </div>
-
-        {/* Barra de progresso */}
-        {progress != null && (
-          <div className="space-y-1">
-            <div className="h-1.5 w-full bg-muted/60 dark:bg-muted/30 rounded-full overflow-hidden">
-              <div
-                className={cn('h-full rounded-full transition-all duration-500', progressClass || 'bg-primary')}
-                style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Subtexto e Badges */}
-        {(subtext || extraBadges) && (
-          <div className="text-[11px] font-medium text-muted-foreground flex items-center justify-between gap-2 flex-wrap pt-0.5">
-            {subtext && <div className="truncate">{subtext}</div>}
-            {extraBadges && <div className="flex items-center gap-1.5">{extraBadges}</div>}
-          </div>
-        )}
-      </CardContent>
-      {/* Decorative background circle */}
-      <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/5 dark:bg-black/5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
-    </Card>
-  );
-}
-
 // ── Grid Principal de Máquinas ──────────────────────────
 function MachinesGrid({
   groupId,
@@ -290,7 +208,6 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
 
   // Group Management State
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
-  const [isNocDialogOpen, setIsNocDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<MachineGroup | null>(null);
   const [groupFormData, setGroupFormData] = useState({
     name: '',
@@ -302,53 +219,10 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
   const { data: dashboard } = useMonitoringDashboard();
   const { data: groups, isLoading: groupsLoading } = useMonitoringGroups();
   const { data: companies = [] } = useCompanies();
-  const { data: groupMachines } = useGroupMachines(selectedGroupId);
   
   const createGroup = useCreateGroup();
   const updateGroup = useUpdateGroup();
   const deleteGroup = useDeleteGroup();
-
-  // Fleet Global Metric Calculations
-  const fleetStats = useMemo(() => {
-    const list = groupMachines || [];
-    const onlineMachines = list.filter((m) => m.status === 'online');
-    const onlineCount = onlineMachines.length;
-
-    let totalCpu = 0;
-    let cpuCount = 0;
-    let totalRamBytes = 0;
-    let usedRamBytes = 0;
-    let totalDiskBytes = 0;
-    let usedDiskBytes = 0;
-
-    for (const m of list) {
-      if (m.disk_total) totalDiskBytes += m.disk_total;
-      if (m.disk_used) usedDiskBytes += m.disk_used;
-    }
-
-    for (const m of onlineMachines) {
-      if (m.cpu_usage != null) {
-        totalCpu += m.cpu_usage;
-        cpuCount++;
-      }
-      if (m.ram_total) totalRamBytes += m.ram_total;
-      if (m.ram_used) usedRamBytes += m.ram_used;
-    }
-
-    const avgCpu = cpuCount > 0 ? Math.round(totalCpu / cpuCount) : 0;
-    const avgRamPct = totalRamBytes > 0 ? Math.round((usedRamBytes / totalRamBytes) * 100) : 0;
-
-    return {
-      avgCpu,
-      avgRamPct,
-      totalRamBytes,
-      usedRamBytes,
-      totalDiskBytes,
-      usedDiskBytes,
-      onlineCount,
-      totalMachines: list.length,
-    };
-  }, [groupMachines]);
 
   const isAdminOrGestor = role === 'admin' || role === 'developer';
 
@@ -472,21 +346,28 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
       <main className="p-6 max-w-[1600px] mx-auto w-full">
 
         {/* ── Page Header ── */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-border/40">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              Monitoramento de Sistemas
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Supervisão em tempo real de hosts, servidores e estações de trabalho.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
                 autoComplete="off"
                 placeholder="Buscar por hostname..."
-                className="pl-10 w-full sm:w-[300px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
+                className="pl-10 w-full sm:w-[260px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-          </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
             {dashboard && (
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="gap-1.5 text-green-600 border-green-500/30 bg-green-500/10">
@@ -500,15 +381,17 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
               </div>
             )}
 
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setIsNocDialogOpen(true)}
-              className="gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md shadow-indigo-500/20 transition-all transform hover:scale-[1.02] active:scale-98"
-            >
-              <Activity className="w-4 h-4 animate-pulse" />
-              Painel NOC / Telemetria Geral
-            </Button>
+            {isAdminOrGestor && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleOpenGroupDialog()}
+                className="gap-2 rounded-xl border-border/40 hover:bg-primary/10 hover:text-primary transition-all font-semibold"
+              >
+                <Plus className="w-4 h-4" />
+                Novo Grupo
+              </Button>
+            )}
 
             <Button
               variant="outline"
@@ -522,90 +405,6 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
             </Button>
           </div>
         </div>
-
-        {/* ── Summary Cards (Global / Fleet KPIs) ── */}
-        {dashboard && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {/* Card 1: Total de Dispositivos */}
-            <MetricSection 
-              label="Total de Dispositivos" 
-              value={dashboard.total} 
-              icon={Server} 
-              colorClass="bg-blue-600"
-              gradient="bg-blue-50/40 dark:bg-blue-950/10"
-              progress={pct(dashboard.online, dashboard.total)}
-              progressClass="bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"
-              subtext={
-                <div className="flex items-center gap-1.5">
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                    {pct(dashboard.online, dashboard.total)}% online
-                  </span>
-                  <span>·</span>
-                  <span className="text-red-500 dark:text-red-400 font-bold">
-                    {pct(dashboard.offline, dashboard.total)}% offline
-                  </span>
-                </div>
-              }
-            />
-
-            {/* Card 2: CPU Média da Frota */}
-            <MetricSection 
-              label="CPU Média da Frota" 
-              value={`${fleetStats.avgCpu}%`} 
-              icon={Cpu} 
-              colorClass={
-                fleetStats.avgCpu > 85 ? "bg-red-600" :
-                fleetStats.avgCpu >= 70 ? "bg-amber-600" : "bg-emerald-600"
-              }
-              gradient={
-                fleetStats.avgCpu > 85 ? "bg-red-50/40 dark:bg-red-950/10" :
-                fleetStats.avgCpu >= 70 ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-emerald-50/40 dark:bg-emerald-950/10"
-              }
-              progress={fleetStats.avgCpu}
-              progressClass={
-                fleetStats.avgCpu > 85 ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" :
-                fleetStats.avgCpu >= 70 ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"
-              }
-              subtext={
-                <span>
-                  {fleetStats.onlineCount} máquina{fleetStats.onlineCount !== 1 ? 's' : ''} online
-                </span>
-              }
-            />
-
-            {/* Card 3: RAM Média da Frota */}
-            <MetricSection 
-              label="RAM Média da Frota" 
-              value={`${fleetStats.avgRamPct}%`} 
-              icon={Layers} 
-              colorClass="bg-indigo-600"
-              gradient="bg-indigo-50/40 dark:bg-indigo-950/10"
-              progress={fleetStats.avgRamPct}
-              progressClass="bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]"
-              subtext={
-                <span>
-                  {formatBytes(fleetStats.totalRamBytes)} RAM total online
-                </span>
-              }
-            />
-
-            {/* Card 4: Armazenamento Total Monitorado */}
-            <MetricSection 
-              label="Armazenamento Total" 
-              value={formatBytes(fleetStats.totalDiskBytes)} 
-              icon={HardDrive} 
-              colorClass="bg-amber-600"
-              gradient="bg-amber-50/40 dark:bg-amber-950/10"
-              progress={pct(fleetStats.usedDiskBytes, fleetStats.totalDiskBytes)}
-              progressClass="bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]"
-              subtext={
-                <span>
-                  {formatBytes(fleetStats.usedDiskBytes)} usado ({pct(fleetStats.usedDiskBytes, fleetStats.totalDiskBytes)}%)
-                </span>
-              }
-            />
-          </div>
-        )}
 
         {/* ── Body ── */}
         <div className="flex flex-col lg:flex-row gap-8">
@@ -676,7 +475,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                 </div>
                 
                 {groupsOpen && (
-                  <ScrollArea className="h-[calc(100vh-500px)]">
+                  <ScrollArea className="h-[calc(100vh-320px)]">
                     <div className="space-y-1 pr-3 pl-1">
                       {groupsLoading ? (
                         Array.from({ length: 4 }).map((_, i) => (
@@ -798,33 +597,6 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
               {editingGroup ? 'Salvar Alterações' : 'Criar Grupo'}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* NOC Telemetry Modal */}
-      <Dialog open={isNocDialogOpen} onOpenChange={setIsNocDialogOpen}>
-        <DialogContent className="max-w-[96vw] w-[1450px] h-[92vh] p-0 flex flex-col rounded-2xl overflow-hidden border-border/40 bg-card shadow-2xl">
-          <DialogHeader className="px-6 py-4 border-b border-border/40 bg-muted/20 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                <Activity className="w-5 h-5 animate-pulse" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg font-bold">Painel NOC — Telemetria Central</DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground">
-                  Visão consolidada de telemetria de infraestrutura e nós via Grafana / Prometheus
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-          <div className="flex-1 p-4 bg-background overflow-hidden flex flex-col">
-            <GrafanaTelemetryView
-              isNocMode={true}
-              height="100%"
-              className="h-full border-none shadow-none"
-              title="Painel Geral NOC — Todos os Clientes"
-            />
-          </div>
         </DialogContent>
       </Dialog>
 

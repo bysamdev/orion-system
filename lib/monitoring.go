@@ -438,6 +438,14 @@ WHERE machine_id = $1 AND type = $2 AND resolved = false`, machineID, alertType)
 	return err
 }
 
+func (d *DB) HasUnresolvedAlerts(ctx context.Context, machineID string) (bool, error) {
+	var count int
+	err := d.pool.QueryRow(ctx, `
+SELECT COUNT(1) FROM public.machine_alerts 
+WHERE machine_id = $1 AND resolved = false`, machineID).Scan(&count)
+	return count > 0, err
+}
+
 func (d *DB) UpdateMachineStatus(ctx context.Context, machineID, status string) error {
 	_, err := d.pool.Exec(ctx, `
 UPDATE public.machines 
@@ -606,7 +614,7 @@ ORDER BY severity DESC, alert_type
 func (d *DB) MarkOfflineMachines(ctx context.Context) (int64, error) {
 	cmd, err := d.pool.Exec(ctx, `
 UPDATE public.machines SET status='offline'
-WHERE status='online' AND last_seen < now() - INTERVAL '5 minutes'`)
+WHERE status <> 'offline' AND last_seen < now() - INTERVAL '5 minutes'`)
 	if err != nil {
 		return 0, err
 	}

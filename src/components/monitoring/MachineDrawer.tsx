@@ -43,6 +43,7 @@ import {
   Network,
   User,
   Hash,
+  Activity,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -71,7 +72,6 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { PerformanceChart } from './PerformanceChart';
 import { InventoryTab } from './InventoryTab';
-import { GrafanaTelemetryView } from './GrafanaTelemetryView';
 
 const RemoteTerminal = React.lazy(() =>
   import('./RemoteTerminal').then((m) => ({ default: m.RemoteTerminal }))
@@ -896,139 +896,542 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                   )}
                 </TabsContent>
 
-                {/* ── Telemetry (Grafana & Realtime KPIs) tab ── */}
-                <TabsContent value="telemetry" className="mt-0 space-y-5">
-                  {/* Realtime KPI Cards Header */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {/* Card 1: CPU */}
-                    <Card className="p-3.5 bg-muted/20 border-border/40 flex flex-col justify-between">
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">CPU em Tempo Real</span>
-                        <Cpu className="w-3.5 h-3.5 text-primary" />
-                      </div>
-                      <div>
-                        <div className="flex items-baseline gap-2">
-                          <span className={cn(
-                            "text-2xl font-black",
-                            cpuUsage != null
-                              ? cpuUsage > 85 ? "text-red-500" : cpuUsage > 70 ? "text-yellow-500" : "text-green-500"
-                              : "text-muted-foreground"
-                          )}>
-                            {cpuUsage != null ? `${cpuUsage}%` : '–'}
+                {/* ── Telemetry (Native High-Performance Panel) tab ── */}
+                <TabsContent value="telemetry" className="mt-0 space-y-6">
+                  {/* Seção 1: Indicadores em Tempo Real */}
+                  <section className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="text-xs font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
+                        <Activity className="w-4 h-4 text-primary" />
+                        Indicadores em Tempo Real
+                      </h3>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {isOnline ? '🟢 Live Telemetry Ativo' : '🔴 Dispositivo Offline'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {/* Card 1: CPU */}
+                      <Card className="p-4 bg-muted/20 border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                        <div className="flex items-center justify-between gap-1 mb-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            CPU em Tempo Real
+                          </span>
+                          <Cpu className="w-4 h-4 text-indigo-500" />
+                        </div>
+                        <div>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span
+                              className={cn(
+                                "text-3xl font-black font-mono tracking-tight",
+                                cpuUsage != null
+                                  ? cpuUsage > 85
+                                    ? "text-red-500"
+                                    : cpuUsage > 70
+                                    ? "text-amber-500"
+                                    : "text-emerald-500"
+                                  : "text-muted-foreground"
+                              )}
+                            >
+                              {cpuUsage != null ? `${cpuUsage}%` : '–'}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] font-bold uppercase px-1.5 py-0",
+                                cpuUsage != null
+                                  ? cpuUsage > 85
+                                    ? "text-red-600 border-red-500/30 bg-red-500/10"
+                                    : cpuUsage > 70
+                                    ? "text-amber-600 border-amber-500/30 bg-amber-500/10"
+                                    : "text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
+                                  : "text-muted-foreground border-border/40"
+                              )}
+                            >
+                              {cpuUsage != null
+                                ? cpuUsage > 85
+                                  ? "Carga Crítica"
+                                  : cpuUsage > 70
+                                  ? "Carga Alta"
+                                  : "Carga Normal"
+                                : "Sem Dados"}
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate mt-1" title={cpuModel || 'CPU Host'}>
+                            {cpuModel || (isOnline ? 'Processador Ativo' : 'Offline')}
+                          </p>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                          <Progress
+                            value={cpuUsage ?? 0}
+                            className={cn(
+                              "h-1.5",
+                              (cpuUsage ?? 0) > 85
+                                ? "[&>div]:bg-red-500"
+                                : (cpuUsage ?? 0) > 70
+                                ? "[&>div]:bg-amber-500"
+                                : "[&>div]:bg-emerald-500"
+                            )}
+                          />
+                          <div className="flex justify-between text-[9px] text-muted-foreground">
+                            <span>0%</span>
+                            <span>Uso de Processamento</span>
+                            <span>100%</span>
+                          </div>
+                        </div>
+                      </Card>
+
+                      {/* Card 2: RAM */}
+                      <Card className="p-4 bg-muted/20 border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                        <div className="flex items-center justify-between gap-1 mb-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Memória RAM
+                          </span>
+                          <Layers className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <div>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span
+                              className={cn(
+                                "text-3xl font-black font-mono tracking-tight",
+                                ramUsagePct > 85
+                                  ? "text-red-500"
+                                  : ramUsagePct > 70
+                                  ? "text-amber-500"
+                                  : "text-foreground"
+                              )}
+                            >
+                              {ramUsagePct}%
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] font-bold uppercase px-1.5 py-0",
+                                ramUsagePct > 85
+                                  ? "text-red-600 border-red-500/30 bg-red-500/10"
+                                  : ramUsagePct > 70
+                                  ? "text-amber-600 border-amber-500/30 bg-amber-500/10"
+                                  : "text-blue-600 border-blue-500/30 bg-blue-500/10"
+                              )}
+                            >
+                              {ramUsagePct > 85 ? "Crítico" : ramUsagePct > 70 ? "Elevado" : "Normal"}
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate mt-1">
+                            {formatBytes(machine?.ram_used)} / {formatBytes(machine?.ram_total)}
+                          </p>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                          <Progress
+                            value={ramUsagePct}
+                            className={cn(
+                              "h-1.5",
+                              ramUsagePct > 85
+                                ? "[&>div]:bg-red-500"
+                                : ramUsagePct > 70
+                                ? "[&>div]:bg-amber-500"
+                                : "[&>div]:bg-emerald-500"
+                            )}
+                          />
+                          <div className="flex justify-between text-[9px] text-muted-foreground">
+                            <span>
+                              {machine?.ram_total && machine?.ram_used != null
+                                ? `${formatBytes(Math.max(0, machine.ram_total - machine.ram_used))} livre`
+                                : '–'}
+                            </span>
+                            <span>Total: {formatBytes(machine?.ram_total)}</span>
+                          </div>
+                        </div>
+                      </Card>
+
+                      {/* Card 3: Storage */}
+                      <Card className="p-4 bg-muted/20 border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                        <div className="flex items-center justify-between gap-1 mb-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Armazenamento / Disco
+                          </span>
+                          <HardDrive className="w-4 h-4 text-amber-500" />
+                        </div>
+                        <div>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span
+                              className={cn(
+                                "text-3xl font-black font-mono tracking-tight",
+                                diskUsagePct > 90
+                                  ? "text-red-500"
+                                  : diskUsagePct > 75
+                                  ? "text-amber-500"
+                                  : "text-foreground"
+                              )}
+                            >
+                              {diskUsagePct}%
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] font-bold uppercase px-1.5 py-0",
+                                diskUsagePct > 90
+                                  ? "text-red-600 border-red-500/30 bg-red-500/10"
+                                  : diskUsagePct > 75
+                                  ? "text-amber-600 border-amber-500/30 bg-amber-500/10"
+                                  : "text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
+                              )}
+                            >
+                              {diskUsagePct > 90 ? "Alerta" : diskUsagePct > 75 ? "Moderado" : "Normal"}
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate mt-1">
+                            {formatBytes(machine?.disk_used)} / {formatBytes(machine?.disk_total)}
+                          </p>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                          <Progress
+                            value={diskUsagePct}
+                            className={cn(
+                              "h-1.5",
+                              diskUsagePct > 90
+                                ? "[&>div]:bg-red-500"
+                                : diskUsagePct > 75
+                                ? "[&>div]:bg-amber-500"
+                                : "[&>div]:bg-amber-500"
+                            )}
+                          />
+                          <div className="flex justify-between text-[9px] text-muted-foreground">
+                            <span>
+                              {machine?.disk_total && machine?.disk_used != null
+                                ? `${formatBytes(Math.max(0, machine.disk_total - machine.disk_used))} livre`
+                                : '–'}
+                            </span>
+                            <span>Total: {formatBytes(machine?.disk_total)}</span>
+                          </div>
+                        </div>
+                      </Card>
+
+                      {/* Card 4: Uptime */}
+                      <Card className="p-4 bg-muted/20 border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                        <div className="flex items-center justify-between gap-1 mb-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Uptime do Sistema
+                          </span>
+                          <Clock className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <div>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-foreground">
+                              {formatUptime(machine?.uptime)}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] font-bold uppercase px-1.5 py-0 gap-1",
+                                isOnline
+                                  ? "text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
+                                  : "text-red-500 border-red-500/30 bg-red-500/10"
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  "w-1.5 h-1.5 rounded-full",
+                                  isOnline ? "bg-emerald-500 animate-pulse" : "bg-red-500"
+                                )}
+                              />
+                              {isOnline ? "Online" : "Offline"}
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate mt-1">
+                            {isOnline ? 'Em operação contínua' : 'Dispositivo offline'}
+                          </p>
+                        </div>
+                        <div className="mt-3 pt-1 border-t border-border/20 flex items-center justify-between text-[9px] text-muted-foreground">
+                          <span>Último sync:</span>
+                          <span className="font-medium text-foreground">
+                            {machine?.last_seen
+                              ? formatDistanceToNow(new Date(machine.last_seen), { addSuffix: true, locale: ptBR })
+                              : '–'}
                           </span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground truncate mt-0.5" title={cpuModel || 'CPU Host'}>
-                          {cpuModel || (isOnline ? 'Processador Ativo' : 'Offline')}
-                        </p>
-                      </div>
-                      <Progress
-                        value={cpuUsage ?? 0}
-                        className={cn(
-                          "h-1.5 mt-2",
-                          (cpuUsage ?? 0) > 85 ? "[&>div]:bg-red-500" : (cpuUsage ?? 0) > 70 ? "[&>div]:bg-yellow-500" : "[&>div]:bg-green-500"
-                        )}
-                      />
-                    </Card>
+                      </Card>
+                    </div>
+                  </section>
 
-                    {/* Card 2: RAM */}
-                    <Card className="p-3.5 bg-muted/20 border-border/40 flex flex-col justify-between">
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Memória RAM</span>
-                        <Layers className="w-3.5 h-3.5 text-blue-500" />
-                      </div>
-                      <div>
-                        <div className="flex items-baseline gap-2">
-                          <span className={cn(
-                            "text-2xl font-black",
-                            ramUsagePct > 85 ? "text-red-500" : ramUsagePct > 70 ? "text-yellow-500" : "text-foreground"
-                          )}>
-                            {ramUsagePct}%
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                          {formatBytes(machine?.ram_used)} / {formatBytes(machine?.ram_total)}
-                        </p>
-                      </div>
-                      <Progress
-                        value={ramUsagePct}
-                        className={cn(
-                          "h-1.5 mt-2",
-                          ramUsagePct > 85 ? "[&>div]:bg-red-500" : ramUsagePct > 70 ? "[&>div]:bg-yellow-500" : "[&>div]:bg-blue-500"
-                        )}
-                      />
-                    </Card>
+                  {/* Seção 2: Gráfico de Performance Histórica Nativo */}
+                  <section className="space-y-2">
+                    <PerformanceChart
+                      machineId={machineId}
+                      machine={machine}
+                      period={period}
+                      onPeriodChange={setPeriod}
+                      title="Performance Histórica do Host"
+                    />
+                  </section>
 
-                    {/* Card 3: Storage */}
-                    <Card className="p-3.5 bg-muted/20 border-border/40 flex flex-col justify-between">
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Armazenamento</span>
-                        <HardDrive className="w-3.5 h-3.5 text-amber-500" />
-                      </div>
-                      <div>
-                        <div className="flex items-baseline gap-2">
-                          <span className={cn(
-                            "text-2xl font-black",
-                            diskUsagePct > 90 ? "text-red-500" : diskUsagePct > 75 ? "text-yellow-500" : "text-foreground"
-                          )}>
-                            {diskUsagePct}%
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                          {formatBytes(machine?.disk_used)} / {formatBytes(machine?.disk_total)}
-                        </p>
-                      </div>
-                      <Progress
-                        value={diskUsagePct}
-                        className={cn(
-                          "h-1.5 mt-2",
-                          diskUsagePct > 90 ? "[&>div]:bg-red-500" : diskUsagePct > 75 ? "[&>div]:bg-yellow-500" : "[&>div]:bg-amber-500"
-                        )}
-                      />
-                    </Card>
+                  {/* Seção 3: Detalhamento de Hardware & Discos Particionados */}
+                  <section className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="text-xs font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
+                        <HardDrive className="w-4 h-4 text-amber-500" />
+                        Detalhamento de Hardware &amp; Discos Particionados
+                      </h3>
+                      <span className="text-[10px] text-muted-foreground">
+                        Volumes físicos e lógicos
+                      </span>
+                    </div>
 
-                    {/* Card 4: Uptime */}
-                    <Card className="p-3.5 bg-muted/20 border-border/40 flex flex-col justify-between">
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Uptime do Sistema</span>
-                        <Clock className="w-3.5 h-3.5 text-green-500" />
-                      </div>
-                      <div>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-xl sm:text-2xl font-black text-foreground">
-                            {formatUptime(machine?.uptime)}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                          {isOnline ? 'Em operação contínua' : 'Dispositivo offline'}
-                        </p>
-                      </div>
-                      <div className="mt-2 flex items-center gap-1.5">
-                        <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-green-500 animate-pulse" : "bg-red-500")} />
-                        <span className="text-[10px] font-semibold text-muted-foreground">{isOnline ? 'Online' : 'Offline'}</span>
-                      </div>
-                    </Card>
-                  </div>
-
-                  {/* Telemetry Endpoint Summary Mini Bar */}
-                  {(batteryInfo?.has_battery || updateStatus?.reboot_required) && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {Array.isArray(detail?.hardware?.disks) && detail.hardware.disks.length > 0 ? (
+                        detail.hardware.disks.map((d: any, idx: number) => {
+                          const mount = d.mountpoint || d.mount_point || d.path || d.name || `Volume #${idx + 1}`;
+                          const fs = d.fs_type || d.fstype || d.file_system || 'NTFS';
+                          const used = d.used ?? 0;
+                          const total = d.total ?? d.size ?? 0;
+                          const diskPct = pct(used, total);
+                          return (
+                            <Card key={idx} className="p-4 bg-muted/15 border-border/40 space-y-3 shadow-none hover:bg-muted/25 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                    <HardDrive className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <span className="text-xs font-bold text-foreground block">{mount}</span>
+                                    <span className="text-[10px] text-muted-foreground font-mono">{fs}</span>
+                                  </div>
+                                </div>
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "text-[10px] font-bold font-mono",
+                                    diskPct > 90
+                                      ? "text-red-500 border-red-500/30 bg-red-500/10"
+                                      : diskPct > 75
+                                      ? "text-amber-500 border-amber-500/30 bg-amber-500/10"
+                                      : "text-emerald-600 border-emerald-500/30 bg-emerald-500/5"
+                                  )}
+                                >
+                                  {diskPct}% em uso
+                                </Badge>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <Progress
+                                  value={diskPct}
+                                  className={cn(
+                                    "h-2",
+                                    diskPct > 90
+                                      ? "[&>div]:bg-red-500"
+                                      : diskPct > 75
+                                      ? "[&>div]:bg-amber-500"
+                                      : "[&>div]:bg-primary"
+                                  )}
+                                />
+                                <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                                  <span>Usado: <strong className="text-foreground">{formatBytes(used)}</strong></span>
+                                  <span>Livre: <strong className="text-foreground">{formatBytes(Math.max(0, total - used))}</strong></span>
+                                  <span>Total: <strong className="text-foreground">{formatBytes(total)}</strong></span>
+                                </div>
+                              </div>
+                            </Card>
+                          );
+                        })
+                      ) : (
+                        <Card className="p-4 bg-muted/15 border-border/40 space-y-3 shadow-none sm:col-span-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                <HardDrive className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <span className="text-xs font-bold text-foreground block">Volume Principal do Sistema (C:)</span>
+                                <span className="text-[10px] text-muted-foreground font-mono">NTFS / Partição Ativa</span>
+                              </div>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] font-bold font-mono",
+                                diskUsagePct > 90
+                                  ? "text-red-500 border-red-500/30 bg-red-500/10"
+                                  : diskUsagePct > 75
+                                  ? "text-amber-500 border-amber-500/30 bg-amber-500/10"
+                                  : "text-emerald-600 border-emerald-500/30 bg-emerald-500/5"
+                              )}
+                            >
+                              {diskUsagePct}% em uso
+                            </Badge>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Progress
+                              value={diskUsagePct}
+                              className={cn(
+                                "h-2",
+                                diskUsagePct > 90
+                                  ? "[&>div]:bg-red-500"
+                                  : diskUsagePct > 75
+                                  ? "[&>div]:bg-amber-500"
+                                  : "[&>div]:bg-primary"
+                              )}
+                            />
+                            <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                              <span>Usado: <strong className="text-foreground">{formatBytes(machine?.disk_used)}</strong></span>
+                              <span>
+                                Livre:{' '}
+                                <strong className="text-foreground">
+                                  {machine?.disk_total && machine?.disk_used != null
+                                    ? formatBytes(Math.max(0, machine.disk_total - machine.disk_used))
+                                    : '–'}
+                                </strong>
+                              </span>
+                              <span>Total: <strong className="text-foreground">{formatBytes(machine?.disk_total)}</strong></span>
+                            </div>
+                          </div>
+                        </Card>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* Seção 4: Adaptadores de Rede & Conectividade */}
+                  <section className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="text-xs font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
+                        <Network className="w-4 h-4 text-sky-500" />
+                        Adaptadores de Rede &amp; Conectividade
+                      </h3>
+                      <span className="text-[10px] text-muted-foreground">
+                        Interfaces físicas e virtuais detectadas
+                      </span>
+                    </div>
+
+                    <Card className="border-border/40 bg-card/60 overflow-hidden shadow-sm">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-muted/30 border-b border-border/30 text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                            <tr>
+                              <th className="px-4 py-2.5">Interface de Rede</th>
+                              <th className="px-4 py-2.5">Endereço IP (IPv4 / IPv6)</th>
+                              <th className="px-4 py-2.5">Endereço MAC</th>
+                              <th className="px-4 py-2.5 text-right">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/20">
+                            {Array.isArray(detail?.hardware?.network_interfaces) &&
+                            detail.hardware.network_interfaces.length > 0 ? (
+                              detail.hardware.network_interfaces.map((iface: any, idx: number) => {
+                                const name = iface.name || iface.interface_name || `Interface ${idx + 1}`;
+                                const mac = iface.mac || iface.mac_address || '–';
+                                const ips: string[] = Array.isArray(iface.ips)
+                                  ? iface.ips
+                                  : iface.ip
+                                  ? [iface.ip]
+                                  : iface.ip_address
+                                  ? [iface.ip_address]
+                                  : [];
+
+                                return (
+                                  <tr key={idx} className="hover:bg-muted/20 transition-colors">
+                                    <td className="px-4 py-3 font-semibold text-foreground flex items-center gap-2">
+                                      <Network className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                                      <span>{name}</span>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <div className="flex flex-wrap gap-1">
+                                        {ips.length > 0 ? (
+                                          ips.map((ip, i) => (
+                                            <Badge key={i} variant="outline" className="font-mono text-[10px] bg-muted/40 text-foreground">
+                                              {ip}
+                                            </Badge>
+                                          ))
+                                        ) : (
+                                          <span className="text-muted-foreground text-[11px]">N/A</span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
+                                      {mac}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                      <Badge
+                                        variant="outline"
+                                        className={cn(
+                                          "text-[9px] font-semibold",
+                                          isOnline
+                                            ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5"
+                                            : "text-muted-foreground border-border/30"
+                                        )}
+                                      >
+                                        {isOnline ? "Conectado" : "Offline"}
+                                      </Badge>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            ) : (
+                              <tr className="hover:bg-muted/20 transition-colors">
+                                <td className="px-4 py-3 font-semibold text-foreground flex items-center gap-2">
+                                  <Network className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                                  <span>Adaptador Principal do Host</span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {ipAddress !== '–' ? (
+                                    <Badge variant="outline" className="font-mono text-[10px] bg-muted/40 text-foreground">
+                                      {ipAddress}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground text-[11px]">Não identificado</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
+                                  {macAddress}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[9px] font-semibold",
+                                      isOnline
+                                        ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5"
+                                        : "text-muted-foreground border-border/30"
+                                    )}
+                                  >
+                                    {isOnline ? "Conectado" : "Offline"}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Card>
+                  </section>
+
+                  {/* Seção 5: Bateria & Conformidade de Segurança */}
+                  <section className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="text-xs font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
+                        <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                        Bateria &amp; Conformidade de Segurança
+                      </h3>
+                      <span className="text-[10px] text-muted-foreground">
+                        Integridade e postura do dispositivo
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Endpoint Security */}
+                      <EndpointSecurityCard securityInfo={securityInfo} />
+
+                      {/* Remote Software Card */}
+                      <RemoteSoftwareCard remoteSoftware={remoteSoftware} />
+
+                      {/* Battery Card (if present) */}
                       {batteryInfo?.has_battery && (
                         <BatteryMobilityCard batteryInfo={batteryInfo} />
                       )}
-                      {updateStatus?.reboot_required && (
-                        <UpdateStatusCard updateStatus={updateStatus} />
-                      )}
-                    </div>
-                  )}
 
-                  {/* Grafana Host Telemetry Embed */}
-                  <GrafanaTelemetryView
-                    hostname={machine?.hostname}
-                    machineId={machineId ?? undefined}
-                    dashboardPath="/d/orion-agent-dashboard/orion-agent-visao-geral-do-host"
-                    height="520px"
-                    title={`Telemetria do Host: ${machine?.hostname ?? 'Máquina'}`}
-                  />
+                      {/* Update & Reboot Status Card */}
+                      <UpdateStatusCard updateStatus={updateStatus} />
+                    </div>
+                  </section>
                 </TabsContent>
 
                 {/* ── Security & Compliance tab ── */}

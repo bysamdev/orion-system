@@ -484,6 +484,11 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Verifica se ainda existem alertas não resolvidos para esta máquina
+	if hasActive, err := db.HasUnresolvedAlerts(ctx, machineID); err == nil {
+		hasAlert = hasAlert || hasActive
+	}
+
 	if hasAlert {
 		_ = db.UpdateMachineStatus(ctx, machineID, "alerta")
 	} else {

@@ -655,7 +655,7 @@ export default function WebMonitoring() {
           </Tabs>
         </TabsContent>
 
-        {/* ── ABA 2: TELEMETRIA & GRÁFICOS (Blackbox Exporter & Grafana) ── */}
+        {/* ── ABA 2: TELEMETRIA & GRÁFICOS (Nativo Orion) ── */}
         <TabsContent value="telemetry" className="space-y-6">
           <WebTelemetryTab />
         </TabsContent>
