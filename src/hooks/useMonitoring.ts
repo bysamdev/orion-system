@@ -257,6 +257,45 @@ export function useUpdateMachine() {
   });
 }
 
+export function useDeleteMachine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // 1. Try API endpoint with fallback
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        const res = await fetchWithTimeout(`${API_URL}/api/monitoring/machines/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          timeoutMs: 8000,
+        });
+        if (res.ok) {
+          return await res.json().catch(() => ({ success: true }));
+        }
+      } catch (err) {
+        console.warn('[useDeleteMachine] API endpoint failed, fallback to Supabase client', err);
+      }
+
+      // 2. Direct Supabase client cascade delete
+      await supabase.from('machine_metrics' as any).delete().eq('machine_id', id);
+      await supabase.from('machine_hardware' as any).delete().eq('machine_id', id);
+      await supabase.from('machine_alerts' as any).delete().eq('machine_id', id);
+      await supabase.from('machine_commands' as any).delete().eq('machine_id', id);
+
+      const { error } = await supabase.from('machines' as any).delete().eq('id', id);
+      if (error) throw error;
+      return { success: true };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring'] });
+    },
+  });
+}
+
 export function useCreateGroup() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -310,6 +349,41 @@ export function pct(used: number | null, total: number | null): number {
 // Helper — disk alert
 export function hasDiskAlert(m: MachineWithMetric): boolean {
   return pct(m.disk_used, m.disk_total) > 90;
+}
+
+// Helper — format bytes (e.g. 16958373888 -> "15.8 GB", 212 GB / 255 GB, TB)
+export function formatBytes(bytes: number | null | undefined): string {
+  if (bytes == null || isNaN(bytes) || bytes < 0) return '–';
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const idx = Math.min(Math.max(0, i), sizes.length - 1);
+  const value = bytes / Math.pow(k, idx);
+  if (idx === 0) return `${Math.round(value)} B`;
+  const formatted = value >= 100 ? `${Math.round(value)} ${sizes[idx]}` : `${value.toFixed(1)} ${sizes[idx]}`;
+  return formatted;
+}
+
+// Helper — format uptime (e.g. 42845 -> "11h 54m", >24h -> "2d 4h")
+export function formatUptime(seconds: number | null | undefined): string {
+  if (seconds == null || isNaN(seconds) || seconds <= 0) return '–';
+  const totalSeconds = Math.floor(seconds);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m`;
+  }
+  return `${secs}s`;
 }
 
 // ─── Critical Alerts (Red Zone Dashboard) ────────────────

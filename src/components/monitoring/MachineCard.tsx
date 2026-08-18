@@ -1,185 +1,489 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, Wifi, WifiOff, Clock } from 'lucide-react';
+import {
+  AlertTriangle,
+  Wifi,
+  WifiOff,
+  Clock,
+  Activity,
+  Terminal,
+  Trash2,
+  Server,
+} from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { MachineWithMetric } from '@/hooks/useMonitoring';
-import { pct, hasDiskAlert } from '@/hooks/useMonitoring';
+import {
+  pct,
+  hasDiskAlert,
+  formatBytes,
+  formatUptime,
+  useDeleteMachine,
+} from '@/hooks/useMonitoring';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
-interface MachineCardProps {
+export interface MachineCardProps {
   machine: MachineWithMetric;
-  onSelect: (machine: MachineWithMetric) => void;
+  onSelect: (machine: MachineWithMetric, initialTab?: string) => void;
+  onDelete?: (machine: MachineWithMetric) => void;
+}
+
+function OsIcon({ os }: { os?: string | null }) {
+  const normalized = (os || '').toLowerCase();
+  if (normalized.includes('win')) {
+    return (
+      <svg
+        className="w-4 h-4 text-sky-500 flex-shrink-0"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        title={os || 'Windows'}
+      >
+        <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-13.051-1.801" />
+      </svg>
+    );
+  }
+  if (
+    normalized.includes('mac') ||
+    normalized.includes('darwin') ||
+    normalized.includes('apple')
+  ) {
+    return (
+      <svg
+        className="w-4 h-4 text-neutral-400 dark:text-neutral-300 flex-shrink-0"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        title={os || 'macOS'}
+      >
+        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.61-.75 1.04-1.8 0.92-2.87-.93.04-2.02.63-2.67 1.38-.58.66-1.09 1.74-.96 2.78 1.05.08 2.09-.54 2.71-1.29z" />
+      </svg>
+    );
+  }
+  if (
+    normalized.includes('linux') ||
+    normalized.includes('ubuntu') ||
+    normalized.includes('debian') ||
+    normalized.includes('centos') ||
+    normalized.includes('fedora') ||
+    normalized.includes('redhat') ||
+    normalized.includes('arch')
+  ) {
+    return (
+      <svg
+        className="w-4 h-4 text-amber-500 flex-shrink-0"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        title={os || 'Linux'}
+      >
+        <path d="M12 2C9.5 2 7.5 3.8 7.5 6c0 1.2.6 2.3 1.5 3-.1.4-.2.9-.2 1.4 0 1.5.5 2.8 1.4 3.8-.7.8-1.7 1.4-2.7 1.8-.8.3-1.5.9-1.5 1.8 0 1.2 1.3 2.2 4 2.2 1.3 0 2.5-.2 3.5-.6 1 .4 2.2.6 3.5.6 2.7 0 4-1 4-2.2 0-.9-.7-1.5-1.5-1.8-1-.4-2-1-2.7-1.8.9-1 1.4-2.3 1.4-3.8 0-.5-.1-1-.2-1.4.9-.7 1.5-1.8 1.5-3 0-2.2-2-4-4.5-4h-3.8z" />
+      </svg>
+    );
+  }
+  return <Server className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
 }
 
 function StatusDot({ status, hasAlert }: { status: string; hasAlert: boolean }) {
-  if (hasAlert) return (
-    <span className="relative flex h-3 w-3">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-      <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.8)]" />
-    </span>
+  if (hasAlert) {
+    return (
+      <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]" />
+      </span>
+    );
+  }
+  if (status === 'online') {
+    return (
+      <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)] flex-shrink-0" />
   );
-  if (status === 'online') return (
-    <span className="relative flex h-3 w-3">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]" />
-    </span>
-  );
-  return <span className="inline-flex rounded-full h-3 w-3 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />;
 }
 
 function MetricBar({
   label,
   value,
-  colorClass,
+  usedBytes,
+  totalBytes,
+  showBytes = false,
+  isOnline = true,
 }: {
   label: string;
-  value: number;
-  colorClass?: string;
+  value: number | null;
+  usedBytes?: number | null;
+  totalBytes?: number | null;
+  showBytes?: boolean;
+  isOnline?: boolean;
 }) {
+  const safeValue = isOnline && value != null ? Math.min(100, Math.max(0, value)) : 0;
+
+  // Dinâmico: Verde < 70%, Amarelo 70-85%, Vermelho > 85%
+  const getProgressColor = (v: number) => {
+    if (!isOnline) return 'bg-muted-foreground/30';
+    if (v > 85) return 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]';
+    if (v >= 70) return 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]';
+    return 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]';
+  };
+
+  const getTextColor = (v: number) => {
+    if (!isOnline) return 'text-muted-foreground';
+    if (v > 85) return 'text-red-500 dark:text-red-400 font-black';
+    if (v >= 70) return 'text-amber-500 dark:text-amber-400 font-black';
+    return 'text-emerald-600 dark:text-emerald-400 font-bold';
+  };
+
+  const bytesText =
+    showBytes && totalBytes && totalBytes > 0
+      ? `${formatBytes(usedBytes)} / ${formatBytes(totalBytes)}`
+      : null;
+
   return (
-    <div className="space-y-1.5 group/bar">
-      <div className="flex justify-between text-[10px] font-bold uppercase tracking-tight text-muted-foreground/70 group-hover/bar:text-foreground transition-colors">
-        <span>{label}</span>
-        <span className={cn('font-black', colorClass ?? '')}>{value}%</span>
+    <div className="space-y-1 group/bar">
+      <div className="flex items-center justify-between text-[11px]">
+        <span className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground group-hover/bar:text-foreground transition-colors">
+          {label}
+        </span>
+        <div className="flex items-center gap-1.5">
+          {bytesText && isOnline && (
+            <span className="text-[10px] text-muted-foreground font-mono">
+              {bytesText}
+            </span>
+          )}
+          <span className={cn('text-xs font-mono', getTextColor(safeValue))}>
+            {isOnline && value != null ? `${Math.round(safeValue)}%` : '–'}
+          </span>
+        </div>
       </div>
-      <Progress
-        value={value}
-        className={cn(
-          'h-1.5 transition-all duration-500',
-          value > 90
-            ? '[&>div]:bg-red-500 [&>div]:shadow-[0_0_8px_rgba(239,68,68,0.4)]'
-            : value > 75
-            ? '[&>div]:bg-yellow-500 [&>div]:shadow-[0_0_8px_rgba(234,179,8,0.4)]'
-            : '[&>div]:bg-green-500 [&>div]:shadow-[0_0_8px_rgba(34,197,94,0.4)]'
-        )}
-      />
+      <div className="h-1.5 w-full bg-muted/70 dark:bg-muted/30 rounded-full overflow-hidden">
+        <div
+          className={cn('h-full rounded-full transition-all duration-500', getProgressColor(safeValue))}
+          style={{ width: `${safeValue}%` }}
+        />
+      </div>
     </div>
   );
 }
 
-export const MachineCard: React.FC<MachineCardProps> = React.memo(({ machine, onSelect }) => {
-  const isOnline = machine.status === 'online';
-  const offlineMinutes = !isOnline && machine.last_seen ? Math.floor((Date.now() - new Date(machine.last_seen).getTime()) / 60000) : 0;
-  const isOfflineLongAlert = !isOnline && offlineMinutes >= 30;
-  
-  const alerting = hasDiskAlert(machine) || isOfflineLongAlert;
+export const MachineCard: React.FC<MachineCardProps> = React.memo(
+  ({ machine, onSelect, onDelete }) => {
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const deleteMachineMutation = useDeleteMachine();
 
-  const cpuPct = machine.cpu_usage != null ? Math.round(machine.cpu_usage) : null;
-  const ramPct = pct(machine.ram_used, machine.ram_total);
-  const diskPct = pct(machine.disk_used, machine.disk_total);
+    const isOnline = machine.status === 'online';
+    const offlineMinutes =
+      !isOnline && machine.last_seen
+        ? Math.floor((Date.now() - new Date(machine.last_seen).getTime()) / 60000)
+        : 0;
+    const isOfflineLongAlert = !isOnline && offlineMinutes >= 30;
 
-  const lastSeen = machine.last_seen
-    ? formatDistanceToNow(new Date(machine.last_seen), { addSuffix: true, locale: ptBR })
-    : '–';
+    const alerting = hasDiskAlert(machine) || isOfflineLongAlert;
 
-  return (
-    <Card
-      onClick={() => onSelect(machine)}
-      className={cn(
-        'cursor-pointer transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-1 relative overflow-hidden',
-        'glass-card group',
-        alerting
-          ? 'border-yellow-500/40'
-          : isOnline
-          ? 'border-green-500/20 hover:border-green-500/40'
-          : 'border-red-500/20 opacity-80 hover:border-red-500/40'
-      )}
-    >
-      {/* Glossy overlay effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-      
-      <CardContent className="pt-5 pb-5 space-y-4 relative z-10">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <StatusDot status={machine.status} hasAlert={alerting} />
-            <div className="min-w-0">
-              <p className="font-semibold text-sm text-foreground truncate" title={machine.hostname}>
-                {machine.hostname}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {machine.ip_address || '–'}
-              </p>
+    const cpuPct = machine.cpu_usage != null ? Math.round(machine.cpu_usage) : null;
+    const ramPct = pct(machine.ram_used, machine.ram_total);
+    const diskPct = pct(machine.disk_used, machine.disk_total);
+
+    const lastSeen = machine.last_seen
+      ? formatDistanceToNow(new Date(machine.last_seen), { addSuffix: true, locale: ptBR })
+      : '–';
+
+    const handleDelete = async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setIsDeleting(true);
+      try {
+        if (onDelete) {
+          await onDelete(machine);
+        } else {
+          await deleteMachineMutation.mutateAsync(machine.id);
+          toast.success(`Máquina ${machine.hostname} excluída com sucesso`);
+        }
+        setShowDeleteDialog(false);
+      } catch (err: any) {
+        toast.error('Erro ao excluir máquina: ' + (err.message || 'Falha na requisição'));
+      } finally {
+        setIsDeleting(false);
+      }
+    };
+
+    return (
+      <>
+        <Card
+          onClick={() => onSelect(machine, 'overview')}
+          className={cn(
+            'cursor-pointer transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1 relative overflow-hidden',
+            'glass-card group flex flex-col justify-between border',
+            alerting
+              ? 'border-yellow-500/40 shadow-sm shadow-yellow-500/10'
+              : isOnline
+              ? 'border-emerald-500/20 hover:border-emerald-500/40'
+              : 'border-red-500/20 opacity-85 hover:border-red-500/40'
+          )}
+        >
+          {/* Glossy overlay effect */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+
+          <CardContent className="p-4 space-y-3.5 relative z-10 flex-1 flex flex-col justify-between">
+            {/* Header */}
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <OsIcon os={machine.os} />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <StatusDot status={machine.status} hasAlert={alerting} />
+                      <p
+                        className="font-bold text-sm text-foreground truncate"
+                        title={machine.hostname}
+                      >
+                        {machine.hostname}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate font-mono mt-0.5">
+                      {machine.ip_address || '–'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {alerting && (
+                    <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0 animate-pulse" />
+                  )}
+
+                  {isOnline && machine.uptime ? (
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] px-1.5 py-0.5 bg-muted/80 text-muted-foreground font-mono font-medium gap-1 flex items-center"
+                      title="Uptime do sistema"
+                    >
+                      <Clock className="w-2.5 h-2.5" />
+                      ⏱️ {formatUptime(machine.uptime)}
+                    </Badge>
+                  ) : null}
+
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'text-[10px] font-bold px-1.5 py-0.5 flex items-center gap-1',
+                      isOnline
+                        ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                        : 'text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10'
+                    )}
+                  >
+                    {isOnline ? (
+                      <>
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                        </span>
+                        Online
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="w-2.5 h-2.5 mr-0.5" />
+                        {offlineMinutes >= 30
+                          ? `Offline há ${
+                              Math.floor(offlineMinutes / 60) > 0
+                                ? `${Math.floor(offlineMinutes / 60)}h`
+                                : `${offlineMinutes}m`
+                            }`
+                          : 'Offline'}
+                      </>
+                    )}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* OS Subtitle if available */}
+              {machine.os && (
+                <p className="text-[11px] text-muted-foreground/80 truncate">
+                  {machine.os} {machine.os_version}
+                </p>
+              )}
             </div>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {alerting && (
-              <AlertTriangle className="w-4 h-4 text-yellow-500" />
-            )}
-            <Badge
-              variant="outline"
-              className={cn(
-                'text-[10px] px-1.5 py-0.5',
-                isOnline
-                  ? 'text-green-600 border-green-500/30 bg-green-500/10'
-                  : 'text-red-600 border-red-500/30 bg-red-500/10'
-              )}
-            >
-              {isOnline ? (
-                <><Wifi className="w-2.5 h-2.5 mr-0.5" />Online</>
-              ) : (
-                <><WifiOff className="w-2.5 h-2.5 mr-0.5" />
-                  {offlineMinutes >= 30 ? `Offline há ${Math.floor(offlineMinutes / 60) > 0 ? `${Math.floor(offlineMinutes / 60)}h` : `${offlineMinutes}m`}` : 'Offline'}
-                </>
-              )}
-            </Badge>
-          </div>
-        </div>
 
-        {/* OS */}
-        {machine.os && (
-          <p className="text-xs text-muted-foreground truncate">
-            {machine.os} {machine.os_version}
-          </p>
-        )}
+            {/* Metrics */}
+            <div className="space-y-2 py-1">
+              <MetricBar
+                label="CPU"
+                value={cpuPct}
+                isOnline={isOnline}
+              />
+              <MetricBar
+                label="RAM"
+                value={ramPct}
+                usedBytes={machine.ram_used}
+                totalBytes={machine.ram_total}
+                showBytes={true}
+                isOnline={isOnline}
+              />
+              <MetricBar
+                label="Disco"
+                value={diskPct}
+                usedBytes={machine.disk_used}
+                totalBytes={machine.disk_total}
+                showBytes={true}
+                isOnline={isOnline}
+              />
+            </div>
 
-        {/* Metrics */}
-        {isOnline && cpuPct != null ? (
-          <div className="space-y-2">
-            <MetricBar label="CPU" value={cpuPct} />
-            <MetricBar label="RAM" value={ramPct} />
-            <MetricBar label="Disco" value={diskPct} />
-          </div>
-        ) : (
-          <div className="space-y-2 opacity-40">
-            <MetricBar label="CPU" value={0} />
-            <MetricBar label="RAM" value={0} />
-            <MetricBar label="Disco" value={0} />
-          </div>
-        )}
+            {/* Footer and Quick Actions */}
+            <div className="pt-2.5 border-t border-border/40 flex flex-col gap-2">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-1 truncate" title={`Visto por último: ${lastSeen}`}>
+                  <Clock className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">{lastSeen}</span>
+                </div>
+                {machine.agent_version && (
+                  <span className="text-[10px] opacity-60 font-mono">
+                    v{machine.agent_version}
+                  </span>
+                )}
+              </div>
 
-        {/* Footer */}
-        <div className="flex items-center gap-1 text-xs text-muted-foreground pt-1 border-t border-border">
-          <Clock className="w-3 h-3" />
-          <span>{lastSeen}</span>
-        </div>
-      </CardContent>
-    </Card>
-  );
-});
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-1.5 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-lg"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect(machine, 'telemetry');
+                  }}
+                  title="Abrir Telemetria"
+                >
+                  <Activity className="w-3.5 h-3.5 mr-1 text-indigo-500" />
+                  Telemetria
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-lg"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect(machine, 'actions');
+                  }}
+                  title="Abrir Terminal Remoto"
+                >
+                  <Terminal className="w-3.5 h-3.5 mr-1 text-emerald-500" />
+                  Terminal
+                </Button>
+
+                {!isOnline && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDeleteDialog(true);
+                    }}
+                    title="Excluir máquina offline"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Delete confirmation dialog */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent
+            onClick={(e) => e.stopPropagation()}
+            className="rounded-2xl sm:max-w-md"
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="w-5 h-5" />
+                Excluir Registro da Máquina
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2 text-sm text-muted-foreground">
+                <span>
+                  Tem certeza de que deseja remover a máquina{' '}
+                  <strong className="text-foreground">{machine.hostname}</strong>{' '}
+                  ({machine.ip_address || 'sem IP'})?
+                </span>
+                <span className="block text-xs opacity-80">
+                  Esta ação removerá os registros órfãos de métricas, hardware, alertas e comandos associados a este dispositivo.
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-2 sm:gap-0">
+              <AlertDialogCancel
+                disabled={isDeleting}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteDialog(false);
+                }}
+                className="rounded-xl font-bold"
+              >
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={isDeleting}
+                onClick={handleDelete}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold rounded-xl"
+              >
+                {isDeleting ? 'Excluindo...' : 'Sim, Excluir'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
+    );
+  }
+);
+
 MachineCard.displayName = 'MachineCard';
 
 export const MachineCardSkeleton: React.FC = () => (
-  <Card>
-    <CardContent className="pt-4 pb-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-3 w-3 rounded-full" />
-        <div className="space-y-1 flex-1">
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-3 w-1/2" />
+  <Card className="glass-card">
+    <CardContent className="p-4 space-y-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 flex-1">
+          <Skeleton className="h-4 w-4 rounded" />
+          <div className="space-y-1.5 flex-1">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        </div>
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+      <div className="space-y-2.5">
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-full" />
+      </div>
+      <div className="pt-2.5 border-t border-border/40 flex items-center justify-between">
+        <Skeleton className="h-3 w-24" />
+        <div className="flex gap-1.5">
+          <Skeleton className="h-7 w-20 rounded-lg" />
+          <Skeleton className="h-7 w-16 rounded-lg" />
         </div>
       </div>
-      <Skeleton className="h-3 w-2/3" />
-      <div className="space-y-2">
-        <Skeleton className="h-1.5 w-full" />
-        <Skeleton className="h-1.5 w-full" />
-        <Skeleton className="h-1.5 w-full" />
-      </div>
-      <Skeleton className="h-3 w-1/3" />
     </CardContent>
   </Card>
 );
