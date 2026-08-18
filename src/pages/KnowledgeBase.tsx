@@ -98,7 +98,7 @@ O **TeamViewer** é a ferramenta oficial e padrão utilizada pela equipe de supo
 
 ---
 
-### 🛡️ Opção de Contingência (AnyDesk)
+### Opção de Contingência (AnyDesk)
 
 Caso o **TeamViewer** esteja indisponível, bloqueado pela rede ou não instalado na sua máquina, utilize o **AnyDesk** como alternativa secundária:
 
@@ -283,9 +283,9 @@ O **OpenVPN (Community Edition)** é a nossa ferramenta oficial para estabelecer
    - Selecione o perfil corporativo (\`.ovpn\`) e clique em **Conectar**.
    - Se solicitado, insira seu Usuário e Senha corporativos.
 4. **Verifique a Cor do Ícone de Status**:
-   - 🟢 **Verde**: Conectado com sucesso! Seus acessos aos servidores, sistemas e pastas da empresa estão liberados.
-   - 🟡 **Amarelo**: Conectando ou autenticando credenciais.
-   - 🔴 **Vermelho / Cinza**: Desconectado ou com erro de conexão/autenticação.
+   - **Verde**: Conectado com sucesso! Seus acessos aos servidores, sistemas e pastas da empresa estão liberados.
+   - **Amarelo**: Conectando ou autenticando credenciais.
+   - **Vermelho / Cinza**: Desconectado ou com erro de conexão/autenticação.
 5. **Reiniciar o Cliente OpenVPN**:
    - Clique com o botão direito no ícone do OpenVPN GUI perto do relógio e escolha **Sair**.
    - Abra o **OpenVPN GUI** novamente pelo Menu Iniciar (se necessário, clique com o botão direito no atalho e selecione *Executar como Administrador*).

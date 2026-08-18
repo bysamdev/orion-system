@@ -16,7 +16,7 @@ import {
   ArrowLeft, Send, Loader2, Paperclip, CheckCircle2, Sparkles,
   Cpu, Mail, HardDrive, Globe, MoreHorizontal, Layout,
   ChevronRight, ChevronLeft, ShieldCheck, AlertCircle, BookOpen, ExternalLink,
-  X, Clipboard, Image as ImageIcon
+  X, Clipboard, Image as ImageIcon, Crown
 } from 'lucide-react';
 import { FileUpload } from '@/components/ticket/FileUpload';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
@@ -200,8 +200,8 @@ const NewTicket = () => {
             return allowed > 0 ? [...prev, ...pastedFiles.slice(0, allowed)] : prev;
           }
           toast({
-            title: "Imagem anexada! 📋",
-            description: `${pastedFiles.length} imagem(ns) colada(s) da área de transferência.`,
+            title: "Imagem anexada da área de transferência",
+            description: `${pastedFiles.length} imagem(ns) adicionada(s).`,
           });
           return [...prev, ...pastedFiles];
         });
@@ -483,15 +483,15 @@ const NewTicket = () => {
                         ))}
                       </div>
 
-                      {/* Smart: Category Suggestion */}
-                      {suggestedCategory && suggestedCategory !== currentCategory && (
+                      {/* Smart: Auto Category Suggestion */}
+                      {suggestedCategory && !isCategorySelected && (
                         <button
                           type="button"
                           onClick={() => form.setValue('category', suggestedCategory)}
                           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all text-sm font-bold animate-in fade-in slide-in-from-top-2 duration-300"
                         >
                           <Sparkles className="w-4 h-4" />
-                          💡 Sugestão: <span className="underline">{CATEGORY_LABELS[suggestedCategory] || suggestedCategory}</span>
+                          Sugestão: <span className="underline">{CATEGORY_LABELS[suggestedCategory] || suggestedCategory}</span>
                           <span className="text-xs opacity-70 ml-1">— clique para aplicar</span>
                         </button>
                       )}
@@ -499,8 +499,8 @@ const NewTicket = () => {
                       {/* Smart: VIP Badge */}
                       {isVIP && (
                         <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-sm font-bold animate-in fade-in duration-500">
-                          <ShieldCheck className="w-4 h-4" />
-                          👑 Cliente VIP — prioridade automática: <span className="uppercase">Alta</span>
+                          <Crown className="w-4 h-4 text-amber-500 shrink-0" />
+                          Cliente VIP — prioridade automática: <span className="uppercase">Alta</span>
                         </div>
                       )}
 
@@ -585,10 +585,30 @@ const NewTicket = () => {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="urgent">🔴 Urgente {isSLALoading || !activeSla ? '(SLA: 4h)' : `(SLA: ${activeSla.urgent_hours}h)`}</SelectItem>
-                                <SelectItem value="high">🟠 Alta {isSLALoading || !activeSla ? '(SLA: 12h)' : `(SLA: ${activeSla.high_hours}h)`}</SelectItem>
-                                <SelectItem value="medium">🟡 Média {isSLALoading || !activeSla ? '(SLA: 24h)' : `(SLA: ${activeSla.medium_hours}h)`}</SelectItem>
-                                <SelectItem value="low">🟢 Baixa {isSLALoading || !activeSla ? '(SLA: 48h)' : `(SLA: ${activeSla.low_hours}h)`}</SelectItem>
+                                <SelectItem value="urgent">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                                    <span>Urgente {isSLALoading || !activeSla ? '(SLA: 4h)' : `(SLA: ${activeSla.urgent_hours}h)`}</span>
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="high">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
+                                    <span>Alta {isSLALoading || !activeSla ? '(SLA: 12h)' : `(SLA: ${activeSla.high_hours}h)`}</span>
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="medium">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                                    <span>Média {isSLALoading || !activeSla ? '(SLA: 24h)' : `(SLA: ${activeSla.medium_hours}h)`}</span>
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="low">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                    <span>Baixa {isSLALoading || !activeSla ? '(SLA: 48h)' : `(SLA: ${activeSla.low_hours}h)`}</span>
+                                  </span>
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />

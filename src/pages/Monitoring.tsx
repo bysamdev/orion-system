@@ -168,7 +168,7 @@ function MachinesGrid({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
         {Array.from({ length: 6 }).map((_, i) => <MachineCardSkeleton key={i} />)}
       </div>
     );
@@ -191,7 +191,7 @@ function MachinesGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
       {filtered.map((m) => (
         <MachineCard key={m.id} machine={m} onSelect={onSelect} />
       ))}
@@ -522,7 +522,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
             )}
 
             {groupsLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => <MachineCardSkeleton key={i} />)}
               </div>
             ) : (

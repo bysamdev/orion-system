@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
-import { ArrowLeft, Play, Zap, Clock, FileText, RefreshCw, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Play, Zap, Clock, FileText, RefreshCw, Loader2, Trash2, Wrench, CheckCircle2, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -419,7 +419,10 @@ const DebugTools = () => {
               Voltar
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">🛠️ Debug Tools</h1>
+              <h1 className="text-3xl font-bold flex items-center gap-2.5">
+                <Wrench className="w-7 h-7 text-primary" />
+                <span>Debug Tools</span>
+              </h1>
               <p className="text-muted-foreground">Ferramentas para validação de regras de negócio</p>
             </div>
           </div>
@@ -478,8 +481,18 @@ const DebugTools = () => {
                       <TableCell>{result.expected_hours}h</TableCell>
                       <TableCell>{result.calculated_hours}h</TableCell>
                       <TableCell>
-                        <Badge variant={result.status === 'success' ? 'default' : 'destructive'}>
-                          {result.status === 'success' ? '✅ OK' : '❌ Erro'}
+                        <Badge variant={result.status === 'success' ? 'default' : 'destructive'} className="gap-1">
+                          {result.status === 'success' ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              <span>OK</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-3 h-3 text-red-400" />
+                              <span>Erro</span>
+                            </>
+                          )}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -529,7 +542,19 @@ const DebugTools = () => {
                     }`}
                   >
                     <div className="font-bold">#{result.attempt}</div>
-                    <div className="text-sm">{result.allowed ? '✅ Permitido' : '❌ Bloqueado'}</div>
+                    <div className="text-sm font-medium flex items-center justify-center gap-1 mt-0.5">
+                      {result.allowed ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Permitido</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                          <span>Bloqueado</span>
+                        </>
+                      )}
+                    </div>
                     {result.httpStatus && (
                       <div className={`text-xs font-mono font-bold ${
                         result.httpStatus === 200 ? 'text-green-600' :

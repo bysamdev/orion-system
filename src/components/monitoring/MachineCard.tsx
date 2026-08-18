@@ -411,23 +411,11 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                     />
                   )}
 
-                  {/* Uptime compacto */}
-                  {isOnline && machine.uptime ? (
-                    <Badge
-                      variant="secondary"
-                      className="text-[10px] px-1.5 py-0 h-5 bg-muted/80 text-muted-foreground font-mono font-medium gap-1 flex items-center"
-                      title={`Tempo de atividade contínuo: ${formatUptime(machine.uptime)}`}
-                    >
-                      <Clock className="w-2.5 h-2.5 text-muted-foreground/70" />
-                      ⏱️ {formatUptime(machine.uptime)}
-                    </Badge>
-                  ) : null}
-
                   {/* Status Badge */}
                   <Badge
                     variant="outline"
                     className={cn(
-                      'text-[10px] font-bold px-1.5 py-0 h-5 flex items-center gap-1',
+                      'text-[10px] font-bold px-1.5 py-0 h-5 flex items-center gap-1 shrink-0',
                       isOnline
                         ? alerting
                           ? 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10'
@@ -561,13 +549,26 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
               />
             </div>
 
-            {/* Footer with Last Seen and Delete Action */}
+            {/* Footer with Uptime, Last Seen and Delete Action */}
             <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 min-w-0 text-[10px] text-muted-foreground" title={`Visto por último: ${lastSeen}`}>
+              <div
+                className="flex items-center gap-1.5 min-w-0 text-[10.5px] text-muted-foreground"
+                title={isOnline && machine.uptime ? `Tempo de atividade: ${formatUptime(machine.uptime)} • Último sync: ${lastSeen}` : `Visto por último: ${lastSeen}`}
+              >
                 <Clock className="w-3 h-3 flex-shrink-0 text-muted-foreground/70" />
-                <span className="truncate">{lastSeen}</span>
+                {isOnline && machine.uptime ? (
+                  <>
+                    <span className="font-mono font-medium text-foreground/80 shrink-0">
+                      {formatUptime(machine.uptime)}
+                    </span>
+                    <span className="opacity-30 shrink-0">•</span>
+                    <span className="truncate">{lastSeen}</span>
+                  </>
+                ) : (
+                  <span className="truncate">{lastSeen}</span>
+                )}
                 {machine.agent_version && (
-                  <span className="text-[10px] opacity-60 font-mono shrink-0 ml-1">
+                  <span className="text-[10px] opacity-50 font-mono shrink-0 ml-0.5">
                     v{machine.agent_version}
                   </span>
                 )}

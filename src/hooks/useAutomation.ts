@@ -46,7 +46,7 @@ export const CONDITION_FIELDS = [
   { value: 'priority', label: 'Prioridade' },
   { value: 'title', label: 'Assunto (contém)' },
   { value: 'company_id', label: 'Empresa' },
-  { value: 'is_vip', label: '👑 Cliente VIP' },
+  { value: 'is_vip', label: 'Cliente VIP' },
 ];
 
 export const ACTION_TYPES = [

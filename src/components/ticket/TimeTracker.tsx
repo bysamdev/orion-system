@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Play, Square, Timer, Plus, Clock, Save, Loader2 } from 'lucide-react';
+import { Play, Square, Timer, Plus, Clock, Save, Loader2, AlertTriangle } from 'lucide-react';
 import { useActiveTimer, useStartTimer, useStopTimer, useTicketTimeEntries } from '@/hooks/useTimeEntries';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -135,8 +135,9 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ ticketId }) => {
             )}
           </div>
           {isAnotherTicketActive && (
-            <p className="text-[9px] text-destructive font-bold mt-2 uppercase tracking-tight">
-              ⚠️ Existe um timer ativo em outro chamado
+            <p className="text-[9px] text-destructive font-bold mt-2 uppercase tracking-tight flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3 text-destructive shrink-0" />
+              <span>Existe um timer ativo em outro chamado</span>
             </p>
           )}
         </CardContent>

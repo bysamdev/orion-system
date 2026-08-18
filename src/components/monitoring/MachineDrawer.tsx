@@ -600,9 +600,9 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 {isOnline && machine?.uptime ? (
-                  <Badge variant="secondary" className="text-[10px] font-mono px-2 py-0.5 bg-muted/80 text-muted-foreground gap-1 flex items-center">
-                    <Clock className="w-2.5 h-2.5 text-muted-foreground/70" />
-                    ⏱️ {formatUptime(machine.uptime)}
+                  <Badge variant="secondary" className="text-[10px] font-mono px-2 py-0.5 bg-muted/80 text-muted-foreground gap-1.5 flex items-center">
+                    <Clock className="w-3 h-3 text-muted-foreground/70" />
+                    <span>{formatUptime(machine.uptime)}</span>
                   </Badge>
                 ) : null}
                 <Badge variant="outline" className={cn(
@@ -755,8 +755,9 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                   {/* 4 Módulos: Endpoint Security, Remote Software & Battery */}
                   <section className="space-y-4">
                     <div className="flex items-center justify-between px-1">
-                      <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                        🛡️ Endpoint &amp; Conformidade
+                      <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                        <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span>Endpoint &amp; Conformidade</span>
                       </h3>
                       <Button
                         variant="ghost"
@@ -872,9 +873,10 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                         <Activity className="w-4 h-4 text-primary" />
                         Indicadores em Tempo Real
                       </h3>
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        {isOnline ? '🟢 Live Telemetry Ativo' : '🔴 Dispositivo Offline'}
-                      </span>
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
+                        <span className={cn('inline-block w-1.5 h-1.5 rounded-full', isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400')} />
+                        <span>{isOnline ? 'Live Telemetry Ativo' : 'Dispositivo Offline'}</span>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
@@ -925,9 +927,10 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             >
                               {cpuUsage != null ? `${cpuUsage}%` : '–'}
                             </span>
-                            <span className="text-[10px] text-muted-foreground font-medium shrink-0">
-                              {isOnline ? '🟢 Ao Vivo' : '⚪ Estático'}
-                            </span>
+                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium shrink-0">
+                              <span className={cn('inline-block w-1.5 h-1.5 rounded-full', isOnline ? 'bg-emerald-500' : 'bg-zinc-400')} />
+                              <span>{isOnline ? 'Ao Vivo' : 'Estático'}</span>
+                            </div>
                           </div>
                           <p className="text-[10px] text-foreground font-medium truncate mt-1" title={cpuModel || 'Processador do Host'}>
                             {cpuModel || (isOnline ? 'Processador Ativo' : 'Offline')}
