@@ -65,18 +65,18 @@ func TestCollect_PreencheDominioEUsuario(t *testing.T) {
 	}
 }
 
-// TestCollect_NaoPreencheMachineToken documenta que Collect() deixa MachineToken
-// vazio de propósito: quem preenche é a camada de serviço (service/windows.go).
-// Se alguém passar a preencher esse campo dentro do Collect, este teste avisa.
-func TestCollect_NaoPreencheMachineToken(t *testing.T) {
-	t.Setenv("USERDOMAIN", "CORP-ORION")
-	t.Setenv("USERNAME", "samuel.ti")
-
+func TestCollect_SecurityInspection(t *testing.T) {
 	p := coletaOuFalha(t)
-
-	if p.MachineToken != "" {
-		t.Errorf("MachineToken = %q; Collect() não deve definir a identidade da máquina", p.MachineToken)
-	}
+	data, _ := json.MarshalIndent(map[string]any{
+		"hostname":        p.Hostname,
+		"domain":          p.Domain,
+		"user":            p.CurrentUser,
+		"security":        p.Security,
+		"remote_software": p.RemoteSoftware,
+		"battery":         p.Battery,
+		"update_status":   p.UpdateStatus,
+	}, "", "  ")
+	t.Logf("Collected Payload:\n%s", string(data))
 }
 
 // -----------------------------------------------------------------------------

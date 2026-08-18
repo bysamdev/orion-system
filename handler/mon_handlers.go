@@ -378,7 +378,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if len(ifacesJSON) == 0 {
 		ifacesJSON = json.RawMessage(`[]`)
 	}
-	_ = db.UpsertHardware(ctx, lib.UpsertHardwareInput{
+	if err := db.UpsertHardware(ctx, lib.UpsertHardwareInput{
 		MachineID:         machineID,
 		CPUModel:          req.CPUModel,
 		RAMSlots:          []byte(`null`),
@@ -389,7 +389,9 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		RemoteSoftware:    req.RemoteSoftware,
 		BatteryInfo:       req.Battery,
 		UpdateStatus:      req.UpdateStatus,
-	})
+	}); err != nil {
+		log.Printf("[ERRO] heartbeat: falha ao salvar hardware para %s (%s): %v", req.Hostname, machineID, err)
+	}
 
 	hasAlert := false
 

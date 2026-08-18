@@ -93,12 +93,12 @@ export function EndpointSecurityCard({
 }) {
   const avList = securityInfo?.antivirus ?? [];
   const hasAv = avList.length > 0;
-  const isAvActive = hasAv && avList.every((a) => a.active);
+  const isAvActive = hasAv ? avList.some((a) => a.active) : false;
   const isFirewallActive = securityInfo?.firewall_active;
   const isBitlockerActive = securityInfo?.bitlocker_active;
 
   const isCompliant =
-    (hasAv ? isAvActive : true) &&
+    (securityInfo ? (hasAv && isAvActive) : true) &&
     isFirewallActive !== false &&
     isBitlockerActive !== false;
 
@@ -185,10 +185,16 @@ export function EndpointSecurityCard({
                   )}
                 </div>
               ))
-            ) : (
-              <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                Windows Defender / Padrão
+            ) : securityInfo ? (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-semibold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
+              >
+                <AlertTriangle className="w-2.5 h-2.5 text-red-500" />
+                Nenhum Antivírus Detectado
               </Badge>
+            ) : (
+              <span className="text-xs text-muted-foreground">Não coletado</span>
             )}
           </div>
         </div>
@@ -304,13 +310,15 @@ export function RemoteSoftwareCard({
           <Badge variant="outline" className="text-[10px] font-medium text-muted-foreground">
             Instalado (Inativo)
           </Badge>
-        ) : (
+        ) : remoteSoftware !== undefined ? (
           <Badge
             variant="outline"
             className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
           >
             Conforme
           </Badge>
+        ) : (
+          <span className="text-xs text-muted-foreground">Não coletado</span>
         )}
       </div>
 
@@ -345,19 +353,23 @@ export function RemoteSoftwareCard({
                   </Badge>
                 ) : (
                   <span className="text-[10px] text-muted-foreground font-medium">
-                    Inativo / Parado
+                    Instalado (Parado)
                   </span>
                 )}
               </div>
             </div>
           ))}
         </div>
-      ) : (
+      ) : remoteSoftware !== undefined ? (
         <div className="bg-emerald-500/5 border border-emerald-500/15 rounded-xl p-3 flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400">
           <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-500" />
           <span className="text-xs font-medium">
-            Nenhuma ferramenta de acesso remoto não autorizada em execução.
+            Nenhuma ferramenta de acesso remoto não autorizada (TeamViewer, AnyDesk, etc.) detectada.
           </span>
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground py-2 px-1">
+          Aguardando sincronização do agente...
         </div>
       )}
     </Card>

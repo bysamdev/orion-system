@@ -208,7 +208,7 @@ FROM public.machines WHERE id = $1`, id).Scan(
 func (d *DB) MachineHardwareByMachineID(ctx context.Context, machineID string) (*HardwareRow, error) {
 	var r HardwareRow
 	err := d.pool.QueryRow(ctx, `
-SELECT id::text, machine_id::text, cpu_model, ram_slots, disks, network_interfaces, gpu,
+SELECT id::text, machine_id::text, cpu_model, ram_slots, disks, interfaces, gpu,
        security_info, remote_software, battery_info, update_status, updated_at
 FROM public.machine_hardware WHERE machine_id = $1`, machineID).
 		Scan(&r.ID, &r.MachineID, &r.CPUModel, &r.RAMSlots, &r.Disks, &r.NetworkInterfaces, &r.GPU,
@@ -397,10 +397,10 @@ func (d *DB) UpsertHardware(ctx context.Context, in UpsertHardwareInput) error {
 	}
 
 	_, err := d.pool.Exec(ctx, `
-INSERT INTO public.machine_hardware (machine_id, cpu_model, ram_slots, disks, network_interfaces, gpu, security_info, remote_software, battery_info, update_status, updated_at)
+INSERT INTO public.machine_hardware (machine_id, cpu_model, ram_slots, disks, interfaces, gpu, security_info, remote_software, battery_info, update_status, updated_at)
 VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10::jsonb, now())
 ON CONFLICT (machine_id) DO UPDATE
-  SET cpu_model=$2, ram_slots=$3::jsonb, disks=$4::jsonb, network_interfaces=$5::jsonb, gpu=$6, security_info=$7::jsonb, remote_software=$8::jsonb, battery_info=$9::jsonb, update_status=$10::jsonb, updated_at=now()`,
+  SET cpu_model=$2, ram_slots=$3::jsonb, disks=$4::jsonb, interfaces=$5::jsonb, gpu=$6, security_info=$7::jsonb, remote_software=$8::jsonb, battery_info=$9::jsonb, update_status=$10::jsonb, updated_at=now()`,
 		in.MachineID, in.CPUModel, ramSlots, disks, ifaces, in.GPU, secInfo, remoteSoft, battery, upStatus)
 	return err
 }
