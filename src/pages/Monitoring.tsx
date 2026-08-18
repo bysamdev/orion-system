@@ -24,6 +24,7 @@ import {
   Edit2,
   Trash2,
   Lock,
+  Activity,
 } from 'lucide-react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import {
@@ -41,6 +42,7 @@ import type { MachineGroup, MachineWithMetric } from '@/hooks/useMonitoring';
 import { useCompanies } from '@/hooks/useCompanies';
 import { MachineCard, MachineCardSkeleton } from '@/components/monitoring/MachineCard';
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
+import { GrafanaTelemetryView } from '@/components/monitoring/GrafanaTelemetryView';
 import { useQueryClient } from '@tanstack/react-query';
 import { MonitoringOnboarding } from '@/components/monitoring/MonitoringOnboarding';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
@@ -50,6 +52,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -248,6 +251,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
 
   // Group Management State
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
+  const [isNocDialogOpen, setIsNocDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<MachineGroup | null>(null);
   const [groupFormData, setGroupFormData] = useState({
     name: '',
@@ -407,6 +411,16 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                 </Badge>
               </div>
             )}
+
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setIsNocDialogOpen(true)}
+              className="gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md shadow-indigo-500/20 transition-all transform hover:scale-[1.02] active:scale-98"
+            >
+              <Activity className="w-4 h-4 animate-pulse" />
+              Painel NOC / Telemetria Geral
+            </Button>
 
             <Button
               variant="outline"
@@ -649,6 +663,33 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
               {editingGroup ? 'Salvar Alterações' : 'Criar Grupo'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* NOC Telemetry Modal */}
+      <Dialog open={isNocDialogOpen} onOpenChange={setIsNocDialogOpen}>
+        <DialogContent className="max-w-[96vw] w-[1450px] h-[92vh] p-0 flex flex-col rounded-2xl overflow-hidden border-border/40 bg-card shadow-2xl">
+          <DialogHeader className="px-6 py-4 border-b border-border/40 bg-muted/20 flex flex-row items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                <Activity className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">Painel NOC — Telemetria Central</DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Visão consolidada de telemetria de infraestrutura e nós via Grafana / Prometheus
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 p-4 bg-background overflow-hidden flex flex-col">
+            <GrafanaTelemetryView
+              isNocMode={true}
+              height="100%"
+              className="h-full border-none shadow-none"
+              title="Painel Geral NOC — Todos os Clientes"
+            />
+          </div>
         </DialogContent>
       </Dialog>
 

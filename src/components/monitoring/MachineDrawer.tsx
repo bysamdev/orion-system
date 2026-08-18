@@ -22,6 +22,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { PerformanceChart } from './PerformanceChart';
 import { InventoryTab } from './InventoryTab';
+import { GrafanaTelemetryView } from './GrafanaTelemetryView';
 
 const RemoteTerminal = React.lazy(() =>
   import('./RemoteTerminal').then((m) => ({ default: m.RemoteTerminal }))
@@ -86,7 +87,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
 
   return (
     <Sheet open={open} onOpenChange={v => !v && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-xl p-0 flex flex-col border-l border-border/40 shadow-2xl">
+      <SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-3xl p-0 flex flex-col border-l border-border/40 shadow-2xl">
         {/* Header */}
         <SheetHeader className="px-6 py-6 border-b border-border/40 bg-muted/10">
           <div className="flex items-center justify-between">
@@ -120,13 +121,13 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
           <div className="px-6 border-b border-border/40 bg-muted/5">
             <TabsList className="h-12 w-full justify-start bg-transparent p-0 gap-6">
-              {['overview', 'inventory', 'actions'].map(tab => (
+              {['overview', 'telemetry', 'inventory', 'actions'].map(tab => (
                 <TabsTrigger
                   key={tab}
                   value={tab}
                   className="h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-2 text-xs font-bold uppercase tracking-wider"
                 >
-                  {{ overview: 'Resumo', inventory: 'Inventário', actions: 'Terminal' }[tab]}
+                  {{ overview: 'Resumo', telemetry: 'Telemetria', inventory: 'Inventário', actions: 'Terminal' }[tab]}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -224,6 +225,16 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({ machine, open, onC
                     </div>
                   </section>
                 )}
+              </TabsContent>
+
+              {/* ── Telemetry (Grafana) tab ── */}
+              <TabsContent value="telemetry" className="mt-0 space-y-4">
+                <GrafanaTelemetryView
+                  hostname={machine?.hostname}
+                  machineId={machineId ?? undefined}
+                  height="520px"
+                  title={`Telemetria: ${machine?.hostname ?? 'Máquina'}`}
+                />
               </TabsContent>
 
               {/* ── Inventory tab ── */}
