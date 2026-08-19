@@ -70,7 +70,7 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: Activity,      label: 'Sistemas e Alertas', path: '/sistemas', roles: ['admin', 'developer', 'technician'] },
       { icon: Layers,        label: 'Instaladores & Updates', path: '/instaladores',   roles: ['admin', 'developer', 'technician'] },
-      { icon: Cpu,           label: 'Ativos (CMDB)',    path: '/ativos',     roles: ['admin', 'technician', 'developer'] },
+      { icon: Cpu,           label: 'Inventário',      path: '/ativos',     roles: ['admin', 'technician', 'developer'] },
       { icon: Globe,         label: 'Monitoramento Web', path: '/monitoramento-web', roles: ['admin', 'technician', 'developer'] },
     ],
   },
