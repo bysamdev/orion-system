@@ -32,7 +32,7 @@ interface HardwareDetail {
   gpu?: string | null;
   disks?: Array<{ mountpoint: string; fs_type: string; used: number; total: number }>;
   network_interfaces?: Array<{ name: string; mac: string; ips: string[] }>;
-  battery_info?: { has_battery: boolean; percentage?: number; is_plugged?: boolean };
+  battery_info?: { has_battery: boolean; percent?: number; plugged_in?: boolean };
 }
 
 interface Props {
@@ -54,9 +54,9 @@ export const InventoryTab: React.FC<Props> = ({ machine, hardware: hw }) => {
           <InfoRow icon={HardDrive} label="Memória Total" value={bytes(machine?.ram_total ?? null)} />
           {battery?.has_battery && (
             <InfoRow
-              icon={battery.is_plugged ? Zap : Battery}
+              icon={battery.plugged_in ? Zap : Battery}
               label="Bateria"
-              value={`${battery.percentage ?? 0}% ${battery.is_plugged ? '(Carregando)' : '(Na bateria)'}`}
+              value={`${battery.percent ?? 0}% ${battery.plugged_in ? '(Carregando)' : '(Na bateria)'}`}
             />
           )}
         </div>

@@ -372,12 +372,16 @@ export function BatteryMobilityCard({
 }: {
   batteryInfo?: BatteryInfo;
 }) {
-  if (!batteryInfo?.has_battery && batteryInfo?.percentage == null) {
+  // O agente sempre envia "percent" (é um int no Go, sem omitempty — vira 0,
+  // nunca ausente), então checar "percent == null" aqui nunca detectava nada
+  // de verdade; has_battery é o único sinal confiável de que a máquina tem
+  // bateria de fato (ver collector/hardware.go).
+  if (!batteryInfo?.has_battery) {
     return null;
   }
 
-  const pctValue = batteryInfo.percentage ?? 0;
-  const isPlugged = batteryInfo.is_plugged ?? false;
+  const pctValue = batteryInfo.percent ?? 0;
+  const isPlugged = batteryInfo.plugged_in ?? false;
   const isLow = pctValue <= 20 && !isPlugged;
 
   return (

@@ -59,10 +59,17 @@ export interface RemoteSoftwareInfo {
   is_running?: boolean;
 }
 
+// Campos espelham exatamente o JSON que o agente envia (collector/hardware.go
+// BatteryInfo) — o backend repassa isso puro via json.RawMessage, sem
+// re-tipar nada, então os nomes aqui têm que bater com os do agente
+// byte-a-byte. Já teve divergência real aqui (percentage/is_plugged vs.
+// percent/plugged_in), e como os campos são opcionais, TypeScript não
+// acusa erro nenhum — só o valor cai sempre no fallback (0%/false).
 export interface BatteryInfo {
   has_battery: boolean;
-  percentage?: number;
-  is_plugged?: boolean;
+  percent?: number;
+  plugged_in?: boolean;
+  status?: string;
 }
 
 export interface UpdateStatusInfo {
