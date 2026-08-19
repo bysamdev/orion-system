@@ -11,6 +11,9 @@ type Config struct {
 	AgentKey             string
 	UptimeRobotKey       string
 	GrafanaWebhookSecret string
+	GrafanaURL           string
+	GrafanaAPIToken      string
+	GrafanaPromDSUID     string
 	ResendAPIKey         string
 	ResendFrom           string
 	LoginURL             string
@@ -31,6 +34,9 @@ func LoadConfig() Config {
 		AgentKey:             os.Getenv("AGENT_KEY"),
 		UptimeRobotKey:       os.Getenv("UPTIMEROBOT_API_KEY"),
 		GrafanaWebhookSecret: os.Getenv("GRAFANA_WEBHOOK_SECRET"),
+		GrafanaURL:           envOr("GRAFANA_URL", "https://monitor-orion.bysam.dev"),
+		GrafanaAPIToken:      os.Getenv("GRAFANA_API_TOKEN"),
+		GrafanaPromDSUID:     envOr("GRAFANA_PROM_DATASOURCE_UID", "PBFA97CFB590B2093"),
 		ResendAPIKey:         os.Getenv("RESEND_API_KEY"),
 		ResendFrom:           envOr("RESEND_FROM", "Orion System <no-reply@orion.local>"),
 		LoginURL:             envOr("LOGIN_URL", "https://orion.bysam.dev/auth"),

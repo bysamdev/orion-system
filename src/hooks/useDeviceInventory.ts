@@ -220,14 +220,12 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
         const [
           machinesRes,
           hardwareRes,
-          metricsRes,
           companiesRes,
           ticketsRes,
           alertsRes,
         ] = await Promise.all([
           supabase.from('machines' as any).select('*'),
           supabase.from('machine_hardware' as any).select('*'),
-          supabase.from('machine_metrics' as any).select('*'),
           supabase.from('companies').select('id, name'),
           supabase.from('tickets').select('id, company_id, asset_id, status, metadata'),
           supabase.from('machine_alerts' as any).select('*'),
@@ -235,7 +233,6 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
 
         const machines = (machinesRes.data as any[]) || [];
         const hardwareList = (hardwareRes.data as any[]) || [];
-        const metricsList = (metricsRes.data as any[]) || [];
         const companies = (companiesRes.data as any[]) || [];
         const tickets = (ticketsRes.data as any[]) || [];
         const alerts = (alertsRes.data as any[]) || [];
@@ -260,16 +257,6 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           if (key) hardwareMap.set(key, h);
         });
 
-        const latestMetricsMap = new Map<string, any>();
-        (metricsList || []).forEach((m) => {
-          if (m?.machine_id) {
-            const existing = latestMetricsMap.get(m.machine_id);
-            if (!existing || new Date(m.collected_at).getTime() > new Date(existing.collected_at).getTime()) {
-              latestMetricsMap.set(m.machine_id, m);
-            }
-          }
-        });
-
         const alertsCountMap = new Map<string, number>();
         (alerts || []).forEach((a) => {
           const mId = a?.machine_id;
@@ -291,7 +278,6 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
 
         const inventory: DeviceItem[] = (machines || []).map((m) => {
           const hw = hardwareMap.get(m.id) || {};
-          const metric = latestMetricsMap.get(m.id);
           const compName = m.company_id ? companyMap.get(m.company_id) || 'Empresa Não Identificada' : 'Sem Empresa';
 
           const osStr = m.os || hw.os || 'Windows 11 Pro';
@@ -299,7 +285,7 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           const macAddress = extractMacAddress(m, hw);
           const loggedInUser = hw.logged_in_user || hw.user || m.logged_in_user || 'N/A';
           const deviceType = resolveDeviceType(hw.device_type, m.hostname, osStr);
-          const lastSeen = m.last_seen || metric?.collected_at || m.created_at || new Date().toISOString();
+          const lastSeen = m.last_seen || m.metrics_collected_at || m.created_at || new Date().toISOString();
           const baseStatus = resolveStatus(m.status, lastSeen);
           const alertsCount = alertsCountMap.get(m.id) || 0;
           const ticketsCount = ticketsCountMap.get(m.id) || 0;

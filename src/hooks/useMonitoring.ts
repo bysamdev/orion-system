@@ -232,14 +232,6 @@ export function useMachineDetail(machineId: string | null) {
 
 export type MetricPeriod = '1h' | '6h' | '24h' | '7d';
 
-// Agent sends heartbeat every ~5min → 1h≈12 pts, 6h≈72, 24h≈288, 7d≈2016
-export const PERIOD_LIMIT: Record<MetricPeriod, number> = {
-  '1h': 12,
-  '6h': 72,
-  '24h': 288,
-  '7d': 2016,
-};
-
 export function useMachineMetrics(machineId: string | null, limit = 100) {
   return useQuery<MetricRow[]>({
     queryKey: ['monitoring', 'metrics', machineId, limit],
@@ -250,10 +242,9 @@ export function useMachineMetrics(machineId: string | null, limit = 100) {
 }
 
 export function useMachineMetricsByPeriod(machineId: string | null, period: MetricPeriod) {
-  const limit = PERIOD_LIMIT[period];
   return useQuery<MetricRow[]>({
     queryKey: ['monitoring', 'metrics', machineId, 'period', period],
-    queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/metrics?limit=${limit}`),
+    queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/metrics?period=${period}`),
     enabled: !!machineId,
     refetchInterval: 60_000,
   });

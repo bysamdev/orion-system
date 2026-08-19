@@ -156,24 +156,25 @@ GROUP BY mg.name ORDER BY mg.name`, companyID)
 
 // MachinesByGroupID lista as máquinas de um grupo. companyID nil = sem filtro.
 func (d *DB) MachinesByGroupID(ctx context.Context, groupID string, companyID *string) ([]MachineWithMetric, error) {
+	// O snapshot de CPU/RAM/disco vem direto das colunas de machines (ver
+	// UpdateMachineSnapshot), não mais de um LEFT JOIN LATERAL em
+	// machine_metrics — essa tabela parou de crescer a cada heartbeat; o
+	// histórico de série temporal agora vive no Prometheus/Grafana (ver
+	// lib/grafana_metrics.go).
 	rows, err := d.pool.Query(ctx, `
 SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_version,
        m.status, m.last_seen, m.agent_version, m.created_at,
-       CASE 
+       CASE
          WHEN m.domain IS NOT NULL AND m.domain <> 'WORKGROUP' AND m.domain <> 'NT SERVICE' AND m.domain <> 'local' AND m.domain <> m.hostname THEN m.domain
          WHEN mg.name IS NOT NULL THEN mg.name
          ELSE 'Geral'
        END AS domain,
        m.mac_address, m.current_user,
        hw.security_info, hw.remote_software, hw.battery_info, hw.update_status,
-       lm.cpu_usage, lm.ram_total, lm.ram_used, lm.disk_total, lm.disk_used, lm.uptime, lm.collected_at
+       m.cpu_usage, m.ram_total, m.ram_used, m.disk_total, m.disk_used, m.uptime, m.metrics_collected_at
 FROM public.machines m
 JOIN public.machine_groups mg ON mg.id = m.group_id
 LEFT JOIN public.machine_hardware hw ON hw.machine_id = m.id
-LEFT JOIN LATERAL (
-  SELECT cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, collected_at
-  FROM public.machine_metrics WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
-) lm ON true
 WHERE mg.name = (SELECT name FROM public.machine_groups WHERE id = $1)
   AND ($2::uuid IS NULL OR m.company_id = $2::uuid)
 ORDER BY m.hostname`, groupID, companyID)
@@ -230,28 +231,6 @@ FROM public.machine_hardware WHERE machine_id = $1`, machineID).
 		return nil, err
 	}
 	return &r, nil
-}
-
-func (d *DB) MetricsByMachineID(ctx context.Context, machineID string, limit int) ([]MetricRow, error) {
-	if limit <= 0 || limit > 1000 {
-		limit = 100
-	}
-	rows, err := d.pool.Query(ctx, `
-SELECT id::text, machine_id::text, cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, collected_at
-FROM public.machine_metrics WHERE machine_id = $1 ORDER BY collected_at DESC LIMIT $2`, machineID, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []MetricRow
-	for rows.Next() {
-		var r MetricRow
-		if err := rows.Scan(&r.ID, &r.MachineID, &r.CPUUsage, &r.RAMTotal, &r.RAMUsed, &r.DiskTotal, &r.DiskUsed, &r.Uptime, &r.CollectedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, r)
-	}
-	return out, rows.Err()
 }
 
 func (d *DB) AlertsByMachineID(ctx context.Context, machineID string) ([]AlertRow, error) {
@@ -372,11 +351,16 @@ type InsertMetricInput struct {
 	Uptime    int64
 }
 
-func (d *DB) InsertMetric(ctx context.Context, in InsertMetricInput) error {
+// UpdateMachineSnapshot grava o valor mais recente de CPU/RAM/disco direto na
+// linha de machines (UPDATE, não INSERT) — substitui InsertMetric no caminho
+// do heartbeat. O histórico de série temporal passou a viver no Prometheus/
+// Grafana (ver lib/grafana_metrics.go); aqui fica só o "agora" que os cards
+// de listagem precisam, sem crescer uma linha por heartbeat.
+func (d *DB) UpdateMachineSnapshot(ctx context.Context, in InsertMetricInput) error {
 	_, err := d.pool.Exec(ctx, `
-INSERT INTO public.machine_metrics
-  (machine_id, cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, collected_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
+UPDATE public.machines
+SET cpu_usage = $2, ram_total = $3, ram_used = $4, disk_total = $5, disk_used = $6, uptime = $7, metrics_collected_at = now()
+WHERE id = $1`,
 		in.MachineID, in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime)
 	return err
 }
@@ -581,34 +565,26 @@ WHERE m.status = 'offline' AND m.last_seen < now() - INTERVAL '1 hour'
 
 UNION ALL
 
--- Disco acima de 90%
+-- Disco acima de 90% (snapshot em machines, ver UpdateMachineSnapshot)
 SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
        'disk'::text, 'critical'::text,
        'Uso de disco acima de 90%',
-       ROUND((lm.disk_used::float8 / NULLIF(lm.disk_total, 0)) * 100, 1)
+       ROUND((m.disk_used::float8 / NULLIF(m.disk_total, 0)) * 100, 1)
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
-LEFT JOIN LATERAL (
-  SELECT disk_used, disk_total FROM public.machine_metrics
-  WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
-) lm ON true
-WHERE lm.disk_total > 0 AND (lm.disk_used::float8 / lm.disk_total) > 0.90
+WHERE m.disk_total > 0 AND (m.disk_used::float8 / m.disk_total) > 0.90
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL
 
--- CPU acima de 85%
+-- CPU acima de 85% (snapshot em machines, ver UpdateMachineSnapshot)
 SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
        'cpu'::text, 'warning'::text,
        'Uso de CPU acima de 85%',
-       ROUND(lm.cpu_usage::float8, 1)
+       ROUND(m.cpu_usage::float8, 1)
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
-LEFT JOIN LATERAL (
-  SELECT cpu_usage FROM public.machine_metrics
-  WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
-) lm ON true
-WHERE lm.cpu_usage > 85
+WHERE m.cpu_usage > 85
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL

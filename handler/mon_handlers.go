@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -177,14 +176,15 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
 		return
 	}
-	limit := 100
-	if ls := r.URL.Query().Get("limit"); ls != "" {
-		if l, err := strconv.Atoi(ls); err == nil && l > 0 {
-			limit = l
-		}
+
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		period = "1h"
 	}
-	metrics, err := db.MetricsByMachineID(ctx, id, limit)
+
+	metrics, err := lib.QueryMachineMetricsHistory(ctx, cfg.GrafanaURL, cfg.GrafanaAPIToken, cfg.GrafanaPromDSUID, id, period)
 	if err != nil {
+		log.Printf("[ERRO] histórico de métricas via Grafana para %s: %v", id, err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar métricas"})
 		return
 	}
@@ -362,7 +362,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.InsertMetric(ctx, lib.InsertMetricInput{
+	if err := db.UpdateMachineSnapshot(ctx, lib.InsertMetricInput{
 		MachineID: machineID, CPUUsage: req.CPUUsage,
 		RAMTotal: req.RAMTotal, RAMUsed: req.RAMUsed,
 		DiskTotal: req.DiskTotal, DiskUsed: req.DiskUsed, Uptime: req.Uptime,
