@@ -667,7 +667,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
             <div className="px-6 border-b border-border/40 bg-muted/5 shrink-0">
               <TabsList className="h-12 w-full justify-start bg-transparent p-0 gap-4 sm:gap-6 overflow-x-auto">
-                {['overview', 'telemetry', 'security', 'inventory', 'actions'].map(tab => (
+                {['overview', 'telemetry', 'inventory', 'actions'].map(tab => (
                   <TabsTrigger
                     key={tab}
                     value={tab}
@@ -676,7 +676,6 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                     {{
                       overview: 'Resumo',
                       telemetry: 'Telemetria',
-                      security: 'Segurança',
                       inventory: 'Inventário',
                       actions: 'Terminal',
                     }[tab]}
@@ -749,32 +748,6 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                         </span>
                         <span className="text-xs font-mono font-semibold text-foreground">v{machine?.agent_version || '–'}</span>
                       </div>
-                    </div>
-                  </section>
-
-                  {/* 4 Módulos: Endpoint Security, Remote Software & Battery */}
-                  <section className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                      <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                        <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
-                        <span>Endpoint &amp; Conformidade</span>
-                      </h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-[10px] text-primary px-2"
-                        onClick={() => setActiveTab('security')}
-                      >
-                        Ver Detalhes &rarr;
-                      </Button>
-                    </div>
-
-                    <div className="space-y-3">
-                      <EndpointSecurityCard securityInfo={securityInfo} />
-                      <RemoteSoftwareCard remoteSoftware={remoteSoftware} />
-                      {batteryInfo?.has_battery && (
-                        <BatteryMobilityCard batteryInfo={batteryInfo} />
-                      )}
                     </div>
                   </section>
 
@@ -1416,31 +1389,6 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                       )}
                     </div>
                   </section>
-                </TabsContent>
-
-                {/* ── Security & Compliance tab ── */}
-                <TabsContent value="security" className="mt-0 space-y-6">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-sm font-bold text-foreground">Segurança &amp; Conformidade do Endpoint</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Visão aprofundada dos módulos de proteção, antivírus, criptografia BitLocker e softwares de acesso remoto.
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* 1. Endpoint Security */}
-                      <EndpointSecurityCard securityInfo={securityInfo} />
-
-                      {/* 2. Remote Access Software */}
-                      <RemoteSoftwareCard remoteSoftware={remoteSoftware} />
-
-                      {/* 3. Battery & Mobility */}
-                      {batteryInfo?.has_battery && (
-                        <BatteryMobilityCard batteryInfo={batteryInfo} />
-                      )}
-                    </div>
-                  </div>
                 </TabsContent>
 
                 {/* ── Inventory tab ── */}
