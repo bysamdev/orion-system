@@ -8,27 +8,31 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\
 // de 15s de apiGet.
 const TIMEOUT_GERAR_MS = 45_000;
 
+interface RespostaInstalador {
+  url?: string;
+  filename?: string;
+  command?: string;
+  error?: string;
+}
+
 /**
- * Pede ao backend pra gerar o instalador do Orion Agent já configurado com
- * a agent_key da empresa (ver handler/installer_handlers.go) e dispara o
- * download no navegador a partir da signed URL devolvida.
- *
- * O binário (~16MB) não vem no corpo da resposta da API — estouraria o
- * limite de payload das Serverless Functions da Vercel (4.5MB). O backend
- * sobe pro Supabase Storage e devolve só a URL assinada; o download real
- * acontece direto de lá.
+ * Chama um endpoint de geração de instalador e devolve o JSON já validado.
+ * Compartilhado pelo .exe e pelo .msi — os dois seguem o mesmo formato de
+ * resposta (ver handler/installer_handlers.go): o binário não vem no corpo
+ * da resposta (estouraria o limite de payload de 4.5MB das Serverless
+ * Functions da Vercel), só uma signed URL do Supabase Storage.
  */
-export async function baixarInstaladorDoAgente(companyId: string): Promise<void> {
+async function pedirInstalador(caminho: string): Promise<RespostaInstalador> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
 
-  const res = await fetchWithTimeout(`${API_URL}/api/monitoring/companies/${companyId}/installer`, {
+  const res = await fetchWithTimeout(`${API_URL}${caminho}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     timeoutMs: TIMEOUT_GERAR_MS,
   });
 
   const text = await res.text().catch(() => '');
-  let json: { url?: string; filename?: string; error?: string } = {};
+  let json: RespostaInstalador = {};
   try {
     json = text ? JSON.parse(text) : {};
   } catch {
@@ -38,11 +42,37 @@ export async function baixarInstaladorDoAgente(companyId: string): Promise<void>
   if (!res.ok || !json.url) {
     throw new Error(json.error || text || res.statusText || 'Erro ao gerar instalador');
   }
+  return json;
+}
 
+function dispararDownload(url: string): void {
   const a = document.createElement('a');
-  a.href = json.url;
+  a.href = url;
   a.rel = 'noopener';
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+/**
+ * Pede ao backend pra gerar o instalador .exe do Orion Agent já configurado
+ * com a agent_key da empresa e dispara o download no navegador.
+ */
+export async function baixarInstaladorDoAgente(companyId: string): Promise<void> {
+  const json = await pedirInstalador(`/api/monitoring/companies/${companyId}/installer`);
+  dispararDownload(json.url!);
+}
+
+/**
+ * Pede ao backend o .msi genérico do Orion Agent (mesmo build pra qualquer
+ * empresa — a personalização vai via propriedades do msiexec, não dentro
+ * do arquivo, o jeito padrão de GPO/SCCM/Intune parametrizarem por
+ * grupo/OU) e dispara o download. Devolve o comando msiexec pronto, já com
+ * a agent_key desta empresa preenchida, pra copiar num Script de
+ * Inicialização do GPO.
+ */
+export async function baixarInstaladorMsi(companyId: string): Promise<string> {
+  const json = await pedirInstalador(`/api/monitoring/companies/${companyId}/installer-msi`);
+  dispararDownload(json.url!);
+  return json.command ?? '';
 }

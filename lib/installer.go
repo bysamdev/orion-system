@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	_ "embed"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -13,6 +15,72 @@ import (
 
 //go:embed assets/installer/OrionInstaller.exe
 var instaladorGenerico []byte
+
+// instaladorMsi é o MSI genérico (um único build, reutilizável por
+// qualquer empresa) — a personalização não vai dentro do arquivo, e sim em
+// propriedades passadas na linha de comando do msiexec (AGENTKEY etc.), o
+// jeito padrão de GPO/SCCM/Intune parametrizarem instalação por grupo/OU.
+// Ver orion-agent/packaging/msi/OrionAgent.wxs e
+// ComandoMsiexecPersonalizado abaixo.
+//
+//go:embed assets/installer/OrionAgent.msi
+var instaladorMsi []byte
+
+// instaladorGenericoHash identifica a versão do instalador genérico
+// embutido neste binário — calculado uma vez no cold start (não por
+// request) e usado como parte da chave de cache em CaminhoInstaladorCache,
+// pra garantir que um redeploy com o agente corrigido invalide instaladores
+// já cacheados no Storage automaticamente.
+var instaladorGenericoHash = func() string {
+	soma := sha256.Sum256(instaladorGenerico)
+	return hex.EncodeToString(soma[:])[:12]
+}()
+
+// instaladorMsiHash identifica a versão do .msi embutido — mesmo papel do
+// instaladorGenericoHash, mas pro caminho fixo (não por empresa) em que o
+// MSI genérico é cacheado no Storage.
+var instaladorMsiHash = func() string {
+	soma := sha256.Sum256(instaladorMsi)
+	return hex.EncodeToString(soma[:])[:16]
+}()
+
+// CaminhoInstaladorCache calcula um caminho determinístico e
+// content-addressed pro instalador de uma empresa: mesma agent_key + apiURL
+// + companyName + versão do instalador genérico sempre gera o mesmo nome de
+// arquivo, permitindo pular o upload de ~16MB quando nada mudou desde a
+// última geração (ver InstaladorExiste em supabase.go).
+func CaminhoInstaladorCache(companyID, agentKey, apiURL, companyName string) (pasta, nomeArquivo string) {
+	h := sha256.New()
+	h.Write([]byte(instaladorGenericoHash + "|" + agentKey + "|" + apiURL + "|" + companyName))
+	soma := hex.EncodeToString(h.Sum(nil))[:16]
+	return companyID + "/", soma + ".exe"
+}
+
+// CaminhoMsiCache devolve o caminho fixo (não depende de empresa — o MSI é
+// o mesmo pra todo mundo) do .msi genérico no Storage. O hash no nome só
+// serve pra invalidar o cache sozinho quando o binário for reconstruído.
+func CaminhoMsiCache() (pasta, nomeArquivo string) {
+	return "generic/", instaladorMsiHash + ".msi"
+}
+
+// InstaladorMsiBytes devolve os bytes do .msi genérico embutido.
+func InstaladorMsiBytes() []byte {
+	return instaladorMsi
+}
+
+// ComandoMsiexecPersonalizado monta a linha de comando pronta pra colar num
+// Script de Inicialização de GPO (ou campo de comando do SCCM/Intune):
+// instala o MSI genérico já passando AGENTKEY/APIURL/COMPANYNAME da
+// empresa como propriedades — é assim que o CustomAction em
+// OrionAgent.wxs recebe a config (ver orion-agent/cmd/installer/main.go
+// pras flags equivalentes no .exe).
+func ComandoMsiexecPersonalizado(nomeArquivoMsi, agentKey, apiURL, companyName string) string {
+	escapar := func(s string) string { return strings.ReplaceAll(s, `"`, "'") }
+	return fmt.Sprintf(
+		`msiexec /i %s AGENTKEY="%s" APIURL="%s" COMPANYNAME="%s" /quiet /norestart`,
+		nomeArquivoMsi, escapar(agentKey), escapar(apiURL), escapar(companyName),
+	)
+}
 
 // marcadorConfigInstalador precisa ser byte-a-byte idêntico ao definido em
 // orion-agent/cmd/installer/selfconfig.go (módulo Go separado — não dá pra

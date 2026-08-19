@@ -136,17 +136,55 @@ func (c *SupabaseClient) AdminGenerateLink(ctx context.Context, in GenerateLinkI
 	return out.ActionLink, nil
 }
 
-// UploadInstalador sobe o instalador personalizado (gerado sob demanda) pro
-// bucket privado "agent-installers" e devolve uma signed URL de download.
-// Necessário porque o binário (~16MB) estoura o limite de payload de
-// resposta das Serverless Functions da Vercel (4.5MB) — a resposta da API
-// vira só um JSON com essa URL, e o download real acontece direto do
-// Supabase Storage, sem passar pela function.
-func (c *SupabaseClient) UploadInstalador(ctx context.Context, caminho, nomeDownload string, dados []byte, validadeSegundos int) (string, error) {
+// InstaladorExiste verifica, via list (leve, alguns KB), se já existe um
+// objeto com esse nome exato na "pasta" (prefixo) informada — usado pra
+// pular o upload de ~16MB quando o instalador de uma empresa não mudou
+// desde a última geração (ver caminhoDeterministico em installer.go: o
+// nome do arquivo já embute um hash da configuração).
+func (c *SupabaseClient) InstaladorExiste(ctx context.Context, pasta, nomeArquivo string) (bool, error) {
+	body, _ := json.Marshal(map[string]any{"prefix": pasta, "limit": 100})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/storage/v1/object/list/agent-installers", bytes.NewReader(body))
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.serviceKey)
+	req.Header.Set("apikey", c.serviceKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("listar instaladores: %w", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		b, _ := io.ReadAll(res.Body)
+		return false, fmt.Errorf("listar instaladores: %s", string(b))
+	}
+
+	var itens []struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&itens); err != nil {
+		return false, fmt.Errorf("decodificar lista de instaladores: %w", err)
+	}
+	for _, item := range itens {
+		if item.Name == nomeArquivo {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// SubirInstalador envia os bytes do instalador pro bucket privado
+// "agent-installers". Só deve ser chamado quando InstaladorExiste confirmar
+// que o objeto ainda não existe — reenviar ~16MB numa geração repetida sem
+// mudanças seria puro desperdício de banda e tempo de function.
+func (c *SupabaseClient) SubirInstalador(ctx context.Context, caminho string, dados []byte) error {
 	uploadReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		c.baseURL+"/storage/v1/object/agent-installers/"+caminho, bytes.NewReader(dados))
 	if err != nil {
-		return "", err
+		return err
 	}
 	uploadReq.Header.Set("Authorization", "Bearer "+c.serviceKey)
 	uploadReq.Header.Set("apikey", c.serviceKey)
@@ -155,14 +193,21 @@ func (c *SupabaseClient) UploadInstalador(ctx context.Context, caminho, nomeDown
 
 	res, err := c.http.Do(uploadReq)
 	if err != nil {
-		return "", fmt.Errorf("upload do instalador: %w", err)
+		return fmt.Errorf("upload do instalador: %w", err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		b, _ := io.ReadAll(res.Body)
-		return "", fmt.Errorf("upload do instalador: %s", string(b))
+		return fmt.Errorf("upload do instalador: %s", string(b))
 	}
+	return nil
+}
 
+// AssinarInstalador gera a signed URL de download pra um objeto que já
+// existe no bucket "agent-installers" — sempre chamada (mesmo em cache
+// hit), já que a URL assinada expira em minutos e cada geração deve dar
+// uma URL fresca.
+func (c *SupabaseClient) AssinarInstalador(ctx context.Context, caminho, nomeDownload string, validadeSegundos int) (string, error) {
 	signBody, _ := json.Marshal(map[string]int{"expiresIn": validadeSegundos})
 	signReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		c.baseURL+"/storage/v1/object/sign/agent-installers/"+caminho, bytes.NewReader(signBody))

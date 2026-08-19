@@ -207,6 +207,7 @@ func buildRouter() http.Handler {
 		r.Delete("/api/monitoring/groups/{id}", monitoringDeleteGroup)
 
 		r.Get("/api/monitoring/companies/{id}/installer", monitoringGenerateInstaller)
+		r.Get("/api/monitoring/companies/{id}/installer-msi", monitoringGenerateInstallerMsi)
 	})
 
 	return r

@@ -47,11 +47,38 @@ const placeholderAgentKey = "COLOQUE_SUA_CHAVE_AQUI"
 // só imprime em stdout, não bloqueia nada.
 var modoSilencioso bool
 
+// flagAgentKey/flagAPIURL/flagCompanyName vêm de -agent-key=/-api-url=/
+// -company-name= na linha de comando — é como o .msi genérico (um único
+// build, sem chave embutida) recebe a configuração da empresa: o
+// CustomAction do MSI passa essas propriedades (AGENTKEY etc., preenchidas
+// pelo administrador na hora do msiexec ou via transform de GPO) direto
+// pro instalador. Quando -agent-key vem preenchida, tem prioridade sobre
+// qualquer configuração anexada nos bytes do próprio .exe (ver
+// selfconfig.go) — line de comando é sempre uma escolha explícita de quem
+// está instalando.
+var (
+	flagAgentKey    string
+	flagAPIURL      string
+	flagCompanyName string
+)
+
 func main() {
 	for _, arg := range os.Args[1:] {
-		switch arg {
-		case "-silent", "--silent", "/silent":
+		switch {
+		case arg == "-silent" || arg == "--silent" || arg == "/silent":
 			modoSilencioso = true
+		case strings.HasPrefix(arg, "-agent-key="):
+			flagAgentKey = strings.TrimPrefix(arg, "-agent-key=")
+		case strings.HasPrefix(arg, "--agent-key="):
+			flagAgentKey = strings.TrimPrefix(arg, "--agent-key=")
+		case strings.HasPrefix(arg, "-api-url="):
+			flagAPIURL = strings.TrimPrefix(arg, "-api-url=")
+		case strings.HasPrefix(arg, "--api-url="):
+			flagAPIURL = strings.TrimPrefix(arg, "--api-url=")
+		case strings.HasPrefix(arg, "-company-name="):
+			flagCompanyName = strings.TrimPrefix(arg, "-company-name=")
+		case strings.HasPrefix(arg, "--company-name="):
+			flagCompanyName = strings.TrimPrefix(arg, "--company-name=")
 		}
 	}
 
@@ -161,6 +188,9 @@ func instalar() error {
 	if errCfg != nil {
 		imprimirAviso(fmt.Sprintf("configuração personalizada anexada inválida, seguindo com instalação manual: %v", errCfg))
 		cfgAnexada = nil
+	}
+	if flagAgentKey != "" {
+		cfgAnexada = &configAnexada{AgentKey: flagAgentKey, APIURL: flagAPIURL, CompanyName: flagCompanyName}
 	}
 
 	destinoConfig := filepath.Join(pastaDestino, "agent.yaml")
