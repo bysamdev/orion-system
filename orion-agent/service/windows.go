@@ -208,6 +208,10 @@ func (s *Svc) tick() {
 	}
 	payload.AgentVersion = version.Version
 
+	if payload.IdentityFallbackReason != "" {
+		s.logger.Printf("[AVISO] Identidade do usuário resolvida via variáveis de ambiente, não WTS: %s", payload.IdentityFallbackReason)
+	}
+
 	// Gerenciamento de Identidade (Token)
 	// Se for o primeiro acesso, carregamos do disco ou geramos uma nova identidade
 	// aleatória (token.GenerateRandomIdentity — ver MACHINE-IDENTITY-OPTIONS.md).

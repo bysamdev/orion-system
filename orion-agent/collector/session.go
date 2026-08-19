@@ -1,6 +1,8 @@
 package collector
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 )
@@ -65,7 +67,13 @@ func formatarUsuarioInterativo(userDomain, userName, hostname string) string {
 
 // resolverIdentidadeDoUsuario resolve domínio (AD ou WORKGROUP), usuário (com suporte a AD)
 // e SID da sessão interativa ativa.
-func resolverIdentidadeDoUsuario() (dominio, usuario, sid string) {
+//
+// fallbackMotivo vem preenchido (não-nil) sempre que a resolução caiu para o
+// caminho 3 (variáveis de ambiente) em vez do WTS — inclui o erro original
+// de usuarioDaSessaoAtiva() para diagnóstico. É nil quando a sessão de
+// console ativa foi consultada com sucesso. Não é enviado ao backend (ver
+// hardware.go/IdentityFallbackReason, json:"-"); serve só para log local.
+func resolverIdentidadeDoUsuario() (dominio, usuario, sid string, fallbackMotivo error) {
 	// 1. Obtém o domínio da máquina (AD Domain ou WORKGROUP)
 	dominio = obterDominioMaquina()
 
@@ -83,7 +91,10 @@ func resolverIdentidadeDoUsuario() (dominio, usuario, sid string) {
 		if dominio == "" {
 			dominio = "WORKGROUP"
 		}
-		return dominio, usuario, sid
+		return dominio, usuario, sid, nil
+	}
+	if err == nil {
+		err = errors.New("sessão de console ativa retornou usuário vazio")
 	}
 
 	// 3. Fallback para variáveis de ambiente
@@ -95,5 +106,5 @@ func resolverIdentidadeDoUsuario() (dominio, usuario, sid string) {
 			dominio = "WORKGROUP"
 		}
 	}
-	return dominio, uEnv, ""
+	return dominio, uEnv, "", fmt.Errorf("WTS indisponível (%w), usando variáveis de ambiente do processo", err)
 }

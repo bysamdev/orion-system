@@ -80,29 +80,29 @@ function GroupItem({
       <button
         onClick={onClick}
         className={cn(
-          'flex-1 text-left px-3 py-3 rounded-xl flex items-center justify-between gap-3 transition-all transform hover:scale-[1.01] active:scale-95 group relative',
+          'flex-1 text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors group relative',
           selected
-            ? 'bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/20'
-            : 'hover:bg-muted/80 text-foreground border border-transparent hover:border-border/50'
+            ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+            : 'hover:bg-muted/70 text-foreground border border-transparent'
         )}
       >
-        <div className="min-w-0 pr-6">
-          <p className="text-sm truncate leading-tight font-bold">{group.name}</p>
+        <div className="min-w-0 pr-4">
+          <p className="text-sm truncate leading-tight font-semibold">{group.name}</p>
           {group.client_contact && (
-            <p className={cn('text-[10px] truncate mt-0.5 opacity-60')}>
+            <p className={cn('text-[10px] truncate mt-0.5 opacity-70')}>
               {group.client_contact}
             </p>
           )}
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="flex items-center gap-1 text-[10px] font-bold">
+          <span className="flex items-center gap-1 text-[11px] font-semibold">
             <span className={cn(
-              "h-1.5 w-1.5 rounded-full animate-pulse",
-              selected ? "bg-white" : "bg-green-500"
+              "h-1.5 w-1.5 rounded-full shrink-0",
+              selected ? "bg-white" : "bg-emerald-500"
             )} />
-            <span className={selected ? 'text-primary-foreground' : 'text-green-600'}>{group.online_machines}</span>
+            <span className={selected ? 'text-primary-foreground' : 'text-emerald-600 dark:text-emerald-400'}>{group.online_machines}</span>
           </span>
-          <span className={cn('text-[10px] font-medium opacity-40')}>
+          <span className={cn('text-[10px] font-medium opacity-50')}>
             /{group.total_machines}
           </span>
         </div>

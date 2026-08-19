@@ -215,91 +215,7 @@ export function OsIcon({ os, osVersion }: { os?: string | null; osVersion?: stri
   }
 }
 
-function StatusDot({ status, hasAlert }: { status: string; hasAlert: boolean }) {
-  if (hasAlert) {
-    return (
-      <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]" />
-      </span>
-    );
-  }
-  if (status === 'online') {
-    return (
-      <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex rounded-full h-2.5 w-2.5 bg-zinc-400 dark:bg-zinc-600 shadow-[0_0_4px_rgba(161,161,170,0.5)] flex-shrink-0" />
-  );
-}
 
-function MetricBar({
-  label,
-  value,
-  usedBytes,
-  totalBytes,
-  showBytes = false,
-  isOnline = true,
-}: {
-  label: string;
-  value: number | null;
-  usedBytes?: number | null;
-  totalBytes?: number | null;
-  showBytes?: boolean;
-  isOnline?: boolean;
-}) {
-  const safeValue = isOnline && value != null ? Math.min(100, Math.max(0, value)) : 0;
-
-  // Dinâmico: Verde < 70%, Amarelo 70-85%, Vermelho > 85%
-  const getProgressColor = (v: number) => {
-    if (!isOnline) return 'bg-muted-foreground/30';
-    if (v > 85) return 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]';
-    if (v >= 70) return 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]';
-    return 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]';
-  };
-
-  const getTextColor = (v: number) => {
-    if (!isOnline) return 'text-muted-foreground';
-    if (v > 85) return 'text-red-500 dark:text-red-400 font-black';
-    if (v >= 70) return 'text-amber-500 dark:text-amber-400 font-bold';
-    return 'text-emerald-600 dark:text-emerald-400 font-bold';
-  };
-
-  const bytesText =
-    showBytes && totalBytes && totalBytes > 0
-      ? `${formatBytes(usedBytes)} / ${formatBytes(totalBytes)}`
-      : null;
-
-  return (
-    <div className="space-y-1 group/bar">
-      <div className="flex items-center justify-between text-[11px]">
-        <span className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground group-hover/bar:text-foreground transition-colors">
-          {label}
-        </span>
-        <div className="flex items-center gap-1.5">
-          {bytesText && isOnline && (
-            <span className="text-[10px] text-muted-foreground font-mono font-medium">
-              {bytesText}
-            </span>
-          )}
-          <span className={cn('text-[11px] font-mono', getTextColor(safeValue))}>
-            {isOnline && value != null ? `${Math.round(safeValue)}%` : '–'}
-          </span>
-        </div>
-      </div>
-      <div className="h-1.5 w-full bg-muted/70 dark:bg-muted/30 rounded-full overflow-hidden">
-        <div
-          className={cn('h-full rounded-full transition-all duration-500', getProgressColor(safeValue))}
-          style={{ width: `${safeValue}%` }}
-        />
-      </div>
-    </div>
-  );
-}
 
 export const MachineCard: React.FC<MachineCardProps> = React.memo(
   ({ machine, onSelect, onDelete }) => {
@@ -339,6 +255,20 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
       ? formatDistanceToNow(new Date(machine.last_seen), { addSuffix: true, locale: ptBR })
       : '–';
 
+    const getMetricColor = (val: number | null) => {
+      if (!isOnline || val == null) return 'text-muted-foreground';
+      if (val > 85) return 'text-red-500 dark:text-red-400';
+      if (val >= 70) return 'text-amber-500 dark:text-amber-400';
+      return 'text-emerald-600 dark:text-emerald-400';
+    };
+
+    const getProgressBg = (val: number | null) => {
+      if (!isOnline || val == null) return 'bg-muted-foreground/20';
+      if (val > 85) return 'bg-red-500';
+      if (val >= 70) return 'bg-amber-500';
+      return 'bg-emerald-500';
+    };
+
     const handleDelete = async (e: React.MouseEvent) => {
       e.stopPropagation();
       setIsDeleting(true);
@@ -357,237 +287,237 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
       }
     };
 
+    const osInfo = parseOsInfo(machine.os, machine.os_version);
+
     return (
       <>
         <Card
           onClick={() => onSelect(machine, 'overview')}
           className={cn(
-            'cursor-pointer transition-all duration-300 transform hover:scale-[1.015] hover:-translate-y-0.5 relative overflow-hidden',
-            'glass-card group flex flex-col justify-between border shadow-sm hover:shadow-md',
+            'group cursor-pointer transition-all duration-200 relative overflow-hidden',
+            'bg-card/90 hover:bg-card border rounded-2xl shadow-sm hover:shadow-md',
+            'flex flex-col justify-between hover:border-foreground/20 dark:hover:border-primary/40',
             alerting
-              ? 'border-amber-500/40 shadow-sm shadow-amber-500/10'
+              ? 'border-amber-500/40 shadow-amber-500/5'
               : isOnline
-              ? 'border-emerald-500/20 hover:border-emerald-500/40'
-              : 'border-border/60 opacity-90 hover:border-border'
+              ? 'border-border/60 hover:border-emerald-500/40'
+              : 'border-border/40 opacity-80 hover:opacity-100'
           )}
         >
-          {/* Subtle top accent gradient */}
-          <div
-            className={cn(
-              'absolute top-0 left-0 right-0 h-[2px] pointer-events-none',
-              alerting
-                ? 'bg-amber-500'
-                : isOnline
-                ? 'bg-emerald-500'
-                : 'bg-zinc-400 dark:bg-zinc-600'
-            )}
-          />
+          <CardContent className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
+            {/* Header: Identity & Status */}
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                {/* Left: Device icon, Hostname, Active User & IP */}
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <div className="p-2.5 rounded-xl bg-muted/40 dark:bg-muted/20 border border-border/40 shrink-0 text-foreground/80 group-hover:border-primary/30 group-hover:bg-primary/5 transition-colors">
+                    <OsIcon os={machine.os} osVersion={machine.os_version} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <h3
+                        className="font-bold text-[14px] text-foreground truncate tracking-tight group-hover:text-primary transition-colors leading-tight"
+                        title={`${machine.hostname} (${osInfo.name})`}
+                      >
+                        {machine.hostname}
+                      </h3>
+                      <span className="text-[10px] font-semibold text-muted-foreground/80 font-mono shrink-0">
+                        {osInfo.shortLabel}
+                      </span>
+                    </div>
 
-          <CardContent className="p-3.5 space-y-3 relative z-10 flex-1 flex flex-col justify-between">
-            {/* Header */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <OsIcon os={machine.os} osVersion={machine.os_version} />
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <StatusDot status={machine.status} hasAlert={alerting} />
-                    <p
-                      className="font-bold text-sm text-foreground truncate tracking-tight"
-                      title={`${machine.hostname} (${parseOsInfo(machine.os, machine.os_version).name})`}
-                    >
-                      {machine.hostname}
-                    </p>
-                    <span className="text-[10px] font-semibold text-muted-foreground/90 bg-muted/60 dark:bg-muted/40 px-1.5 py-0.5 rounded border border-border/40 shrink-0">
-                      {parseOsInfo(machine.os, machine.os_version).shortLabel}
-                    </span>
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-1 font-medium truncate">
+                      <span className="truncate text-foreground/80" title={machine.current_user || 'Sem usuário ativo'}>
+                        {machine.current_user || '–'}
+                      </span>
+                      <span className="text-muted-foreground/30">•</span>
+                      <span className="font-mono text-[11px] text-muted-foreground shrink-0" title={machine.ip_address || 'Sem IP'}>
+                        {machine.ip_address || '–'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {alerting && (
-                    <AlertTriangle
-                      className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 animate-pulse"
-                      title="Alerta no Dispositivo"
-                    />
-                  )}
-
-                  {/* Status Badge */}
-                  <Badge
-                    variant="outline"
+                {/* Right: Clean Status Badge */}
+                <div className="shrink-0 flex items-center gap-1.5">
+                  <div
                     className={cn(
-                      'text-[10px] font-bold px-1.5 py-0 h-5 flex items-center gap-1 shrink-0',
+                      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors shrink-0',
                       isOnline
                         ? alerting
-                          ? 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10'
-                          : 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                        : 'text-zinc-600 dark:text-zinc-400 border-zinc-400/30 bg-zinc-400/10'
+                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25'
+                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25'
+                        : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20'
                     )}
                   >
-                    {isOnline ? (
-                      <>
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span
-                            className={cn(
-                              'animate-ping absolute inline-flex h-full w-full rounded-full opacity-75',
-                              alerting ? 'bg-amber-400' : 'bg-emerald-400'
-                            )}
-                          />
-                          <span
-                            className={cn(
-                              'relative inline-flex rounded-full h-1.5 w-1.5',
-                              alerting ? 'bg-amber-500' : 'bg-emerald-500'
-                            )}
-                          />
-                        </span>
-                        {alerting ? 'Online (Alerta)' : 'Online'}
-                      </>
-                    ) : (
-                      <>
-                        <WifiOff className="w-2.5 h-2.5 mr-0.5" />
-                        {offlineMinutes >= 30
-                          ? `Offline há ${
-                              Math.floor(offlineMinutes / 60) > 0
-                                ? `${Math.floor(offlineMinutes / 60)}h`
-                                : `${offlineMinutes}m`
-                            }`
-                          : 'Offline'}
-                      </>
-                    )}
-                  </Badge>
+                    <span
+                      className={cn(
+                        'w-1.5 h-1.5 rounded-full shrink-0',
+                        isOnline
+                          ? alerting
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-500'
+                          : 'bg-zinc-400'
+                      )}
+                    />
+                    <span>
+                      {isOnline
+                        ? alerting
+                          ? 'Alerta'
+                          : 'Online'
+                        : offlineMinutes >= 30
+                        ? `Offline ${
+                            Math.floor(offlineMinutes / 60) > 0
+                              ? `${Math.floor(offlineMinutes / 60)}h`
+                              : `${offlineMinutes}m`
+                          }`
+                        : 'Offline'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Identificação do Host: Usuário Ativo e IP */}
-              <div className="bg-muted/40 dark:bg-muted/20 rounded-md px-2.5 py-1.5 border border-border/30 flex items-center justify-between gap-2 text-xs">
-                {/* Usuário Ativo */}
-                <div
-                  className="flex items-center gap-1.5 min-w-0 flex-1"
-                  title={`Usuário Ativo: ${machine.current_user || '–'}`}
-                >
-                  <User className="w-3.5 h-3.5 text-indigo-500/90 dark:text-indigo-400 shrink-0" />
-                  <span className="font-medium text-foreground truncate text-[11.5px]">
-                    {machine.current_user || '–'}
-                  </span>
-                </div>
-
-                {/* IP Interno */}
-                <div
-                  className="flex items-center gap-1.5 shrink-0"
-                  title={`IP Local: ${machine.ip_address || '–'}`}
-                >
-                  <Globe className="w-3.5 h-3.5 text-emerald-500/90 dark:text-emerald-400 shrink-0" />
-                  <span className="font-mono text-muted-foreground text-[11px]">
-                    {machine.ip_address || '–'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Linha de Alertas Rápidos do Card: Sem Antivírus, Pouco Armazenamento, >7 dias sem reiniciar */}
+              {/* Micro-Badges for Active Alerts */}
               {(hasNoAntivirus || hasLowStorage || hasHighUptime) && (
-                <div className="flex flex-wrap items-center gap-1 pt-0.5">
-                  {/* 1. Sem Antivírus */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                   {hasNoAntivirus && (
-                    <Badge
-                      variant="outline"
-                      className="text-[9px] px-1.5 py-0 h-4 font-bold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
-                      title="Alerta de Proteção: Nenhum antivírus ativo detectado nesta máquina"
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md"
+                      title="Nenhum antivírus ativo detectado"
                     >
-                      <ShieldAlert className="w-2.5 h-2.5 text-red-500" />
-                      Sem Antivírus
-                    </Badge>
+                      <ShieldAlert className="w-3 h-3 text-red-500 shrink-0" />
+                      <span>Sem Antivírus</span>
+                    </span>
                   )}
-
-                  {/* 2. Pouco Armazenamento */}
                   {hasLowStorage && (
-                    <Badge
-                      variant="outline"
-                      className="text-[9px] px-1.5 py-0 h-4 font-bold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
-                      title={`Alerta de Armazenamento: Disco principal com ${diskPct}% ocupado`}
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md"
+                      title={`Armazenamento principal com ${diskPct}% ocupado`}
                     >
-                      <HardDrive className="w-2.5 h-2.5 text-red-500" />
-                      Pouco Armazenamento ({diskPct}%)
-                    </Badge>
+                      <HardDrive className="w-3 h-3 text-amber-500 shrink-0" />
+                      <span>Disco {diskPct}%</span>
+                    </span>
                   )}
-
-                  {/* 3. Mais de 7 dias ligada sem parar */}
                   {hasHighUptime && (
-                    <Badge
-                      variant="outline"
-                      className="text-[9px] px-1.5 py-0 h-4 font-bold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 gap-1 animate-pulse"
-                      title={`Alerta de Uptime: Sistema ligado continuamente há ${formatUptime(machine.uptime)} sem reiniciar`}
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md"
+                      title={`Sistema ligado continuamente há ${formatUptime(machine.uptime)} sem reiniciar`}
                     >
-                      <Clock className="w-2.5 h-2.5 text-amber-500" />
-                      &gt;7 dias sem reiniciar
-                    </Badge>
+                      <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                      <span>&gt;7d ligado</span>
+                    </span>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Metrics */}
-            <div className="space-y-1.5 py-1">
-              <MetricBar
-                label="CPU"
-                value={cpuPct}
-                isOnline={isOnline}
-              />
-              <MetricBar
-                label="RAM"
-                value={ramPct}
-                usedBytes={machine.ram_used}
-                totalBytes={machine.ram_total}
-                showBytes={true}
-                isOnline={isOnline}
-              />
-              <MetricBar
-                label="Disco"
-                value={diskPct}
-                usedBytes={machine.disk_used}
-                totalBytes={machine.disk_total}
-                showBytes={true}
-                isOnline={isOnline}
-              />
+            {/* Metrics Matrix: 3 Balanced Resource Panels */}
+            <div className="grid grid-cols-3 gap-2 pt-0.5">
+              {/* 1. CPU */}
+              <div className="p-2.5 rounded-xl bg-muted/30 dark:bg-muted/20 border border-border/30 flex flex-col justify-between gap-1.5 group-hover:bg-muted/40 transition-colors">
+                <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <span>CPU</span>
+                  <span className={cn('font-mono font-bold text-xs', getMetricColor(cpuPct))}>
+                    {isOnline && cpuPct != null ? `${cpuPct}%` : '–'}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full bg-muted-foreground/15 rounded-full overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all duration-500', getProgressBg(cpuPct))}
+                    style={{ width: `${isOnline && cpuPct != null ? cpuPct : 0}%` }}
+                  />
+                </div>
+                <span className="text-[9.5px] font-mono text-muted-foreground/70 truncate block">
+                  {isOnline && cpuPct != null ? (cpuPct > 80 ? 'Carga Alta' : 'Estável') : '–'}
+                </span>
+              </div>
+
+              {/* 2. RAM */}
+              <div className="p-2.5 rounded-xl bg-muted/30 dark:bg-muted/20 border border-border/30 flex flex-col justify-between gap-1.5 group-hover:bg-muted/40 transition-colors">
+                <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <span>RAM</span>
+                  <span className={cn('font-mono font-bold text-xs', getMetricColor(ramPct))}>
+                    {isOnline && ramPct != null ? `${ramPct}%` : '–'}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full bg-muted-foreground/15 rounded-full overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all duration-500', getProgressBg(ramPct))}
+                    style={{ width: `${isOnline && ramPct != null ? ramPct : 0}%` }}
+                  />
+                </div>
+                <span
+                  className="text-[9.5px] font-mono text-muted-foreground/70 truncate block"
+                  title={machine.ram_used && machine.ram_total ? `${formatBytes(machine.ram_used)} / ${formatBytes(machine.ram_total)}` : undefined}
+                >
+                  {isOnline && machine.ram_used && machine.ram_total
+                    ? `${formatBytes(machine.ram_used)} / ${formatBytes(machine.ram_total)}`
+                    : '–'}
+                </span>
+              </div>
+
+              {/* 3. DISCO */}
+              <div className="p-2.5 rounded-xl bg-muted/30 dark:bg-muted/20 border border-border/30 flex flex-col justify-between gap-1.5 group-hover:bg-muted/40 transition-colors">
+                <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <span>Disco</span>
+                  <span className={cn('font-mono font-bold text-xs', getMetricColor(diskPct))}>
+                    {isOnline && diskPct != null ? `${diskPct}%` : '–'}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full bg-muted-foreground/15 rounded-full overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all duration-500', getProgressBg(diskPct))}
+                    style={{ width: `${isOnline && diskPct != null ? diskPct : 0}%` }}
+                  />
+                </div>
+                <span
+                  className="text-[9.5px] font-mono text-muted-foreground/70 truncate block"
+                  title={machine.disk_used && machine.disk_total ? `${formatBytes(machine.disk_used)} / ${formatBytes(machine.disk_total)}` : undefined}
+                >
+                  {isOnline && machine.disk_used && machine.disk_total
+                    ? `${formatBytes(machine.disk_used)} / ${formatBytes(machine.disk_total)}`
+                    : '–'}
+                </span>
+              </div>
             </div>
 
             {/* Footer with Uptime, Last Seen and Delete Action */}
-            <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
+            <div className="pt-2.5 border-t border-border/40 flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <div
-                className="flex items-center gap-1.5 min-w-0 text-[10.5px] text-muted-foreground"
+                className="flex items-center gap-1.5 min-w-0 text-[11px]"
                 title={isOnline && machine.uptime ? `Tempo de atividade: ${formatUptime(machine.uptime)} • Último sync: ${lastSeen}` : `Visto por último: ${lastSeen}`}
               >
-                <Clock className="w-3 h-3 flex-shrink-0 text-muted-foreground/70" />
+                <Clock className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground/60" />
                 {isOnline && machine.uptime ? (
-                  <>
-                    <span className="font-mono font-medium text-foreground/80 shrink-0">
-                      {formatUptime(machine.uptime)}
-                    </span>
-                    <span className="opacity-30 shrink-0">•</span>
-                    <span className="truncate">{lastSeen}</span>
-                  </>
+                  <span className="truncate">
+                    <strong className="font-mono text-foreground/90 font-medium">{formatUptime(machine.uptime)}</strong>
+                    <span className="mx-1.5 opacity-30">•</span>
+                    <span>{lastSeen}</span>
+                  </span>
                 ) : (
-                  <span className="truncate">{lastSeen}</span>
+                  <span className="truncate">Visto {lastSeen}</span>
                 )}
                 {machine.agent_version && (
-                  <span className="text-[10px] opacity-50 font-mono shrink-0 ml-0.5">
+                  <span className="text-[10px] opacity-40 font-mono shrink-0 ml-1">
                     v{machine.agent_version}
                   </span>
                 )}
               </div>
 
-              {/* Action Buttons (Apenas Lixeira com Confirmação) */}
+              {/* Action Buttons */}
               <div className="flex items-center shrink-0">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                  className="h-7 w-7 p-0 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowDeleteDialog(true);
                   }}
                   title="Excluir registro da máquina"
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
             </div>
@@ -645,34 +575,31 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
 MachineCard.displayName = 'MachineCard';
 
 export const MachineCardSkeleton: React.FC = () => (
-  <Card className="glass-card border">
-    <CardContent className="p-3.5 space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 flex-1">
-          <Skeleton className="h-4 w-4 rounded" />
-          <div className="space-y-1 flex-1">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-3 w-16" />
+  <Card className="border rounded-2xl bg-card/80 shadow-sm">
+    <CardContent className="p-4 space-y-3.5">
+      {/* Header skeleton */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 flex-1">
+          <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+          <div className="space-y-1.5 flex-1">
+            <Skeleton className="h-4 w-32 rounded" />
+            <Skeleton className="h-3 w-24 rounded" />
           </div>
         </div>
-        <Skeleton className="h-5 w-16 rounded-full" />
+        <Skeleton className="h-6 w-16 rounded-full shrink-0" />
       </div>
 
-      <Skeleton className="h-14 w-full rounded-lg" />
-
-      <div className="space-y-2">
-        <Skeleton className="h-2 w-full" />
-        <Skeleton className="h-2 w-full" />
-        <Skeleton className="h-2 w-full" />
+      {/* Metrics 3-column skeleton */}
+      <div className="grid grid-cols-3 gap-2 pt-0.5">
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-16 w-full rounded-xl" />
       </div>
 
-      <div className="pt-2 border-t border-border/40 flex items-center justify-between">
-        <Skeleton className="h-3 w-20" />
-        <div className="flex gap-1.5">
-          <Skeleton className="h-7 w-20 rounded-lg" />
-          <Skeleton className="h-7 w-16 rounded-lg" />
-          <Skeleton className="h-7 w-7 rounded-lg" />
-        </div>
+      {/* Footer skeleton */}
+      <div className="pt-2.5 border-t border-border/40 flex items-center justify-between">
+        <Skeleton className="h-3.5 w-28 rounded" />
+        <Skeleton className="h-6 w-6 rounded-lg" />
       </div>
     </CardContent>
   </Card>

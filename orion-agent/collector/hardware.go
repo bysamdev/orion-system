@@ -108,6 +108,13 @@ type Payload struct {
 	CurrentUserSID string           `json:"current_user_sid"`
 	MACAddress   string             `json:"mac_address"`
 	DeviceType   string             `json:"device_type"`
+	// IdentityFallbackReason nunca é enviado ao backend (json:"-") — é
+	// diagnóstico puramente local para a camada de serviço logar quando
+	// resolverIdentidadeDoUsuario() não conseguiu consultar a sessão de
+	// console ativa via WTS e caiu para variáveis de ambiente do processo
+	// (o que, rodando como serviço, reporta a conta de serviço em vez de
+	// quem está de fato logado na tela — ver session.go).
+	IdentityFallbackReason string `json:"-"`
 	// AgentVersion não é preenchida aqui: Collect() só lê o estado do
 	// sistema, e a versão do binário é responsabilidade da camada de
 	// serviço (mesmo motivo de MachineToken ficar de fora — ver
@@ -404,7 +411,11 @@ func Collect() (*Payload, error) {
 	// tela — resolverIdentidadeDoUsuario cai para elas apenas quando não há
 	// sessão de console ativa para consultar (ex.: tela de logon, ou
 	// plataforma não-Windows).
-	domain, currentUser, currentUserSID := resolverIdentidadeDoUsuario()
+	domain, currentUser, currentUserSID, identidadeFallbackMotivo := resolverIdentidadeDoUsuario()
+	fallbackReason := ""
+	if identidadeFallbackMotivo != nil {
+		fallbackReason = identidadeFallbackMotivo.Error()
+	}
 
 	// Montamos o relatório final (Payload)
 	return &Payload{
@@ -423,10 +434,11 @@ func Collect() (*Payload, error) {
 		GPU:        "",
 		Disks:      disks,
 		Interfaces: interfaces,
-		Domain:         domain,
-		CurrentUser:    currentUser,
-		CurrentUserSID: currentUserSID,
-		MACAddress:     macAddress,
+		Domain:                 domain,
+		CurrentUser:            currentUser,
+		CurrentUserSID:         currentUserSID,
+		IdentityFallbackReason: fallbackReason,
+		MACAddress:             macAddress,
 		DeviceType:     tipoDoDispositivo(),
 		Security:       segurancaComCache(),
 		RemoteSoftware: softwareRemotoComCache(),
