@@ -95,6 +95,18 @@ func main() {
 		}
 
 		// Se estivermos em modo interativo (ex: clicado pelo usuário), iniciamos a Tray.
+		//
+		// IMPORTANTE ao compilar orion-agent.exe: use
+		// `go build -ldflags="-H=windowsgui" ...`. Sem essa flag, o Windows
+		// aloca uma janela de console toda vez que este .exe roda fora do
+		// SCM (clique direto, atalho) — mesmo esse caminho nunca escrevendo
+		// nada nela, já que a saída real vai para agent.log. A flag marca o
+		// binário como subsistema GUI: nenhum console é criado ao clicar,
+		// mas se alguém rodar `orion-agent.exe install` a partir de um
+		// terminal já aberto, a saída continua aparecendo ali normalmente
+		// (herda os handles do processo pai). Não se aplica ao instalador
+		// (cmd/installer), que é propositalmente um wizard de console.
+		//
 		// Rodamos a lógica do agente em background (goroutine) para não travar o menu.
 		go func() {
 			logger.Printf("Iniciando monitoramento em background — Servidor: %s", cfg.APIURL)

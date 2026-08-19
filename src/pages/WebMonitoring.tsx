@@ -19,29 +19,21 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import {
   Globe,
   Plus,
   Trash2,
   Activity,
-  AlertCircle,
   Clock,
   Zap,
   Radio,
   Router,
   Building2,
-  Wifi,
-  BarChart3,
   ShieldCheck,
-  Lock,
   ExternalLink,
   RefreshCw,
-  Maximize2,
   CheckCircle2,
-  XCircle,
-  Sliders,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -97,7 +89,7 @@ function getLinkTypeInfo(type: string) {
 const CustomChartTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-popover/95 backdrop-blur-md border border-border/80 rounded-xl p-3 shadow-xl text-xs space-y-1.5 min-w-[160px]">
+    <div className="bg-popover/95 backdrop-blur-md border border-border/80 rounded-xl p-3 shadow-xl text-xs space-y-1.5 min-w-[150px]">
       <p className="font-bold text-foreground border-b border-border/40 pb-1 flex items-center justify-between">
         <span>Horário</span>
         <span className="text-muted-foreground font-mono">{label}</span>
@@ -121,8 +113,7 @@ const CustomChartTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function WebMonitoring() {
-  // Main tab: 'web' | 'network' | 'grafana'
-  const [activeTab, setActiveTab] = useState<'web' | 'network' | 'grafana'>('web');
+  const [activeTab, setActiveTab] = useState<'web' | 'network'>('web');
   const [period, setPeriod] = useState<WebPeriod>('1h');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -286,8 +277,6 @@ export default function WebMonitoring() {
     const now = new Date();
 
     const baseWebLatency = webStats.avgResponseTime || 85;
-    const baseStarlink = networkStats.starlinkAvg || 42;
-    const baseDedicated = networkStats.dedicatedAvg || 16;
 
     for (let i = pointsCount - 1; i >= 0; i--) {
       const pointTime = new Date(now.getTime());
@@ -312,28 +301,17 @@ export default function WebMonitoring() {
       const noise = Math.cos(i * 2.1) * 0.3;
 
       const webVal = Math.max(35, Math.round(baseWebLatency + seed * 25 + noise * 15));
-      const starlinkVal = Math.max(24, Math.round(baseStarlink + seed * 16 + noise * 8));
-      const dedicatedVal = Math.max(10, Math.round(baseDedicated + seed * 5 + noise * 3));
       const uptimeVal = Math.min(100, Math.max(95, Math.round(100 - (webStats.offline > 0 ? 5 : 0) + (noise * 1.2))));
 
       data.push({
         time: timeLabel,
-        'APIs & Sites Web': webVal,
-        'Starlink Satélite': starlinkVal,
-        'Link Dedicado': dedicatedVal,
+        'Tempo de Resposta': webVal,
         Disponibilidade: uptimeVal,
       });
     }
 
     return data;
-  }, [period, webStats, networkStats]);
-
-  // Grafana Web Monitoring URL resolution
-  const grafanaUrl = useMemo(() => {
-    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-    const baseUrl = isHttps ? 'https://monitor-orion.bysam.dev' : 'http://192.168.1.200:3000';
-    return `${baseUrl}/d/orion-web-monitoring/orion-monitor-web-e-links-de-rede?orgId=1&kiosk=tv&theme=dark`;
-  }, []);
+  }, [period, webStats]);
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
@@ -341,10 +319,10 @@ export default function WebMonitoring() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            Monitoramento Web &amp; Redes
+            Monitoramento de Conectividade
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Telemetria em tempo real de sites, APIs HTTP/S, enlaces Starlink e links dedicados.
+            Status em tempo real, tempo de resposta em milissegundos e segurança SSL.
           </p>
         </div>
 
@@ -354,7 +332,7 @@ export default function WebMonitoring() {
             className="gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold"
           >
             <Activity className="w-3.5 h-3.5 animate-pulse" />
-            {webStats.online + networkStats.online} Alvos Operacionais
+            {webStats.online + networkStats.online} Alvos Online
           </Badge>
 
           <Button
@@ -371,9 +349,9 @@ export default function WebMonitoring() {
       </div>
 
       {/* ── Main Navigation Tabs ── */}
-      <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'web' | 'network')} className="space-y-6">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <TabsList className="grid w-full sm:w-auto grid-cols-3 max-w-lg bg-muted/60 p-1 rounded-2xl border border-border/40">
+          <TabsList className="grid w-full sm:w-auto grid-cols-2 max-w-sm bg-muted/60 p-1 rounded-2xl border border-border/40">
             <TabsTrigger value="web" className="flex items-center gap-2 rounded-xl font-semibold text-xs sm:text-sm py-2">
               <Globe className="w-4 h-4" />
               Sites &amp; APIs ({webStats.total})
@@ -382,31 +360,25 @@ export default function WebMonitoring() {
               <Radio className="w-4 h-4" />
               Links &amp; Redes ({networkStats.total})
             </TabsTrigger>
-            <TabsTrigger value="grafana" className="flex items-center gap-2 rounded-xl font-semibold text-xs sm:text-sm py-2 text-primary">
-              <BarChart3 className="w-4 h-4" />
-              Grafana NOC
-            </TabsTrigger>
           </TabsList>
 
           {/* Period selector for charts */}
-          {activeTab !== 'grafana' && (
-            <div className="flex items-center self-end sm:self-auto bg-muted/40 p-1 rounded-xl border border-border/40">
-              {(['1h', '6h', '24h', '7d'] as WebPeriod[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={cn(
-                    'px-2.5 py-1 text-xs font-bold rounded-lg transition-all',
-                    period === p
-                      ? 'bg-primary text-primary-foreground shadow-xs'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                  )}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex items-center self-end sm:self-auto bg-muted/40 p-1 rounded-xl border border-border/40">
+            {(['1h', '6h', '24h', '7d'] as WebPeriod[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={cn(
+                  'px-2.5 py-1 text-xs font-bold rounded-lg transition-all',
+                  period === p
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════
@@ -446,8 +418,8 @@ export default function WebMonitoring() {
                   <Progress value={webStats.uptimePct} className="h-1.5 mt-2 bg-muted/60" />
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>{webStats.offline} monitor(es) offline</span>
-                  <span className="text-emerald-600 font-semibold">HTTP 2xx/3xx</span>
+                  <span>{webStats.offline} offline</span>
+                  <span className="text-emerald-600 font-semibold">HTTP 200 OK</span>
                 </div>
               </CardContent>
             </Card>
@@ -479,18 +451,18 @@ export default function WebMonitoring() {
                   />
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Latência da aplicação</span>
-                  <span className="font-mono text-foreground font-semibold">Blackbox / Uptime</span>
+                  <span>Latência média</span>
+                  <span className="text-emerald-600 font-semibold">Excelente</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* KPI 3: Certificados SSL / TLS */}
+            {/* KPI 3: Certificados SSL */}
             <Card className="border-border/40 bg-card hover:shadow-md transition-all">
               <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Certificados SSL / TLS
+                    Certificados SSL
                   </span>
                   <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
                     <ShieldCheck className="w-4 h-4" />
@@ -498,19 +470,19 @@ export default function WebMonitoring() {
                 </div>
                 <div>
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                    <span className="text-2xl sm:text-3xl font-black tracking-tight text-emerald-600 dark:text-emerald-400">
                       100% Válidos
                     </span>
                     <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
-                      <Lock className="w-2.5 h-2.5" />
-                      TLS 1.3
+                      <ShieldCheck className="w-2.5 h-2.5" />
+                      SSL Ativo
                     </Badge>
                   </div>
                   <Progress value={100} className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-emerald-500" />
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>0 certificados expirando</span>
-                  <span className="text-emerald-600 font-semibold">Proteção Ativa</span>
+                  <span>Criptografia HTTPS</span>
+                  <span className="text-emerald-600 font-semibold">Protegido</span>
                 </div>
               </CardContent>
             </Card>
@@ -532,116 +504,69 @@ export default function WebMonitoring() {
                       99.98%
                     </span>
                     <Badge variant="outline" className="text-[10px] font-bold text-purple-600 bg-purple-500/10 border-purple-500/30">
-                      Alta Confiança
+                      Alta Estabilidade
                     </Badge>
                   </div>
                   <Progress value={99.9} className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-purple-500" />
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
                   <span>Média no período ({period})</span>
-                  <span className="text-purple-600 font-semibold">Sem Downtime</span>
+                  <span className="text-purple-600 font-semibold">Sem Quedas</span>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Realtime Charts Section for Web */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Chart 1: Latência HTTP */}
-            <Card className="lg:col-span-2 border-border/40 bg-card shadow-sm">
-              <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-                <div>
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-primary" />
-                    Tempo de Resposta HTTP &amp; Latência de Aplicações
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Tempo médio de resposta (ms) dos endpoints web monitorados ({period}).
-                  </CardDescription>
-                </div>
-                <Badge variant="secondary" className="font-mono text-[10px]">
-                  Blackbox Exporter
-                </Badge>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="h-[250px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorWeb" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} vertical={false} />
-                      <XAxis dataKey="time" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
-                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} tickFormatter={(v) => `${v}ms`} />
-                      <Tooltip content={<CustomChartTooltip />} />
-                      <Area
-                        type="monotone"
-                        dataKey="APIs & Sites Web"
-                        stroke="#3b82f6"
-                        strokeWidth={2.5}
-                        fillOpacity={1}
-                        fill="url(#colorWeb)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Chart 2: SLA Uptime */}
-            <Card className="border-border/40 bg-card shadow-sm">
-              <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-                <div>
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    Disponibilidade (%)
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Taxa de sucesso de requisições HTTP 2xx/3xx.
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="h-[250px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorSla" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.45} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} vertical={false} />
-                      <XAxis dataKey="time" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
-                      <YAxis domain={[90, 100]} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} tickFormatter={(v) => `${v}%`} />
-                      <Tooltip content={<CustomChartTooltip />} />
-                      <Area
-                        type="monotone"
-                        dataKey="Disponibilidade"
-                        name="Uptime (%)"
-                        stroke="#10b981"
-                        strokeWidth={2.5}
-                        fillOpacity={1}
-                        fill="url(#colorSla)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Realtime Response Time Chart */}
+          <Card className="border-border/40 bg-card shadow-sm">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-primary" />
+                  Tempo de Resposta em Milissegundos (ms)
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Latência média de resposta dos sites e APIs monitoradas no período de {period}.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="h-[220px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorWebLatency" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} vertical={false} />
+                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                    <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} tickFormatter={(v) => `${v}ms`} />
+                    <Tooltip content={<CustomChartTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="Tempo de Resposta"
+                      unit="ms"
+                      stroke="#3b82f6"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#colorWebLatency)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Endpoints Web List Header & Dialog */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2">
             <div>
               <h2 className="text-xl font-bold tracking-tight text-foreground">
-                Endpoints Web Monitorados
+                Endpoints Web
               </h2>
               <p className="text-xs text-muted-foreground">
-                Monitores contínuos com checagem de latência, status HTTP e certificado SSL/TLS.
+                Status online/offline, tempo de resposta em ms e certificado SSL ativo.
               </p>
             </div>
 
@@ -649,17 +574,17 @@ export default function WebMonitoring() {
               <DialogTrigger asChild>
                 <Button className="rounded-xl font-semibold gap-2 shadow-xs">
                   <Plus className="w-4 h-4" />
-                  Adicionar Monitor Web
+                  Adicionar Monitor
                 </Button>
               </DialogTrigger>
               <DialogContent className="rounded-2xl">
                 <DialogHeader>
                   <DialogTitle>Novo Monitor Web</DialogTitle>
-                  <DialogDescription>Adicione um site, aplicação ou API para monitoramento contínuo.</DialogDescription>
+                  <DialogDescription>Adicione um site ou API para monitoramento contínuo.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleCreateWebEndpoint} className="space-y-4 py-3">
                   <div className="space-y-2">
-                    <Label htmlFor="webName">Nome do Endpoint</Label>
+                    <Label htmlFor="webName">Nome do Monitor</Label>
                     <Input 
                       id="webName" 
                       placeholder="Ex: Site Principal - Michelangelo" 
@@ -669,7 +594,7 @@ export default function WebMonitoring() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="webUrl">URL ou Domínio</Label>
+                    <Label htmlFor="webUrl">URL do Site</Label>
                     <Input 
                       id="webUrl" 
                       placeholder="Ex: https://michelangelo.com.br" 
@@ -683,7 +608,7 @@ export default function WebMonitoring() {
                       Cancelar
                     </Button>
                     <Button type="submit" disabled={createWebEndpointMutation.isPending} className="rounded-xl font-semibold">
-                      {createWebEndpointMutation.isPending ? 'Salvando...' : 'Cadastrar Monitor'}
+                      {createWebEndpointMutation.isPending ? 'Salvando...' : 'Salvar Monitor'}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -691,12 +616,12 @@ export default function WebMonitoring() {
             </Dialog>
           </div>
 
-          {/* Modern Endpoints Cards List */}
+          {/* Endpoints Cards List */}
           <div className="space-y-3">
             {isLoadingEndpoints ? (
               <div className="text-center py-12 text-muted-foreground flex flex-col items-center gap-3">
                 <RefreshCw className="w-6 h-6 animate-spin text-primary" />
-                <p className="text-sm">Carregando monitores de endpoints...</p>
+                <p className="text-sm">Carregando monitores...</p>
               </div>
             ) : endpoints.length === 0 ? (
               <Card className="border-dashed border-2 border-border/60 bg-muted/20">
@@ -707,7 +632,7 @@ export default function WebMonitoring() {
                   <div>
                     <h3 className="font-bold text-base">Nenhum monitor configurado</h3>
                     <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                      Cadastre URLs de websites, APIs ou painéis de clientes para acompanhar uptime e tempo de resposta.
+                      Cadastre URLs de websites ou APIs para acompanhar uptime, ms e SSL.
                     </p>
                   </div>
                   <Button onClick={() => setIsWebModalOpen(true)} className="rounded-xl font-semibold mt-2">
@@ -728,7 +653,7 @@ export default function WebMonitoring() {
                     className="border-border/40 bg-card hover:bg-muted/20 transition-all shadow-xs group"
                   >
                     <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                      {/* Left: Icon & Endpoint Name */}
+                      {/* Left: Icon & Name & URL */}
                       <div className="flex items-center gap-3.5 min-w-0 flex-1">
                         <div className={cn(
                           'p-3 rounded-2xl shrink-0 transition-colors',
@@ -743,18 +668,6 @@ export default function WebMonitoring() {
                             <h3 className="font-bold text-base text-foreground truncate">
                               {endpoint.name}
                             </h3>
-                            <Badge
-                              variant={isOnline ? 'default' : 'destructive'}
-                              className={cn(
-                                'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase',
-                                isOnline
-                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
-                                  : ''
-                              )}
-                            >
-                              <span className={cn('w-1.5 h-1.5 rounded-full mr-1.5 shrink-0', isOnline ? 'bg-emerald-500' : 'bg-red-500')} />
-                              {statusLabel(endpoint.status)}
-                            </Badge>
                           </div>
 
                           <div className="flex items-center gap-2 mt-1">
@@ -771,10 +684,10 @@ export default function WebMonitoring() {
                         </div>
                       </div>
 
-                      {/* Middle: Rich Telemetry Matrix */}
-                      <div className="grid grid-cols-3 gap-3 w-full md:w-auto py-2 md:py-0 border-y md:border-y-0 border-border/40 text-left">
+                      {/* Middle: Latency (ms) & SSL Status */}
+                      <div className="flex items-center gap-3 w-full md:w-auto py-1 md:py-0 border-y md:border-y-0 border-border/40">
                         {/* Metric 1: Latency */}
-                        <div className="bg-muted/30 dark:bg-muted/15 px-3 py-1.5 rounded-xl border border-border/30">
+                        <div className="bg-muted/30 dark:bg-muted/15 px-3 py-1.5 rounded-xl border border-border/30 text-center min-w-[90px]">
                           <span className="text-[10px] uppercase font-bold text-muted-foreground block">
                             Resposta
                           </span>
@@ -784,29 +697,35 @@ export default function WebMonitoring() {
                         </div>
 
                         {/* Metric 2: SSL */}
-                        <div className="bg-muted/30 dark:bg-muted/15 px-3 py-1.5 rounded-xl border border-border/30">
+                        <div className="bg-muted/30 dark:bg-muted/15 px-3 py-1.5 rounded-xl border border-border/30 text-center min-w-[100px]">
                           <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                            Certificado
+                            Segurança
                           </span>
-                          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                            <Lock className="w-3 h-3" />
-                            {isHttps ? 'TLS 1.3' : 'HTTP'}
-                          </span>
-                        </div>
-
-                        {/* Metric 3: Protocol/Code */}
-                        <div className="bg-muted/30 dark:bg-muted/15 px-3 py-1.5 rounded-xl border border-border/30">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                            Status HTTP
-                          </span>
-                          <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                            {isOnline ? '200 OK' : '503 ERR'}
+                          <span className={cn(
+                            'text-xs font-semibold flex items-center justify-center gap-1',
+                            isHttps ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+                          )}>
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            {isHttps ? 'SSL Ativo' : 'Sem SSL'}
                           </span>
                         </div>
                       </div>
 
-                      {/* Right: Actions */}
-                      <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+                      {/* Right: Status Pill & Delete Button */}
+                      <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
+                        <Badge
+                          variant={isOnline ? 'default' : 'destructive'}
+                          className={cn(
+                            'text-xs font-bold px-3 py-1 rounded-full uppercase',
+                            isOnline
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
+                              : ''
+                          )}
+                        >
+                          <span className={cn('w-2 h-2 rounded-full mr-1.5 shrink-0', isOnline ? 'bg-emerald-500' : 'bg-red-500')} />
+                          {statusLabel(endpoint.status)}
+                        </Badge>
+
                         <Button
                           variant="ghost"
                           size="icon"
@@ -864,7 +783,7 @@ export default function WebMonitoring() {
               <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Latência Média (RTT)
+                    Latência Média (ms)
                   </span>
                   <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                     <Zap className="w-4 h-4" />
@@ -882,8 +801,8 @@ export default function WebMonitoring() {
                   <Progress value={networkStats.avgLatency ? Math.min(100, (networkStats.avgLatency / 100) * 100) : 0} className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-emerald-500" />
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Tempo de tráfego ida e volta</span>
-                  <span className="font-mono text-foreground font-semibold">Blackbox ICMP</span>
+                  <span>Tempo de ida e volta</span>
+                  <span className="text-emerald-600 font-semibold">RTT</span>
                 </div>
               </CardContent>
             </Card>
@@ -910,7 +829,7 @@ export default function WebMonitoring() {
                   <Progress value={38} className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-purple-500" />
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Satélites de baixa órbita</span>
+                  <span>Satélite de baixa órbita</span>
                   <span className="text-purple-600 font-semibold">Baixa Latência</span>
                 </div>
               </CardContent>
@@ -944,49 +863,6 @@ export default function WebMonitoring() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Network Latency Multi-Series Chart */}
-          <Card className="border-border/40 bg-card shadow-sm">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-              <div>
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-purple-500" />
-                  Latência Comparativa de Enlaces (RTT)
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Comparação em tempo real entre Starlink, Links Dedicados e Gateways ({period}).
-                </CardDescription>
-              </div>
-              <Badge variant="secondary" className="font-mono text-[10px]">
-                ICMP Ping Probes
-              </Badge>
-            </CardHeader>
-            <CardContent className="pt-2">
-              <div className="h-[250px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorNetStarlink" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#a855f7" stopOpacity={0.0} />
-                      </linearGradient>
-                      <linearGradient id="colorNetDedicated" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} vertical={false} />
-                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
-                    <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} tickFormatter={(v) => `${v}ms`} />
-                    <Tooltip content={<CustomChartTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} formatter={(val) => <span className="text-foreground font-semibold px-1">{val}</span>} />
-                    <Area type="monotone" dataKey="Starlink Satélite" stroke="#a855f7" strokeWidth={2.5} fillOpacity={1} fill="url(#colorNetStarlink)" />
-                    <Area type="monotone" dataKey="Link Dedicado" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorNetDedicated)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Network Links Controls & Dialog */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2">
@@ -1243,53 +1119,6 @@ export default function WebMonitoring() {
               })}
             </div>
           )}
-        </TabsContent>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            ABA 3: PAINEL GRAFANA NOC (TEMPO REAL)
-        ══════════════════════════════════════════════════════════════════ */}
-        <TabsContent value="grafana" className="space-y-6 mt-0">
-          <Card className="border-border/40 bg-card shadow-sm overflow-hidden rounded-2xl">
-            <CardHeader className="p-4 sm:p-5 border-b border-border/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
-                  <BarChart3 className="w-5 h-5" />
-                </div>
-                <div>
-                  <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                    Dashboard Grafana NOC — Web &amp; Network Probing
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Métricas de Blackbox Exporter, SSL Expiry e latência RTT em tempo real.
-                  </CardDescription>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
-                <a
-                  href={grafanaUrl.replace('&kiosk=tv', '')}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-border/60 bg-muted/40 hover:bg-muted text-foreground transition-colors"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Abrir no Grafana
-                </a>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-0 bg-zinc-950">
-              <div className="relative w-full h-[650px] min-h-[500px]">
-                <iframe
-                  src={grafanaUrl}
-                  title="Grafana Web Monitoring NOC Dashboard"
-                  className="w-full h-full border-0 rounded-b-2xl"
-                  loading="lazy"
-                  allow="fullscreen"
-                />
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>
