@@ -124,6 +124,15 @@ func MontarInstaladorPersonalizado(agentKey, apiURL, companyName string) ([]byte
 }
 
 // SanitizarNomeArquivo troca qualquer caractere que não seja seguro num
+// SHA256Hex devolve o hash SHA-256 em hexadecimal — usado pra alimentar o
+// "--hash=" do comando orion-install, que o agente confere antes de rodar
+// qualquer coisa baixada (ver verifySHA256 em
+// orion-agent/service/windows.go).
+func SHA256Hex(dados []byte) string {
+	soma := sha256.Sum256(dados)
+	return hex.EncodeToString(soma[:])
+}
+
 // nome de arquivo do Windows (\/:*?"<>|) por "-" — nomes de empresa livres
 // (ex.: "iBReady Ltda.") não podem ir direto pro Content-Disposition.
 func SanitizarNomeArquivo(nome string) string {

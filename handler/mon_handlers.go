@@ -498,7 +498,54 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		_ = db.UpdateMachineStatus(ctx, machineID, "online")
 	}
 
+	// Auto-atualização: a máquina reportou uma versão de agente diferente
+	// da mais recente conhecida (lib.LatestAgentVersion) — enfileira um
+	// comando "orion-install" pra ela buscar e instalar sozinha no próximo
+	// poll (a cada 30s), sem nenhuma ação manual no painel. Best-effort de
+	// propósito: nada aqui pode fazer o heartbeat falhar.
+	if req.AgentVersion != "" && req.AgentVersion != lib.LatestAgentVersion {
+		enfileirarAutoUpdateSeNecessario(ctx, machineID, targetCompanyID, req.AgentVersion, key)
+	}
+
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "machine_id": machineID})
+}
+
+// enfileirarAutoUpdateSeNecessario prepara o instalador mais recente da
+// empresa e enfileira um comando de auto-atualização pra esta máquina,
+// mas só se não já tiver um em trânsito (ver db.HasPendingUpdateCommand) —
+// sem essa checagem, cada heartbeat (a cada ~60s) empilharia mais um
+// comando idêntico enquanto o anterior ainda não terminou de ser
+// executado/respondido pelo agente.
+func enfileirarAutoUpdateSeNecessario(ctx context.Context, machineID, companyID, versaoAtual, agentKey string) {
+	jaTemAtualizacaoPendente, err := db.HasPendingUpdateCommand(ctx, machineID)
+	if err != nil {
+		log.Printf("[AVISO] verificar auto-atualização pendente (máquina %s): %v", machineID, err)
+		return
+	}
+	if jaTemAtualizacaoPendente {
+		return
+	}
+
+	companyName, err := db.CompanyName(ctx, companyID)
+	if err != nil {
+		log.Printf("[AVISO] nome da empresa pra auto-atualização (máquina %s): %v", machineID, err)
+		return
+	}
+
+	downloadURL, _, sha256Hex, err := prepararInstaladorDaEmpresa(ctx, companyID, agentKey, apiURLPublica(), companyName)
+	if err != nil {
+		log.Printf("[AVISO] preparar instalador pra auto-atualização (máquina %s): %v", machineID, err)
+		return
+	}
+
+	if _, err := db.CreateCommand(ctx, lib.InsertCommandInput{
+		MachineID: machineID,
+		Command:   lib.ComandoAutoUpdate(downloadURL, sha256Hex),
+	}); err != nil {
+		log.Printf("[AVISO] enfileirar auto-atualização (máquina %s): %v", machineID, err)
+		return
+	}
+	log.Printf("[AUTO-UPDATE] comando enfileirado pra máquina %s (agente em %s, mais recente é %s)", machineID, versaoAtual, lib.LatestAgentVersion)
 }
 
 // ─── Remote Commands ──────────────────────────────────────────────────────────

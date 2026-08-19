@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"golang.org/x/sys/windows"
 
@@ -147,6 +148,45 @@ func relançarElevado() error {
 	return windows.ShellExecute(0, verb, caminho, nil, diretorio, windows.SW_NORMAL)
 }
 
+// pararServicoSeRodando para o serviço OrionAgent se ele já existir e
+// estiver em execução — precisa acontecer ANTES de sobrescrever
+// orion-agent.exe: o Windows recusa gravar por cima do .exe de um processo
+// em execução ("Access is denied"). Sem isso, uma atualização em cima de
+// um agente já ativo (manual ou via auto-atualização remota — ver
+// ComandoAutoUpdate no backend) falhava na escrita do arquivo, ou pior:
+// dependendo de quando o SCM decidisse encerrar o processo, podia deixar
+// o binário truncado no meio da gravação.
+//
+// Tolerante de propósito: serviço inexistente (primeira instalação) ou já
+// parado não é erro — só avisa (não interrompe a instalação) se o "sc
+// stop" falhar ou não confirmar a parada a tempo; o WriteFile seguinte vai
+// falhar com um erro mais claro se o arquivo continuar travado.
+func pararServicoSeRodando() {
+	out, err := exec.Command("sc", "query", "OrionAgent").CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "RUNNING") {
+		return // não existe ainda, ou já não está rodando — nada a fazer
+	}
+
+	imprimirAviso("serviço OrionAgent já está em execução — parando antes de atualizar")
+	if _, err := exec.Command("sc", "stop", "OrionAgent").CombinedOutput(); err != nil {
+		imprimirAviso(fmt.Sprintf("não foi possível pedir a parada do serviço existente: %v", err))
+		return
+	}
+
+	// "sc stop" só sinaliza o pedido (STOP_PENDING) — espera de verdade o
+	// processo soltar o arquivo antes de seguir pra sobrescrita.
+	prazo := time.Now().Add(15 * time.Second)
+	for time.Now().Before(prazo) {
+		out, err := exec.Command("sc", "query", "OrionAgent").CombinedOutput()
+		if err == nil && strings.Contains(string(out), "STOPPED") {
+			imprimirOK("Serviço existente parado")
+			return
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	imprimirAviso("serviço existente não confirmou parada dentro do prazo — a gravação pode falhar")
+}
+
 // instalar copia os arquivos embutidos para pastaDestino e, se já houver uma
 // agent_key real configurada (não o placeholder do template), registra e
 // inicia o serviço Windows. Sem uma chave real, orion-agent.exe se recusa a
@@ -160,6 +200,12 @@ func instalar() error {
 	if err := os.MkdirAll(pastaDestino, 0755); err != nil {
 		return fmt.Errorf("criar %s: %w", pastaDestino, err)
 	}
+
+	// Se já existe um serviço OrionAgent rodando (reinstalação/atualização
+	// em cima de um agente ativo — inclusive via auto-atualização remota,
+	// ver ComandoAutoUpdate no backend), o Windows recusa sobrescrever o
+	// .exe do processo em execução. Precisa parar primeiro.
+	pararServicoSeRodando()
 
 	destinoExe := filepath.Join(pastaDestino, "orion-agent.exe")
 	if err := os.WriteFile(destinoExe, agenteEmbutido, 0755); err != nil {

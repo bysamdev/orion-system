@@ -485,11 +485,44 @@ VALUES ($1, $2, 'pending') RETURNING id::text`, in.MachineID, in.Command).Scan(&
 	return id, err
 }
 
+// marcadorAutoUpdate identifica, dentro do texto do comando, um comando de
+// auto-atualização gerado pelo próprio backend (ver monitoringHeartbeat) —
+// não um "orion-install" comum disparado manualmente em Instaladores &
+// Updates. Só serve pra HasPendingUpdateCommand não confundir os dois ao
+// decidir se já existe uma atualização enfileirada.
+const marcadorAutoUpdate = `--auto-update="true"`
+
+// HasPendingUpdateCommand verifica se já existe um comando de
+// auto-atualização enfileirado (pending ou dispatched, ou seja, ainda sem
+// resposta) pra essa máquina — evita empilhar um novo comando a cada
+// heartbeat (a cada IntervalSeconds, tipicamente 60s) enquanto o anterior
+// ainda está em trânsito.
+func (d *DB) HasPendingUpdateCommand(ctx context.Context, machineID string) (bool, error) {
+	var existe bool
+	err := d.pool.QueryRow(ctx, `
+SELECT EXISTS(
+  SELECT 1 FROM public.machine_commands
+  WHERE machine_id = $1 AND status IN ('pending', 'dispatched')
+    AND command LIKE '%' || $2 || '%'
+)`, machineID, marcadorAutoUpdate).Scan(&existe)
+	return existe, err
+}
+
+// GetPendingCommands busca os comandos pendentes de uma máquina e já os
+// marca como 'dispatched' na mesma query (UPDATE...RETURNING, atômico) —
+// antes era um SELECT puro deixando status='pending', então dois polls
+// (a cada 30s — ver commandTicker no agente) que caíssem antes do
+// primeiro comando terminar de executar buscavam e RODAVAM o mesmo
+// comando duas vezes em paralelo. Pra a maioria dos comandos isso já era
+// arriscado; pra auto-atualização do próprio agente (que pode passar de
+// 30s: download + parar serviço + trocar exe + subir de novo) virava dois
+// instaladores mexendo no mesmo serviço/arquivo ao mesmo tempo.
 func (d *DB) GetPendingCommands(ctx context.Context, machineID string) ([]CommandRow, error) {
 	rows, err := d.pool.Query(ctx, `
-SELECT id::text, machine_id::text, command, status, output, created_at, updated_at
-FROM public.machine_commands WHERE machine_id = $1 AND status = 'pending'
-ORDER BY created_at ASC`, machineID)
+UPDATE public.machine_commands
+SET status = 'dispatched', updated_at = now()
+WHERE machine_id = $1 AND status = 'pending'
+RETURNING id::text, machine_id::text, command, status, output, created_at, updated_at`, machineID)
 	if err != nil {
 		return nil, err
 	}

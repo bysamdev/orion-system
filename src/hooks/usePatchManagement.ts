@@ -135,12 +135,18 @@ export const useDeployPackage = () => {
       if (depErr) throw depErr;
 
       // 2. Queue command for the agent
-      // Format: orion-install <sha256> "<file_path>" "<type>"
+      //
+      // Formato tem que bater com parseOrionInstallArgs
+      // (orion-agent/service/windows.go), que só reconhece
+      // --url="..."/--hash="...". O formato anterior (posicional: hash,
+      // path, type) nunca batia com essa regex — todo deploy pelo painel
+      // resultava em url="" e falhava o download sem avisar visivelmente
+      // por quê (bug real, não relacionado a este commit específico).
       const { error: cmdErr } = await supabase
         .from('machine_commands')
         .insert([{
           machine_id: input.machine_id,
-          command: `orion-install ${input.sha256_hash} "${input.file_path}" "${input.type}"`,
+          command: `orion-install --url="${input.file_path}" --hash="${input.sha256_hash}"`,
           executed_by_user_id: input.executed_by_user_id,
           executed_by_name: input.executed_by_name,
         }]);

@@ -6,8 +6,8 @@
 // depender de main.
 package version
 
-// Version é reportada em cada heartbeat (campo agent_version) para o
-// backend identificar agentes desatualizados na tela de Inventário de
-// Dispositivos. Antes desta introdução o campo nunca era preenchido pelo
-// agente — heartbeatReq.AgentVersion sempre chegava vazio no backend.
-const Version = "1.0.0"
+// Version é reportada em cada heartbeat (campo agent_version). O backend
+// compara isto com lib.LatestAgentVersion (orion-api, módulo separado —
+// bump os dois juntos) pra decidir se enfileira uma auto-atualização pra
+// essa máquina (ver monitoringHeartbeat/enfileirarAutoUpdateSeNecessario).
+const Version = "1.1.0"

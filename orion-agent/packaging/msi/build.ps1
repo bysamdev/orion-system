@@ -1,4 +1,4 @@
-# build.ps1 — recompila o OrionAgent.msi a partir de OrionAgent.wxs.
+﻿# build.ps1 — recompila o OrionAgent.msi a partir de OrionAgent.wxs.
 #
 # Pré-requisito: WiX Toolset v3.14 (candle.exe/light.exe) — não a v4/v7, que
 # passou a exigir aceitar o "Open Source Maintenance Fee" da FireGiant.

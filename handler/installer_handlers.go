@@ -87,14 +87,60 @@ func resolverContextoInstalador(w http.ResponseWriter, r *http.Request, ctx cont
 		}
 	}
 
-	// cfg.LoginURL é algo como "https://orion.bysam.dev/auth" — o agente só
-	// quer a origem, sem caminho.
+	return contextoInstalador{companyID: companyID, companyName: companyName, apiKey: apiKey, apiURL: apiURLPublica()}, true
+}
+
+// apiURLPublica extrai só a origem (scheme://host) de cfg.LoginURL (algo
+// como "https://orion.bysam.dev/auth") — é o que o agente quer em
+// api_url, sem caminho. Compartilhado entre a geração manual de instalador
+// e a auto-atualização enfileirada a partir do heartbeat (mon_handlers.go).
+func apiURLPublica() string {
 	apiURL := cfg.LoginURL
 	if parsed, err := url.Parse(apiURL); err == nil && parsed.Scheme != "" && parsed.Host != "" {
-		apiURL = parsed.Scheme + "://" + parsed.Host
+		return parsed.Scheme + "://" + parsed.Host
+	}
+	return apiURL
+}
+
+// prepararInstaladorDaEmpresa monta (ou reaproveita do cache) o .exe
+// personalizado de uma empresa, sobe pro Storage se preciso, e devolve a
+// signed URL de download + o SHA-256 dos bytes reais do arquivo. Usado
+// tanto pelo endpoint de download manual (monitoringGenerateInstaller)
+// quanto pela auto-atualização enfileirada a partir do heartbeat (ver
+// monitoringHeartbeat) — os dois precisam exatamente da mesma coisa.
+//
+// Sempre remonta os bytes (mesmo em cache hit) só pra calcular o hash —
+// barato (append de bytes em memória, sem rede) e sempre correto: o nome
+// do arquivo em cache já embute o hash de instaladorGenericoHash+config,
+// então um cache hit garante que remontar agora dá bytes idênticos aos já
+// armazenados. O upload de ~16MB (a parte cara) continua pulado no cache
+// hit — só a montagem em memória se repete.
+func prepararInstaladorDaEmpresa(ctx context.Context, companyID, apiKey, apiURL, companyName string) (downloadURL, nomeArquivo, sha256Hex string, err error) {
+	pasta, nomeCache := lib.CaminhoInstaladorCache(companyID, apiKey, apiURL, companyName)
+	caminho := pasta + nomeCache
+
+	instalador, err := lib.MontarInstaladorPersonalizado(apiKey, apiURL, companyName)
+	if err != nil {
+		return "", "", "", fmt.Errorf("montar instalador personalizado: %w", err)
+	}
+	sha256Hex = lib.SHA256Hex(instalador)
+
+	existe, err := sb.InstaladorExiste(ctx, pasta, nomeCache)
+	if err != nil {
+		return "", "", "", fmt.Errorf("verificar cache do instalador: %w", err)
+	}
+	if !existe {
+		if err := sb.SubirInstalador(ctx, caminho, instalador); err != nil {
+			return "", "", "", fmt.Errorf("subir instalador ao storage: %w", err)
+		}
 	}
 
-	return contextoInstalador{companyID: companyID, companyName: companyName, apiKey: apiKey, apiURL: apiURL}, true
+	nomeArquivo = fmt.Sprintf("OrionInstaller-%s.exe", lib.SanitizarNomeArquivo(companyName))
+	downloadURL, err = sb.AssinarInstalador(ctx, caminho, nomeArquivo, 300)
+	if err != nil {
+		return "", "", "", fmt.Errorf("assinar URL do instalador: %w", err)
+	}
+	return downloadURL, nomeArquivo, sha256Hex, nil
 }
 
 // monitoringGenerateInstaller monta e devolve um .exe pronto pra instalar o
@@ -110,40 +156,10 @@ func monitoringGenerateInstaller(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	companyID, companyName, apiKey, apiURL := c.companyID, c.companyName, c.apiKey, c.apiURL
 
-	// O binário (~16MB) estoura o limite de payload de resposta das
-	// Serverless Functions da Vercel (4.5MB) — em vez de devolver os bytes
-	// direto, sobe pro Storage e devolve uma signed URL de download. O
-	// caminho é content-addressed (hash da config), então uma geração
-	// repetida sem mudanças pula o upload de ~16MB inteiro.
-	pasta, nomeCache := lib.CaminhoInstaladorCache(companyID, apiKey, apiURL, companyName)
-	caminho := pasta + nomeCache
-
-	existe, err := sb.InstaladorExiste(ctx, pasta, nomeCache)
+	downloadURL, nomeArquivo, _, err := prepararInstaladorDaEmpresa(ctx, c.companyID, c.apiKey, c.apiURL, c.companyName)
 	if err != nil {
-		log.Printf("[ERRO] verificar cache do instalador (empresa %s): %v", companyID, err)
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao preparar download do instalador"})
-		return
-	}
-	if !existe {
-		instalador, err := lib.MontarInstaladorPersonalizado(apiKey, apiURL, companyName)
-		if err != nil {
-			log.Printf("[ERRO] montar instalador personalizado (empresa %s): %v", companyID, err)
-			lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao gerar instalador"})
-			return
-		}
-		if err := sb.SubirInstalador(ctx, caminho, instalador); err != nil {
-			log.Printf("[ERRO] subir instalador ao storage (empresa %s): %v", companyID, err)
-			lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao preparar download do instalador"})
-			return
-		}
-	}
-
-	nomeArquivo := fmt.Sprintf("OrionInstaller-%s.exe", lib.SanitizarNomeArquivo(companyName))
-	downloadURL, err := sb.AssinarInstalador(ctx, caminho, nomeArquivo, 300)
-	if err != nil {
-		log.Printf("[ERRO] assinar URL do instalador (empresa %s): %v", companyID, err)
+		log.Printf("[ERRO] preparar instalador (empresa %s): %v", c.companyID, err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao preparar download do instalador"})
 		return
 	}
