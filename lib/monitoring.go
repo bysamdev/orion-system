@@ -256,7 +256,13 @@ FROM public.machine_alerts WHERE machine_id = $1 AND resolved = false ORDER BY c
 // If generic domain or WORKGROUP is provided, it assigns to the Company group.
 func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, companyID string) (string, error) {
 	groupName := strings.TrimSpace(domainName)
-	isGenericDomain := groupName == "" || strings.EqualFold(groupName, "WORKGROUP") || strings.EqualFold(groupName, "NT SERVICE") || strings.EqualFold(groupName, "local")
+	// "." é o que WTSQuerySessionInformation(WTSDomainName) devolve pra uma
+	// sessão de conta local no Windows (sem domínio AD de verdade) — sem
+	// tratar aqui, virava nome de grupo literal "." (bug real observado em
+	// produção). O agente já foi corrigido pra nunca mais enviar isso, mas
+	// esta checagem no backend protege também os agentes já instalados que
+	// ainda não foram atualizados.
+	isGenericDomain := groupName == "" || strings.EqualFold(groupName, "WORKGROUP") || strings.EqualFold(groupName, "NT SERVICE") || strings.EqualFold(groupName, "local") || groupName == "."
 
 	if isGenericDomain && companyID != "" {
 		var companyName string

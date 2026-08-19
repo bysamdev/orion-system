@@ -34,6 +34,29 @@ func identidadeViaEnv(getenv func(string) string) (dominio, usuario string) {
 	return dominio, usuario
 }
 
+// ehDominioLocal identifica valores de domínio que o Windows usa pra dizer
+// "sem domínio AD de verdade" — nunca devem virar o nome de um grupo de
+// máquinas nem prefixar um usuário formatado. "." é o mais traiçoeiro: é o
+// que WTSQuerySessionInformation(WTSDomainName) devolve literalmente pra
+// sessões de conta local (ver usuarioDaSessaoAtiva em session_windows.go) —
+// não vazio, não "WORKGROUP", então escapava do filtro antigo e virava
+// grupo de máquina com o nome "." (bug real, corrigido depois de aparecer
+// em produção).
+func ehDominioLocal(dominio, hostname string) bool {
+	dominio = strings.TrimSpace(dominio)
+	if dominio == "" {
+		return true
+	}
+	if hostname != "" && strings.EqualFold(dominio, hostname) {
+		return true
+	}
+	switch strings.ToUpper(dominio) {
+	case "WORKGROUP", ".", "NT AUTHORITY", "NT SERVICE", "FONT DRIVER HOST", "WINDOW MANAGER":
+		return true
+	}
+	return false
+}
+
 // formatarUsuarioInterativo formata o nome de usuário interativo com suporte a AD.
 // Se o domínio do usuário for um domínio AD (diferente do hostname, não vazio e não WORKGROUP/sistema),
 // retorna "DOMINIO\usuario". Se for usuário local ou já contiver barra, retorna o usuário limpo.
@@ -47,18 +70,7 @@ func formatarUsuarioInterativo(userDomain, userName, hostname string) string {
 	}
 
 	userDomain = strings.TrimSpace(userDomain)
-	if userDomain == "" {
-		return userName
-	}
-
-	// Ignora domínios locais e especiais do Windows
-	if strings.EqualFold(userDomain, hostname) ||
-		strings.EqualFold(userDomain, "WORKGROUP") ||
-		strings.EqualFold(userDomain, ".") ||
-		strings.EqualFold(userDomain, "NT AUTHORITY") ||
-		strings.EqualFold(userDomain, "NT SERVICE") ||
-		strings.EqualFold(userDomain, "FONT DRIVER HOST") ||
-		strings.EqualFold(userDomain, "WINDOW MANAGER") {
+	if ehDominioLocal(userDomain, hostname) {
 		return userName
 	}
 
@@ -85,7 +97,7 @@ func resolverIdentidadeDoUsuario() (dominio, usuario, sid string, fallbackMotivo
 		sid = s
 
 		// Se a máquina não reportou domínio AD mas a sessão do usuário tem domínio AD específico:
-		if (dominio == "" || dominio == "WORKGROUP") && userDomain != "" && !strings.EqualFold(userDomain, hostname) && !strings.EqualFold(userDomain, "WORKGROUP") {
+		if (dominio == "" || dominio == "WORKGROUP") && !ehDominioLocal(userDomain, hostname) {
 			dominio = userDomain
 		}
 		if dominio == "" {
@@ -107,7 +119,7 @@ func resolverIdentidadeDoUsuario() (dominio, usuario, sid string, fallbackMotivo
 	if regDomain, regUser := ultimoUsuarioLogado(); regUser != "" {
 		hostname, _ := os.Hostname()
 		usuario := formatarUsuarioInterativo(regDomain, regUser, hostname)
-		if (dominio == "" || dominio == "WORKGROUP") && regDomain != "" && !strings.EqualFold(regDomain, hostname) && !strings.EqualFold(regDomain, "WORKGROUP") {
+		if (dominio == "" || dominio == "WORKGROUP") && !ehDominioLocal(regDomain, hostname) {
 			dominio = regDomain
 		}
 		if dominio == "" {
@@ -119,7 +131,7 @@ func resolverIdentidadeDoUsuario() (dominio, usuario, sid string, fallbackMotivo
 	// 4. Último recurso: variáveis de ambiente do processo
 	dEnv, uEnv := identidadeViaEnv(os.Getenv)
 	if dominio == "" || dominio == "WORKGROUP" {
-		if dEnv != "" && dEnv != "WORKGROUP" {
+		if !ehDominioLocal(dEnv, "") {
 			dominio = dEnv
 		} else if dominio == "" {
 			dominio = "WORKGROUP"
