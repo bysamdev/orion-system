@@ -38,28 +38,36 @@ const pastaDestino = `C:\Orion`
 const placeholderAgentKey = "COLOQUE_SUA_CHAVE_AQUI"
 
 func main() {
-	fmt.Println("=== Instalador do Orion Agent ===")
+	imprimirBanner()
 
+	imprimirPasso(1, totalPassos, "Verificando privilégios de administrador...")
 	elevado, err := estaElevado()
 	if err != nil {
 		falharComPausa("Não foi possível verificar o nível de privilégio: %v", err)
 	}
 
 	if !elevado {
-		fmt.Println("Este instalador precisa de privilégio de Administrador para registrar o serviço Windows.")
-		fmt.Println("Solicitando elevação (UAC)...")
+		imprimirAviso("Privilégio de administrador necessário para registrar o serviço Windows")
+		fmt.Println("      Solicitando elevação (UAC)...")
 		if err := relançarElevado(); err != nil {
 			falharComPausa("Não foi possível solicitar elevação: %v\nExecute este instalador manualmente como Administrador.", err)
 		}
 		return
 	}
+	imprimirOK("Privilégios de administrador confirmados")
 
 	if err := instalar(); err != nil {
 		falharComPausa("Falha na instalação: %v", err)
 	}
 
-	pausar("Instalação concluída. Pressione ENTER para fechar...")
+	pausar("Pressione ENTER para fechar...")
 }
+
+// totalPassos é fixo em 4 mesmo no caminho em que o serviço não é
+// registrado (agent_key ainda no placeholder) — a etapa 4 nesse caso vira a
+// caixa de pendência em vez de "serviço iniciado", mas a contagem
+// [n/4] permanece estável do início ao fim de uma mesma execução.
+const totalPassos = 4
 
 // estaElevado verifica se o processo atual já roda com token elevado —
 // mesmo critério que o Windows usa para decidir se uma ação exige um novo
@@ -103,6 +111,8 @@ func relançarElevado() error {
 // deixar os arquivos prontos e orientar o técnico a completar a
 // configuração.
 func instalar() error {
+	imprimirPasso(2, totalPassos, fmt.Sprintf("Copiando arquivos para %s...", pastaDestino))
+
 	if err := os.MkdirAll(pastaDestino, 0755); err != nil {
 		return fmt.Errorf("criar %s: %w", pastaDestino, err)
 	}
@@ -111,7 +121,7 @@ func instalar() error {
 	if err := os.WriteFile(destinoExe, agenteEmbutido, 0755); err != nil {
 		return fmt.Errorf("gravar orion-agent.exe: %w", err)
 	}
-	fmt.Printf("✓ %s\n", destinoExe)
+	imprimirOK(destinoExe)
 
 	// agent.yaml só é escrito se ainda não existir — uma reinstalação/
 	// atualização não deve sobrescrever uma configuração já preenchida com
@@ -126,27 +136,34 @@ func instalar() error {
 		if err := os.WriteFile(destinoConfig, configTemplate, 0644); err != nil {
 			return fmt.Errorf("gravar agent.yaml: %w", err)
 		}
-		fmt.Printf("✓ %s (novo, com valores padrão)\n", destinoConfig)
+		imprimirOK(destinoConfig + " (novo, com valores padrão)")
 	} else {
-		fmt.Printf("• %s já existe — mantido sem alteração\n", destinoConfig)
+		imprimirOK(destinoConfig + " (já existe — mantido sem alteração)")
 	}
 
+	imprimirPasso(3, totalPassos, "Verificando configuração...")
 	chaveConfigurada, err := agentKeyConfigurada(destinoConfig)
 	if err != nil {
 		return fmt.Errorf("ler agent_key de %s: %w", destinoConfig, err)
 	}
 
 	if !chaveConfigurada {
-		fmt.Println()
-		fmt.Printf("Arquivos copiados, mas o serviço NÃO foi registrado: edite\n%s\ne substitua 'agent_key' pela chave real da empresa antes de instalar o serviço.\n", destinoConfig)
-		fmt.Println()
-		fmt.Println("Depois de editar, rode manualmente (como Administrador):")
+		imprimirAviso("agent_key ainda não foi configurada")
+		imprimirCaixaFinal(corAmarela, "Instalação parcial — configure a agent_key")
+		fmt.Printf("Edite %s e substitua 'agent_key' pela chave\nreal da empresa. Depois, rode manualmente (como Administrador):\n\n", destinoConfig)
 		fmt.Printf("  %s install\n", destinoExe)
 		fmt.Println(`  sc start OrionAgent`)
+		fmt.Println()
 		return nil
 	}
+	imprimirOK("agent_key configurada")
 
-	return registrarEIniciarServico(destinoExe)
+	if err := registrarEIniciarServico(destinoExe); err != nil {
+		return err
+	}
+
+	imprimirCaixaFinal(corVerde, "Instalação concluída com sucesso")
+	return nil
 }
 
 // agentKeyConfigurada faz uma checagem simples de texto — evitar importar o
@@ -176,26 +193,27 @@ func agentKeyConfigurada(caminhoConfig string) (bool, error) {
 // tolerado — seguimos direto para o start, que é o que de fato importa
 // numa atualização.
 func registrarEIniciarServico(caminhoExe string) error {
-	fmt.Println("Registrando o serviço OrionAgent...")
+	imprimirPasso(4, totalPassos, "Registrando e iniciando o serviço Windows...")
+
 	instalarCmd := exec.Command(caminhoExe, "install")
 	if out, err := instalarCmd.CombinedOutput(); err != nil {
-		fmt.Printf("(install: %v — %s; seguindo para iniciar, pode já estar registrado)\n", err, strings.TrimSpace(string(out)))
+		imprimirAviso(fmt.Sprintf("install: %v — %s (seguindo para iniciar, pode já estar registrado)", err, strings.TrimSpace(string(out))))
 	} else {
-		fmt.Print(string(out))
+		imprimirOK("Serviço OrionAgent registrado")
 	}
 
-	fmt.Println("Iniciando o serviço OrionAgent...")
 	startCmd := exec.Command("sc", "start", "OrionAgent")
 	out, err := startCmd.CombinedOutput()
-	fmt.Print(string(out))
 	if err != nil {
 		// "1056" = serviço já em execução — não é falha real.
 		if strings.Contains(string(out), "1056") {
-			fmt.Println("(serviço já estava em execução)")
+			imprimirOK("Serviço já estava em execução")
 			return nil
 		}
+		imprimirErro(strings.TrimSpace(string(out)))
 		return fmt.Errorf("iniciar serviço: %w", err)
 	}
+	imprimirOK("Serviço em execução")
 	return nil
 }
 
@@ -205,7 +223,8 @@ func pausar(mensagem string) {
 }
 
 func falharComPausa(formato string, args ...any) {
-	fmt.Fprintf(os.Stderr, formato+"\n", args...)
+	imprimirCaixaFinal(corVermelha, "Falha na instalação")
+	fmt.Fprintf(os.Stderr, colorir(corVermelha, formato)+"\n", args...)
 	pausar("Pressione ENTER para fechar...")
 	os.Exit(1)
 }
