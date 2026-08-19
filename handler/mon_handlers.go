@@ -972,6 +972,14 @@ type grafanaWebhookPayload struct {
 	Alerts []grafanaWebhookAlert `json:"alerts"`
 }
 
+// alertaAgenteOffline precisa bater exatamente com o `title` da regra
+// "Agente Offline" em rules.yaml (Grafana usa o title da regra como valor
+// do label reservado `alertname`, sem sufixo/normalização). É o único tipo
+// de alerta que também espelha em machines.status — os demais (CPU, disco,
+// antivírus, firewall, ativação) só entram em machine_alerts, sem afetar o
+// badge online/offline da tela de Ativos.
+const alertaAgenteOffline = "Agente Offline"
+
 func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
 	ip := lib.ClientIP(r)
 	if !limiterGrafanaWebhook.Permitir(ip) {
@@ -1031,10 +1039,20 @@ func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
 				log.Printf("[GRAFANA-WEBHOOK] erro ao inserir alerta %s/%s: %v", machineID, alertType, err)
 				continue
 			}
+			if alertType == alertaAgenteOffline {
+				if err := db.UpdateMachine(ctx, machineID, map[string]any{"status": "offline"}); err != nil {
+					log.Printf("[GRAFANA-WEBHOOK] erro ao marcar máquina %s como offline: %v", machineID, err)
+				}
+			}
 		case "resolved":
 			if err := db.ResolveAlertsByType(ctx, machineID, alertType); err != nil {
 				log.Printf("[GRAFANA-WEBHOOK] erro ao resolver alerta %s/%s: %v", machineID, alertType, err)
 				continue
+			}
+			if alertType == alertaAgenteOffline {
+				if err := db.UpdateMachine(ctx, machineID, map[string]any{"status": "online"}); err != nil {
+					log.Printf("[GRAFANA-WEBHOOK] erro ao marcar máquina %s como online: %v", machineID, err)
+				}
 			}
 		default:
 			continue
