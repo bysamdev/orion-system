@@ -472,6 +472,16 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	// Atualizações de sistema (sem geração de alerta de reinicialização conforme preferência)
 	_ = db.ResolveAlertsByType(ctx, machineID, "updates")
 
+	// Este heartbeat É a prova de que a máquina está online agora — resolve
+	// qualquer "Agente Offline" pendente aqui mesmo, sem esperar o Grafana
+	// mandar o evento "resolved" (que só chega depois de alguns ciclos de
+	// avaliação). Sem isso, HasUnresolvedAlerts logo abaixo via esse alerta
+	// como ainda aberto e marcava a máquina como "alerta" em vez de
+	// "online" nos primeiros minutos após ela voltar — ficar offline nunca
+	// deveria contar como um motivo de alerta por si só (CPU/disco/
+	// antivírus/firewall continuam contando normalmente).
+	_ = db.ResolveAlertsByType(ctx, machineID, alertaAgenteOffline)
+
 	// Verifica se ainda existem alertas não resolvidos para esta máquina
 	if hasActive, err := db.HasUnresolvedAlerts(ctx, machineID); err == nil {
 		hasAlert = hasAlert || hasActive
