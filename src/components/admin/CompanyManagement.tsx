@@ -13,6 +13,7 @@ import { Plus, Loader2, Trash2, Pencil, Building2, Zap, CheckCircle2, Timer } fr
 import { Switch } from '@/components/ui/switch';
 import { companyNameSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
+import { sincronizarEmpresaComGrafana, removerEmpresaDoGrafana } from '@/hooks/useGrafanaSync';
 import { formatDate, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -150,12 +151,14 @@ export const CompanyManagement = () => {
       if (data.id) {
         const { error } = await supabase.from('companies').update(payload).eq('id', data.id);
         if (error) throw error;
+        return { id: data.id };
       } else {
-        const { error } = await supabase.from('companies').insert(payload);
+        const { data: inserted, error } = await supabase.from('companies').insert(payload).select('id').single();
         if (error) throw error;
+        return { id: inserted.id as string };
       }
     },
-    onSuccess: () => {
+    onSuccess: ({ id }, variables) => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
       queryClient.invalidateQueries({ queryKey: ['company-options'] });
       queryClient.invalidateQueries({ queryKey: ['ticket-company-data'] });
@@ -164,6 +167,18 @@ export const CompanyManagement = () => {
       setFormData(emptyForm);
       setEditingId(null);
       toast({ title: 'Sucesso', description: editingId ? 'Empresa atualizada.' : 'Empresa criada.' });
+
+      // Espelha a empresa no Grafana (pasta + dashboard) — best-effort: o
+      // Grafana é só um espelho de navegação, uma falha aqui não deve
+      // incomodar quem só quer cadastrar a empresa. Ver useGrafanaSync.ts.
+      sincronizarEmpresaComGrafana(id, variables.name.trim()).catch((err) => {
+        logError('sincronizarEmpresaComGrafana', err);
+        toast({
+          title: 'Empresa salva, mas o Grafana não sincronizou',
+          description: err instanceof Error ? err.message : 'Tente novamente mais tarde.',
+          variant: 'destructive',
+        });
+      });
     },
     onError: (error) => {
       logError('saveMutation', error);
@@ -176,10 +191,19 @@ export const CompanyManagement = () => {
       const { error } = await supabase.from('companies').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
       setDeleteCompanyId(null);
       toast({ title: 'Sucesso', description: 'Empresa removida.' });
+
+      removerEmpresaDoGrafana(id).catch((err) => {
+        logError('removerEmpresaDoGrafana', err);
+        toast({
+          title: 'Empresa removida, mas a pasta no Grafana continua lá',
+          description: err instanceof Error ? err.message : 'Remova manualmente se necessário.',
+          variant: 'destructive',
+        });
+      });
     },
     onError: (error) => {
       logError('deleteCompanyMutation', error);

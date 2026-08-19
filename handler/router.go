@@ -208,6 +208,8 @@ func buildRouter() http.Handler {
 
 		r.Get("/api/monitoring/companies/{id}/installer", monitoringGenerateInstaller)
 		r.Get("/api/monitoring/companies/{id}/installer-msi", monitoringGenerateInstallerMsi)
+		r.Post("/api/monitoring/companies/{id}/grafana-sync", monitoringGrafanaSync)
+		r.Delete("/api/monitoring/companies/{id}/grafana-sync", monitoringGrafanaSyncDelete)
 	})
 
 	return r
