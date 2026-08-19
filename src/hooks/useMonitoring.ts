@@ -337,7 +337,6 @@ export function useDeleteMachine() {
       }
 
       // 2. Direct Supabase client cascade delete
-      await supabase.from('machine_metrics' as any).delete().eq('machine_id', id);
       await supabase.from('machine_hardware' as any).delete().eq('machine_id', id);
       await supabase.from('machine_alerts' as any).delete().eq('machine_id', id);
       await supabase.from('machine_commands' as any).delete().eq('machine_id', id);

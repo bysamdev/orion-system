@@ -52,6 +52,13 @@ var (
 	// generoso o bastante pra absorver isso sem abrir a porta pra um
 	// segredo vazado inundar a tabela de alertas.
 	limiterGrafanaWebhook = lib.NewRateLimiter(1*time.Minute, 120)
+
+	// metricsHistory: cada requisição dispara 5 consultas de range ao
+	// Prometheus via proxy do Grafana — bem mais caro que uma leitura comum
+	// no Supabase. O frontend só refaz essa chamada a cada 60s por padrão;
+	// 30/min por IP dá folga confortável sem deixar a rota aberta a
+	// abuso por uma sessão JWT válida.
+	limiterMetricsHistory = lib.NewRateLimiter(1*time.Minute, 30)
 )
 
 func init() {

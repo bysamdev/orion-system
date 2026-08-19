@@ -161,6 +161,11 @@ func monitoringMachineDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
+	if !limiterMetricsHistory.Permitir(lib.ClientIP(r)) {
+		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "muitas requisições — aguarde e tente novamente"})
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 	defer cancel()
 
