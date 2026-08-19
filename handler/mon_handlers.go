@@ -187,7 +187,7 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 		period = "1h"
 	}
 
-	metrics, err := lib.QueryMachineMetricsHistory(ctx, cfg.GrafanaURL, cfg.GrafanaAPIToken, cfg.GrafanaPromDSUID, id, period)
+	metrics, err := lib.QueryMachineMetricsHistory(ctx, cfg.GrafanaURL, cfg.GrafanaAPIToken, cfg.GrafanaPromDSUID, cfg.GrafanaBypassSecret, id, period)
 	if err != nil {
 		log.Printf("[ERRO] histórico de métricas via Grafana para %s: %v", id, err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar métricas"})

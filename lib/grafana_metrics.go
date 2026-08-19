@@ -48,7 +48,7 @@ type promRangeResponse struct {
 // Retorna um mapa timestamp-unix -> valor, só do primeiro result series
 // (as consultas usadas aqui são sempre por um único machine_id, que já
 // identifica uma série só).
-func queryPrometheusRange(ctx context.Context, grafanaURL, apiToken, datasourceUID, promQuery string, start, end time.Time, step time.Duration) (map[int64]float64, error) {
+func queryPrometheusRange(ctx context.Context, grafanaURL, apiToken, datasourceUID, bypassSecret, promQuery string, start, end time.Time, step time.Duration) (map[int64]float64, error) {
 	u := fmt.Sprintf("%s/api/datasources/proxy/uid/%s/api/v1/query_range", grafanaURL, datasourceUID)
 	q := url.Values{}
 	q.Set("query", promQuery)
@@ -61,6 +61,14 @@ func queryPrometheusRange(ctx context.Context, grafanaURL, apiToken, datasourceU
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+apiToken)
+	// Chamada servidor-servidor pro hostname público do Grafana (atrás do
+	// Cloudflare) tem cara de bot pro Bot Fight Mode do Cloudflare e leva um
+	// Managed Challenge (HTML, não JSON) em vez da resposta real. Esse
+	// header casa com uma regra de WAF que pula esse desafio só pra quem
+	// carrega o segredo — ver GRAFANA_BYPASS_SECRET.
+	if bypassSecret != "" {
+		req.Header.Set("X-Orion-Backend-Secret", bypassSecret)
+	}
 
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Do(req)
@@ -124,7 +132,7 @@ func isSafePromLabelValue(v string) bool {
 // máquina no Prometheus (via Grafana) e devolve no mesmo formato que
 // MetricsByMachineID devolvia lendo de machine_metrics — troca só a fonte,
 // mantém o contrato que o handler HTTP e o frontend já esperam.
-func QueryMachineMetricsHistory(ctx context.Context, grafanaURL, apiToken, datasourceUID, machineID, period string) ([]MetricRow, error) {
+func QueryMachineMetricsHistory(ctx context.Context, grafanaURL, apiToken, datasourceUID, bypassSecret, machineID, period string) ([]MetricRow, error) {
 	if !isSafePromLabelValue(machineID) {
 		return nil, fmt.Errorf("machine_id inválido")
 	}
@@ -145,7 +153,7 @@ func QueryMachineMetricsHistory(ctx context.Context, grafanaURL, apiToken, datas
 
 	results := map[string]map[int64]float64{}
 	for name, q := range queries {
-		r, err := queryPrometheusRange(ctx, grafanaURL, apiToken, datasourceUID, q, start, end, step)
+		r, err := queryPrometheusRange(ctx, grafanaURL, apiToken, datasourceUID, bypassSecret, q, start, end, step)
 		if err != nil {
 			return nil, fmt.Errorf("consultar %s: %w", name, err)
 		}

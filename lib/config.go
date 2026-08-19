@@ -14,6 +14,7 @@ type Config struct {
 	GrafanaURL           string
 	GrafanaAPIToken      string
 	GrafanaPromDSUID     string
+	GrafanaBypassSecret  string
 	ResendAPIKey         string
 	ResendFrom           string
 	LoginURL             string
@@ -37,6 +38,7 @@ func LoadConfig() Config {
 		GrafanaURL:           envOr("GRAFANA_URL", "https://monitor-orion.bysam.dev"),
 		GrafanaAPIToken:      os.Getenv("GRAFANA_API_TOKEN"),
 		GrafanaPromDSUID:     envOr("GRAFANA_PROM_DATASOURCE_UID", "PBFA97CFB590B2093"),
+		GrafanaBypassSecret:  os.Getenv("GRAFANA_BYPASS_SECRET"),
 		ResendAPIKey:         os.Getenv("RESEND_API_KEY"),
 		ResendFrom:           envOr("RESEND_FROM", "Orion System <no-reply@orion.local>"),
 		LoginURL:             envOr("LOGIN_URL", "https://orion.bysam.dev/auth"),
