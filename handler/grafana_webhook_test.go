@@ -45,6 +45,20 @@ func TestGrafanaWebhook_SegredoIncorretoRejeita(t *testing.T) {
 	}
 }
 
+func TestAfetaStatusDaMaquina(t *testing.T) {
+	casos := map[string]bool{
+		"Agente Offline":          true,
+		"Servidor Debian Offline": true,
+		"CPU Alto Sustentado":     false,
+		"":                        false,
+	}
+	for alertType, esperado := range casos {
+		if got := afetaStatusDaMaquina(alertType); got != esperado {
+			t.Errorf("afetaStatusDaMaquina(%q) = %v, esperado %v", alertType, got, esperado)
+		}
+	}
+}
+
 func TestGrafanaWebhook_CorpoInvalidoAposSegredoCorretoRejeitaSemPanico(t *testing.T) {
 	original := cfg.GrafanaWebhookSecret
 	cfg.GrafanaWebhookSecret = "segredo-correto-de-teste"
