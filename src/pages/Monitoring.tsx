@@ -21,12 +21,14 @@ import {
   Edit2,
   Trash2,
   Lock,
+  LayoutGrid,
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import {
   useMonitoringDashboard,
   useMonitoringGroups,
   useGroupMachines,
+  useAllMachines,
   useMachineDetail,
   hasDiskAlert,
   useCreateGroup,
@@ -133,39 +135,78 @@ function GroupItem({
   );
 }
 
+// ── Divisor e Título de Seção de Grupo / Cliente ─────────
+function GroupSectionHeader({
+  title,
+  contact,
+  onlineCount,
+  totalCount,
+}: {
+  title: string;
+  contact?: string | null;
+  onlineCount: number;
+  totalCount: number;
+}) {
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      {/* Barra vertical destacada ao lado do nome */}
+      <div className="w-1.5 h-6 rounded-full bg-primary flex-shrink-0" />
+      <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+        <h3 className="text-base font-bold text-foreground tracking-tight">
+          {title}
+        </h3>
+        {contact && (
+          <span className="text-xs text-muted-foreground hidden sm:inline-block truncate max-w-[200px]">
+            • {contact}
+          </span>
+        )}
+        <Badge variant="outline" className="text-[11px] font-semibold ml-1 gap-1.5 border-border/60 bg-muted/30">
+          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", onlineCount > 0 ? "bg-emerald-500" : "bg-muted-foreground")} />
+          <span>{onlineCount}/{totalCount} online</span>
+        </Badge>
+      </div>
+      {/* Linha horizontal dividindo a seção */}
+      <div className="flex-1 border-t border-border/40 ml-2" />
+    </div>
+  );
+}
+
 // ── Grid Principal de Máquinas ──────────────────────────
 function MachinesGrid({
   groupId,
+  groups,
   statusFilter,
   search,
   onSelect,
 }: {
   groupId: string | null;
+  groups?: MachineGroup[];
   statusFilter: StatusFilter;
   search: string;
   onSelect: (m: MachineWithMetric, initialTab?: string) => void;
 }) {
-  const { data: machines, isLoading } = useGroupMachines(groupId);
+  const isAllGroups = groupId === 'all' || !groupId;
 
-  const filtered = useMemo(() => {
-    if (!machines) return [];
-    return (machines || []).filter((m) => {
-      const isOnline =
-        m.status === 'online' ||
-        m.status === 'alerta' ||
-        (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false);
+  const { data: groupMachines, isLoading: groupLoading } = useGroupMachines(
+    !isAllGroups ? groupId : null
+  );
+  const { data: allMachines, isLoading: allLoading } = useAllMachines();
 
-      if (statusFilter === 'online' && !isOnline) return false;
-      if (statusFilter === 'offline' && isOnline) return false;
-      if (statusFilter === 'alert' && m.status !== 'alerta' && !hasDiskAlert(m)) return false;
-      if (search && !m.hostname.toLowerCase().includes(search.toLowerCase())) return false;
-      return true;
-    });
-  }, [machines, statusFilter, search]);
+  const machines = isAllGroups ? allMachines : groupMachines;
+  const isLoading = isAllGroups ? allLoading : groupLoading;
 
-  if (!groupId) {
-    return <MonitoringOnboarding />;
-  }
+  const filterMachine = (m: MachineWithMetric) => {
+    const isOnline =
+      m.status === 'online' ||
+      m.status === 'alerta' ||
+      (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false);
+
+    if (statusFilter === 'online' && !isOnline) return false;
+    if (statusFilter === 'offline' && isOnline) return false;
+    if (statusFilter === 'alert' && m.status !== 'alerta' && !hasDiskAlert(m)) return false;
+    if (search && !m.hostname.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  };
 
   if (isLoading) {
     return (
@@ -175,27 +216,158 @@ function MachinesGrid({
     );
   }
 
-  if (filtered.length === 0) {
-    const isTotallyEmpty = machines && machines.length === 0;
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-2xl opacity-50">
+  // ── Visão de Todos os Grupos (Sectioned by Client with Divider Bar) ──
+  if (isAllGroups) {
+    const registeredGroups = groups || [];
+
+    // Agrupa máquinas por group_id
+    const machinesByGroup = new Map<string, MachineWithMetric[]>();
+    const unassignedMachines: MachineWithMetric[] = [];
+
+    (machines || []).forEach((m) => {
+      if (m.group_id) {
+        const list = machinesByGroup.get(m.group_id) || [];
+        list.push(m);
+        machinesByGroup.set(m.group_id, list);
+      } else {
+        unassignedMachines.push(m);
+      }
+    });
+
+    const totalMatching = (machines || []).filter(filterMachine).length;
+
+    if (registeredGroups.length === 0 && unassignedMachines.length === 0) {
+      return <MonitoringOnboarding />;
+    }
+
+    if (totalMatching === 0 && search) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-2xl opacity-60">
           <div className="p-4 bg-muted rounded-full">
             <Monitor className="h-10 w-10 text-muted-foreground/40" />
           </div>
           <p className="text-sm font-medium">
-            {isTotallyEmpty 
+            Nenhuma máquina encontrada para a busca "{search}".
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-8">
+        {registeredGroups.map((g) => {
+          const groupRawMachines = machinesByGroup.get(g.id) || [];
+          const groupFiltered = groupRawMachines.filter(filterMachine);
+
+          // Se estiver pesquisando ou filtrando por status e não houver correspondência, oculta o grupo
+          if (groupFiltered.length === 0 && (search || statusFilter !== 'all')) {
+            return null;
+          }
+
+          const onlineCount = groupRawMachines.filter(m =>
+            m.status === 'online' || m.status === 'alerta' ||
+            (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false)
+          ).length;
+
+          return (
+            <div key={g.id} className="space-y-4">
+              <GroupSectionHeader
+                title={g.name}
+                contact={g.client_contact}
+                onlineCount={onlineCount}
+                totalCount={groupRawMachines.length || g.total_machines}
+              />
+
+              {groupFiltered.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                  {groupFiltered.map((m) => (
+                    <MachineCard key={m.id} machine={m} onSelect={onSelect} />
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 rounded-2xl border border-dashed border-border/50 bg-muted/20 text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5 py-8">
+                  <Monitor className="w-5 h-5 text-muted-foreground/40" />
+                  <span>Nenhum dispositivo cadastrado neste grupo ainda.</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Dispositivos sem grupo vinculado */}
+        {unassignedMachines.length > 0 && (() => {
+          const filteredUnassigned = unassignedMachines.filter(filterMachine);
+          if (filteredUnassigned.length === 0 && (search || statusFilter !== 'all')) return null;
+
+          const onlineUnassigned = unassignedMachines.filter(m =>
+            m.status === 'online' || m.status === 'alerta' ||
+            (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false)
+          ).length;
+
+          return (
+            <div className="space-y-4">
+              <GroupSectionHeader
+                title="Dispositivos Globais / Sem Grupo"
+                onlineCount={onlineUnassigned}
+                totalCount={unassignedMachines.length}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                {filteredUnassigned.map((m) => (
+                  <MachineCard key={m.id} machine={m} onSelect={onSelect} />
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    );
+  }
+
+  // ── Visão de Grupo Único Selecionado ──
+  const selectedGroup = groups?.find(g => g.id === groupId);
+  const filtered = (machines || []).filter(filterMachine);
+
+  if (filtered.length === 0) {
+    const isTotallyEmpty = machines && machines.length === 0;
+    return (
+      <div className="space-y-4">
+        {selectedGroup && (
+          <GroupSectionHeader
+            title={selectedGroup.name}
+            contact={selectedGroup.client_contact}
+            onlineCount={selectedGroup.online_machines}
+            totalCount={selectedGroup.total_machines}
+          />
+        )}
+        <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-2xl opacity-60">
+          <div className="p-4 bg-muted rounded-full">
+            <Monitor className="h-10 w-10 text-muted-foreground/40" />
+          </div>
+          <p className="text-sm font-medium">
+            {isTotallyEmpty
               ? "Nenhum dispositivo neste grupo ainda. Instale o agente para começar a monitorar."
               : "Nenhuma máquina encontrada com os filtros ativos."}
           </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
-      {filtered.map((m) => (
-        <MachineCard key={m.id} machine={m} onSelect={onSelect} />
-      ))}
+    <div className="space-y-4">
+      {selectedGroup && (
+        <GroupSectionHeader
+          title={selectedGroup.name}
+          contact={selectedGroup.client_contact}
+          onlineCount={selectedGroup.online_machines}
+          totalCount={selectedGroup.total_machines}
+        />
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+        {filtered.map((m) => (
+          <MachineCard key={m.id} machine={m} onSelect={onSelect} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -204,7 +376,7 @@ function MachinesGrid({
 const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExternalMachine }) => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const queryClient = useQueryClient();
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>('all');
   const [selectedMachine, setSelectedMachine] = useState<MachineWithMetric | null>(null);
   const [selectedDrawerTab, setSelectedDrawerTab] = useState<string>('overview');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -236,12 +408,22 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
 
   const { data: externalMachineDetail } = useMachineDetail(externalMachineId || null);
 
-  // Auto-select first group if none selected
+  const totalOnlineAll = useMemo(() => {
+    if (dashboard?.online !== undefined) return dashboard.online;
+    return (groups || []).reduce((acc, g) => acc + (g.online_machines || 0), 0);
+  }, [dashboard, groups]);
+
+  const totalMachinesAll = useMemo(() => {
+    if (dashboard?.total !== undefined) return dashboard.total;
+    return (groups || []).reduce((acc, g) => acc + (g.total_machines || 0), 0);
+  }, [dashboard, groups]);
+
+  // Auto-select "all" if none selected
   React.useEffect(() => {
-    if (!selectedGroupId && groups && groups.length > 0) {
-      setSelectedGroupId(groups[0].id);
+    if (!selectedGroupId) {
+      setSelectedGroupId('all');
     }
-  }, [groups, selectedGroupId]);
+  }, [selectedGroupId]);
 
   // Handle external machine selection (e.g. clicked from alerts tab)
   React.useEffect(() => {
@@ -485,6 +667,36 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                 {groupsOpen && (
                   <ScrollArea className="h-[calc(100vh-320px)]">
                     <div className="space-y-1 pr-3 pl-1">
+                      {/* Item "Todos os Clientes / Grupos" */}
+                      <button
+                        onClick={() => setSelectedGroupId('all')}
+                        className={cn(
+                          'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors mb-2 group relative',
+                          selectedGroupId === 'all'
+                            ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                            : 'hover:bg-muted/70 text-foreground border border-transparent'
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <LayoutGrid className={cn("w-4 h-4 shrink-0", selectedGroupId === 'all' ? "text-primary-foreground" : "text-muted-foreground")} />
+                          <p className="text-sm truncate leading-tight font-semibold">Todos os Clientes</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className="flex items-center gap-1 text-[11px] font-semibold">
+                            <span className={cn(
+                              "h-1.5 w-1.5 rounded-full shrink-0",
+                              selectedGroupId === 'all' ? "bg-white" : "bg-emerald-500"
+                            )} />
+                            <span className={selectedGroupId === 'all' ? 'text-primary-foreground' : 'text-emerald-600 dark:text-emerald-400'}>
+                              {totalOnlineAll}
+                            </span>
+                          </span>
+                          <span className={cn('text-[10px] font-medium opacity-50')}>
+                            /{totalMachinesAll}
+                          </span>
+                        </div>
+                      </button>
+
                       {groupsLoading ? (
                         Array.from({ length: 4 }).map((_, i) => (
                           <Skeleton key={i} className="h-10 w-full rounded-lg" />
@@ -515,15 +727,6 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
 
           {/* Main — machine grid */}
           <div className="flex-1 min-w-0">
-            {selectedGroup && (
-              <div className="flex items-center gap-2 mb-4">
-                <h2 className="font-semibold text-foreground">{selectedGroup.name}</h2>
-                <Badge variant="secondary" className="text-xs">
-                  {selectedGroup.total_machines} máquina{selectedGroup.total_machines !== 1 ? 's' : ''}
-                </Badge>
-              </div>
-            )}
-
             {groupsLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => <MachineCardSkeleton key={i} />)}
@@ -531,6 +734,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
             ) : (
               <MachinesGrid
                 groupId={selectedGroupId}
+                groups={groups}
                 statusFilter={statusFilter}
                 search={search}
                 onSelect={handleSelectMachine}
