@@ -73,6 +73,20 @@ func resolverContextoInstalador(w http.ResponseWriter, r *http.Request, ctx cont
 		return contextoInstalador{}, false
 	}
 
+	// Rede de segurança: a sincronização com o Grafana já roda ao
+	// criar/editar empresa em CompanyManagement.tsx, mas empresas criadas
+	// antes dessa feature (ou antes do GRAFANA_PROVISION_TOKEN existir)
+	// podem não ter pasta/dashboard ainda — gerar um instalador é
+	// tipicamente o primeiro passo de verdade com um cliente novo, então
+	// garante aqui também. Best-effort de propósito (só loga): a geração
+	// do instalador não pode falhar por causa do Grafana.
+	if cfg.GrafanaProvisionToken != "" {
+		provisioner := lib.NewGrafanaProvisioner(cfg.GrafanaURL, cfg.GrafanaProvisionToken)
+		if err := provisioner.EnsureCompanyDashboard(ctx, companyID, companyName); err != nil {
+			log.Printf("[AVISO] sincronizar empresa %s com o Grafana (via geração de instalador): %v", companyID, err)
+		}
+	}
+
 	// cfg.LoginURL é algo como "https://orion.bysam.dev/auth" — o agente só
 	// quer a origem, sem caminho.
 	apiURL := cfg.LoginURL
