@@ -385,133 +385,118 @@ export default function WebMonitoring() {
             ABA 1: SITES & APLICAÇÕES WEB
         ══════════════════════════════════════════════════════════════════ */}
         <TabsContent value="web" className="space-y-6 mt-0">
-          {/* KPI Matrix for Web */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* KPI Matrix for Web (Compact & Minimal) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {/* KPI 1: Monitores Web */}
-            <Card className="border-border/40 bg-card hover:shadow-md transition-all">
-              <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
+              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Monitores Web
                   </span>
-                  <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                    <Globe className="w-4 h-4" />
+                  <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <Globe className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-                      {webStats.online}/{webStats.total}
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'text-[10px] font-bold gap-1',
-                        webStats.offline === 0
-                          ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/30'
-                          : 'text-red-600 bg-red-500/10 border-red-500/30'
-                      )}
-                    >
-                      {webStats.uptimePct}% Online
-                    </Badge>
-                  </div>
-                  <Progress value={webStats.uptimePct} className="h-1.5 mt-2 bg-muted/60" />
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                    {webStats.online}/{webStats.total}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'text-[10px] font-bold px-1.5 py-0.2',
+                      webStats.offline === 0
+                        ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/30'
+                        : 'text-red-600 bg-red-500/10 border-red-500/30'
+                    )}
+                  >
+                    {webStats.uptimePct}% Online
+                  </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
                   <span>{webStats.offline} offline</span>
-                  <span className="text-emerald-600 font-semibold">HTTP 200 OK</span>
+                  <span className="text-emerald-600 font-medium">HTTP 200 OK</span>
                 </div>
               </CardContent>
             </Card>
 
             {/* KPI 2: Tempo Médio de Resposta */}
-            <Card className="border-border/40 bg-card hover:shadow-md transition-all">
-              <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
+              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Tempo Médio Resposta
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Tempo Médio
                   </span>
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <Clock className="w-4 h-4" />
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <Clock className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-2xl sm:text-3xl font-black tracking-tight text-emerald-600 dark:text-emerald-400">
-                      {webStats.avgResponseTime ? `${webStats.avgResponseTime} ms` : '–'}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
-                      &lt; 200ms
-                    </Badge>
-                  </div>
-                  <Progress
-                    value={webStats.avgResponseTime ? Math.min(100, (webStats.avgResponseTime / 300) * 100) : 0}
-                    className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-emerald-500"
-                  />
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+                    {webStats.avgResponseTime ? `${webStats.avgResponseTime} ms` : '–'}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
+                    <CheckCircle2 className="w-2.5 h-2.5" />
+                    &lt; 200ms
+                  </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
                   <span>Latência média</span>
-                  <span className="text-emerald-600 font-semibold">Excelente</span>
+                  <span className="text-emerald-600 font-medium">Excelente</span>
                 </div>
               </CardContent>
             </Card>
 
             {/* KPI 3: Certificados SSL */}
-            <Card className="border-border/40 bg-card hover:shadow-md transition-all">
-              <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
+              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Certificados SSL
                   </span>
-                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                    <ShieldCheck className="w-4 h-4" />
+                  <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <ShieldCheck className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-2xl sm:text-3xl font-black tracking-tight text-emerald-600 dark:text-emerald-400">
-                      100% Válidos
-                    </span>
-                    <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
-                      <ShieldCheck className="w-2.5 h-2.5" />
-                      SSL Ativo
-                    </Badge>
-                  </div>
-                  <Progress value={100} className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-emerald-500" />
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+                    100% Válidos
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
+                    <ShieldCheck className="w-2.5 h-2.5" />
+                    SSL Ativo
+                  </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Criptografia HTTPS</span>
-                  <span className="text-emerald-600 font-semibold">Protegido</span>
+                  <span>HTTPS</span>
+                  <span className="text-emerald-600 font-medium">Protegido</span>
                 </div>
               </CardContent>
             </Card>
 
             {/* KPI 4: Disponibilidade SLA */}
-            <Card className="border-border/40 bg-card hover:shadow-md transition-all">
-              <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
+              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Disponibilidade SLA
                   </span>
-                  <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                    <Zap className="w-4 h-4" />
+                  <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                    <Zap className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-                      99.98%
-                    </span>
-                    <Badge variant="outline" className="text-[10px] font-bold text-purple-600 bg-purple-500/10 border-purple-500/30">
-                      Alta Estabilidade
-                    </Badge>
-                  </div>
-                  <Progress value={99.9} className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-purple-500" />
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                    99.98%
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-purple-600 bg-purple-500/10 border-purple-500/30">
+                    Estável
+                  </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Média no período ({period})</span>
-                  <span className="text-purple-600 font-semibold">Sem Quedas</span>
+                  <span>Período ({period})</span>
+                  <span className="text-purple-600 font-medium">Sem Quedas</span>
                 </div>
               </CardContent>
             </Card>
@@ -749,116 +734,104 @@ export default function WebMonitoring() {
             ABA 2: LINKS DE INTERNET & REDES
         ══════════════════════════════════════════════════════════════════ */}
         <TabsContent value="network" className="space-y-6 mt-0">
-          {/* Network KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-border/40 bg-card hover:shadow-md transition-all">
-              <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+          {/* Network KPI Cards (Compact & Minimal) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
+              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Total de Links
                   </span>
-                  <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                    <Radio className="w-4 h-4" />
+                  <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                    <Radio className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-                      {networkStats.online}/{networkStats.total}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] font-bold text-purple-600 bg-purple-500/10 border-purple-500/30">
-                      Conexões
-                    </Badge>
-                  </div>
-                  <Progress value={networkStats.total > 0 ? (networkStats.online / networkStats.total) * 100 : 100} className="h-1.5 mt-2 bg-muted/60" />
-                </div>
-                <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>{networkStats.offline} link(s) inativos</span>
-                  <span className="text-purple-600 font-semibold">ICMP Probing</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/40 bg-card hover:shadow-md transition-all">
-              <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Latência Média (ms)
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                    {networkStats.online}/{networkStats.total}
                   </span>
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <Zap className="w-4 h-4" />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-2xl sm:text-3xl font-black tracking-tight text-emerald-600 dark:text-emerald-400">
-                      {networkStats.avgLatency !== null ? `${networkStats.avgLatency} ms` : '–'}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
-                      Ping Ativo
-                    </Badge>
-                  </div>
-                  <Progress value={networkStats.avgLatency ? Math.min(100, (networkStats.avgLatency / 100) * 100) : 0} className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-emerald-500" />
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-purple-600 bg-purple-500/10 border-purple-500/30">
+                    Conexões
+                  </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Tempo de ida e volta</span>
-                  <span className="text-emerald-600 font-semibold">RTT</span>
+                  <span>{networkStats.offline} inativos</span>
+                  <span className="text-purple-600 font-medium">ICMP Ping</span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-border/40 bg-card hover:shadow-md transition-all">
-              <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
+              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Latência Média
+                  </span>
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <Zap className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+                    {networkStats.avgLatency !== null ? `${networkStats.avgLatency} ms` : '–'}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
+                    Ping Ativo
+                  </Badge>
+                </div>
+                <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
+                  <span>Ida e volta</span>
+                  <span className="text-emerald-600 font-medium">RTT</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
+              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Starlink Satélite
                   </span>
-                  <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                    <Radio className="w-4 h-4" />
+                  <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                    <Radio className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-2xl sm:text-3xl font-black tracking-tight text-purple-600 dark:text-purple-400">
-                      {networkStats.starlinkAvg ? `${networkStats.starlinkAvg} ms` : '38 ms'}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] font-bold text-purple-600 bg-purple-500/10 border-purple-500/30">
-                      LEO Orbit
-                    </Badge>
-                  </div>
-                  <Progress value={38} className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-purple-500" />
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-purple-600 dark:text-purple-400">
+                    {networkStats.starlinkAvg ? `${networkStats.starlinkAvg} ms` : '38 ms'}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-purple-600 bg-purple-500/10 border-purple-500/30">
+                    LEO
+                  </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Satélite de baixa órbita</span>
-                  <span className="text-purple-600 font-semibold">Baixa Latência</span>
+                  <span>Baixa órbita</span>
+                  <span className="text-purple-600 font-medium">Satélite</span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-border/40 bg-card hover:shadow-md transition-all">
-              <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
+              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Links Dedicados &amp; Fibra
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Dedicados &amp; Fibra
                   </span>
-                  <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                    <Router className="w-4 h-4" />
+                  <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <Router className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-2xl sm:text-3xl font-black tracking-tight text-blue-600 dark:text-blue-400">
-                      {networkStats.dedicatedAvg ? `${networkStats.dedicatedAvg} ms` : '18 ms'}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] font-bold text-blue-600 bg-blue-500/10 border-blue-500/30">
-                      Fibra Óptica
-                    </Badge>
-                  </div>
-                  <Progress value={18} className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-blue-500" />
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-blue-600 dark:text-blue-400">
+                    {networkStats.dedicatedAvg ? `${networkStats.dedicatedAvg} ms` : '18 ms'}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-blue-600 bg-blue-500/10 border-blue-500/30">
+                    Fibra
+                  </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Conexão corporativa</span>
-                  <span className="text-blue-600 font-semibold">Estabilidade</span>
+                  <span>Corporativo</span>
+                  <span className="text-blue-600 font-medium">Estável</span>
                 </div>
               </CardContent>
             </Card>
