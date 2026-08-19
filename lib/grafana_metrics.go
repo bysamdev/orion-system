@@ -9,7 +9,24 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
+)
+
+// metricsHistoryCacheTTL amortiza reaberturas do mesmo gráfico (troca de aba,
+// duas abas abertas, o refetch de 60s do frontend) sem bater no Grafana toda
+// vez — cada consulta já dispara 5 chamadas de range ao Prometheus. Curto de
+// propósito: o objetivo é absorver repetição próxima, não servir dado velho.
+const metricsHistoryCacheTTL = 45 * time.Second
+
+type metricsHistoryCacheEntry struct {
+	rows      []MetricRow
+	expiresAt time.Time
+}
+
+var (
+	metricsHistoryCacheMu sync.Mutex
+	metricsHistoryCache   = map[string]metricsHistoryCacheEntry{}
 )
 
 // periodWindow traduz o período pedido pelo frontend (mesmos valores de
@@ -140,15 +157,43 @@ func QueryMachineMetricsHistory(ctx context.Context, grafanaURL, apiToken, datas
 		return nil, fmt.Errorf("GRAFANA_API_TOKEN não configurado")
 	}
 
-	start, end, step := periodWindow(period, time.Now())
+	cacheKey := machineID + "|" + period
+	now := time.Now()
+
+	metricsHistoryCacheMu.Lock()
+	if entry, ok := metricsHistoryCache[cacheKey]; ok && now.Before(entry.expiresAt) {
+		metricsHistoryCacheMu.Unlock()
+		return entry.rows, nil
+	}
+	metricsHistoryCacheMu.Unlock()
+
+	rows, err := queryMachineMetricsHistoryUncached(ctx, grafanaURL, apiToken, datasourceUID, bypassSecret, machineID, period, now)
+	if err != nil {
+		return nil, err
+	}
+
+	metricsHistoryCacheMu.Lock()
+	metricsHistoryCache[cacheKey] = metricsHistoryCacheEntry{rows: rows, expiresAt: now.Add(metricsHistoryCacheTTL)}
+	metricsHistoryCacheMu.Unlock()
+
+	return rows, nil
+}
+
+func queryMachineMetricsHistoryUncached(ctx context.Context, grafanaURL, apiToken, datasourceUID, bypassSecret, machineID, period string, now time.Time) ([]MetricRow, error) {
+	start, end, step := periodWindow(period, now)
 	sel := fmt.Sprintf(`{machine_id="%s"}`, machineID)
 
+	// mount="C:" é o mesmo disco "principal" que o snapshot ao vivo reporta
+	// (collector.diskRoot() no agente é hardcoded pra "C:\\" em toda
+	// máquina Windows — orion-agent só roda em Windows hoje). "root" é só o
+	// fallback que o agente emite quando não detecta discos individuais;
+	// esta máquina tem vários (C/D/E/F/G/H), então "root" nunca bate aqui.
 	queries := map[string]string{
 		"cpu":        "orion_cpu_usage_percent" + sel,
 		"ram_used":   "orion_memory_used_bytes" + sel,
 		"ram_total":  "orion_memory_total_bytes" + sel,
-		"disk_used":  `orion_disk_used_bytes{machine_id="` + machineID + `",mount="root"}`,
-		"disk_total": `orion_disk_total_bytes{machine_id="` + machineID + `",mount="root"}`,
+		"disk_used":  `orion_disk_used_bytes{machine_id="` + machineID + `",mount="C:"}`,
+		"disk_total": `orion_disk_total_bytes{machine_id="` + machineID + `",mount="C:"}`,
 	}
 
 	results := map[string]map[int64]float64{}
