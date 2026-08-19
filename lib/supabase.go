@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -133,6 +134,70 @@ func (c *SupabaseClient) AdminGenerateLink(ctx context.Context, in GenerateLinkI
 		return "", err
 	}
 	return out.ActionLink, nil
+}
+
+// UploadInstalador sobe o instalador personalizado (gerado sob demanda) pro
+// bucket privado "agent-installers" e devolve uma signed URL de download.
+// Necessário porque o binário (~16MB) estoura o limite de payload de
+// resposta das Serverless Functions da Vercel (4.5MB) — a resposta da API
+// vira só um JSON com essa URL, e o download real acontece direto do
+// Supabase Storage, sem passar pela function.
+func (c *SupabaseClient) UploadInstalador(ctx context.Context, caminho, nomeDownload string, dados []byte, validadeSegundos int) (string, error) {
+	uploadReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/storage/v1/object/agent-installers/"+caminho, bytes.NewReader(dados))
+	if err != nil {
+		return "", err
+	}
+	uploadReq.Header.Set("Authorization", "Bearer "+c.serviceKey)
+	uploadReq.Header.Set("apikey", c.serviceKey)
+	uploadReq.Header.Set("Content-Type", "application/octet-stream")
+	uploadReq.Header.Set("x-upsert", "true")
+
+	res, err := c.http.Do(uploadReq)
+	if err != nil {
+		return "", fmt.Errorf("upload do instalador: %w", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		b, _ := io.ReadAll(res.Body)
+		return "", fmt.Errorf("upload do instalador: %s", string(b))
+	}
+
+	signBody, _ := json.Marshal(map[string]int{"expiresIn": validadeSegundos})
+	signReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/storage/v1/object/sign/agent-installers/"+caminho, bytes.NewReader(signBody))
+	if err != nil {
+		return "", err
+	}
+	signReq.Header.Set("Authorization", "Bearer "+c.serviceKey)
+	signReq.Header.Set("apikey", c.serviceKey)
+	signReq.Header.Set("Content-Type", "application/json")
+
+	signRes, err := c.http.Do(signReq)
+	if err != nil {
+		return "", fmt.Errorf("assinar URL do instalador: %w", err)
+	}
+	defer signRes.Body.Close()
+	if signRes.StatusCode < 200 || signRes.StatusCode >= 300 {
+		b, _ := io.ReadAll(signRes.Body)
+		return "", fmt.Errorf("assinar URL do instalador: %s", string(b))
+	}
+
+	var out struct {
+		SignedURL string `json:"signedURL"`
+	}
+	if err := json.NewDecoder(signRes.Body).Decode(&out); err != nil {
+		return "", fmt.Errorf("decodificar signed URL: %w", err)
+	}
+	if out.SignedURL == "" {
+		return "", fmt.Errorf("assinar URL do instalador: resposta sem signedURL")
+	}
+
+	separador := "?"
+	if strings.Contains(out.SignedURL, "?") {
+		separador = "&"
+	}
+	return c.baseURL + "/storage/v1" + out.SignedURL + separador + "download=" + url.QueryEscape(nomeDownload), nil
 }
 
 // sbPost is a helper for POST calls to the Supabase Admin API.

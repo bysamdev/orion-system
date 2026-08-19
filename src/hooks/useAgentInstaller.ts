@@ -3,14 +3,20 @@ import { fetchWithTimeout } from '@/lib/fetch-client';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
 
-// Instalador tem ~16MB — bem mais pesado que as chamadas JSON de sempre,
-// por isso um timeout próprio em vez do padrão de 15s de apiGet.
-const TIMEOUT_DOWNLOAD_MS = 60_000;
+// Montar o instalador (assinar chave, subir pro Storage) é mais lento que
+// as chamadas JSON de sempre, por isso um timeout próprio em vez do padrão
+// de 15s de apiGet.
+const TIMEOUT_GERAR_MS = 45_000;
 
 /**
- * Baixa o instalador do Orion Agent já configurado com a agent_key da
- * empresa (ver handler/installer_handlers.go no backend) e dispara o
- * download no navegador.
+ * Pede ao backend pra gerar o instalador do Orion Agent já configurado com
+ * a agent_key da empresa (ver handler/installer_handlers.go) e dispara o
+ * download no navegador a partir da signed URL devolvida.
+ *
+ * O binário (~16MB) não vem no corpo da resposta da API — estouraria o
+ * limite de payload das Serverless Functions da Vercel (4.5MB). O backend
+ * sobe pro Supabase Storage e devolve só a URL assinada; o download real
+ * acontece direto de lá.
  */
 export async function baixarInstaladorDoAgente(companyId: string): Promise<void> {
   const { data: sessionData } = await supabase.auth.getSession();
@@ -18,33 +24,25 @@ export async function baixarInstaladorDoAgente(companyId: string): Promise<void>
 
   const res = await fetchWithTimeout(`${API_URL}/api/monitoring/companies/${companyId}/installer`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
-    timeoutMs: TIMEOUT_DOWNLOAD_MS,
+    timeoutMs: TIMEOUT_GERAR_MS,
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    let mensagem = text || res.statusText;
-    try {
-      const json = JSON.parse(text);
-      if (json?.error) mensagem = json.error;
-    } catch {
-      // corpo não era JSON — usa o texto cru mesmo
-    }
-    throw new Error(mensagem);
+  const text = await res.text().catch(() => '');
+  let json: { url?: string; filename?: string; error?: string } = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    // corpo não era JSON — trata como erro genérico abaixo
   }
 
-  const blob = await res.blob();
+  if (!res.ok || !json.url) {
+    throw new Error(json.error || text || res.statusText || 'Erro ao gerar instalador');
+  }
 
-  const disposition = res.headers.get('Content-Disposition') || '';
-  const match = disposition.match(/filename="([^"]+)"/);
-  const filename = match?.[1] || 'OrionInstaller.exe';
-
-  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
+  a.href = json.url;
+  a.rel = 'noopener';
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
 }

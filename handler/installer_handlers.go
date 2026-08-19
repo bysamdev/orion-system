@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -23,7 +22,7 @@ import (
 // orion-agent/cmd/installer/selfconfig.go pro lado que lê essa
 // configuração.
 func monitoringGenerateInstaller(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 40*time.Second)
 	defer cancel()
 
 	user, err := requireAuth(r.WithContext(ctx))
@@ -81,10 +80,17 @@ func monitoringGenerateInstaller(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// O binário (~16MB) estoura o limite de payload de resposta das
+	// Serverless Functions da Vercel (4.5MB) — em vez de devolver os bytes
+	// direto, sobe pro Storage e devolve uma signed URL de download.
 	nomeArquivo := fmt.Sprintf("OrionInstaller-%s.exe", lib.SanitizarNomeArquivo(companyName))
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, nomeArquivo))
-	w.Header().Set("Content-Length", strconv.Itoa(len(instalador)))
-	w.WriteHeader(http.StatusOK)
-	w.Write(instalador)
+	caminho := fmt.Sprintf("%s/%d-%s", companyID, time.Now().Unix(), nomeArquivo)
+	downloadURL, err := sb.UploadInstalador(ctx, caminho, nomeArquivo, instalador, 300)
+	if err != nil {
+		log.Printf("[ERRO] subir instalador ao storage (empresa %s): %v", companyID, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao preparar download do instalador"})
+		return
+	}
+
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"url": downloadURL, "filename": nomeArquivo})
 }
