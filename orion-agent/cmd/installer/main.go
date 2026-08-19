@@ -21,6 +21,8 @@ import (
 	"syscall"
 
 	"golang.org/x/sys/windows"
+
+	"orion-agent/startup"
 )
 
 //go:embed assets/orion-agent.exe
@@ -37,7 +39,22 @@ const pastaDestino = `C:\Orion`
 
 const placeholderAgentKey = "COLOQUE_SUA_CHAVE_AQUI"
 
+// modoSilencioso vem de -silent/--silent/"/silent" na linha de comando —
+// pensado pra rodar via Script de Inicialização de GPO: nesse contexto o
+// processo já roda como SYSTEM (sem prompt de UAC, sempre elevado) e sem
+// ninguém pra apertar ENTER no final. pausarSeInterativo é o único lugar
+// que consulta esta flag; o resto do fluxo (banner, passos) roda igual —
+// só imprime em stdout, não bloqueia nada.
+var modoSilencioso bool
+
 func main() {
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "-silent", "--silent", "/silent":
+			modoSilencioso = true
+		}
+	}
+
 	imprimirBanner()
 
 	imprimirPasso(1, totalPassos, "Verificando privilégios de administrador...")
@@ -60,7 +77,7 @@ func main() {
 		falharComPausa("Falha na instalação: %v", err)
 	}
 
-	pausar("Pressione ENTER para fechar...")
+	pausarSeInterativo("Pressione ENTER para fechar...")
 }
 
 // totalPassos é fixo em 4 mesmo no caminho em que o serviço não é
@@ -123,22 +140,52 @@ func instalar() error {
 	}
 	imprimirOK(destinoExe)
 
-	// agent.yaml só é escrito se ainda não existir — uma reinstalação/
-	// atualização não deve sobrescrever uma configuração já preenchida com
-	// a agent_key real da empresa (mesma lógica de config.Load() ao criar
-	// o arquivo padrão na primeira execução).
-	destinoConfig := filepath.Join(pastaDestino, "agent.yaml")
-	configJaExiste := false
-	if _, err := os.Stat(destinoConfig); err == nil {
-		configJaExiste = true
+	// Auto-início no login (HKCU\...\Run): é o que faz a bandeja aparecer
+	// sozinha quando o usuário loga, sem precisar clicar no .exe. Falha
+	// aqui não impede o resto da instalação — o serviço Windows continua
+	// cobrindo a máquina de qualquer forma, só sem o ícone automático.
+	if err := startup.Enable(destinoExe); err != nil {
+		imprimirAviso(fmt.Sprintf("não foi possível configurar o início automático no login: %v", err))
+	} else {
+		imprimirOK("Início automático no login configurado")
 	}
-	if !configJaExiste {
-		if err := os.WriteFile(destinoConfig, configTemplate, 0644); err != nil {
+
+	// Instalador gerado pelo Orion System pra uma empresa específica traz a
+	// chave já colada no próprio .exe (ver selfconfig.go) — nesse caso
+	// gravamos agent.yaml com a chave pronta e SEMPRE sobrescrevemos: é
+	// exatamente pra isso que um instalador personalizado foi gerado. Sem
+	// config anexada, mantém o comportamento manual de sempre — só escreve
+	// o template se agent.yaml ainda não existir, pra não perder uma chave
+	// já configurada à mão numa reinstalação/atualização.
+	cfgAnexada, errCfg := lerConfigAnexada()
+	if errCfg != nil {
+		imprimirAviso(fmt.Sprintf("configuração personalizada anexada inválida, seguindo com instalação manual: %v", errCfg))
+		cfgAnexada = nil
+	}
+
+	destinoConfig := filepath.Join(pastaDestino, "agent.yaml")
+	if cfgAnexada != nil {
+		if err := os.WriteFile(destinoConfig, gerarConfigComChave(cfgAnexada), 0644); err != nil {
 			return fmt.Errorf("gravar agent.yaml: %w", err)
 		}
-		imprimirOK(destinoConfig + " (novo, com valores padrão)")
+		rotulo := destinoConfig + " (chave da empresa aplicada automaticamente)"
+		if cfgAnexada.CompanyName != "" {
+			rotulo = fmt.Sprintf("%s (chave de %s aplicada automaticamente)", destinoConfig, cfgAnexada.CompanyName)
+		}
+		imprimirOK(rotulo)
 	} else {
-		imprimirOK(destinoConfig + " (já existe — mantido sem alteração)")
+		configJaExiste := false
+		if _, err := os.Stat(destinoConfig); err == nil {
+			configJaExiste = true
+		}
+		if !configJaExiste {
+			if err := os.WriteFile(destinoConfig, configTemplate, 0644); err != nil {
+				return fmt.Errorf("gravar agent.yaml: %w", err)
+			}
+			imprimirOK(destinoConfig + " (novo, com valores padrão)")
+		} else {
+			imprimirOK(destinoConfig + " (já existe — mantido sem alteração)")
+		}
 	}
 
 	imprimirPasso(3, totalPassos, "Verificando configuração...")
@@ -222,9 +269,20 @@ func pausar(mensagem string) {
 	fmt.Scanln()
 }
 
+// pausarSeInterativo pula a pausa em modo silencioso — esperar ENTER num
+// Script de Inicialização de GPO (sem console interativo de verdade) só
+// prenderia a instalação até estourar o timeout que o GPO impõe a scripts
+// de início.
+func pausarSeInterativo(mensagem string) {
+	if modoSilencioso {
+		return
+	}
+	pausar(mensagem)
+}
+
 func falharComPausa(formato string, args ...any) {
 	imprimirCaixaFinal(corVermelha, "Falha na instalação")
 	fmt.Fprintf(os.Stderr, colorir(corVermelha, formato)+"\n", args...)
-	pausar("Pressione ENTER para fechar...")
+	pausarSeInterativo("Pressione ENTER para fechar...")
 	os.Exit(1)
 }

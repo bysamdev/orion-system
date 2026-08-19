@@ -97,7 +97,26 @@ func resolverIdentidadeDoUsuario() (dominio, usuario, sid string, fallbackMotivo
 		err = errors.New("sessão de console ativa retornou usuário vazio")
 	}
 
-	// 3. Fallback para variáveis de ambiente
+	// 3. Fallback: último usuário que fez logon interativo nesta máquina,
+	// via registro (LastLoggedOnUser) — não exige a mesma permissão
+	// cross-session que o passo 2 precisa, então funciona mesmo com o
+	// privilégio restrito da conta de serviço NT SERVICE\OrionAgent (ver
+	// A.4). Pode estar levemente desatualizado (não é uma leitura "ao
+	// vivo"), mas é sempre uma pessoa de verdade, nunca a conta de
+	// serviço — o problema que esta função existe pra evitar.
+	if regDomain, regUser := ultimoUsuarioLogado(); regUser != "" {
+		hostname, _ := os.Hostname()
+		usuario := formatarUsuarioInterativo(regDomain, regUser, hostname)
+		if (dominio == "" || dominio == "WORKGROUP") && regDomain != "" && !strings.EqualFold(regDomain, hostname) && !strings.EqualFold(regDomain, "WORKGROUP") {
+			dominio = regDomain
+		}
+		if dominio == "" {
+			dominio = "WORKGROUP"
+		}
+		return dominio, usuario, "", fmt.Errorf("WTS indisponível (%w), usando último usuário logado via registro", err)
+	}
+
+	// 4. Último recurso: variáveis de ambiente do processo
 	dEnv, uEnv := identidadeViaEnv(os.Getenv)
 	if dominio == "" || dominio == "WORKGROUP" {
 		if dEnv != "" && dEnv != "WORKGROUP" {

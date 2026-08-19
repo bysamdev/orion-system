@@ -26,3 +26,10 @@ func obterDominioMaquina() string {
 func usuarioDaSessaoAtiva() (dominio, usuario, sid string, err error) {
 	return "", "", "", fmt.Errorf("resolução de SID via WTS só é suportada no Windows")
 }
+
+// ultimoUsuarioLogado não tem equivalente fora do Windows (o registro
+// LastLoggedOnUser é uma chave do LogonUI do Windows). resolverIdentidadeDoUsuario
+// cai direto para as variáveis de ambiente neste caso.
+func ultimoUsuarioLogado() (dominio, usuario string) {
+	return "", ""
+}

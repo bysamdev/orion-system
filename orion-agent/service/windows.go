@@ -153,6 +153,21 @@ func (s *Svc) Stop(svc service.Service) error {
 }
 
 // GetPortalURL gera a URL de acesso ao portal já autenticada para esta máquina específica.
+// PreloadMachineToken lê a identidade da máquina já persistida em disco (sem
+// gerar uma nova, sem fazer heartbeat) — usado quando este processo é uma
+// bandeja interativa rodando ao lado do serviço, que já é quem manda
+// heartbeat de verdade (ver main.go). Sem isso, GetPortalURL/GetTicketURL
+// ficariam vazios para sempre nesta instância: token só é escrito em
+// s.machineToken dentro de tick(), que aqui nunca roda.
+func (s *Svc) PreloadMachineToken() error {
+	t, err := token.LoadToken()
+	if err != nil {
+		return err
+	}
+	s.setMachineToken(t)
+	return nil
+}
+
 func (s *Svc) GetPortalURL() string {
 	tok := strings.TrimSpace(s.getMachineToken())
 	if tok == "" {

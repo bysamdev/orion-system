@@ -12,6 +12,7 @@ import (
 
 	"orion-agent/config"
 	agentsvc "orion-agent/service"
+	"orion-agent/startup"
 	"orion-agent/tray"
 )
 
@@ -68,30 +69,44 @@ func main() {
 		if err := s.Uninstall(); err != nil {
 			logger.Fatalf("[ERRO] Não foi possível remover o serviço: %v", err)
 		}
+		if err := startup.Disable(); err != nil {
+			logger.Printf("[AVISO] Não foi possível remover o início automático no login: %v", err)
+		}
 		fmt.Println("🗑️ Serviço OrionAgent removido com sucesso.")
 
 	default:
 		// Se não houver argumentos, estamos rodando o agente "de verdade".
-		//
-		// Instância única (correção B.10): o serviço Windows (SYSTEM) e uma
-		// execução interativa (usuário clicou no .exe) podem coexistir na
-		// mesma máquina — main() sempre sobe a mesma lógica de
-		// coleta+heartbeat+RMM em background nos dois casos. Sem esta
-		// checagem, comandos remotos podiam ser executados DUAS VEZES, uma
-		// por cada instância.
-		if unica, err := garantirInstanciaUnica(); err != nil {
-			logger.Printf("[AVISO] Não foi possível verificar instância única: %v — seguindo mesmo assim.", err)
-		} else if !unica {
-			logger.Println("[ERRO] Já existe uma instância do Orion Agent em execução nesta máquina. Encerrando.")
-			return
-		}
-
 		if !service.Interactive() {
-			// Execução silenciosa como serviço do Windows.
+			// Execução como serviço do Windows: sempre sobe o laço completo
+			// de coleta+heartbeat+RMM, sem depender da checagem de
+			// instância única abaixo — o SCM já garante que só existe uma
+			// cópia deste serviço, e recusar a iniciar por causa de uma
+			// bandeja interativa que porventura já esteja rodando deixaria
+			// o serviço inteiro fora do ar (pior que o problema que a
+			// checagem tentava evitar).
 			if err := s.Run(); err != nil {
 				logger.Fatalf("[ERRO] Falha na execução do serviço: %v", err)
 			}
 			return
+		}
+
+		// Instância única (correção B.10, revisada): o serviço Windows
+		// (NT SERVICE\OrionAgent) e uma execução interativa (usuário
+		// clicou no .exe, ou o atalho de login abriu sozinho) coexistem na
+		// mesma máquina de propósito — é assim que a bandeja aparece sem
+		// abrir mão da cobertura do serviço em máquina sem ninguém logado.
+		// O que não pode coexistir são DOIS laços de heartbeat/RMM ao
+		// mesmo tempo (comandos remotos executados em duplicidade): o
+		// mutex nomeado global decide qual processo é o dono do laço —
+		// unica=true quer dizer "ninguém mais está mandando heartbeat
+		// agora", então esta execução interativa assume esse papel. Se
+		// unica=false (o serviço já está ativo), a bandeja sobe só como
+		// interface — ícone, menu, links do portal — sem seu próprio
+		// laço, evitando heartbeat duplicado.
+		unica, err := garantirInstanciaUnica()
+		if err != nil {
+			logger.Printf("[AVISO] Não foi possível verificar instância única: %v — assumindo laço próprio.", err)
+			unica = true
 		}
 
 		// Se estivermos em modo interativo (ex: clicado pelo usuário), iniciamos a Tray.
@@ -107,13 +122,25 @@ func main() {
 		// (herda os handles do processo pai). Não se aplica ao instalador
 		// (cmd/installer), que é propositalmente um wizard de console.
 		//
-		// Rodamos a lógica do agente em background (goroutine) para não travar o menu.
-		go func() {
-			logger.Printf("Iniciando monitoramento em background — Servidor: %s", cfg.APIURL)
-			if err := s.Run(); err != nil {
-				logger.Printf("[ERRO] Falha na execução de background: %v", err)
+		// Rodamos a lógica do agente em background (goroutine) para não travar o menu
+		// — só quando este processo é quem deve mandar o heartbeat (ver unica acima).
+		if unica {
+			go func() {
+				logger.Printf("Iniciando monitoramento em background — Servidor: %s", cfg.APIURL)
+				if err := s.Run(); err != nil {
+					logger.Printf("[ERRO] Falha na execução de background: %v", err)
+				}
+			}()
+		} else {
+			logger.Println("Serviço OrionAgent já está ativo em segundo plano — bandeja sobe só como interface, sem laço de heartbeat próprio.")
+			// Sem isso, "Abrir Portal"/"Abrir Chamado" ficariam presos em
+			// "aguardando primeiro check-in" pra sempre nesta instância —
+			// o token existe em disco (o serviço já o gravou), só não
+			// tinha sido lido por este processo.
+			if err := svc.PreloadMachineToken(); err != nil {
+				logger.Printf("[AVISO] Não foi possível ler a identidade da máquina salva em disco: %v", err)
 			}
-		}()
+		}
 
 		// Gerenciador da bandeja do sistema (perto do relógio).
 		// Este bloco é bloqueante e mantém o processo vivo.

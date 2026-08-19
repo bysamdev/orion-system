@@ -205,6 +205,8 @@ func buildRouter() http.Handler {
 		r.Post("/api/monitoring/groups", monitoringCreateGroup)
 		r.Post("/api/monitoring/groups/{id}/update", monitoringUpdateGroup)
 		r.Delete("/api/monitoring/groups/{id}", monitoringDeleteGroup)
+
+		r.Get("/api/monitoring/companies/{id}/installer", monitoringGenerateInstaller)
 	})
 
 	return r

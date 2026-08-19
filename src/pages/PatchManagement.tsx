@@ -13,6 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSoftwarePackages, usePackageDeployments, useDeletePackage, type SoftwarePackage } from '@/hooks/usePatchManagement';
 import { PackageCard } from '@/components/patch/PackageCard';
+import { AgentInstallerCard } from '@/components/patch/AgentInstallerCard';
 import { NewPackageDialog } from '@/components/patch/NewPackageDialog';
 import { DeployDialog } from '@/components/patch/DeployDialog';
 import { useQueryClient } from '@tanstack/react-query';
@@ -107,6 +108,8 @@ const PatchManagement: React.FC = () => {
             </p>
           </div>
         </div>
+
+        <AgentInstallerCard />
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Package list */}
