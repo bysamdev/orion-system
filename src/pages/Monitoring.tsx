@@ -34,6 +34,7 @@ import {
   useDeleteGroup,
 } from '@/hooks/useMonitoring';
 import type { MachineGroup, MachineWithMetric } from '@/hooks/useMonitoring';
+import { useRealtimeMachines } from '@/hooks/useRealtimeMachines';
 import { useCompanies } from '@/hooks/useCompanies';
 import { MachineCard, MachineCardSkeleton } from '@/components/monitoring/MachineCard';
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
@@ -220,6 +221,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
     client_contact: '',
     company_id: '',
   });
+
+  useRealtimeMachines();
 
   const { data: dashboard } = useMonitoringDashboard();
   const { data: groups, isLoading: groupsLoading } = useMonitoringGroups();

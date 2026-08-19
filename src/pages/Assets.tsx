@@ -5,6 +5,7 @@ import { getStatusLabel } from '@/components/shared/StatusBadge';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useDeviceInventory, DeviceItem } from '@/hooks/useDeviceInventory';
+import { useRealtimeMachines } from '@/hooks/useRealtimeMachines';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -82,11 +83,13 @@ const Assets = () => {
 
   const { data: companies } = useCompanies();
 
+  useRealtimeMachines();
+
   // Load Device Inventory from unified hook
-  const { 
-    data: devices = [], 
-    isLoading: devicesLoading, 
-    refetch: refetchInventory 
+  const {
+    data: devices = [],
+    isLoading: devicesLoading,
+    refetch: refetchInventory
   } = useDeviceInventory();
 
   // Query tickets history for selected device
