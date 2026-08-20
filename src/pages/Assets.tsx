@@ -676,12 +676,12 @@ const Assets = () => {
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow className="hover:bg-transparent border-border/40">
-                    <TableHead className="w-[160px] text-center text-[10px] font-semibold uppercase tracking-wider">Status / Tipo</TableHead>
+                    <TableHead className="w-[170px] text-center text-[10px] font-semibold uppercase tracking-wider">Status / Tipo</TableHead>
                     <TableHead className="w-[180px] text-center text-[10px] font-semibold uppercase tracking-wider">Cliente</TableHead>
                     <TableHead className="text-[10px] font-semibold uppercase tracking-wider">Geral (Informações Técnicas)</TableHead>
-                    <TableHead className="w-[110px] text-center text-[10px] font-semibold uppercase tracking-wider">Alertas</TableHead>
-                    <TableHead className="w-[120px] text-center text-[10px] font-semibold uppercase tracking-wider">Chamados (Tkts)</TableHead>
-                    <TableHead className="w-[160px] text-center text-[10px] font-semibold uppercase tracking-wider">Última Atualização</TableHead>
+                    <TableHead className="w-[120px] text-center text-[10px] font-semibold uppercase tracking-wider">Alertas</TableHead>
+                    <TableHead className="w-[130px] text-center text-[10px] font-semibold uppercase tracking-wider">Chamados (Tkts)</TableHead>
+                    <TableHead className="w-[170px] text-center text-[10px] font-semibold uppercase tracking-wider">Última Atualização</TableHead>
                     <TableHead className="w-[160px] text-center text-[10px] font-semibold uppercase tracking-wider">Ações Rápidas</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -729,17 +729,17 @@ const Assets = () => {
                         </TableCell>
 
                         {/* 2. Cliente */}
-                        <TableCell className="py-4 text-center align-middle">
-                          <div className="flex items-center justify-center gap-2">
-                            <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                            <span className="text-xs font-semibold text-foreground line-clamp-2">
+                        <TableCell className="py-3.5 text-center align-middle">
+                          <div className="flex items-center justify-center gap-2 max-w-[170px] mx-auto">
+                            <Building2 className="w-3.5 h-3.5 text-muted-foreground/80 flex-shrink-0" />
+                            <span className="text-xs font-semibold text-foreground truncate" title={device.company_name}>
                               {device.company_name}
                             </span>
                           </div>
                         </TableCell>
 
                         {/* 3. Geral (Hostname, IP local, MAC, Logged user, OS) */}
-                        <TableCell className="py-4 align-middle">
+                        <TableCell className="py-3.5 align-middle">
                           <div className="flex flex-col space-y-1.5">
                             {/* Hostname link */}
                             <button
@@ -756,27 +756,27 @@ const Assets = () => {
                               <ExternalLink className="w-3 h-3 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
                             </button>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-medium">
+                            <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 text-[11px] text-muted-foreground font-medium">
                               {/* IP Local */}
-                              <div className="flex items-center gap-1.5" title="IP Local">
+                              <div className="flex items-center gap-1.5 min-w-0" title={`IP Local: ${device.ip_address || device.local_ip || '—'}`}>
                                 <Globe className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span className="font-mono">{device.ip_address || device.local_ip || '—'}</span>
+                                <span className="font-mono truncate">{device.ip_address || device.local_ip || '—'}</span>
                               </div>
 
                               {/* MAC Address */}
-                              <div className="flex items-center gap-1.5" title="MAC Address">
+                              <div className="flex items-center gap-1.5 min-w-0" title={`MAC Address: ${device.mac_address || '—'}`}>
                                 <Network className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span className="font-mono text-[10px]">{device.mac_address || '—'}</span>
+                                <span className="font-mono text-[10px] truncate">{device.mac_address || '—'}</span>
                               </div>
 
                               {/* Logged-in User */}
-                              <div className="flex items-center gap-1.5" title="Usuário Logado">
+                              <div className="flex items-center gap-1.5 min-w-0" title={`Usuário Logado: ${device.logged_user || device.logged_in_user || '—'}`}>
                                 <User className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span>{device.logged_user || device.logged_in_user || '—'}</span>
+                                <span className="truncate">{device.logged_user || device.logged_in_user || '—'}</span>
                               </div>
 
                               {/* Operating System */}
-                              <div className="flex items-center gap-1.5" title="Sistema Operacional">
+                              <div className="flex items-center gap-1.5 min-w-0" title={`Sistema Operacional: ${device.os || '—'}`}>
                                 <Cpu className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
                                 <span className="truncate">{device.os || '—'}</span>
                               </div>

@@ -310,7 +310,7 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
               <div className="flex items-start justify-between gap-3">
                 {/* Left: Device icon, Hostname, Active User & IP */}
                 <div className="flex items-start gap-3 min-w-0 flex-1">
-                  <div className="p-2.5 rounded-xl bg-muted/40 dark:bg-muted/20 border border-border/40 shrink-0 text-foreground/80 group-hover:border-primary/30 group-hover:bg-primary/5 transition-colors">
+                  <div className="w-10 h-10 rounded-xl bg-muted/40 dark:bg-muted/20 border border-border/40 shrink-0 flex items-center justify-center text-foreground/80 group-hover:border-primary/30 group-hover:bg-primary/5 transition-colors">
                     <OsIcon os={machine.os} osVersion={machine.os_version} />
                   </div>
                   <div className="min-w-0 flex-1">

@@ -663,11 +663,11 @@ export default function WebMonitoring() {
                         </div>
                       </div>
 
-                      {/* Middle: Latency (ms) & SSL Status */}
-                      <div className="flex items-center gap-3 w-full md:w-auto py-1 md:py-0 border-y md:border-y-0 border-border/40">
+                      {/* Middle: Latency (ms) & SSL Status (Aligned Grid) */}
+                      <div className="grid grid-cols-2 gap-2.5 w-full sm:w-[220px] py-1 md:py-0 border-y md:border-y-0 border-border/40 shrink-0">
                         {/* Metric 1: Latency */}
-                        <div className="bg-muted/30 dark:bg-muted/15 px-3 py-1.5 rounded-xl border border-border/30 text-center min-w-[90px]">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                        <div className="bg-muted/30 dark:bg-muted/15 px-3 py-1.5 rounded-xl border border-border/30 text-center min-w-0">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground block truncate">
                             Resposta
                           </span>
                           <span className="text-xs font-mono font-bold text-foreground">
@@ -676,8 +676,8 @@ export default function WebMonitoring() {
                         </div>
 
                         {/* Metric 2: SSL */}
-                        <div className="bg-muted/30 dark:bg-muted/15 px-3 py-1.5 rounded-xl border border-border/30 text-center min-w-[100px]">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                        <div className="bg-muted/30 dark:bg-muted/15 px-3 py-1.5 rounded-xl border border-border/30 text-center min-w-0">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground block truncate">
                             Segurança
                           </span>
                           <span className={cn(

@@ -159,7 +159,7 @@ function AlertCard({
         </div>
 
         {/* Identification Grid (Domínio, Usuário, IP, Last Seen / Metric) */}
-        <div className="bg-background/60 dark:bg-background/40 rounded-lg p-2 border border-border/30 grid grid-cols-2 gap-x-2.5 gap-y-1.5 text-[11px]">
+        <div className="bg-background/60 dark:bg-background/40 rounded-xl p-2.5 border border-border/30 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
           {/* Domínio / Cliente */}
           <div className="flex items-center gap-1.5 min-w-0" title={`Domínio/Cliente: ${alert.domain || alert.group_name || 'WORKGROUP'}`}>
             <Network className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
@@ -212,7 +212,7 @@ function AlertCard({
           <Button
             size="sm"
             variant="outline"
-            className="h-7 px-2.5 text-xs font-semibold rounded-lg gap-1.5 bg-background/80 hover:bg-background shadow-sm group-hover:border-primary/40 transition-colors"
+            className="h-7 px-2.5 text-xs font-semibold rounded-lg gap-1.5 bg-background/80 hover:bg-background shadow-xs group-hover:border-primary/40 transition-colors"
             onClick={(e) => {
               e.stopPropagation();
               onOpenMachine(alert.machine_id);
@@ -264,7 +264,7 @@ function AlertSection({
           {alerts.length}
         </Badge>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
         {alerts.map((a, i) => (
           <AlertCard
             key={`${a.machine_id}-${a.alert_type}-${i}`}
@@ -594,16 +594,34 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
             </div>
           </div>
         ) : (
-          <ScrollArea className="h-[calc(100vh-210px)]">
-            <div className="space-y-8 pr-4 pb-12">
-              {/* 1. 🛡️ Segurança & Antivírus Crítico */}
-              <AlertSection
-                title="Segurança & Antivírus Crítico (Zona Vermelha)"
-                icon={ShieldAlert}
-                colorClass="bg-rose-600"
-                alerts={grouped.antivirus}
-                onOpenMachine={handleOpenMachine}
-              />
+          <div className="space-y-6">
+            {/* 6-Column KPI Summary Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {[
+                { label: 'Total Crítico', value: mergedAlerts.length, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10 border-red-500/25' },
+                { label: 'Sem Antivírus', value: grouped.antivirus.length, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-500/10 border-rose-500/25' },
+                { label: 'Firewall Off', value: grouped.firewall.length, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10 border-red-500/25' },
+                { label: 'Offline', value: grouped.offline.length, color: 'text-zinc-600 dark:text-zinc-400', bg: 'bg-zinc-500/10 border-zinc-500/25' },
+                { label: 'Disco >90%', value: grouped.disk.length, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10 border-amber-500/25' },
+                { label: 'CPU >85%', value: grouped.cpu.length, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-500/10 border-orange-500/25' },
+              ].map((kpi) => (
+                <div key={kpi.label} className={cn('p-3 rounded-xl border flex flex-col justify-between shadow-xs', kpi.bg)}>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground truncate">{kpi.label}</span>
+                  <span className={cn('text-xl font-black font-mono mt-1', kpi.color)}>{kpi.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <ScrollArea className="h-[calc(100vh-270px)]">
+              <div className="space-y-8 pr-4 pb-12">
+                {/* 1. 🛡️ Segurança & Antivírus Crítico */}
+                <AlertSection
+                  title="Segurança & Antivírus Crítico (Zona Vermelha)"
+                  icon={ShieldAlert}
+                  colorClass="bg-rose-600"
+                  alerts={grouped.antivirus}
+                  onOpenMachine={handleOpenMachine}
+                />
 
               {/* 2. 🧱 Conformidade & Firewall */}
               <AlertSection
@@ -651,8 +669,9 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
               />
             </div>
           </ScrollArea>
-        )}
-      </div>
+        </div>
+      )}
+    </div>
 
       {/* Machine Details Drawer */}
       <MachineDrawer
