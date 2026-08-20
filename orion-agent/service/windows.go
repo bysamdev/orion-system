@@ -406,12 +406,17 @@ func (s *Svc) handleOrionInstall(commandID string, commandText string) {
 	}
 	defer os.Remove(tempFile) // Limpa o arquivo temporário depois
 
-	if hash != "" {
-		if err := verifySHA256(tempFile, hash); err != nil {
-			msg := fmt.Sprintf("Erro na verificação de hash: %v", err)
-			sender.RespondToCommand(s.cfg, commandID, "failed", msg)
-			return
-		}
+	// Hash é obrigatório: sem ele, um instalador baixado por HTTP simples ou
+	// de um host comprometido rodaria sem nenhuma verificação de integridade.
+	if hash == "" {
+		msg := "Comando rejeitado: --hash é obrigatório para orion-install"
+		sender.RespondToCommand(s.cfg, commandID, "failed", msg)
+		return
+	}
+	if err := verifySHA256(tempFile, hash); err != nil {
+		msg := fmt.Sprintf("Erro na verificação de hash: %v", err)
+		sender.RespondToCommand(s.cfg, commandID, "failed", msg)
+		return
 	}
 
 	output, err := runInstaller(tempFile, silentArgs)
