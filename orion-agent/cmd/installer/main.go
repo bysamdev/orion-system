@@ -322,7 +322,7 @@ func instalar() error {
 
 // iniciarBandejaUsuario inicia a bandeja interativa na barra de tarefas do usuário
 func iniciarBandejaUsuario(caminhoExe string) {
-	cmd := exec.Command("cmd", "/C", fmt.Sprintf(`start "" %q`, caminhoExe))
+	cmd := exec.Command(caminhoExe)
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.DETACHED_PROCESS}
 	if err := cmd.Start(); err != nil {
 		imprimirAviso(fmt.Sprintf("não foi possível iniciar a bandeja interativa: %v", err))
