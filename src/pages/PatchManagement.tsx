@@ -76,10 +76,8 @@ const PatchManagement: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-
-        {/* Header */}
+    <div className="w-full space-y-6">
+      {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
             <div className="p-3 rounded-2xl bg-purple-600 text-white shadow-lg shadow-purple-500/30">
@@ -193,7 +191,6 @@ const PatchManagement: React.FC = () => {
             </Card>
           </div>
         </div>
-      </main>
 
       <NewPackageDialog
         open={newDialogOpen}

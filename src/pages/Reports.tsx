@@ -327,9 +327,8 @@ const Reports: React.FC = () => {
   const semTickets = tickets.length === 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-        <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="w-full space-y-6">
+      <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <Button variant="ghost" onClick={() => navigate('/')} className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1189,7 +1188,6 @@ const Reports: React.FC = () => {
             a tabela analítica e o comparativo por técnico.
           </p>
         )}
-      </main>
     </div>
   );
 };

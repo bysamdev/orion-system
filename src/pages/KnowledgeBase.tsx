@@ -483,8 +483,8 @@ export default function KnowledgeBase() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <main className="flex-1 flex flex-col overflow-hidden">
+    <div className="w-full flex flex-col space-y-6">
+      <div className="flex-1 flex flex-col">
         
         {/* HERO SECTION */}
         <div className="relative overflow-hidden bg-gradient-to-b from-primary/10 via-primary/5 to-background border-b border-border/40 py-12 px-6 lg:px-12">
@@ -839,7 +839,7 @@ export default function KnowledgeBase() {
           </DialogContent>
         </Dialog>
 
-      </main>
+      </div>
     </div>
   );
 }

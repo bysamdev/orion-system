@@ -144,7 +144,7 @@ export const AppSidebar: React.FC = () => {
   };
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <button
           onClick={() => navigate('/')}

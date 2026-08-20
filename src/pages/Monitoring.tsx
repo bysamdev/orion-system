@@ -597,9 +597,9 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
         </div>
 
         {/* ── Body ── */}
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Left sidebar — groups */}
-          <aside className="w-full lg:w-64 flex-shrink-0">
+          <aside className="w-full lg:w-60 xl:w-64 flex-shrink-0">
             <div className="sticky top-8">
               <div className="mb-6">
                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 px-3">

@@ -82,8 +82,8 @@ export default function ClientPortal() {
   const firstName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário';
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <main className="flex-1 p-4 sm:p-8 lg:p-12 max-w-[1200px] mx-auto w-full space-y-8 sm:space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="w-full flex flex-col space-y-6">
+      <div className="flex-1 w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
         {/* Sessão de Boas-vindas: Foco em ação rápida de abertura de chamado */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -313,7 +313,7 @@ export default function ClientPortal() {
           </div>
         </div>
 
-      </main>
+      </div>
     </div>
   );
 }

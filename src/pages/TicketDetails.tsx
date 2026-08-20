@@ -53,18 +53,14 @@ const ticketUpdateSchema = z.object({
 
 function TicketDetailSkeleton() {
   return (
-    <div className="min-h-screen bg-background">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-12">
-        <div className="space-y-4 animate-pulse">
-          <div className="h-8 bg-muted rounded w-1/3" />
-          <div className="flex gap-4">
-            <div className="h-6 bg-muted rounded w-20" />
-            <div className="h-6 bg-muted rounded w-20" />
-          </div>
-          <div className="h-32 bg-muted rounded" />
-          <div className="h-10 bg-muted rounded w-1/4" />
-        </div>
-      </main>
+    <div className="w-full space-y-4 animate-pulse pt-4">
+      <div className="h-8 bg-muted rounded w-1/3" />
+      <div className="flex gap-4">
+        <div className="h-6 bg-muted rounded w-20" />
+        <div className="h-6 bg-muted rounded w-20" />
+      </div>
+      <div className="h-32 bg-muted rounded" />
+      <div className="h-10 bg-muted rounded w-1/4" />
     </div>
   );
 }
@@ -638,20 +634,16 @@ const TicketDetails: React.FC = () => {
 
   if (!ticket && !isResolving) {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full text-center">
-          <p className="text-muted-foreground mt-20 mb-4">Chamado não encontrado.</p>
-          <Button onClick={() => navigate('/')}><ArrowLeft className="w-4 h-4 mr-2" />Voltar ao Dashboard</Button>
-        </main>
+      <div className="w-full text-center py-16 space-y-4">
+        <p className="text-muted-foreground mb-4">Chamado não encontrado.</p>
+        <Button onClick={() => navigate('/')}><ArrowLeft className="w-4 h-4 mr-2" />Voltar ao Dashboard</Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background selection:bg-primary/10">
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
+    <div className="w-full space-y-6 selection:bg-primary/10">
+      <div>
           <Button 
             variant="ghost" 
             size="sm" 
@@ -1202,7 +1194,6 @@ const TicketDetails: React.FC = () => {
             </Card>
           </div>
         </div>
-      </main>
 
       <ResolutionDialog
         open={resolveDialogOpen}

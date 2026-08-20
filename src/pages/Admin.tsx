@@ -17,44 +17,40 @@ export default function Admin() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full animate-in fade-in duration-500">
-          <div className="mt-8">
-            <Skeleton className="h-9 w-64 mb-2" />
-            <Skeleton className="h-5 w-96 mb-6" />
-            
-            <div className="bg-muted/50 p-1 rounded-xl flex space-x-2 w-max mb-6">
-              {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-9 w-32 rounded-lg" />)}
+      <div className="w-full animate-in fade-in duration-500 space-y-6">
+        <Skeleton className="h-9 w-64 mb-2" />
+        <Skeleton className="h-5 w-96 mb-6" />
+        
+        <div className="bg-muted/50 p-1 rounded-xl flex space-x-2 w-max mb-6">
+          {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-9 w-32 rounded-lg" />)}
+        </div>
+        
+        <Card className="border-border/50 shadow-sm mt-6">
+          <CardHeader>
+            <Skeleton className="h-6 w-48 mb-2" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-10 w-32" />
+              </div>
+              <div className="rounded-md border">
+                <div className="h-12 border-b bg-muted/30" />
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="p-4 flex items-center justify-between border-b last:border-0">
+                    <div className="space-y-2">
+                      <Skeleton className="h-5 w-48" />
+                      <Skeleton className="h-4 w-32" />
+                    </div>
+                    <Skeleton className="h-8 w-20" />
+                  </div>
+                ))}
+              </div>
             </div>
-            
-            <Card className="border-border/50 shadow-sm mt-6">
-              <CardHeader>
-                <Skeleton className="h-6 w-48 mb-2" />
-                <Skeleton className="h-4 w-64" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <Skeleton className="h-10 w-64" />
-                    <Skeleton className="h-10 w-32" />
-                  </div>
-                  <div className="rounded-md border">
-                    <div className="h-12 border-b bg-muted/30" />
-                    {[1, 2, 3, 4, 5].map(i => (
-                      <div key={i} className="p-4 flex items-center justify-between border-b last:border-0">
-                        <div className="space-y-2">
-                          <Skeleton className="h-5 w-48" />
-                          <Skeleton className="h-4 w-32" />
-                        </div>
-                        <Skeleton className="h-8 w-20" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -68,19 +64,18 @@ export default function Admin() {
   const isTechnician = role === 'technician';
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
+    <div className="w-full space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-foreground mb-2">Administração</h1>
+        <p className="text-muted-foreground mb-6">
+          {isTechnician
+            ? 'Gerencie respostas prontas para agilizar o atendimento'
+            : 'Gerencie usuários, empresas, contratos e configurações'}
+        </p>
         
-        <div className="mt-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Administração</h1>
-          <p className="text-muted-foreground mb-6">
-            {isTechnician
-              ? 'Gerencie respostas prontas para agilizar o atendimento'
-              : 'Gerencie usuários, empresas, contratos e configurações'}
-          </p>
-          
-          <Tabs defaultValue={isTechnician ? 'responses' : 'users'} className="w-full">
-            <TabsList className="bg-muted/50 p-1 rounded-xl">
+        <Tabs defaultValue={isTechnician ? 'responses' : 'users'} className="w-full">
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="bg-muted/50 p-1 rounded-xl w-auto inline-flex flex-wrap sm:flex-nowrap">
               {/* Abas exclusivas para admin/developer */}
               {!isTechnician && (
                 <>
@@ -99,44 +94,44 @@ export default function Admin() {
                 </>
               )}
             </TabsList>
-            
-            {!isTechnician && (
-              <>
-                <TabsContent value="users" className="mt-6">
-                  <UserManagement />
-                </TabsContent>
-                
-                <TabsContent value="companies" className="mt-6">
-                  <CompanyManagement />
-                </TabsContent>
+          </div>
+          
+          {!isTechnician && (
+            <>
+              <TabsContent value="users" className="mt-6">
+                <UserManagement />
+              </TabsContent>
+              
+              <TabsContent value="companies" className="mt-6">
+                <CompanyManagement />
+              </TabsContent>
 
-                <TabsContent value="contracts" className="mt-6">
-                  <ContractManagement />
-                </TabsContent>
-                
-                <TabsContent value="config" className="mt-6">
-                  <SLAConfiguration />
-                </TabsContent>
-              </>
-            )}
-            
-            <TabsContent value="responses" className="mt-6">
-              <CannedResponsesManagement />
-            </TabsContent>
+              <TabsContent value="contracts" className="mt-6">
+                <ContractManagement />
+              </TabsContent>
+              
+              <TabsContent value="config" className="mt-6">
+                <SLAConfiguration />
+              </TabsContent>
+            </>
+          )}
+          
+          <TabsContent value="responses" className="mt-6">
+            <CannedResponsesManagement />
+          </TabsContent>
 
-            {!isTechnician && (
-              <>
-                <TabsContent value="routing" className="mt-6">
-                  <RoutingRulesManagement />
-                </TabsContent>
-                <TabsContent value="checklists" className="mt-6">
-                  <ResolutionChecklistManagement />
-                </TabsContent>
-              </>
-            )}
-          </Tabs>
-        </div>
-      </main>
+          {!isTechnician && (
+            <>
+              <TabsContent value="routing" className="mt-6">
+                <RoutingRulesManagement />
+              </TabsContent>
+              <TabsContent value="checklists" className="mt-6">
+                <ResolutionChecklistManagement />
+              </TabsContent>
+            </>
+          )}
+        </Tabs>
+      </div>
     </div>
   );
 }

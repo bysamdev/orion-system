@@ -24,10 +24,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 flex-1 overflow-x-hidden">
         {/* TopBar sticky */}
-        <header className="flex sticky top-0 bg-background/80 backdrop-blur-sm h-16 shrink-0 items-center gap-2 border-b border-border/30 px-4 md:px-8 z-30">
-          <SidebarTrigger className="-ml-1 md:hidden" />
+        <header className="flex sticky top-0 bg-background/80 backdrop-blur-sm h-16 shrink-0 items-center gap-3 border-b border-border/30 px-3 sm:px-6 lg:px-8 z-30">
+          <SidebarTrigger className="text-muted-foreground hover:text-foreground shrink-0" />
           <div className="flex-1 min-w-0">
             <TopBar />
           </div>
@@ -35,7 +35,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
         {/* Conteúdo da rota */}
         <main
-          className="flex-1 px-4 py-4 md:px-8 md:py-6 lg:px-12 lg:py-8 w-full mx-auto"
+          className="flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-6 w-full mx-auto min-w-0"
           style={{ maxWidth }}
         >
           {children}

@@ -672,8 +672,8 @@ const Assets = () => {
 
           {/* 3. Table Columns */}
           <Card className="border-border/40 shadow-xl bg-card/60 backdrop-blur-md overflow-hidden">
-            <CardContent className="p-0">
-              <Table>
+            <CardContent className="p-0 overflow-x-auto">
+              <Table className="min-w-[960px]">
                 <TableHeader className="bg-muted/30">
                   <TableRow className="hover:bg-transparent border-border/40">
                     <TableHead className="w-[170px] text-center text-[10px] font-semibold uppercase tracking-wider">Status / Tipo</TableHead>

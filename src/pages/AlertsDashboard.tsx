@@ -596,7 +596,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
         ) : (
           <div className="space-y-6">
             {/* 6-Column KPI Summary Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
               {[
                 { label: 'Total Crítico', value: mergedAlerts.length, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10 border-red-500/25' },
                 { label: 'Sem Antivírus', value: grouped.antivirus.length, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-500/10 border-rose-500/25' },

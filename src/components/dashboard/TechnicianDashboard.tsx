@@ -464,9 +464,9 @@ export const TechnicianDashboard: React.FC = () => {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
         {/* Main Content Area */}
-        <div className="lg:col-span-8 space-y-8">
+        <div className="xl:col-span-8 space-y-8 min-w-0">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="relative w-full md:max-w-md group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
@@ -613,8 +613,8 @@ export const TechnicianDashboard: React.FC = () => {
 
             <TabsContent value="unassigned" className="mt-0">
               <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
-                <CardContent className="p-0">
-                  <Table>
+                <CardContent className="p-0 overflow-x-auto">
+                  <Table className="min-w-[650px]">
                     <TableHeader className="bg-muted/5">
                       <TableRow className="hover:bg-transparent border-b border-border/40">
                         <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
@@ -677,8 +677,8 @@ export const TechnicianDashboard: React.FC = () => {
 
             <TabsContent value="my-tickets" className="mt-0">
               <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
-                <CardContent className="p-0">
-                  <Table>
+                <CardContent className="p-0 overflow-x-auto">
+                  <Table className="min-w-[650px]">
                     <TableHeader className="bg-muted/5">
                       <TableRow className="hover:bg-transparent border-b border-border/40">
                         <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
@@ -707,8 +707,8 @@ export const TechnicianDashboard: React.FC = () => {
 
             <TabsContent value="all-tickets" className="mt-0">
               <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
-                <CardContent className="p-0">
-                  <Table>
+                <CardContent className="p-0 overflow-x-auto">
+                  <Table className="min-w-[650px]">
                     <TableHeader className="bg-muted/5">
                       <TableRow className="hover:bg-transparent border-b border-border/40">
                         <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
@@ -738,7 +738,7 @@ export const TechnicianDashboard: React.FC = () => {
         </div>
 
         {/* Sidebar Info Area */}
-        <div className="lg:col-span-4 space-y-8">
+        <div className="xl:col-span-4 space-y-8 min-w-0">
           {/* Workload Section */}
           <Card className="border-border/40 shadow-lg rounded-3xl bg-card/50 backdrop-blur-sm overflow-hidden">
             <CardHeader className="pb-2">

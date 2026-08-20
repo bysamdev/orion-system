@@ -197,8 +197,8 @@ export default function TicketHistory() {
                 </div>
 
                 {/* ── Desktop Table (>= md) ── */}
-                <div className="hidden md:block">
-                  <Table>
+                <div className="hidden md:block overflow-x-auto">
+                  <Table className="min-w-[700px]">
                     <TableHeader className="bg-muted/5">
                       <TableRow className="hover:bg-transparent border-b border-border/40">
                         <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-14 pl-6">Nº</TableHead>

@@ -631,7 +631,7 @@ export default function WebMonitoring() {
                       isExpanded ? 'border-primary/40 ring-1 ring-primary/20' : 'hover:bg-muted/20'
                     )}
                   >
-                    <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <CardContent className="p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
                       {/* Left: Icon & Name & URL */}
                       <div className="flex items-center gap-3.5 min-w-0 flex-1">
                         <div className={cn(
@@ -664,7 +664,7 @@ export default function WebMonitoring() {
                       </div>
 
                       {/* Middle: Latency (ms) & SSL Status (Aligned Grid) */}
-                      <div className="grid grid-cols-2 gap-2.5 w-full sm:w-[220px] py-1 md:py-0 border-y md:border-y-0 border-border/40 shrink-0">
+                      <div className="grid grid-cols-2 gap-2.5 w-full sm:w-[220px] py-1 lg:py-0 border-y lg:border-y-0 border-border/40 shrink-0">
                         {/* Metric 1: Latency */}
                         <div className="bg-muted/30 dark:bg-muted/15 px-3 py-1.5 rounded-xl border border-border/30 text-center min-w-0">
                           <span className="text-[10px] uppercase font-bold text-muted-foreground block truncate">
@@ -691,7 +691,7 @@ export default function WebMonitoring() {
                       </div>
 
                       {/* Right: Status Pill, Expand Diagnostics & Delete Button */}
-                      <div className="flex items-center gap-2.5 self-end md:self-auto shrink-0">
+                      <div className="flex items-center gap-2.5 self-end lg:self-auto shrink-0">
                         <Badge
                           variant={isOnline ? 'default' : 'destructive'}
                           className={cn(
