@@ -94,14 +94,17 @@ func main() {
 	}
 
 	if !elevado {
-		imprimirAviso("Privilégio de administrador necessário para registrar o serviço Windows")
-		fmt.Println("      Solicitando elevação (UAC)...")
-		if err := relançarElevado(); err != nil {
-			falharComPausa("Não foi possível solicitar elevação: %v\nExecute este instalador manualmente como Administrador.", err)
+		if !modoSilencioso {
+			imprimirAviso("Privilégio de administrador necessário para registrar o serviço Windows")
+			fmt.Println("      Solicitando elevação (UAC)...")
+			if err := relançarElevado(); err != nil {
+				falharComPausa("Não foi possível solicitar elevação: %v\nExecute este instalador manualmente como Administrador.", err)
+			}
+			return
 		}
-		return
+	} else {
+		imprimirOK("Privilégios de administrador confirmados")
 	}
-	imprimirOK("Privilégios de administrador confirmados")
 
 	if err := instalar(); err != nil {
 		falharComPausa("Falha na instalação: %v", err)
