@@ -162,7 +162,7 @@ const Reports: React.FC = () => {
     },
   });
 
-  const { data: allTickets = [], isLoading: ticketsLoading } = useTickets();
+  const { data: allTickets = [], isLoading: ticketsLoading } = useTickets(undefined, { dateFrom, dateTo });
   const { data: slaTarget = null } = useSlaTarget(companyFilter);
   const { data: ratings } = useTicketRatings();
   const { data: timeEntries } = useTimeEntriesReport();

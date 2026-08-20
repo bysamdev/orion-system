@@ -67,6 +67,22 @@ export interface FilterArgs {
  * resolvido dentro da janela, ou se segue ativo — assim o relatório não perde
  * de vista o que está em aberto há mais tempo que o período consultado.
  */
+/**
+ * Monta o filtro PostgREST equivalente ao critério acima (mesma regra que
+ * filterTickets aplica em memória): um ticket entra se foi criado OU
+ * resolvido dentro do período, OU se segue em aberto (STATUS_ATIVOS). Usada
+ * por useTickets para empurrar o filtro pro banco em vez de buscar a tabela
+ * de tickets inteira da empresa a cada carregamento de Relatórios — não
+ * escalava conforme o histórico crescia.
+ */
+export function construirFiltroPeriodoRelatorio({ dateFrom, dateTo }: Pick<FilterArgs, 'dateFrom' | 'dateTo'>): string {
+  return (
+    `and(created_at.gte.${dateFrom}T00:00:00,created_at.lte.${dateTo}T23:59:59.999),` +
+    `and(resolved_at.gte.${dateFrom}T00:00:00,resolved_at.lte.${dateTo}T23:59:59.999),` +
+    `status.in.(${STATUS_ATIVOS.join(',')})`
+  );
+}
+
 export function filterTickets(tickets: Ticket[], f: FilterArgs): Ticket[] {
   return (tickets || []).filter((t) => {
     if (f.companyId !== 'all' && t.company_id !== f.companyId) return false;

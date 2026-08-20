@@ -6,6 +6,7 @@ import { ticketStatusSchema, ticketPrioritySchema, ticketUpdateSchema } from '@/
 import { mapDatabaseError, logError } from '@/lib/error-handling';
 import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpers';
 import { MOCK_TICKETS, getMockTicketsByStatus } from '@/mocks/tickets';
+import { construirFiltroPeriodoRelatorio } from '@/lib/reports/aggregations';
 
 export interface Ticket {
   id: string;
@@ -49,14 +50,19 @@ export interface TicketUpdate {
   is_internal: boolean;
 }
 
-export const useTickets = (status?: string) => {
+interface DateRangeArgs {
+  dateFrom: string;
+  dateTo: string;
+}
+
+export const useTickets = (status?: string, dateRange?: DateRangeArgs) => {
   return useQuery({
-    queryKey: ['tickets', status],
+    queryKey: ['tickets', status, dateRange],
     queryFn: async () => {
       if (import.meta.env.DEV) {
         return getMockTicketsByStatus(status) as unknown as Promise<Ticket[]>;
       }
-      
+
       // Use read client for queries
       let query = supabase
         .from('tickets')
@@ -72,6 +78,13 @@ export const useTickets = (status?: string) => {
         } else {
           query = query.eq('status', status);
         }
+      }
+
+      if (dateRange) {
+        // Sem isso, Reports.tsx buscava a tabela de tickets inteira da
+        // empresa a cada carregamento e só filtrava depois no cliente — não
+        // escala conforme o histórico cresce.
+        query = query.or(construirFiltroPeriodoRelatorio(dateRange));
       }
 
       const { data: tickets, error } = await query;
