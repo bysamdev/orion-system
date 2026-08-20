@@ -231,6 +231,7 @@ const NewTicket = () => {
   }, [profile?.department, form]);
 
   const currentCategory = form.watch('category');
+  const isCategorySelected = Boolean(currentCategory);
   const watchedTitle = form.watch('title');
   const watchedDescription = form.watch('description');
 
