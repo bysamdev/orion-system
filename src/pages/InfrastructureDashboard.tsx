@@ -66,9 +66,10 @@ export default function InfrastructureDashboard() {
           <MonitoringWrapper
             externalMachineId={externalMachineId}
             onClearExternalMachine={handleClearExternalMachine}
+            hideHeader={true}
           />
         ) : (
-          <AlertsDashboardWrapper onAlertClick={handleAlertClick} />
+          <AlertsDashboardWrapper onAlertClick={handleAlertClick} hideHeader={true} />
         )}
       </div>
     </div>

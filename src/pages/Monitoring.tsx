@@ -62,6 +62,7 @@ type StatusFilter = 'all' | 'online' | 'offline' | 'alert';
 export interface MonitoringProps {
   externalMachineId?: string | null;
   onClearExternalMachine?: () => void;
+  hideHeader?: boolean;
 }
 
 // ── Sidebar de grupos ─────────────────────────────────────
@@ -374,8 +375,8 @@ function MachinesGrid({
   );
 }
 
-// ── Página Principal de Monitoramento (NOC View) ──────────
-const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExternalMachine }) => {
+// ── Página Principal de Monitoramento (NOC View) ───────────
+const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExternalMachine, hideHeader }) => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const queryClient = useQueryClient();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>('all');
@@ -537,25 +538,21 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
     <div className="w-full space-y-6">
       <div className="w-full">
 
-        {/* ── Page Header ── */}
-        <PageHeader
-          icon={Activity}
-          badge="SUPERVISÃO RMM"
-          title="Monitoramento de Sistemas"
-          description="Supervisão em tempo real de hosts, servidores e estações de trabalho."
-          actions={
-            <>
-              <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <Input
-                  autoComplete="off"
-                  placeholder="Buscar por hostname..."
-                  className="pl-10 w-full sm:w-[260px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
+        {/* ── Page Header / Action Bar ── */}
+        {hideHeader ? (
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-4 border-b border-border/40">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Input
+                autoComplete="off"
+                placeholder="Buscar por hostname..."
+                className="pl-10 w-full sm:w-[260px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
 
+            <div className="flex items-center gap-2 flex-wrap">
               {dashboard && (
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="gap-1.5 text-green-600 border-green-500/30 bg-green-500/10">
@@ -591,9 +588,66 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                 <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
                 Atualizar
               </Button>
-            </>
-          }
-        />
+            </div>
+          </div>
+        ) : (
+          <PageHeader
+            icon={Activity}
+            badge="SUPERVISÃO RMM"
+            title="Monitoramento de Sistemas"
+            description="Supervisão em tempo real de hosts, servidores e estações de trabalho."
+            actions={
+              <>
+                <div className="relative group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input
+                    autoComplete="off"
+                    placeholder="Buscar por hostname..."
+                    className="pl-10 w-full sm:w-[260px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+
+                {dashboard && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="gap-1.5 text-green-600 border-green-500/30 bg-green-500/10">
+                      <Wifi className="w-3 h-3" />
+                      {dashboard.online} online
+                    </Badge>
+                    <Badge variant="outline" className="gap-1.5 text-red-600 border-red-500/30 bg-red-500/10">
+                      <WifiOff className="w-3 h-3" />
+                      <span>{dashboard.offline} offline</span>
+                    </Badge>
+                  </div>
+                )}
+
+                {isAdminOrGestor && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpenGroupDialog()}
+                    className="gap-2 rounded-xl border-border/40 hover:bg-primary/10 hover:text-primary transition-all font-semibold"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Novo Grupo
+                  </Button>
+                )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  className="gap-2 rounded-xl transition-all"
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
+                  Atualizar
+                </Button>
+              </>
+            }
+          />
+        )}
 
         {/* ── Body ── */}
         <div className="flex flex-col lg:flex-row gap-6">
