@@ -670,6 +670,14 @@ func (d *DB) MachineCount(ctx context.Context) (int, error) {
 	return count, err
 }
 
+// updatableMachineColumns é a allow-list de colunas que UpdateMachine aceita
+// escrever. Os chamadores atuais (handler/mon_handlers.go) já filtram as
+// chaves antes de chegar aqui, mas a checagem também vive nesta função —
+// como defesa em profundidade — porque a chave do map vai direto pra string
+// SQL (fmt.Sprintf("%s = $%d", k, i)); sem allow-list aqui, um futuro
+// chamador que esqueça de filtrar reabriria SQL injection via nome de coluna.
+var updatableMachineColumns = map[string]bool{"group_id": true, "company_id": true, "hostname": true, "status": true}
+
 func (d *DB) UpdateMachine(ctx context.Context, id string, updates map[string]any) error {
 	if len(updates) == 0 {
 		return nil
@@ -678,6 +686,9 @@ func (d *DB) UpdateMachine(ctx context.Context, id string, updates map[string]an
 	var args []any
 	i := 1
 	for k, v := range updates {
+		if !updatableMachineColumns[k] {
+			return fmt.Errorf("coluna não permitida em UpdateMachine: %q", k)
+		}
 		if i > 1 {
 			query += ", "
 		}
@@ -731,6 +742,10 @@ func (d *DB) CreateMachineGroup(ctx context.Context, name, description, contact,
 	return id, err
 }
 
+// updatableMachineGroupColumns — mesma lógica de defesa em profundidade de
+// updatableMachineColumns, ver comentário acima.
+var updatableMachineGroupColumns = map[string]bool{"name": true, "description": true, "client_contact": true, "company_id": true}
+
 func (d *DB) UpdateMachineGroup(ctx context.Context, id string, updates map[string]any) error {
 	if len(updates) == 0 {
 		return nil
@@ -739,6 +754,9 @@ func (d *DB) UpdateMachineGroup(ctx context.Context, id string, updates map[stri
 	var args []any
 	i := 1
 	for k, v := range updates {
+		if !updatableMachineGroupColumns[k] {
+			return fmt.Errorf("coluna não permitida em UpdateMachineGroup: %q", k)
+		}
 		if i > 1 {
 			query += ", "
 		}
