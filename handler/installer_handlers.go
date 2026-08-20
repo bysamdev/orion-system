@@ -27,6 +27,12 @@ type contextoInstalador struct {
 	apiURL      string
 }
 
+// papeisInstalador espelha allowedRoles de /instaladores em App.tsx. Antes
+// só continha admin/developer/gestor — technician via a página (front
+// permitia) mas toda chamada de API vinha 403 (bug de UX, nunca foi brecha:
+// a direção restritiva demais não é risco de segurança, só quebrava a tela).
+var papeisInstalador = map[string]bool{"admin": true, "developer": true, "gestor": true, "technician": true}
+
 // resolverContextoInstalador centraliza auth + papel + escopo de empresa +
 // nome + chave de API — compartilhado pelos handlers de .exe e .msi.
 // Escreve a resposta de erro e devolve ok=false quando qualquer checagem
@@ -39,7 +45,7 @@ func resolverContextoInstalador(w http.ResponseWriter, r *http.Request, ctx cont
 	}
 
 	role, _ := requireAdminOrDeveloper(r, user.ID)
-	if role != "admin" && role != "developer" && role != "gestor" {
+	if !papeisInstalador[role] {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
 		return contextoInstalador{}, false
 	}
