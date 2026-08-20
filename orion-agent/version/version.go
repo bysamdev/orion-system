@@ -10,4 +10,4 @@ package version
 // compara isto com lib.LatestAgentVersion (orion-api, módulo separado —
 // bump os dois juntos) pra decidir se enfileira uma auto-atualização pra
 // essa máquina (ver monitoringHeartbeat/enfileirarAutoUpdateSeNecessario).
-const Version = "1.1.12"
+const Version = "1.1.13"
