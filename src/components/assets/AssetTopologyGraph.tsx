@@ -16,7 +16,7 @@ interface AssetTopologyGraphProps {
 type Camada = 'borda' | 'rede' | 'estacoes';
 
 const CAMADAS: Array<{ id: Camada; titulo: string; descricao: string; icone: React.ElementType }> = [
-  { id: 'borda', titulo: 'Borda e Servidores', descricao: 'Gateways, firewalls e servidores', icone: Server },
+  { id: 'borda', titulo: 'Servidores', descricao: 'Servidores e controladores centrais', icone: Server },
   { id: 'rede', titulo: 'Rede', descricao: 'Switches e concentradores', icone: Router },
   { id: 'estacoes', titulo: 'Estações de Trabalho', descricao: 'Computadores e notebooks', icone: Laptop },
 ];
