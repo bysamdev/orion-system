@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import { renderToString } from 'react-dom/server';
 import { RootErrorBoundary, sanitizeErrorMessage, clearApplicationCache } from '../components/RootErrorBoundary';
 

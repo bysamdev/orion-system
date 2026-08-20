@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import { BellOff, CheckCheck, Bell } from "lucide-react";
 import { useNotifications, Notification } from "@/hooks/useNotifications";
 import { NotificationItem } from "@/components/shared/NotificationItem";
