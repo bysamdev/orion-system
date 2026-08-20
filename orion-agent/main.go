@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"time"
+
 	"github.com/kardianos/service"
 
 	"orion-agent/addremove"
@@ -217,6 +219,34 @@ func main() {
 				}
 			},
 		)
+
+		// Define status inicial correto antes de abrir o loop da bandeja
+		if svc.GetPortalURL() != "" {
+			t.SetStatus("conectado")
+		} else {
+			if err := svc.PreloadMachineToken(); err == nil && svc.GetPortalURL() != "" {
+				t.SetStatus("conectado")
+			} else {
+				t.SetStatus("conectando…")
+			}
+		}
+
+		// Mantém o status sincronizado periodicamente
+		go func() {
+			for {
+				time.Sleep(5 * time.Second)
+				if svc.GetPortalURL() != "" {
+					t.SetStatus("conectado")
+				} else {
+					if err := svc.PreloadMachineToken(); err == nil && svc.GetPortalURL() != "" {
+						t.SetStatus("conectado")
+					} else {
+						t.SetStatus("conectando…")
+					}
+				}
+			}
+		}()
+
 		t.Run()
 	}
 }
