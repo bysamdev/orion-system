@@ -702,6 +702,18 @@ func (d *DB) UpdateMachine(ctx context.Context, id string, updates map[string]an
 	return err
 }
 
+// RegistrarSessaoTerminalRemoto grava a trilha de auditoria de uma sessão de
+// shell remoto (quem, quando, em qual máquina/empresa) em
+// remote_terminal_sessions. Chamada dentro de autorizarTerminalBrowser antes
+// do upgrade pra WebSocket — falha aqui impede a sessão de abrir (fail-closed,
+// não é best-effort).
+func (d *DB) RegistrarSessaoTerminalRemoto(ctx context.Context, machineID string, companyID *string, userID string) error {
+	_, err := d.pool.Exec(ctx, `
+INSERT INTO public.remote_terminal_sessions (machine_id, company_id, opened_by)
+VALUES ($1, $2, $3)`, machineID, companyID, userID)
+	return err
+}
+
 // InsertRemediationLogInput descreve um evento de autocura reportado pelo agente.
 type InsertRemediationLogInput struct {
 	MachineID string

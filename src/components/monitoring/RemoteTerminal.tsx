@@ -1,7 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Play, Terminal, Power } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
+import { Play, Terminal, Power, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,7 +36,8 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
   
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
   const createCommand = useCreateCommand();
 
   useEffect(() => {
@@ -170,7 +181,7 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
         </div>
         
         <Button
-          onClick={isConnected ? disconnectTerminal : connectToTerminal}
+          onClick={isConnected ? disconnectTerminal : () => setShowConfirmDialog(true)}
           disabled={!isOnline || (isConnecting && !isConnected)}
           variant={isConnected ? 'destructive' : 'default'}
           className="font-bold gap-2 text-xs"
@@ -188,6 +199,38 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
           )}
         </Button>
       </div>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-amber-500" />
+              Confirmar abertura de sessão remota
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-sm text-muted-foreground">
+              <span className="block">
+                Você está prestes a abrir uma sessão de terminal (shell) com acesso total em{' '}
+                <strong className="text-foreground">{hostname ?? 'esta máquina'}</strong>.
+              </span>
+              <span className="block">
+                Essa ação é registrada com seu usuário, horário e a máquina de destino
+                para fins de auditoria.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowConfirmDialog(false);
+                connectToTerminal();
+              }}
+            >
+              Confirmar e abrir sessão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Separator className="border-border/20" />
 

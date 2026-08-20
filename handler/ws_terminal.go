@@ -217,6 +217,15 @@ func autorizarTerminalBrowser(w http.ResponseWriter, r *http.Request, machineID 
 		return false
 	}
 
+	// Registro de auditoria obrigatório: uma sessão de shell remoto sem
+	// trilha de quem/quando/onde não deve existir. Falha fechado — se o
+	// registro não puder ser gravado, a sessão não abre (não é best-effort).
+	if err := db.RegistrarSessaoTerminalRemoto(r.Context(), machineID, machine.CompanyID, user.ID); err != nil {
+		log.Printf("[AUDITORIA] falha ao registrar sessão de terminal remoto (machine=%s, user=%s): %v", machineID, user.ID, err)
+		http.Error(w, "não foi possível registrar a sessão — tente novamente", http.StatusInternalServerError)
+		return false
+	}
+
 	return true
 }
 
