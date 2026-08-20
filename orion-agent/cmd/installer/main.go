@@ -322,8 +322,10 @@ func instalar() error {
 
 // iniciarBandejaUsuario inicia a bandeja interativa na barra de tarefas do usuário
 func iniciarBandejaUsuario(caminhoExe string) {
-	cmd := exec.Command(caminhoExe)
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.DETACHED_PROCESS}
+	// Dispara via explorer.exe para rebaixar os privilégios (drop privileges).
+	// O instalador roda elevado (Admin), se iniciarmos o agente direto, o ícone
+	// da bandeja não aparece no Explorer do usuário comum devido ao UIPI.
+	cmd := exec.Command("explorer.exe", caminhoExe)
 	if err := cmd.Start(); err != nil {
 		imprimirAviso(fmt.Sprintf("não foi possível iniciar a bandeja interativa: %v", err))
 	} else {
