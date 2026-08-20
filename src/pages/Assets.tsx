@@ -692,10 +692,10 @@ const Assets = () => {
                     return (
                       <TableRow key={device.id} className="group hover:bg-primary/5 transition-colors border-border/40">
                         
-                        {/* 1. Status / Tipo */}
-                        <TableCell className="py-4 text-center align-middle">
-                          <div className="flex items-center justify-center gap-3">
-                            <div className="relative p-2.5 bg-background border border-border/60 rounded-xl group-hover:scale-105 transition-transform shadow-sm flex-shrink-0">
+                        {/* 1. Status / Tipo (Grid Aligned) */}
+                        <TableCell className="py-3.5 align-middle">
+                          <div className="grid grid-cols-[40px_1fr] items-center gap-3 w-[150px] mx-auto">
+                            <div className="relative w-10 h-10 bg-background border border-border/60 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs flex-shrink-0">
                               <DeviceIcon className="w-5 h-5 text-primary" />
                               {/* Online / Offline status dot */}
                               <span 
@@ -707,11 +707,11 @@ const Assets = () => {
                                 )} 
                               />
                             </div>
-                            <div className="flex flex-col items-start gap-1">
+                            <div className="flex flex-col items-start gap-1 min-w-0">
                               <Badge 
                                 variant="secondary" 
                                 className={cn(
-                                  "text-[10px] font-semibold px-2 py-0.5 rounded-md border w-fit uppercase tracking-tighter",
+                                  "text-[10px] font-semibold px-2 py-0.5 rounded-md border w-fit uppercase tracking-tight",
                                   device.device_type === 'Servidor' && "bg-indigo-500/10 text-indigo-600 border-indigo-500/30",
                                   device.device_type === 'Notebook' && "bg-sky-500/10 text-sky-600 border-sky-500/30",
                                   device.device_type === 'Computador' && "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
@@ -719,7 +719,7 @@ const Assets = () => {
                               >
                                 {device.device_type}
                               </Badge>
-                              <span className="text-[10px] font-medium text-muted-foreground capitalize">
+                              <span className="text-[10px] font-medium text-muted-foreground capitalize pl-0.5">
                                 {device.status === 'online' && <span className="text-emerald-600 dark:text-emerald-400 font-medium">Online</span>}
                                 {device.status === 'offline' && <span className="text-rose-600 dark:text-rose-400 font-medium">Offline</span>}
                                 {device.status === 'alerta' && <span className="text-amber-600 dark:text-amber-400 font-medium">Alerta</span>}
