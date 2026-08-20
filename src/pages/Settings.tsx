@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff, Settings2, Settings } from "lucide-react";
+import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff, Settings2, Settings as SettingsIcon } from "lucide-react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { useUserProfile, useUserRole } from "@/hooks/useUserRole";
@@ -192,7 +192,7 @@ export default function Settings() {
   return (
     <div className="w-full space-y-6">
       <PageHeader
-        icon={Settings}
+        icon={SettingsIcon}
         badge="PREFERÊNCIAS & CONTA"
         title="Ajustes do Perfil"
         description="Gerencie suas preferências pessoais, perfil e segurança da conta."

@@ -62,7 +62,7 @@ export const useSoftwarePackages = (companyId: string) =>
   useQuery<SoftwarePackage[]>({
     queryKey: ['packages', companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('software_packages')
         .select('*')
         .eq('company_id', companyId)
@@ -77,7 +77,7 @@ export const usePackageDeployments = (companyId: string) =>
   useQuery<PackageDeployment[]>({
     queryKey: ['package-deployments', companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('package_deployments')
         .select('*, software_packages(name)')
         .order('dispatched_at', { ascending: false })
@@ -93,7 +93,7 @@ export const useCreatePackage = (companyId: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreatePackageInput) => {
-      const { error } = await supabase.from('software_packages').insert([{
+      const { error } = await (supabase as any).from('software_packages').insert([{
         company_id: companyId,
         name: input.name,
         description: input.description || null,
@@ -112,7 +112,7 @@ export const useDeletePackage = (companyId: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('software_packages').delete().eq('id', id);
+      const { error } = await (supabase as any).from('software_packages').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['packages', companyId] }),
@@ -124,7 +124,7 @@ export const useDeployPackage = () => {
   return useMutation({
     mutationFn: async (input: DeployPackageInput) => {
       // 1. Insert deployment record
-      const { error: depErr } = await supabase
+      const { error: depErr } = await (supabase as any)
         .from('package_deployments')
         .insert([{
           package_id: input.package_id,
@@ -135,14 +135,7 @@ export const useDeployPackage = () => {
       if (depErr) throw depErr;
 
       // 2. Queue command for the agent
-      //
-      // Formato tem que bater com parseOrionInstallArgs
-      // (orion-agent/service/windows.go), que só reconhece
-      // --url="..."/--hash="...". O formato anterior (posicional: hash,
-      // path, type) nunca batia com essa regex — todo deploy pelo painel
-      // resultava em url="" e falhava o download sem avisar visivelmente
-      // por quê (bug real, não relacionado a este commit específico).
-      const { error: cmdErr } = await supabase
+      const { error: cmdErr } = await (supabase as any)
         .from('machine_commands')
         .insert([{
           machine_id: input.machine_id,

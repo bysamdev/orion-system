@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  Search, Book, Clock, ArrowRight, Sparkles, Plus, Edit2, Trash2, 
+  Search, Book, BookOpen, Clock, ArrowRight, Sparkles, Plus, Edit2, Trash2, 
   Ticket, Monitor, AlertTriangle, CheckCircle2
 } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -382,24 +382,30 @@ export default function KnowledgeBase() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Usuário não autenticado');
 
-      const { data: companyData } = await supabase.rpc('get_user_company_id', { user_id: userData.user.id });
+      const { data: companyData } = await supabase.rpc('get_user_company_id', { _user_id: userData.user.id });
       if (!companyData) throw new Error('Empresa não encontrada');
 
-      const payload = {
-        title: article.title,
-        content: article.content,
-        category_id: article.category_id,
-        status: article.status,
-        is_public: article.is_public ?? true,
-        company_id: companyData,
-        ...(isUpdate ? { updated_by: userData.user.id } : { created_by: userData.user.id })
-      };
-
       if (isUpdate) {
-        const { error } = await supabase.from('knowledge_base_articles').update(payload).eq('id', article.id);
+        const { error } = await supabase.from('knowledge_base_articles').update({
+          title: article.title,
+          content: article.content,
+          category_id: article.category_id,
+          status: article.status,
+          is_public: article.is_public ?? true,
+          company_id: companyData,
+          updated_by: userData.user.id
+        }).eq('id', article.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('knowledge_base_articles').insert([payload]);
+        const { error } = await supabase.from('knowledge_base_articles').insert([{
+          title: article.title || '',
+          content: article.content || '',
+          category_id: article.category_id,
+          status: article.status,
+          is_public: article.is_public ?? true,
+          company_id: companyData,
+          created_by: userData.user.id
+        }]);
         if (error) throw error;
       }
     },

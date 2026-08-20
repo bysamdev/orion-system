@@ -218,10 +218,10 @@ export async function gerarXlsx(payload: XlsxPayload): Promise<Blob> {
   // Sem `fileName`, a variante /browser devolve { toBlob, toFile } em vez do
   // Blob direto; o download fica a cargo de quem chamou (baixarBlob), para o
   // fluxo ser idêntico ao do PDF.
-  const saida = await writeXlsxFile(abas as never);
+  const saida = (await writeXlsxFile(abas as never)) as unknown;
   if (saida instanceof Blob) return saida;
-  if (saida && typeof (saida as { toBlob?: () => Blob }).toBlob === 'function') {
-    return (saida as { toBlob: () => Blob }).toBlob();
+  if (saida && typeof (saida as any).toBlob === 'function') {
+    return await (saida as any).toBlob();
   }
   throw new Error('write-excel-file não retornou um Blob utilizável');
 }

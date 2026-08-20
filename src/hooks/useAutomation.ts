@@ -40,6 +40,11 @@ export interface Technician {
   full_name: string;
 }
 
+export interface Company {
+  id: string;
+  name: string;
+}
+
 // ── Constants (shared with UI components) ────────────────────
 export const CONDITION_FIELDS = [
   { value: 'category', label: 'Categoria' },

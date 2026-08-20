@@ -256,7 +256,7 @@ export async function gerarPdf(payload: PdfPayload): Promise<Blob> {
     ];
 
     const desenhaCabecalhoTabela = () => {
-      doc.setFillColor(240);
+      doc.setFillColor(240, 240, 240);
       doc.rect(MARGEM, y - 4, UTIL, 6, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);

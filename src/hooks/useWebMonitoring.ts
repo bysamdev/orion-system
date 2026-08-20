@@ -73,13 +73,13 @@ export function useWebEndpoints() {
         return await apiRequest<MonitoredEndpoint[]>('/api/monitoring/web/endpoints');
       } catch (err) {
         console.warn('API endpoint fetch failed, falling back to Supabase:', err);
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('monitored_endpoints')
           .select('id, name, url_or_ip, uptimerobot_monitor_id, status')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        return (data || []).map((item) => ({
+        return (data || []).map((item: any) => ({
           id: item.id,
           name: item.name,
           url_or_ip: item.url_or_ip,
@@ -112,7 +112,7 @@ export function useCreateWebEndpoint() {
         const companyId = profile?.company_id;
         if (!companyId) throw new Error('Empresa do usuário não encontrada');
 
-        const { data: inserted, error } = await supabase
+        const { data: inserted, error } = await (supabase as any)
           .from('monitored_endpoints')
           .insert({
             company_id: companyId,
@@ -141,7 +141,7 @@ export function useDeleteWebEndpoint() {
         return await apiRequest(`/api/monitoring/web/endpoints/${id}`, 'DELETE');
       } catch (err) {
         console.warn('API endpoint delete failed, falling back to direct Supabase delete:', err);
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('monitored_endpoints')
           .delete()
           .eq('id', id);

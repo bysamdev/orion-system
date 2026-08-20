@@ -257,13 +257,12 @@ const TicketDetails: React.FC = () => {
     queryKey: ['ticket-company-data', ticket?.company_id],
     queryFn: async () => {
       if (!ticket?.company_id) return null;
-      const { data, error } = await supabase
-        .from('companies')
+      const { data, error } = await (supabase.from('companies') as any)
         .select('id, name, has_contract')
         .eq('id', ticket.company_id)
         .maybeSingle();
       if (error) return null;
-      return data;
+      return data as { id: string; name: string; has_contract?: boolean | null } | null;
     },
     enabled: !!ticket?.company_id
   });

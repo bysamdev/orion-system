@@ -40,7 +40,7 @@ export const MergeTicketDialog: React.FC<MergeTicketDialogProps> = ({
     
     setIsPending(true);
     try {
-      const { error } = await supabase.rpc('fn_merge_tickets', {
+      const { error } = await (supabase.rpc as any)('fn_merge_tickets', {
         primary_id: primaryTicketId,
         duplicate_ids: ids
       });

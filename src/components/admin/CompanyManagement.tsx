@@ -46,15 +46,27 @@ export const CompanyManagement = () => {
   const [deleteCompanyId, setDeleteCompanyId] = useState<string | null>(null);
   const [tokenCompanyId, setTokenCompanyId] = useState<string | null>(null);
 
-  const { data: companies, isLoading } = useQuery({
+  const { data: companies, isLoading, refetch } = useQuery({
     queryKey: ['companies'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('companies')
+      const { data, error } = await (supabase.from('companies') as any)
         .select('*')
         .order('name');
       if (error) throw error;
-      return data;
+      return (data ?? []) as Array<{
+        id: string;
+        name: string;
+        cnpj: string | null;
+        phone: string | null;
+        address: string | null;
+        domain?: string | null;
+        has_contract?: boolean | null;
+        created_at: string;
+        updated_at?: string;
+        current_plan_id?: string | null;
+        logo_url?: string | null;
+        settings?: any;
+      }>;
     }
   });
 
@@ -114,7 +126,7 @@ export const CompanyManagement = () => {
 
   const toggleContractMutation = useMutation({
     mutationFn: async ({ id, has_contract }: { id: string; has_contract: boolean }) => {
-      const { error } = await supabase.from('companies').update({ has_contract }).eq('id', id);
+      const { error } = await (supabase.from('companies') as any).update({ has_contract }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
@@ -149,11 +161,11 @@ export const CompanyManagement = () => {
       };
 
       if (data.id) {
-        const { error } = await supabase.from('companies').update(payload).eq('id', data.id);
+        const { error } = await (supabase.from('companies') as any).update(payload).eq('id', data.id);
         if (error) throw error;
         return { id: data.id };
       } else {
-        const { data: inserted, error } = await supabase.from('companies').insert(payload).select('id').single();
+        const { data: inserted, error } = await (supabase.from('companies') as any).insert(payload).select('id').single();
         if (error) throw error;
         return { id: inserted.id as string };
       }

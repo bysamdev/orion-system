@@ -77,7 +77,16 @@ const App = () => (
             <Routes>
               {/* ── Rotas públicas (sem layout) ── */}
               <Route path="/auth" element={<Auth />} />
+              <Route path="/login" element={<Navigate to={{ pathname: "/auth", search: window.location.search }} replace />} />
+              <Route path="/signin" element={<Navigate to={{ pathname: "/auth", search: window.location.search }} replace />} />
+              <Route path="/entrar" element={<Navigate to={{ pathname: "/auth", search: window.location.search }} replace />} />
+              <Route path="/logar" element={<Navigate to={{ pathname: "/auth", search: window.location.search }} replace />} />
+
               <Route path="/definir-senha" element={<SetPassword />} />
+              <Route path="/set-password" element={<SetPassword />} />
+              <Route path="/redefinir-senha" element={<SetPassword />} />
+              <Route path="/reset-password" element={<SetPassword />} />
+
               <Route path="/avaliacao/:id" element={<Avaliacao />} />
 
               {/* ── Rotas autenticadas (com Sidebar + TopBar via DashboardLayout) ── */}
@@ -99,26 +108,109 @@ const App = () => (
               <Route path="/automacoes" element={<AppRoute allowedRoles={['admin', 'developer']}><Automacoes /></AppRoute>} />
               <Route path="/instaladores" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><PatchManagement /></AppRoute>} />
               <Route path="/notificacoes" element={<AppRoute><Notifications /></AppRoute>} />
-              <Route path="/manual" element={<Navigate to="/conhecimento" replace />} />
-              <Route path="/tutorial" element={<Navigate to="/conhecimento" replace />} />
+
+              {/* ── Aliases & Redirecionamentos: Service Desk ── */}
+              <Route path="/novo" element={<Navigate to={{ pathname: "/novo-ticket", search: window.location.search }} replace />} />
+              <Route path="/novo-chamado" element={<Navigate to={{ pathname: "/novo-ticket", search: window.location.search }} replace />} />
+              <Route path="/abrir-chamado" element={<Navigate to={{ pathname: "/novo-ticket", search: window.location.search }} replace />} />
+              <Route path="/abrir-ticket" element={<Navigate to={{ pathname: "/novo-ticket", search: window.location.search }} replace />} />
+              <Route path="/new-ticket" element={<Navigate to={{ pathname: "/novo-ticket", search: window.location.search }} replace />} />
+              <Route path="/create-ticket" element={<Navigate to={{ pathname: "/novo-ticket", search: window.location.search }} replace />} />
+
+              <Route path="/history" element={<Navigate to={{ pathname: "/historico", search: window.location.search }} replace />} />
+              <Route path="/tickets" element={<Navigate to={{ pathname: "/historico", search: window.location.search }} replace />} />
+              <Route path="/chamados" element={<Navigate to={{ pathname: "/historico", search: window.location.search }} replace />} />
+              <Route path="/meus-chamados" element={<Navigate to={{ pathname: "/historico", search: window.location.search }} replace />} />
+              <Route path="/my-tickets" element={<Navigate to={{ pathname: "/historico", search: window.location.search }} replace />} />
+              <Route path="/ticket-history" element={<Navigate to={{ pathname: "/historico", search: window.location.search }} replace />} />
+              <Route path="/lista-tickets" element={<Navigate to={{ pathname: "/historico", search: window.location.search }} replace />} />
+
+              <Route path="/manual" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
+              <Route path="/tutorial" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
               <Route path="/base-conhecimento" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
               <Route path="/knowledge" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
-              <Route path="/configuracoes" element={<Navigate to="/ajustes" replace />} />
-              <Route path="/settings" element={<Navigate to="/ajustes" replace />} />
-              <Route path="/history" element={<Navigate to="/historico" replace />} />
-              <Route path="/novo" element={<Navigate to="/novo-ticket" replace />} />
-              <Route path="/notifications" element={<Navigate to="/notificacoes" replace />} />
-              <Route path="/documentacao" element={<Navigate to="/conhecimento" replace />} />
+              <Route path="/knowledge-base" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
+              <Route path="/documentacao" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
+              <Route path="/kb" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
+              <Route path="/wiki" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
+              <Route path="/ajuda" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
+              <Route path="/help" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
+              <Route path="/faq" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
+              <Route path="/docs" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
+              <Route path="/artigos" element={<Navigate to={{ pathname: "/conhecimento", search: window.location.search }} replace />} />
+
+              {/* ── Aliases & Redirecionamentos: Infraestrutura & RMM ── */}
+              <Route path="/infraestrutura" element={<Navigate to={{ pathname: "/sistemas", search: window.location.search }} replace />} />
+              <Route path="/infrastructure" element={<Navigate to={{ pathname: "/sistemas", search: window.location.search }} replace />} />
+              <Route path="/painel-infraestrutura" element={<Navigate to={{ pathname: "/sistemas", search: window.location.search }} replace />} />
+              <Route path="/sistemas-alertas" element={<Navigate to={{ pathname: "/sistemas", search: window.location.search }} replace />} />
+
+              <Route path="/monitoring" element={<Navigate to={{ pathname: "/sistemas", search: window.location.search }} replace />} />
+              <Route path="/alertas" element={<Navigate to={{ pathname: "/sistemas", search: "tab=alertas" }} replace />} />
+              <Route path="/alerts" element={<Navigate to={{ pathname: "/sistemas", search: "tab=alertas" }} replace />} />
+              <Route path="/central-de-alertas" element={<Navigate to={{ pathname: "/central-alertas", search: window.location.search }} replace />} />
+
               <Route path="/assets" element={<Navigate to={{ pathname: "/ativos", search: window.location.search }} replace />} />
               <Route path="/cmdb" element={<Navigate to={{ pathname: "/ativos", search: window.location.search }} replace />} />
-              <Route path="/administracao" element={<Navigate to="/admin" replace />} />
-              <Route path="/painel-admin" element={<Navigate to="/admin" replace />} />
-              <Route path="/cliente" element={<Navigate to="/portal" replace />} />
-              <Route path="/area-cliente" element={<Navigate to="/portal" replace />} />
-              <Route path="/atualizacoes" element={<Navigate to="/instaladores" replace />} />
-              <Route path="/updates" element={<Navigate to="/instaladores" replace />} />
+              <Route path="/inventario" element={<Navigate to={{ pathname: "/ativos", search: window.location.search }} replace />} />
+              <Route path="/inventory" element={<Navigate to={{ pathname: "/ativos", search: window.location.search }} replace />} />
+              <Route path="/equipamentos" element={<Navigate to={{ pathname: "/ativos", search: window.location.search }} replace />} />
+              <Route path="/devices" element={<Navigate to={{ pathname: "/ativos", search: window.location.search }} replace />} />
+              <Route path="/machines" element={<Navigate to={{ pathname: "/ativos", search: window.location.search }} replace />} />
+              <Route path="/maquinas" element={<Navigate to={{ pathname: "/ativos", search: window.location.search }} replace />} />
+
+              <Route path="/web-monitoring" element={<Navigate to={{ pathname: "/monitoramento-web", search: window.location.search }} replace />} />
+              <Route path="/webmonitoring" element={<Navigate to={{ pathname: "/monitoramento-web", search: window.location.search }} replace />} />
+              <Route path="/sites" element={<Navigate to={{ pathname: "/monitoramento-web", search: window.location.search }} replace />} />
+              <Route path="/uptime" element={<Navigate to={{ pathname: "/monitoramento-web", search: window.location.search }} replace />} />
+
+              <Route path="/atualizacoes" element={<Navigate to={{ pathname: "/instaladores", search: window.location.search }} replace />} />
+              <Route path="/updates" element={<Navigate to={{ pathname: "/instaladores", search: window.location.search }} replace />} />
               <Route path="/patches" element={<Navigate to={{ pathname: "/instaladores", search: window.location.search }} replace />} />
-              <Route path="/debug-tools" element={<Navigate to="/debug" replace />} />
+              <Route path="/software" element={<Navigate to={{ pathname: "/instaladores", search: window.location.search }} replace />} />
+              <Route path="/softwares" element={<Navigate to={{ pathname: "/instaladores", search: window.location.search }} replace />} />
+              <Route path="/patch-management" element={<Navigate to={{ pathname: "/instaladores", search: window.location.search }} replace />} />
+              <Route path="/downloads" element={<Navigate to={{ pathname: "/instaladores", search: window.location.search }} replace />} />
+
+              {/* ── Aliases & Redirecionamentos: Gestão & Administração ── */}
+              <Route path="/cliente" element={<Navigate to={{ pathname: "/portal", search: window.location.search }} replace />} />
+              <Route path="/area-cliente" element={<Navigate to={{ pathname: "/portal", search: window.location.search }} replace />} />
+              <Route path="/area-do-cliente" element={<Navigate to={{ pathname: "/portal", search: window.location.search }} replace />} />
+              <Route path="/client-portal" element={<Navigate to={{ pathname: "/portal", search: window.location.search }} replace />} />
+              <Route path="/portal-cliente" element={<Navigate to={{ pathname: "/portal", search: window.location.search }} replace />} />
+              <Route path="/cliente-portal" element={<Navigate to={{ pathname: "/portal", search: window.location.search }} replace />} />
+
+              <Route path="/reports" element={<Navigate to={{ pathname: "/relatorios", search: window.location.search }} replace />} />
+              <Route path="/relatorio" element={<Navigate to={{ pathname: "/relatorios", search: window.location.search }} replace />} />
+              <Route path="/analytics" element={<Navigate to={{ pathname: "/relatorios", search: window.location.search }} replace />} />
+              <Route path="/insights" element={<Navigate to={{ pathname: "/relatorios", search: window.location.search }} replace />} />
+
+              <Route path="/administracao" element={<Navigate to={{ pathname: "/admin", search: window.location.search }} replace />} />
+              <Route path="/painel-admin" element={<Navigate to={{ pathname: "/admin", search: window.location.search }} replace />} />
+              <Route path="/administrador" element={<Navigate to={{ pathname: "/admin", search: window.location.search }} replace />} />
+              <Route path="/gerenciamento" element={<Navigate to={{ pathname: "/admin", search: window.location.search }} replace />} />
+              <Route path="/management" element={<Navigate to={{ pathname: "/admin", search: window.location.search }} replace />} />
+
+              <Route path="/automations" element={<Navigate to={{ pathname: "/automacoes", search: window.location.search }} replace />} />
+              <Route path="/automation" element={<Navigate to={{ pathname: "/automacoes", search: window.location.search }} replace />} />
+              <Route path="/regras" element={<Navigate to={{ pathname: "/automacoes", search: window.location.search }} replace />} />
+              <Route path="/rules" element={<Navigate to={{ pathname: "/automacoes", search: window.location.search }} replace />} />
+
+              <Route path="/configuracoes" element={<Navigate to={{ pathname: "/ajustes", search: window.location.search }} replace />} />
+              <Route path="/settings" element={<Navigate to={{ pathname: "/ajustes", search: window.location.search }} replace />} />
+              <Route path="/perfil" element={<Navigate to={{ pathname: "/ajustes", search: window.location.search }} replace />} />
+              <Route path="/profile" element={<Navigate to={{ pathname: "/ajustes", search: window.location.search }} replace />} />
+              <Route path="/conta" element={<Navigate to={{ pathname: "/ajustes", search: window.location.search }} replace />} />
+              <Route path="/account" element={<Navigate to={{ pathname: "/ajustes", search: window.location.search }} replace />} />
+              <Route path="/meu-perfil" element={<Navigate to={{ pathname: "/ajustes", search: window.location.search }} replace />} />
+              <Route path="/user-settings" element={<Navigate to={{ pathname: "/ajustes", search: window.location.search }} replace />} />
+
+              <Route path="/notifications" element={<Navigate to={{ pathname: "/notificacoes", search: window.location.search }} replace />} />
+              <Route path="/avisos" element={<Navigate to={{ pathname: "/notificacoes", search: window.location.search }} replace />} />
+              <Route path="/inbox" element={<Navigate to={{ pathname: "/notificacoes", search: window.location.search }} replace />} />
+
+              <Route path="/debug-tools" element={<Navigate to={{ pathname: "/debug", search: window.location.search }} replace />} />
+              <Route path="/dev-tools" element={<Navigate to={{ pathname: "/debug", search: window.location.search }} replace />} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -275,7 +275,7 @@ const NewTicket = () => {
         remote_password: remotePassword.trim() || null,
         contract_id: selectedContractId || null,
         asset_id: selectedAssetId || null,
-        custom_fields: {},
+        metadata: {},
       }).select().single();
 
       if (ticketError) {
