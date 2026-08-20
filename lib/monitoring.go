@@ -67,13 +67,19 @@ type MetricRow struct {
 }
 
 type HardwareRow struct {
-	ID                string           `json:"id"`
-	MachineID         string           `json:"machine_id"`
-	CPUModel          *string          `json:"cpu_model"`
-	RAMSlots          []byte           `json:"ram_slots"`
-	Disks             []byte           `json:"disks"`
-	NetworkInterfaces []byte           `json:"network_interfaces"`
-	GPU               *string          `json:"gpu"`
+	ID        string  `json:"id"`
+	MachineID string  `json:"machine_id"`
+	CPUModel  *string `json:"cpu_model"`
+	// RAMSlots/Disks/NetworkInterfaces precisam ser json.RawMessage, não
+	// []byte puro: encoding/json serializa []byte como string base64 (padrão
+	// da stdlib), então essas colunas jsonb chegavam ilegíveis no front-end
+	// (Array.isArray(hw.disks) sempre falso, "Armazenamento & Partições" e
+	// "Interfaces de Rede" sempre vazios mesmo com dado presente no banco —
+	// ver TestHardwareRowSerializaDisksComoArrayJSON).
+	RAMSlots          json.RawMessage `json:"ram_slots"`
+	Disks             json.RawMessage `json:"disks"`
+	NetworkInterfaces json.RawMessage `json:"network_interfaces"`
+	GPU               *string         `json:"gpu"`
 	SecurityInfo      *json.RawMessage `json:"security_info,omitempty"`
 	RemoteSoftware    *json.RawMessage `json:"remote_software,omitempty"`
 	BatteryInfo       *json.RawMessage `json:"battery_info,omitempty"`
