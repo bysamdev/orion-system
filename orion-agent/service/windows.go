@@ -391,6 +391,9 @@ func ServiceConfig() *service.Config {
 func (s *Svc) handleOrionInstall(commandID string, commandText string) {
 	s.logger.Printf("[ORION-INSTALL] Iniciando instalação para comando %s", commandID)
 	
+	// Notifica o usuário na área de trabalho que uma atualização automática está em andamento
+	ShowUpdateNotification("Orion System", "Baixando e instalando nova atualização do Orion Agent em segundo plano...")
+
 	url, hash, silentArgs, err := parseOrionInstallArgs(commandText)
 	if err != nil {
 		msg := fmt.Sprintf("Erro ao fazer parse dos argumentos: %v", err)
@@ -428,6 +431,9 @@ func (s *Svc) handleOrionInstall(commandID string, commandText string) {
 
 	msg := fmt.Sprintf("Instalação concluída com sucesso.\nSaída:\n%s", output)
 	sender.RespondToCommand(s.cfg, commandID, "completed", msg)
+
+	// Notifica que a atualização foi concluída com sucesso
+	ShowUpdateNotification("Orion System", "Orion Agent atualizado com sucesso!")
 }
 
 func parseOrionInstallArgs(command string) (string, string, string, error) {
