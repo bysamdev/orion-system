@@ -854,3 +854,42 @@ func TestMetricsServerDesabilitadoNaoSobe(t *testing.T) {
 	s.startMetricsServer(ctx)
 }
 
+
+// TestExtensaoDaURLIgnoraQueryString cobre o bug que derrubava 100% das
+// auto-atualizações: downloadFileToTemp montava o nome do arquivo temporário
+// com filepath.Base(url) na URL crua, então a signed URL do Supabase Storage
+// (".../<hash>.exe?token=eyJ...") virava um nome de arquivo com "?" — inválido
+// no Windows. Todo os.Create falhava e o comando orion-install voltava
+// "Erro no download: open ...exe?token=eyJ...".
+func TestExtensaoDaURLIgnoraQueryString(t *testing.T) {
+	casos := []struct {
+		nome     string
+		url      string
+		esperado string
+	}{
+		{
+			nome:     "signed URL do Supabase (caso real que quebrou)",
+			url:      "https://kcxwealimsfxqstoprdg.supabase.co/storage/v1/object/sign/agent-installers/abc/cfa3ba03ba3413ec.exe?token=eyJraWQiOiJzdG9yYWdl",
+			esperado: ".exe",
+		},
+		{nome: "msi com query", url: "https://exemplo.com/generic/x.msi?token=abc&outro=1", esperado: ".msi"},
+		{nome: "sem query", url: "https://exemplo.com/pacote.exe", esperado: ".exe"},
+		{nome: "com fragmento", url: "https://exemplo.com/script.ps1#secao", esperado: ".ps1"},
+		{nome: "extensao maiuscula normaliza", url: "https://exemplo.com/PACOTE.EXE?t=1", esperado: ".exe"},
+		{nome: "sem extensao no caminho", url: "https://exemplo.com/download?file=x", esperado: ""},
+	}
+
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			got := extensaoDaURL(c.url)
+			if got != c.esperado {
+				t.Errorf("extensaoDaURL(%q) = %q, esperado %q", c.url, got, c.esperado)
+			}
+			// Garantia extra: a extensão nunca pode conter caractere que o
+			// Windows recusa em nome de arquivo.
+			if strings.ContainsAny(got, `?*<>|":\/`) {
+				t.Errorf("extensão %q contém caractere inválido para nome de arquivo no Windows", got)
+			}
+		})
+	}
+}

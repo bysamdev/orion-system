@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -474,9 +475,26 @@ func parseOrionInstallArgs(command string) (string, string, string, error) {
 	return url, hash, args, nil
 }
 
-func downloadFileToTemp(url string) (string, error) {
+// extensaoDaURL extrai só a extensão do CAMINHO da URL, ignorando query
+// string e fragmento.
+//
+// filepath.Base/Ext direto na URL crua quebra com as signed URLs do Supabase
+// Storage (".../<hash>.exe?token=eyJ..."): o nome de arquivo saía com a query
+// inteira grudada, "?" é caractere inválido no Windows e todo os.Create
+// falhava ("open ...exe?token=eyJ...: The filename, directory name, or volume
+// label syntax is incorrect"), derrubando 100% das auto-atualizações. Mesmo
+// que o arquivo pudesse ser criado, filepath.Ext devolveria ".exe?token=..."
+// e runInstaller cairia no default "extensão não suportada".
+func extensaoDaURL(bruta string) string {
+	if u, err := url.Parse(bruta); err == nil && u.Path != "" {
+		return strings.ToLower(path.Ext(u.Path))
+	}
+	return ""
+}
+
+func downloadFileToTemp(rawURL string) (string, error) {
 	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
+	resp, err := client.Get(rawURL)
 	if err != nil {
 		return "", err
 	}
@@ -486,18 +504,20 @@ func downloadFileToTemp(url string) (string, error) {
 		return "", fmt.Errorf("status HTTP inválido: %s", resp.Status)
 	}
 
-	fileName := filepath.Base(url)
-	if !strings.Contains(fileName, ".") {
-		fileName = "installer.tmp"
+	// A extensão precisa sobreviver — runInstaller decide como executar
+	// (msiexec/powershell/cmd/direto) a partir dela. O resto do nome não
+	// importa, então CreateTemp resolve unicidade e caracteres inválidos de
+	// uma vez só.
+	ext := extensaoDaURL(rawURL)
+	if ext == "" {
+		ext = ".exe"
 	}
 
-	tempDir := os.TempDir()
-	tempFilePath := filepath.Join(tempDir, fileName)
-
-	out, err := os.Create(tempFilePath)
+	out, err := os.CreateTemp("", "orion-update-*"+ext)
 	if err != nil {
 		return "", err
 	}
+	tempFilePath := out.Name()
 	defer out.Close()
 
 	_, err = io.Copy(out, resp.Body)
