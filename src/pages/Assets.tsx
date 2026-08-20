@@ -788,17 +788,17 @@ const Assets = () => {
                         <TableCell className="py-4 text-center align-middle">
                           <div className="flex justify-center">
                             {device.alerts_count > 0 ? (
-                              <Badge 
-                                variant="destructive" 
-                                className="bg-rose-500/10 text-rose-600 border border-rose-500/30 font-semibold text-[11px] px-2.5 py-1 gap-1"
+                              <Badge
+                                variant="destructive"
+                                className="bg-rose-500/10 text-rose-600 border border-rose-500/30 font-semibold text-[11px] px-2.5 py-1 gap-1 whitespace-nowrap"
                               >
-                                <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                                 {device.alerts_count} {device.alerts_count === 1 ? 'Alerta' : 'Alertas'}
                               </Badge>
                             ) : (
-                              <Badge 
-                                variant="outline" 
-                                className="bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-medium text-[11px] px-2 py-0.5"
+                              <Badge
+                                variant="outline"
+                                className="bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-medium text-[11px] px-2 py-0.5 whitespace-nowrap"
                               >
                                 0 Alertas
                               </Badge>
