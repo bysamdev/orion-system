@@ -10,6 +10,7 @@ import (
 
 	"github.com/kardianos/service"
 
+	"orion-agent/addremove"
 	"orion-agent/config"
 	agentsvc "orion-agent/service"
 	"orion-agent/startup"
@@ -72,7 +73,26 @@ func main() {
 		if err := startup.Disable(); err != nil {
 			logger.Printf("[AVISO] Não foi possível remover o início automático no login: %v", err)
 		}
-		fmt.Println("🗑️ Serviço OrionAgent removido com sucesso.")
+		if err := addremove.Remover(); err != nil {
+			logger.Printf("[AVISO] Não foi possível remover a entrada em Aplicativos Instalados: %v", err)
+		}
+		if home, err := os.UserHomeDir(); err == nil {
+			_ = os.Remove(filepath.Join(home, "Desktop", "Abrir Portal de Chamados.url"))
+		}
+		fmt.Println("🗑️ Serviço, início automático e entrada em Aplicativos Instalados removidos.")
+
+		// Apaga a pasta de instalação inteira (C:\Orion), incluindo o
+		// próprio orion-agent.exe que está rodando agora — ver
+		// addremove.LimparPastaDepoisDeSair pro motivo de isso precisar
+		// de um processo destacado em vez de um os.RemoveAll direto aqui.
+		if exe, err := os.Executable(); err == nil {
+			pasta := filepath.Dir(exe)
+			if err := addremove.LimparPastaDepoisDeSair(pasta); err != nil {
+				logger.Printf("[AVISO] Não foi possível agendar a remoção da pasta %s: %v — apague manualmente se necessário.", pasta, err)
+			} else {
+				fmt.Printf("🧹 Removendo %s em alguns segundos...\n", pasta)
+			}
+		}
 
 	default:
 		// Se não houver argumentos, estamos rodando o agente "de verdade".
