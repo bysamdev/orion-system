@@ -1,22 +1,33 @@
 import { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 /**
  * Escuta mudanças em tempo real na tabela machines (status, snapshot de
- * CPU/RAM/disco a cada heartbeat) e invalida as queries que dependem dela —
- * mesmo padrão de useRealtimeTickets. RLS do Supabase já filtra o que cada
- * conexão recebe, então isso não vaza dado entre empresas.
+ * CPU/RAM/disco a cada heartbeat) e invalida as queries que dependem dela.
+ * Utiliza gerenciamento seguro de canal compartilhado com Set de subscribers
+ * para evitar vazamento de memória ou perda de listeners em trocas de rota.
  */
+const subscribers = new Set<QueryClient>();
 let globalChannel: RealtimeChannel | null = null;
-let subscriptionCount = 0;
+
+function notifySubscribers() {
+  subscribers.forEach((qc) => {
+    try {
+      qc.invalidateQueries({ queryKey: ['monitoring'] });
+      qc.invalidateQueries({ queryKey: ['device-inventory'] });
+    } catch (e) {
+      console.warn('[useRealtimeMachines] Erro ao invalidar queries:', e);
+    }
+  });
+}
 
 export const useRealtimeMachines = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    subscriptionCount++;
+    subscribers.add(queryClient);
 
     if (!globalChannel) {
       globalChannel = supabase
@@ -29,19 +40,26 @@ export const useRealtimeMachines = () => {
             table: 'machines',
           },
           () => {
-            queryClient.invalidateQueries({ queryKey: ['monitoring'] });
-            queryClient.invalidateQueries({ queryKey: ['device-inventory'] });
+            notifySubscribers();
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR') {
+            console.warn('[useRealtimeMachines] Erro no canal realtime machines');
+          }
+        });
     }
 
     return () => {
-      subscriptionCount--;
-      if (subscriptionCount <= 0 && globalChannel) {
-        supabase.removeChannel(globalChannel);
+      subscribers.delete(queryClient);
+      if (subscribers.size === 0 && globalChannel) {
+        const channelToTeardown = globalChannel;
         globalChannel = null;
-        subscriptionCount = 0;
+        try {
+          supabase.removeChannel(channelToTeardown);
+        } catch (err) {
+          console.warn('[useRealtimeMachines] Erro ao remover canal realtime:', err);
+        }
       }
     };
   }, [queryClient]);

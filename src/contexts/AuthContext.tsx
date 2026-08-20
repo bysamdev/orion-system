@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -6,12 +6,14 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  refreshAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   loading: true,
+  refreshAuth: async () => {},
 });
 
 export const useAuth = () => {
@@ -27,64 +29,76 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchSession = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('[AuthContext] Erro ao recuperar sessão:', error.message);
+        setSession(null);
+        setUser(null);
+        return;
+      }
+      const currentSession = data?.session ?? null;
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+    } catch (err) {
+      console.error('[AuthContext] Falha de rede ao obter sessão:', err);
+      setSession(null);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const refreshAuth = useCallback(async () => {
+    setLoading(true);
+    await fetchSession();
+  }, [fetchSession]);
+
   useEffect(() => {
     let isMounted = true;
 
-    // Timeout de segurança absoluto: nunca deixa o app preso em loading caso a rede trave
+    // Timeout de segurança absoluto: evita que o app fique travado caso a rede congele
     const safetyTimer = setTimeout(() => {
-      if (isMounted && loading) {
-        console.warn('[AuthContext] Safety timeout acionado. Liberando loading do app.');
-        setLoading(false);
+      if (isMounted) {
+        setLoading((prevLoading) => {
+          if (prevLoading) {
+            console.warn('[AuthContext] Safety timeout (6s) atingido. Liberando loading da aplicação.');
+            return false;
+          }
+          return false;
+        });
       }
-    }, 3000);
+    }, 6000);
 
-    // 1. Escuta mudanças de estado do Supabase Auth
+    // 1. Escuta mudanças em tempo real de autenticação do Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, currentSession) => {
         if (!isMounted) return;
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+        setLoading(false);
       }
     );
 
-    // 2. Recupera sessão inicial com tratamento defensivo de erros
-    supabase.auth.getSession()
-      .then(({ data, error }) => {
-        if (!isMounted) return;
-
-        if (error) {
-          console.error("Error getting session:", error.message);
-          setSession(null);
-          setUser(null);
-          return;
-        }
-
-        const currentSession = data?.session ?? null;
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-      })
-      .catch((err) => {
-        console.error('[AuthContext] Falha ao obter sessão do Supabase:', err);
-        if (isMounted) {
-          setSession(null);
-          setUser(null);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          clearTimeout(safetyTimer);
-          setLoading(false);
-        }
-      });
+    // 2. Recupera a sessão persistida inicialmente
+    fetchSession().finally(() => {
+      if (isMounted) {
+        clearTimeout(safetyTimer);
+      }
+    });
 
     return () => {
       isMounted = false;
       clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchSession]);
 
-  const value = useMemo(() => ({ user, session, loading }), [user, session, loading]);
+  const value = useMemo(
+    () => ({ user, session, loading, refreshAuth }),
+    [user, session, loading, refreshAuth]
+  );
 
   return (
     <AuthContext.Provider value={value}>

@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Notification } from '@/hooks/useNotifications';
+import { useProfilesMap, replaceUserUuidsInText } from '@/hooks/useUserDisplayName';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -22,6 +23,9 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
   className,
 }) => {
   const isSm = size === 'sm';
+  const { profilesMap } = useProfilesMap();
+  const displayTitle = replaceUserUuidsInText(notification.title, profilesMap);
+  const displayMessage = replaceUserUuidsInText(notification.message, profilesMap);
 
   return (
     <button
@@ -62,7 +66,7 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
                   : 'text-foreground'
               )}
             >
-              {notification.title}
+              {displayTitle}
             </p>
             {!notification.is_read && (
               <span className={cn('bg-primary rounded-full flex-shrink-0', isSm ? 'w-2 h-2' : 'w-2.5 h-2.5')} />
@@ -74,7 +78,7 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
               isSm ? 'text-xs line-clamp-2 mt-0.5' : 'text-sm mb-2'
             )}
           >
-            {notification.message}
+            {displayMessage}
           </p>
           <p className={cn('text-muted-foreground/70', isSm ? 'text-xs mt-1' : 'text-xs font-medium')}>
             {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: ptBR })}

@@ -33,6 +33,7 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const onDataDisposableRef = useRef<{ dispose: () => void } | null>(null);
   
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -61,9 +62,13 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
     fitAddonRef.current = fitAddon;
     
     const handleResize = () => {
-      fitAddon.fit();
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ cols: term.cols, rows: term.rows }));
+      try {
+        fitAddon.fit();
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ cols: term.cols, rows: term.rows }));
+        }
+      } catch {
+        // ignore resize errors if container was removed
       }
     };
     
@@ -71,7 +76,25 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
     
     return () => {
       window.removeEventListener('resize', handleResize);
-      term.dispose();
+      if (onDataDisposableRef.current) {
+        onDataDisposableRef.current.dispose();
+        onDataDisposableRef.current = null;
+      }
+      if (wsRef.current) {
+        try {
+          wsRef.current.close();
+        } catch {
+          // ignore
+        }
+        wsRef.current = null;
+      }
+      try {
+        term.dispose();
+      } catch {
+        // ignore
+      }
+      xtermRef.current = null;
+      fitAddonRef.current = null;
     };
   }, []);
 
@@ -110,6 +133,16 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
         return;
       }
 
+      // Close previous ws if any
+      if (wsRef.current) {
+        try {
+          wsRef.current.close();
+        } catch {
+          // ignore
+        }
+        wsRef.current = null;
+      }
+
       const ws = new WebSocket(wsUrl, ['orion-bearer', accessToken]);
       
       ws.onopen = () => {
@@ -146,11 +179,18 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
       
       wsRef.current = ws;
       
-      xtermRef.current?.onData((data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(data);
-        }
-      });
+      // Dispose old onData listener before attaching new one
+      if (onDataDisposableRef.current) {
+        onDataDisposableRef.current.dispose();
+      }
+      
+      if (xtermRef.current) {
+        onDataDisposableRef.current = xtermRef.current.onData((data) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(data);
+          }
+        });
+      }
       
     } catch (err: any) {
       setIsConnecting(false);
@@ -159,10 +199,20 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
   };
   
   const disconnectTerminal = () => {
+    if (onDataDisposableRef.current) {
+      onDataDisposableRef.current.dispose();
+      onDataDisposableRef.current = null;
+    }
     if (wsRef.current) {
-      wsRef.current.close();
+      try {
+        wsRef.current.close();
+      } catch {
+        // ignore
+      }
       wsRef.current = null;
     }
+    setIsConnected(false);
+    setIsConnecting(false);
   };
 
   return (

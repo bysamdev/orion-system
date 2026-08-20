@@ -419,12 +419,23 @@ const TicketDetails: React.FC = () => {
     enabled: !!ticket && !!user,
   });
 
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) {
+        clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
+
   const copyToClipboard = async (text: string, field: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
       toast({ title: 'Copiado!', description: 'Texto copiado para a área de transferência.' });
-      setTimeout(() => setCopiedField(null), 2000);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopiedField(null), 2000);
     } catch {
       toast({ title: 'Erro', description: 'Não foi possível copiar o texto.', variant: 'destructive' });
     }
@@ -723,14 +734,8 @@ const TicketDetails: React.FC = () => {
               </div>
               <UnifiedTimeline
                 updates={updates}
-                statusHistory={(statusHistory || []).map(sh => ({
-                  ...sh,
-                  changed_by: technicians.find(t => t.id === sh.changed_by)?.full_name || sh.changed_by
-                }))}
-                timeEntries={(timeEntries || []).map(te => ({
-                  ...te,
-                  user_id: technicians.find(t => t.id === te.user_id)?.full_name || te.user_id
-                }))}
+                statusHistory={statusHistory}
+                timeEntries={timeEntries}
               />
             </Card>
 

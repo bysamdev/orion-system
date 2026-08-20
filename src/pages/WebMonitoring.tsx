@@ -173,11 +173,22 @@ export default function WebMonitoring() {
   const [netStatus, setNetStatus] = useState<string>('online');
   const [netLatency, setNetLatency] = useState<string>('25');
 
+  const refreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    };
+  }, []);
+
   // Manual refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await Promise.all([refetchWeb(), refetchNetwork()]);
-    setTimeout(() => setIsRefreshing(false), 500);
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => setIsRefreshing(false), 500);
   };
 
   // Web Endpoints Handlers

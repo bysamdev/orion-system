@@ -20,6 +20,7 @@ import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
 
 interface PortalTicket {
   id: string;
@@ -39,6 +40,7 @@ export default function ClientPortal() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: profile, isLoading: profileLoading } = useUserProfile();
+  const { profilesMap } = useProfilesMap();
   const { data: role } = useUserRole();
   const isStaff = role === 'technician' || role === 'admin' || role === 'developer';
 
@@ -224,7 +226,9 @@ export default function ClientPortal() {
                           
                           <div className="flex items-center gap-2.5 text-xs text-muted-foreground flex-wrap">
                             <span>
-                              {ticket.assigned_to ? `Técnico: ${ticket.assigned_to}` : 'Aguardando atribuição'}
+                              {ticket.assigned_to
+                                ? `Técnico: ${resolveUserDisplayName(ticket.assigned_to, profilesMap, { fallback: 'Técnico' })}`
+                                : 'Aguardando atribuição'}
                             </span>
                             <span>•</span>
                             <span className="flex items-center gap-1">

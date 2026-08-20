@@ -245,6 +245,8 @@ export function useMachineMetrics(machineId: string | null, limit = 100) {
     queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/metrics?limit=${limit}`),
     enabled: !!machineId,
     refetchInterval: 60_000,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000, // Coleta de lixo ativa (5 min) para não reter payloads de telemetria
   });
 }
 
@@ -254,6 +256,8 @@ export function useMachineMetricsByPeriod(machineId: string | null, period: Metr
     queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/metrics?period=${period}`),
     enabled: !!machineId,
     refetchInterval: 60_000,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
   });
 }
 
@@ -263,6 +267,7 @@ export function useMachineAlerts(machineId: string | null) {
     queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/alerts`),
     enabled: !!machineId,
     refetchInterval: 30_000,
+    gcTime: 5 * 60_000,
   });
 }
 
@@ -298,6 +303,7 @@ export function useMachineCommands(machine_id: string | null) {
       return apiGet<CommandRow[]>(`/api/monitoring/machines/${machine_id}/commands`);
     },
     enabled: !!machine_id,
+    gcTime: 5 * 60_000,
     refetchInterval: (query) => {
       const commands = query.state.data;
       if (commands?.some(c => c.status === 'pending' || c.status === 'sent')) {

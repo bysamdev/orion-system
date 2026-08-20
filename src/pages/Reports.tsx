@@ -62,6 +62,7 @@ import { BulletChart } from '@/components/reports/BulletChart';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { GaugeChart } from '@/components/reports/GaugeChart';
 import { TechnicianComparisonChart } from '@/components/reports/TechnicianComparisonChart';
+import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
 import {
   useSlaTarget,
   useTicketRatings,
@@ -171,6 +172,7 @@ const Reports: React.FC = () => {
   const { data: criticalAssets } = useCriticalAssets(companyFilter);
   const { data: kbLinks } = useKbLinksReport();
   const { data: automationLogs } = useAutomationLogsReport();
+  const { profilesMap } = useProfilesMap();
 
   const tickets = useMemo(
     () =>
@@ -225,9 +227,12 @@ const Reports: React.FC = () => {
           : companies?.find((c) => c.id === companyFilter)?.name ?? companyFilter,
       technicianId: techFilter,
       technicianName:
-        techFilter === 'all' ? 'Todos' : nomePorUsuario.get(techFilter) ?? techFilter,
+        techFilter === 'all'
+          ? 'Todos'
+          : nomePorUsuario.get(techFilter) ??
+            resolveUserDisplayName(techFilter, profilesMap, { fallback: 'Usuário Removido' }),
     }),
-    [dateFrom, dateTo, companyFilter, techFilter, companies, nomePorUsuario],
+    [dateFrom, dateTo, companyFilter, techFilter, companies, nomePorUsuario, profilesMap],
   );
 
   // ── Exportações ────────────────────────────────────────────────────────────
@@ -1160,7 +1165,7 @@ const Reports: React.FC = () => {
                               />
                             </TableCell>
                             <TableCell className="text-muted-foreground max-w-[120px] truncate">
-                              {ticket.assigned_to || '—'}
+                              {resolveUserDisplayName(ticket.assigned_to, profilesMap, { fallback: '—', unassignedFallback: '—' })}
                             </TableCell>
                             <TableCell className="whitespace-nowrap text-xs text-muted-foreground capitalize-first">
                               {ticket.created_at && !Number.isNaN(new Date(ticket.created_at).getTime())

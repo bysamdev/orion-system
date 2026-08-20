@@ -482,13 +482,24 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
     setSelectedMachineId(machineId);
   };
 
+  const refreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['monitoring', 'alerts', 'critical'] }),
       queryClient.invalidateQueries({ queryKey: ['monitoring'] }),
     ]);
-    setTimeout(() => setRefreshing(false), 800);
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => setRefreshing(false), 800);
   };
 
   const isLoading = alertsLoading && machinesLoading;

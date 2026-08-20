@@ -46,8 +46,9 @@ export function useWebEndpoints() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    const channelName = `monitored-endpoints-realtime-${Math.random().toString(36).slice(2, 7)}`;
     const channel = supabase
-      .channel('monitored-endpoints-realtime')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -56,13 +57,25 @@ export function useWebEndpoints() {
           table: 'monitored_endpoints',
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['webEndpoints'] });
+          try {
+            queryClient.invalidateQueries({ queryKey: ['webEndpoints'] });
+          } catch (e) {
+            console.warn('[useWebEndpoints] Erro ao invalidar webEndpoints:', e);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('[useWebEndpoints] Erro no canal realtime webEndpoints');
+        }
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (err) {
+        console.warn('[useWebEndpoints] Erro ao remover canal realtime:', err);
+      }
     };
   }, [queryClient]);
 

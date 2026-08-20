@@ -8,8 +8,10 @@ import { Timer, CheckCircle2, ArrowUpRight, Paperclip, BookOpen, Play, Square, U
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveTimer, useStartTimer, useStopTimer } from '@/hooks/useTimeEntries';
-import { cn, formatDurationHuman, formatDate } from '@/lib/utils';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
+import { cn, formatDurationHuman, formatDate } from '@/lib/utils';
 
 interface TicketHeroHeaderProps {
   ticket: {
@@ -58,6 +60,7 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
   isSummarizing,
 }) => {
   const { user } = useAuth();
+  const { profilesMap } = useProfilesMap();
   const { data: activeTimer } = useActiveTimer(user?.id);
   const startTimer = useStartTimer();
   const stopTimer = useStopTimer();
@@ -65,6 +68,11 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
   const isAssignedToMe = Boolean(user && ticket.assigned_to_user_id === user.id);
   const isResolved = ticket.status === 'resolved' || ticket.status === 'closed';
   const canAssume = canManageTickets && !isResolved && !isAssignedToMe;
+
+  const assignedToDisplayName = resolveUserDisplayName(ticket.assigned_to, profilesMap, {
+    fallback: 'Não atribuído',
+    unassignedFallback: 'Não atribuído',
+  });
 
   // Timer ativo neste ticket?
   const isTimerActiveHere = activeTimer?.ticket_id === ticket.id;
@@ -121,7 +129,7 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
         <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/40 rounded-lg border border-border/50">
           <User className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">Responsável:</span>
-          <span className="text-sm font-bold text-foreground">{ticket.assigned_to || 'Não atribuído'}</span>
+          <span className="text-sm font-bold text-foreground">{assignedToDisplayName}</span>
           {canAssume && onAssume && (
             <Button
               size="sm"

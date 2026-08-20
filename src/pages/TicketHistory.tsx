@@ -15,6 +15,7 @@ import { ptBR } from 'date-fns/locale';
 import { formatDate } from '@/lib/utils';
 import { useMeusTickets } from '@/hooks/useMyTickets';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
 
 // Define types for tickets to avoid 'unknown' property errors
 interface Ticket {
@@ -46,6 +47,7 @@ export default function TicketHistory() {
 
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: profile } = useUserProfile();
+  const { profilesMap } = useProfilesMap();
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -185,7 +187,7 @@ export default function TicketHistory() {
                           <PriorityBadge priority={t.priority} size="sm" />
                         </div>
                         <p className="text-sm font-bold text-foreground truncate">{t.title}</p>
-                        <p className="text-[10px] text-muted-foreground">{t.requester_name} · {formatDate(t.updated_at, "dd/MM/yy", { locale: ptBR })}</p>
+                        <p className="text-[10px] text-muted-foreground">{resolveUserDisplayName(t.requester_name, profilesMap, { fallback: 'Cliente' })} · {formatDate(t.updated_at, "dd/MM/yy", { locale: ptBR })}</p>
                       </div>
                       <ArrowRight className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-1" />
                     </button>
@@ -214,7 +216,7 @@ export default function TicketHistory() {
                         </TableRow>
                       ) : (
                         (filteredTickets || []).map(t => (
-                          <TicketHistoryRow key={t.id} ticket={t} onClick={handleRowClick} />
+                          <TicketHistoryRow key={t.id} ticket={t} profilesMap={profilesMap} onClick={handleRowClick} />
                         ))
                       )}
                     </TableBody>
@@ -264,10 +266,11 @@ export default function TicketHistory() {
 
 interface TicketHistoryRowProps {
   ticket: Ticket;
+  profilesMap?: any;
   onClick: (id: string) => void;
 }
 
-const TicketHistoryRow = React.memo(({ ticket, onClick }: TicketHistoryRowProps) => {
+const TicketHistoryRow = React.memo(({ ticket, profilesMap, onClick }: TicketHistoryRowProps) => {
   return (
     <TableRow 
       onClick={() => onClick(ticket.id)} 
@@ -278,7 +281,7 @@ const TicketHistoryRow = React.memo(({ ticket, onClick }: TicketHistoryRowProps)
       </TableCell>
       <TableCell className="py-4">
         <p className="text-sm font-bold text-foreground group-hover:text-purple-500 transition-colors">{ticket.title}</p>
-        <p className="text-[10px] font-medium text-muted-foreground">{ticket.requester_name} · {ticket.company_name || 'N/A'}</p>
+        <p className="text-[10px] font-medium text-muted-foreground">{resolveUserDisplayName(ticket.requester_name, profilesMap, { fallback: 'Cliente' })} · {ticket.company_name || 'N/A'}</p>
       </TableCell>
       <TableCell className="py-4">
         <PriorityBadge priority={ticket.priority} size="sm" />

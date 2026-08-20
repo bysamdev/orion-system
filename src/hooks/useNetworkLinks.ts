@@ -60,8 +60,9 @@ export function useNetworkLinks(companyId?: string) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    const channelName = `network-links-realtime-${Math.random().toString(36).slice(2, 7)}`;
     const channel = supabase
-      .channel('network-links-realtime')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -70,13 +71,25 @@ export function useNetworkLinks(companyId?: string) {
           table: 'network_links',
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['networkLinks'] });
+          try {
+            queryClient.invalidateQueries({ queryKey: ['networkLinks'] });
+          } catch (e) {
+            console.warn('[useNetworkLinks] Erro ao invalidar networkLinks:', e);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('[useNetworkLinks] Erro no canal realtime networkLinks');
+        }
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (err) {
+        console.warn('[useNetworkLinks] Erro ao remover canal realtime:', err);
+      }
     };
   }, [queryClient]);
 

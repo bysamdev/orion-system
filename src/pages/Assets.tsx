@@ -207,11 +207,22 @@ const Assets = () => {
     }
   }, [editingAsset, formData, updateAsset, createAsset]);
 
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleForceRefresh = useCallback(async () => {
     setIsRefreshing(true);
     toast.info('Solicitando atualização de telemetria em tempo real...');
     await refetchInventory();
-    setTimeout(() => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
       setIsRefreshing(false);
       toast.success('Inventário de dispositivos atualizado!');
     }, 800);

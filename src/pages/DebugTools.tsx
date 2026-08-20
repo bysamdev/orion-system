@@ -16,6 +16,7 @@ import { ptBR } from 'date-fns/locale';
 import { formatDate } from '@/lib/utils';
 import { ehTituloDeTicketDeTeste } from '@/lib/testDataDetection';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { useProfilesMap, resolveUserDisplayName, replaceUserUuidsInText } from '@/hooks/useUserDisplayName';
 
 interface SLATestResult {
   id: string;
@@ -54,6 +55,7 @@ const DebugTools = () => {
   const { user } = useAuth();
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: profile } = useUserProfile();
+  const { profilesMap } = useProfilesMap();
   
   // SLA Test State
   const [slaResults, setSlaResults] = useState<SLATestResult[]>([]);
@@ -98,8 +100,9 @@ const DebugTools = () => {
       fetchAuditLogs();
       
       // Setup realtime subscription for audit_log
+      const channelName = `audit-log-changes-${Math.random().toString(36).slice(2, 7)}`;
       const channel = supabase
-        .channel('audit-log-changes')
+        .channel(channelName)
         .on(
           'postgres_changes',
           {
@@ -117,7 +120,11 @@ const DebugTools = () => {
         .subscribe();
 
       return () => {
-        supabase.removeChannel(channel);
+        try {
+          supabase.removeChannel(channel);
+        } catch (err) {
+          console.warn('[DebugTools] Erro ao remover canal realtime:', err);
+        }
       };
     }
   }, [hasAccess]);
@@ -640,6 +647,7 @@ const DebugTools = () => {
                     <TableHead>Tabela</TableHead>
                     <TableHead>Ação</TableHead>
                     <TableHead>Record ID</TableHead>
+                    <TableHead>Usuário</TableHead>
                     <TableHead>Mudanças</TableHead>
                     <TableHead>Quando</TableHead>
                   </TableRow>
@@ -664,6 +672,9 @@ const DebugTools = () => {
                       <TableCell className="font-mono text-xs">
                         {log.record_id.slice(0, 8)}...
                       </TableCell>
+                      <TableCell className="text-xs font-medium">
+                        {resolveUserDisplayName(log.changed_by, profilesMap, { fallback: 'Sistema' })}
+                      </TableCell>
                       <TableCell className="max-w-xs">
                         {log.action === 'UPDATE' && log.old_data && log.new_data ? (
                           <div className="text-xs space-y-1">
@@ -672,8 +683,8 @@ const DebugTools = () => {
                             ).slice(0, 3).map(key => (
                               <div key={key}>
                                 <span className="font-medium">{key}:</span>{' '}
-                                <span className="text-red-500 line-through">{JSON.stringify(log.old_data[key])}</span>{' '}
-                                → <span className="text-green-500">{JSON.stringify(log.new_data[key])}</span>
+                                <span className="text-red-500 line-through">{replaceUserUuidsInText(JSON.stringify(log.old_data[key]), profilesMap)}</span>{' '}
+                                → <span className="text-green-500">{replaceUserUuidsInText(JSON.stringify(log.new_data[key]), profilesMap)}</span>
                               </div>
                             ))}
                           </div>

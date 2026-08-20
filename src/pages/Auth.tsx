@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from '@/lib/useErrorHandler';
@@ -26,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { 
   Ticket, 
   Monitor, 
@@ -36,8 +37,14 @@ import {
   HardDrive, 
   ShieldCheck, 
   Sparkles, 
-  Loader2 
+  Loader2,
+  Lock,
+  KeyRound,
+  ArrowLeft,
+  Smartphone,
+  ShieldAlert
 } from 'lucide-react';
+import { verifyBackupCode, formatBackupCode } from '@/lib/mfa';
 
 import orionLogo from '@/assets/orion-logo.png';
 import orionLogoLight from '@/assets/orion-logo-light.png';
@@ -165,21 +172,53 @@ const Auth = () => {
   const [machineToken, setMachineToken] = useState<string | null>(null);
   const [isDetectingAgent, setIsDetectingAgent] = useState(false);
 
-  // Se o usuário já estiver logado, redireciona para o painel principal
-  useEffect(() => {
-    if (!authLoading && user) {
-      navigate('/', { replace: true });
-    }
-  }, [user, authLoading, navigate]);
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Estados de Autenticação em Dois Fatores (2FA)
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState('');
+  const [backupCode, setBackupCode] = useState('');
+  const [isBackupMode, setIsBackupMode] = useState(false);
+  const [isMfaSubmitting, setIsMfaSubmitting] = useState(false);
 
   // Modal de Recuperação de Senha
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+
+  // Redirecionamento condicional ao carregar
+  useEffect(() => {
+    const checkAssuranceAndRedirect = async () => {
+      if (!authLoading && user) {
+        try {
+          const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+          if (aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel === 'aal1') {
+            const hasBackupBypass = sessionStorage.getItem('orion_mfa_backup_passed') === 'true';
+            if (!hasBackupBypass) {
+              // Exige desafio 2FA
+              const { data: factors } = await supabase.auth.mfa.listFactors();
+              const totp = factors?.totp?.find((f) => f.status === 'verified');
+              if (totp) {
+                setMfaFactorId(totp.id);
+                setMfaRequired(true);
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[Auth] Erro ao verificar AAL na inicialização:', err);
+        }
+
+        // Sem MFA pendente -> segue para o dashboard
+        navigate('/', { replace: true });
+      }
+    };
+
+    checkAssuranceAndRedirect();
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     setEmail('');
@@ -210,6 +249,7 @@ const Auth = () => {
     detectAgent();
   }, [toast]);
 
+  // Submissão inicial de Email e Senha
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!email || !password) {
@@ -222,18 +262,132 @@ const Auth = () => {
       email: email.trim(),
       password,
     });
-    setIsSubmitting(false);
 
     if (error) {
+      setIsSubmitting(false);
       handleError(error, 'Auth.handleLogin', 'Credenciais inválidas. Verifique seu e-mail e senha.');
-    } else {
+      return;
+    }
+
+    // Verificar se o usuário possui 2FA ativado (AAL2 requerido)
+    try {
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      
+      if (aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel === 'aal1') {
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        const totp = factors?.totp?.find((f) => f.status === 'verified');
+        
+        if (totp) {
+          setMfaFactorId(totp.id);
+          setMfaRequired(true);
+          setTotpCode('');
+          setBackupCode('');
+          setIsBackupMode(false);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+    } catch (mfaCheckError) {
+      console.warn('[Auth] Erro ao checar fatores MFA após login:', mfaCheckError);
+    }
+
+    setIsSubmitting(false);
+
+    // Login sem 2FA (usuários existentes ou sem MFA configurado)
+    if (machineToken) {
+      localStorage.setItem('orion_machine_token', machineToken);
+    }
+    navigate('/');
+  };
+
+  // Verificação do Código TOTP (6 dígitos)
+  const handleVerifyMfaTotp = useCallback(async (codeToVerify?: string) => {
+    const code = (codeToVerify || totpCode).trim().replace(/\s+/g, '');
+    if (!mfaFactorId || code.length !== 6 || isMfaSubmitting) return;
+
+    setIsMfaSubmitting(true);
+    try {
+      const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: mfaFactorId,
+        code,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Autenticado com Sucesso! 🛡️",
+        description: "Autenticação em dois fatores verificada.",
+      });
+
       if (machineToken) {
         localStorage.setItem('orion_machine_token', machineToken);
       }
-      navigate('/');
+      sessionStorage.removeItem('orion_mfa_backup_passed');
+      navigate('/', { replace: true });
+    } catch (err: any) {
+      toast({
+        title: "Código 2FA Inválido",
+        description: "O código digitado está incorreto ou expirou. Tente novamente.",
+        variant: "destructive",
+      });
+      setTotpCode('');
+    } finally {
+      setIsMfaSubmitting(false);
+    }
+  }, [mfaFactorId, totpCode, isMfaSubmitting, machineToken, navigate, toast]);
+
+  // Submissão do formulário TOTP
+  const handleTotpFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleVerifyMfaTotp();
+  };
+
+  // Verificação de Código de Recuperação / Backup
+  const handleVerifyBackupCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = backupCode.trim();
+    if (!clean || isMfaSubmitting) return;
+
+    setIsMfaSubmitting(true);
+    try {
+      const isValid = await verifyBackupCode(clean);
+      if (!isValid) {
+        throw new Error('Código de recuperação inválido ou já utilizado.');
+      }
+
+      sessionStorage.setItem('orion_mfa_backup_passed', 'true');
+
+      toast({
+        title: "Acesso Autorizado via Backup! 🔑",
+        description: "Código de recuperação validado e consumido. Lembre-se de gerar novos códigos em Configurações > Segurança.",
+      });
+
+      if (machineToken) {
+        localStorage.setItem('orion_machine_token', machineToken);
+      }
+      navigate('/', { replace: true });
+    } catch (err: any) {
+      toast({
+        title: "Código Inválido",
+        description: err.message || "Não foi possível validar o código de recuperação.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsMfaSubmitting(false);
     }
   };
 
+  // Cancelar desafio 2FA e deslogar
+  const handleCancelMfa = async () => {
+    await supabase.auth.signOut();
+    setMfaRequired(false);
+    setTotpCode('');
+    setBackupCode('');
+    setIsBackupMode(false);
+    sessionStorage.removeItem('orion_mfa_backup_passed');
+  };
+
+  // Recuperação de senha
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetEmail) {
@@ -315,7 +469,6 @@ const Auth = () => {
               }}
               className="relative z-30 flex items-center justify-center select-none"
             >
-              {/* Apenas a logo no centro, 100% limpa, sem qualquer ícone ou caixa atrás */}
               <img
                 src={isDark ? orionLogoLight : orionLogo}
                 alt="Orion System Logo"
@@ -330,34 +483,207 @@ const Auth = () => {
         />
       </span>
 
-      {/* Lado Direito (50% Desktop, 100% Mobile): Formulário Animado */}
+      {/* Lado Direito (50% Desktop, 100% Mobile): Formulário Principal ou Desafio 2FA */}
       <span className="w-1/2 min-h-screen h-screen flex flex-col justify-center items-center max-lg:w-full max-lg:px-[10%] px-6 relative z-10">
-        <AnimatedForm
-          header="Orion System"
-          subHeader="Sistema de Gerenciamento de Chamados & TI"
-          fields={fields}
-          submitButton={isSubmitting ? "Acessando..." : "Entrar"}
-          textVariantButton="Esqueceu a senha?"
-          isLoading={isSubmitting}
-          onSubmit={handleSignIn}
-          goTo={(e) => {
-            e.preventDefault();
-            setResetEmail(email);
-            setForgotPasswordOpen(true);
-          }}
-          extraHeaderContent={
-            <div className="flex items-center gap-3 mb-3 lg:hidden">
-              <img
-                src={isDark ? orionLogoLight : orionLogo}
-                alt="Orion System Logo"
-                className="h-10 w-auto object-contain"
+        <AnimatePresence mode="wait">
+          {!mfaRequired ? (
+            /* Formulário Normal de Login */
+            <motion.div
+              key="login-form"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.25 }}
+              className="w-full max-w-md"
+            >
+              <AnimatedForm
+                header="Orion System"
+                subHeader="Sistema de Gerenciamento de Chamados & TI"
+                fields={fields}
+                submitButton={isSubmitting ? "Acessando..." : "Entrar"}
+                textVariantButton="Esqueceu a senha?"
+                isLoading={isSubmitting}
+                onSubmit={handleSignIn}
+                goTo={(e) => {
+                  e.preventDefault();
+                  setResetEmail(email);
+                  setForgotPasswordOpen(true);
+                }}
+                extraHeaderContent={
+                  <div className="flex items-center gap-3 mb-3 lg:hidden">
+                    <img
+                      src={isDark ? orionLogoLight : orionLogo}
+                      alt="Orion System Logo"
+                      className="h-10 w-auto object-contain"
+                    />
+                    <span className="font-semibold text-xl text-foreground">
+                      Orion System
+                    </span>
+                  </div>
+                }
               />
-              <span className="font-semibold text-xl text-foreground">
-                Orion System
-              </span>
-            </div>
-          }
-        />
+            </motion.div>
+          ) : (
+            /* Painel de Desafio 2FA (TOTP / Códigos de Backup) */
+            <motion.div
+              key="mfa-challenge"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.25 }}
+              className="w-full max-w-md p-6 sm:p-8 rounded-2xl border border-border bg-card/90 backdrop-blur-xl shadow-2xl space-y-6"
+            >
+              {/* Cabeçalho do 2FA */}
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 text-primary mb-1 ring-8 ring-primary/5">
+                  <Lock className="h-6 w-6" />
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  <Badge variant="outline" className="text-[11px] border-primary/30 text-primary font-medium">
+                    Autenticação em Duas Etapas
+                  </Badge>
+                </div>
+                <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                  {isBackupMode ? "Código de Recuperação" : "Verificação em 2 Fatores"}
+                </h2>
+                <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                  {isBackupMode
+                    ? "Digite um dos seus códigos de backup de 8 caracteres salvos na configuração."
+                    : "Digite o código de 6 dígitos gerado pelo seu aplicativo autenticador (Google Authenticator, Authy, etc.)."}
+                </p>
+              </div>
+
+              {!isBackupMode ? (
+                /* Modo TOTP (6 dígitos) */
+                <form onSubmit={handleTotpFormSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mfa-login-code" className="sr-only">
+                      Código de 6 dígitos
+                    </Label>
+                    <Input
+                      id="mfa-login-code"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      placeholder="000000"
+                      value={totpCode}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+                        setTotpCode(val);
+                        if (val.length === 6) {
+                          handleVerifyMfaTotp(val);
+                        }
+                      }}
+                      className="text-center font-mono text-2xl tracking-[0.4em] font-bold h-14 bg-background border-2 focus-visible:ring-primary"
+                      required
+                      autoFocus
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={isMfaSubmitting || totpCode.length !== 6}
+                    className="w-full h-11 text-sm font-semibold gap-2"
+                  >
+                    {isMfaSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Verificando...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="h-4 w-4" />
+                        Verificar e Acessar
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="pt-2 text-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsBackupMode(true)}
+                      className="text-xs text-muted-foreground hover:text-foreground gap-1.5"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      Não tem acesso ao app? Usar código de backup
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                /* Modo Código de Backup */
+                <form onSubmit={handleVerifyBackupCode} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mfa-backup-code" className="text-xs font-semibold text-foreground">
+                      Código de Backup (8 caracteres)
+                    </Label>
+                    <Input
+                      id="mfa-backup-code"
+                      type="text"
+                      autoComplete="off"
+                      placeholder="Ex: ABCD-1234"
+                      value={backupCode}
+                      onChange={(e) => setBackupCode(e.target.value.toUpperCase())}
+                      className="text-center font-mono text-lg font-bold tracking-widest h-12 bg-background border-2 uppercase"
+                      required
+                      autoFocus
+                    />
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      Insira com ou sem hífen. Cada código só pode ser usado uma única vez.
+                    </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={isMfaSubmitting || !backupCode.trim()}
+                    className="w-full h-11 text-sm font-semibold gap-2"
+                  >
+                    {isMfaSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Validando...
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound className="h-4 w-4" />
+                        Validar Código de Recuperação
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="pt-2 text-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsBackupMode(false)}
+                      className="text-xs text-muted-foreground hover:text-foreground gap-1.5"
+                    >
+                      <Smartphone className="h-3.5 w-3.5" />
+                      Voltar para Autenticador (TOTP)
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              {/* Botão Cancelar / Voltar para formulário de login */}
+              <div className="border-t border-border pt-4 text-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancelMfa}
+                  className="text-xs gap-1.5 w-full text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Cancelar e Voltar ao Início
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Rodapé */}
         <footer className="absolute bottom-4 left-0 right-0 text-center text-xs text-muted-foreground/60 pointer-events-none select-none">

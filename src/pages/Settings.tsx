@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff, Settings2, Settings as SettingsIcon } from "lucide-react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
+import { TwoFactorAuthSettings } from "@/components/settings/TwoFactorAuthSettings";
 import { useUserProfile, useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -322,14 +323,18 @@ export default function Settings() {
             </TabsContent>
 
             {/* Aba Segurança */}
-            <TabsContent value="security">
+            <TabsContent value="security" className="space-y-6">
+              {/* Gerenciamento de Autenticação em Dois Fatores (2FA) */}
+              <TwoFactorAuthSettings />
+
+              {/* Alteração de Senha */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Shield className="w-5 h-5" />
-                    Segurança
+                    Alterar Senha
                   </CardTitle>
-                  <CardDescription>Gerencie suas configurações de segurança</CardDescription>
+                  <CardDescription>Atualize sua senha de acesso à conta</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
