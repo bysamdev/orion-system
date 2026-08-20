@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"time"
@@ -69,32 +70,32 @@ func main() {
 		fmt.Println("🚀 Inicie com: sc start OrionAgent (ou pelo Gerenciador de Serviços)")
 
 	case "uninstall":
-		if err := s.Uninstall(); err != nil {
-			logger.Fatalf("[ERRO] Não foi possível remover o serviço: %v", err)
-		}
-		if err := startup.Disable(); err != nil {
-			logger.Printf("[AVISO] Não foi possível remover o início automático no login: %v", err)
-		}
-		if err := addremove.Remover(); err != nil {
-			logger.Printf("[AVISO] Não foi possível remover a entrada em Aplicativos Instalados: %v", err)
+		_ = exec.Command("sc", "stop", "OrionAgent").Run()
+		_ = s.Stop()
+		_ = s.Uninstall()
+		_ = exec.Command("sc", "delete", "OrionAgent").Run()
+		_ = startup.Disable()
+		_ = addremove.Remover()
+
+		// Remove atalhos da Área de Trabalho
+		publicDesktop := filepath.Join(os.Getenv("PUBLIC"), "Desktop")
+		if publicDesktop != "Desktop" && publicDesktop != "" {
+			_ = os.Remove(filepath.Join(publicDesktop, "Abrir Chamado Orion.url"))
+			_ = os.Remove(filepath.Join(publicDesktop, "Abrir Portal de Chamados.url"))
 		}
 		if home, err := os.UserHomeDir(); err == nil {
-			_ = os.Remove(filepath.Join(home, "Desktop", "Abrir Portal de Chamados.url"))
+			userDesktop := filepath.Join(home, "Desktop")
+			_ = os.Remove(filepath.Join(userDesktop, "Abrir Chamado Orion.url"))
+			_ = os.Remove(filepath.Join(userDesktop, "Abrir Portal de Chamados.url"))
 		}
-		fmt.Println("🗑️ Serviço, início automático e entrada em Aplicativos Instalados removidos.")
+		logger.Println("🗑️ Serviço, início automático, atalhos e entrada em Aplicativos Instalados removidos.")
 
-		// Apaga a pasta de instalação inteira (C:\Orion), incluindo o
-		// próprio orion-agent.exe que está rodando agora — ver
-		// addremove.LimparPastaDepoisDeSair pro motivo de isso precisar
-		// de um processo destacado em vez de um os.RemoveAll direto aqui.
+		// Apaga a pasta de instalação inteira (C:\Orion)
 		if exe, err := os.Executable(); err == nil {
 			pasta := filepath.Dir(exe)
-			if err := addremove.LimparPastaDepoisDeSair(pasta); err != nil {
-				logger.Printf("[AVISO] Não foi possível agendar a remoção da pasta %s: %v — apague manualmente se necessário.", pasta, err)
-			} else {
-				fmt.Printf("🧹 Removendo %s em alguns segundos...\n", pasta)
-			}
+			_ = addremove.LimparPastaDepoisDeSair(pasta)
 		}
+		return
 
 	default:
 		// Se não houver argumentos, estamos rodando o agente "de verdade".

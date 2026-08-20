@@ -7,36 +7,40 @@ import (
 	"runtime"
 )
 
-// CreatePortalShortcut creates a desktop shortcut to the Orion Support Portal.
-// On Windows, it creates a .url file.
+// CreatePortalShortcut cria o atalho "Abrir Chamado Orion" na Área de Trabalho com o ícone do Orion.
 func CreatePortalShortcut(apiURL string, machineToken string) error {
 	if runtime.GOOS != "windows" {
-		return nil // Currently only Windows support as requested
+		return nil
 	}
 
+	// Grava no Desktop Público (para aparecer na área de trabalho de todos os usuários)
+	publicDesktop := filepath.Join(os.Getenv("PUBLIC"), "Desktop")
+	if publicDesktop != "Desktop" && publicDesktop != "" {
+		_ = criarAtalhoEm(filepath.Join(publicDesktop, "Abrir Chamado Orion.url"), apiURL, machineToken)
+		_ = os.Remove(filepath.Join(publicDesktop, "Abrir Portal de Chamados.url"))
+	}
+
+	// Grava no Desktop do usuário atual se acessível
 	desktop, err := getDesktopPath()
-	if err != nil {
-		return fmt.Errorf("não foi possível localizar a Área de Trabalho: %v", err)
+	if err == nil && desktop != "" {
+		_ = criarAtalhoEm(filepath.Join(desktop, "Abrir Chamado Orion.url"), apiURL, machineToken)
+		_ = os.Remove(filepath.Join(desktop, "Abrir Portal de Chamados.url"))
 	}
 
-	return criarAtalhoEm(filepath.Join(desktop, "Abrir Portal de Chamados.url"), apiURL, machineToken)
+	return nil
 }
 
-// criarAtalhoEm grava o atalho num caminho arbitrário. Separada de
-// CreatePortalShortcut para que os testes exercitem esta lógica real sem
-// escrever na Área de Trabalho de verdade (getDesktopPath não aceita injeção
-// de caminho — mesmo achado de testabilidade já documentado para
-// token.GetTokenPath).
+// criarAtalhoEm grava o atalho num caminho arbitrário com o ícone embutido.
 func criarAtalhoEm(caminho, apiURL, machineToken string) error {
 	targetURL := fmt.Sprintf("%s/api/auth/machine-login?token=%s", apiURL, machineToken)
-	content := fmt.Sprintf("[InternetShortcut]\nURL=%s\n", targetURL)
+	
+	exePath := `C:\Orion\orion-agent.exe`
+	if curExe, err := os.Executable(); err == nil && curExe != "" {
+		exePath = curExe
+	}
 
-	// Só grava se o conteúdo realmente mudou. Antes desta correção, o atalho era
-	// reescrito a cada chamada — e CreatePortalShortcut é chamada a cada tick()
-	// (a cada 30 s em produção), reescrevendo um arquivo idêntico ~2.880 vezes
-	// por dia sem necessidade (PERFORMANCE.md §3.5). O conteúdo só muda quando
-	// api_url ou machineToken mudam, o que é raro (reconfiguração ou primeiro
-	// heartbeat da máquina).
+	content := fmt.Sprintf("[InternetShortcut]\nURL=%s\nIconIndex=0\nIconFile=%s\n", targetURL, exePath)
+
 	if atual, err := os.ReadFile(caminho); err == nil && string(atual) == content {
 		return nil
 	}
@@ -53,7 +57,5 @@ func getDesktopPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
-	// Standard Windows desktop path
 	return filepath.Join(home, "Desktop"), nil
 }

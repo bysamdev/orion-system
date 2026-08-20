@@ -19,7 +19,7 @@ import (
 // TestCriarAtalhoEm_CriaArquivoComFormatoEsperado garante o formato .url e
 // que a URL embutida contém o endpoint e o token corretos.
 func TestCriarAtalhoEm_CriaArquivoComFormatoEsperado(t *testing.T) {
-	caminho := filepath.Join(t.TempDir(), "Abrir Portal de Chamados.url")
+	caminho := filepath.Join(t.TempDir(), "Abrir Chamado Orion.url")
 
 	if err := criarAtalhoEm(caminho, "https://orion.exemplo.test", "tok-123"); err != nil {
 		t.Fatalf("criarAtalhoEm falhou: %v", err)
@@ -30,9 +30,12 @@ func TestCriarAtalhoEm_CriaArquivoComFormatoEsperado(t *testing.T) {
 		t.Fatalf("arquivo não foi criado: %v", err)
 	}
 
-	const esperado = "[InternetShortcut]\nURL=https://orion.exemplo.test/api/auth/machine-login?token=tok-123\n"
-	if string(conteudo) != esperado {
-		t.Errorf("conteúdo = %q, esperado %q", string(conteudo), esperado)
+	str := string(conteudo)
+	if !strings.Contains(str, "URL=https://orion.exemplo.test/api/auth/machine-login?token=tok-123") {
+		t.Errorf("conteúdo = %q, esperado conter URL correta", str)
+	}
+	if !strings.Contains(str, "IconIndex=0") || !strings.Contains(str, "IconFile=") {
+		t.Errorf("conteúdo = %q, esperado conter ícone", str)
 	}
 }
 
