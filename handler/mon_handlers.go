@@ -550,6 +550,30 @@ func enfileirarAutoUpdateSeNecessario(ctx context.Context, machineID, companyID,
 
 // ─── Remote Commands ──────────────────────────────────────────────────────────
 
+// papeisComandoRemoto são os únicos papéis autorizados a enviar comandos
+// remotos (orion-install, terminal, etc.) — nunca customer.
+var papeisComandoRemoto = map[string]bool{"admin": true, "technician": true, "developer": true}
+
+// autorizarComandoRemoto decide se o escopo do chamador pode enviar um
+// comando remoto pra uma máquina de uma dada empresa. Extraída de
+// monitoringCreateCommand pra poder ser testada sem precisar de banco nem
+// Supabase (ambos os checks já existiam — role e tenancy — só não tinham
+// teste de integração cobrindo os três cenários: customer, técnico de outra
+// empresa, e técnico/admin da empresa correta).
+//
+// Não confia em RLS pra isso: o pool do backend conecta com papel
+// privilegiado (ver comentário SEC-01/Strix vuln-0003 no topo do arquivo),
+// então estas DUAS checagens no handler são a única barreira real.
+func autorizarComandoRemoto(escopo lib.UserScope, machineCompanyID *string) (permitido bool, mensagemErro string) {
+	if !papeisComandoRemoto[escopo.Role] {
+		return false, "Acesso restrito: apenas administradores e técnicos podem enviar comandos remotos"
+	}
+	if !escopo.PodeVerEmpresa(machineCompanyID) {
+		return false, "Acesso restrito: máquina não pertence à sua empresa"
+	}
+	return true, ""
+}
+
 func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 	defer cancel()
@@ -561,14 +585,9 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// RequireUserRole: apenas admin, developer e technician podem enviar comandos remotos.
 	escopo, err := escopoDoUsuario(ctx, user.ID)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível verificar permissões do usuário"})
-		return
-	}
-	if escopo.Role != "admin" && escopo.Role != "technician" && escopo.Role != "developer" {
-		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem enviar comandos remotos"})
 		return
 	}
 
@@ -579,10 +598,8 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ValidateMachineTenancy: escopo de empresa/global — nunca role isolado, para
-	// não permitir que um admin de uma empresa comande máquinas de outra (SEC-01).
-	if !escopo.PodeVerEmpresa(machine.CompanyID) {
-		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+	if permitido, msg := autorizarComandoRemoto(escopo, machine.CompanyID); !permitido {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": msg})
 		return
 	}
 
