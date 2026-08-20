@@ -410,27 +410,55 @@ func agentKeyConfigurada(caminhoConfig string) (bool, error) {
 	return false, nil
 }
 
-// registrarEIniciarServico roda "orion-agent.exe install" e depois inicia o
-// serviço. Se o serviço já existir (reinstalação), o erro de "install" é
-// tolerado — seguimos direto para o start, que é o que de fato importa
-// numa atualização.
+// servicoJaRegistrado checa se o serviço OrionAgent já existe na SCM via
+// "sc query" — SERVICE_QUERY_STATUS é concedido por padrão a qualquer
+// usuário autenticado, então esta checagem funciona mesmo sem privilégio
+// nenhum (ao contrário de "install", ver comentário em
+// registrarEIniciarServico).
+func servicoJaRegistrado() bool {
+	_, err := exec.Command("sc", "query", "OrionAgent").CombinedOutput()
+	return err == nil
+}
+
+// registrarEIniciarServico roda "orion-agent.exe install" (só quando o
+// serviço ainda não existe) e depois inicia o serviço.
+//
+// "install" (kardianos/service → CreateService) exige um privilégio de
+// SC_MANAGER — do gerenciador de serviços inteiro, não do serviço em si —
+// que só Administrador/SYSTEM têm; não dá pra conceder isso à conta virtual
+// do serviço sem abrir a porta pra ela criar/alterar QUALQUER serviço da
+// máquina. Por isso, em toda atualização automática (o instalador roda pelo
+// próprio serviço, sob NT SERVICE\OrionAgent, sem elevação — ver
+// modoSilencioso em main()), tentar reinstalar sempre falhava com
+// "Access is denied", mesmo sendo desnecessário: o caminho do binário e a
+// configuração do serviço não mudam numa atualização, só o conteúdo do
+// .exe (já trocado por gravarExeMesmoEmUso). Pular "install" quando o
+// serviço já existe evita essa tentativa fadada ao fracasso.
+//
+// "start" já funciona sem elevação: a instalação original concede
+// SERVICE_START/SERVICE_STOP ao SID da própria conta virtual do serviço
+// (ver concederAutoGerenciamento) — direito escopado a ESTE serviço
+// específico, não ao gerenciador inteiro.
 func registrarEIniciarServico(caminhoExe string) error {
 	imprimirPasso(4, totalPassos, "Registrando e iniciando o serviço Windows...")
 
-	instalarCmd := exec.Command(caminhoExe, "install")
-	out, err := instalarCmd.CombinedOutput()
-	if err != nil {
-		if strings.Contains(string(out), "already exists") {
-			imprimirOK("Serviço OrionAgent já registrado")
-		} else {
-			imprimirAviso(fmt.Sprintf("install: %v — %s", err, strings.TrimSpace(string(out))))
-		}
+	if servicoJaRegistrado() {
+		imprimirOK("Serviço OrionAgent já registrado")
 	} else {
-		imprimirOK("Serviço OrionAgent registrado")
+		instalarCmd := exec.Command(caminhoExe, "install")
+		out, err := instalarCmd.CombinedOutput()
+		if err != nil {
+			imprimirAviso(fmt.Sprintf("install: %v — %s", err, strings.TrimSpace(string(out))))
+		} else {
+			imprimirOK("Serviço OrionAgent registrado")
+			if err := concederAutoGerenciamento(); err != nil {
+				imprimirAviso(fmt.Sprintf("não foi possível conceder auto-gerenciamento ao serviço: %v", err))
+			}
+		}
 	}
 
 	startCmd := exec.Command("sc", "start", "OrionAgent")
-	out, err = startCmd.CombinedOutput()
+	out, err := startCmd.CombinedOutput()
 	if err != nil {
 		// "1056" = serviço já em execução — não é falha real.
 		if strings.Contains(string(out), "1056") {
@@ -441,6 +469,63 @@ func registrarEIniciarServico(caminhoExe string) error {
 		return fmt.Errorf("iniciar serviço: %w", err)
 	}
 	imprimirOK("Serviço em execução")
+	return nil
+}
+
+// concederAutoGerenciamento dá ao próprio serviço OrionAgent (à conta
+// virtual NT SERVICE\OrionAgent que o executa, ver ServiceConfig em
+// orion-agent/service/windows.go) o direito de SERVICE_START/SERVICE_STOP
+// sobre si mesmo — sem isso, toda auto-atualização remota (o instalador
+// baixado roda sob essa mesma conta, sem elevação — modoSilencioso em
+// main()) conseguia trocar o binário mas nunca conseguia religar o
+// serviço, deixando a máquina sem monitoramento até alguém religar na mão.
+//
+// Chamada só uma vez, logo após o "install" ORIGINAL suceder — que sempre
+// roda elevado (via UAC, ver relançarElevado), o único momento em que a
+// ACL da SCM pode ser alterada. A permissão fica gravada na SCM e
+// atravessa reinícios e atualizações futuras.
+//
+// Escopada ao SID desta instância específica de serviço (obtido via
+// "sc showsid", não hardcoded) — não ao gerenciador de serviços inteiro, e
+// não a "Usuários Autenticados" em geral: a conta virtual continua sem
+// poder tocar em nenhum OUTRO serviço da máquina.
+// extrairSIDDeShowsid lê a saída de "sc showsid <serviço>" (em pt-BR:
+// "NOME: ...\nSID DO SERVIÇO: S-1-5-80-...\nSTATUS: ...") e devolve só o
+// SID. O prefixo "S-1-5-80" identifica um SID de conta de serviço virtual
+// (NT SERVICE\*) — checagem extra pra não aceitar linha errada caso o
+// formato da saída mude entre versões do Windows.
+func extrairSIDDeShowsid(saida string) (string, error) {
+	for _, linha := range strings.Split(saida, "\n") {
+		if idx := strings.IndexByte(linha, ':'); idx != -1 && strings.Contains(linha, "S-1-5-80") {
+			return strings.TrimSpace(linha[idx+1:]), nil
+		}
+	}
+	return "", fmt.Errorf("SID do serviço não encontrado na saída de 'sc showsid': %s", strings.TrimSpace(saida))
+}
+
+func concederAutoGerenciamento() error {
+	out, err := exec.Command("sc", "showsid", "OrionAgent").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("obter SID do serviço: %w — %s", err, strings.TrimSpace(string(out)))
+	}
+	sid, err := extrairSIDDeShowsid(string(out))
+	if err != nil {
+		return err
+	}
+
+	// Base = ACL padrão que o Windows já atribui a todo serviço novo
+	// (SYSTEM e Administradores com controle total, Usuários Interativos e
+	// de Serviço só com consulta) — só adiciona a permissão extra pro SID
+	// desta instância, sem tocar no resto.
+	sddl := "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)" +
+		"(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)" +
+		"(A;;CCLCSWRPWPLOCRRC;;;" + sid + ")"
+
+	out, err = exec.Command("sc", "sdset", "OrionAgent", sddl).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("aplicar ACL: %w — %s", err, strings.TrimSpace(string(out)))
+	}
+	imprimirOK("Serviço configurado para se auto-gerenciar em atualizações futuras")
 	return nil
 }
 

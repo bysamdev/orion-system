@@ -117,3 +117,23 @@ func contarBinariosAntigos(t *testing.T, pasta string) int {
 	}
 	return n
 }
+
+// TestExtrairSIDDeShowsid usa a saída real observada em produção (SAMUEL,
+// sc showsid OrionAgent) e cobre servicoJaRegistrado.
+func TestExtrairSIDDeShowsid(t *testing.T) {
+	saidaReal := "NOME: OrionAgent \r\nSID DO SERVIÇO: S-1-5-80-2442242212-214070666-144826950-2431307122-546831793\r\nSTATUS: Inativo\r\n"
+
+	sid, err := extrairSIDDeShowsid(saidaReal)
+	if err != nil {
+		t.Fatalf("extrairSIDDeShowsid: %v", err)
+	}
+	if esperado := "S-1-5-80-2442242212-214070666-144826950-2431307122-546831793"; sid != esperado {
+		t.Errorf("sid = %q, esperado %q", sid, esperado)
+	}
+}
+
+func TestExtrairSIDDeShowsid_SaidaInesperada(t *testing.T) {
+	if _, err := extrairSIDDeShowsid("[SC] EnumQueryServicesStatus:OpenService FAILED 1060"); err == nil {
+		t.Error("esperava erro para saída sem SID, não travar silenciosamente com string vazia")
+	}
+}
