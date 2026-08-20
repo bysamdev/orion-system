@@ -62,7 +62,8 @@ export const TwoFactorAuthSettings = () => {
   const { data: role } = useUserRole();
   const { data: profile } = useUserProfile();
 
-  const isTechnicalRole = role === "admin" || role === "developer" || role === "technician";
+  const isRequiredRole = role === "admin" || role === "developer";
+  const isGestorOrDev = role === "admin" || role === "developer";
 
   // Estados principais
   const [loading, setLoading] = useState(true);
@@ -263,8 +264,8 @@ export const TwoFactorAuthSettings = () => {
 
   return (
     <div className="space-y-6">
-      {/* Banner de Recomendação Persistente para Perfis Técnicos */}
-      {isTechnicalRole && !isMfaEnabled && (
+      {/* Banner de Obrigatoriedade/Recomendação para Gestores e Desenvolvedores */}
+      {isRequiredRole && !isMfaEnabled && (
         <div className="relative overflow-hidden p-4 sm:p-5 rounded-xl border border-amber-500/30 bg-amber-500/10 dark:bg-amber-950/20 backdrop-blur-sm transition-all duration-300">
           <div className="flex items-start gap-3.5">
             <div className="p-2 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
@@ -273,15 +274,15 @@ export const TwoFactorAuthSettings = () => {
             <div className="space-y-1.5 flex-1">
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-                  Recomendação Crítica de Segurança
+                  Segurança Requerida: 2FA
                 </h4>
-                <Badge variant="outline" className="text-xs border-amber-500/40 text-amber-700 dark:text-amber-300">
-                  Acesso {role === "developer" ? "Desenvolvedor" : role === "admin" ? "Administrador" : "Técnico"}
+                <Badge variant="outline" className="text-xs border-amber-500/40 text-amber-700 dark:text-amber-300 font-bold">
+                  {role === "developer" ? "Desenvolvedor" : "Gestor / Administrador"}
                 </Badge>
               </div>
               <p className="text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
-                Sua conta possui permissões operacionais e privilégios elevados no Orion System. A ativação da
-                <strong> Autenticação em Dois Fatores (2FA)</strong> é fortemente recomendada para mitigar riscos de invasão, vazamento de credenciais e ações não autorizadas.
+                Sua conta possui acesso administrativo e de engenharia ao Orion System. A ativação da
+                <strong> Autenticação em Dois Fatores (2FA)</strong> é necessária para proteger credenciais de infraestrutura e execução remota.
               </p>
               <div className="pt-1">
                 <Button
@@ -289,7 +290,7 @@ export const TwoFactorAuthSettings = () => {
                   variant="default"
                   onClick={handleStartEnrollment}
                   disabled={isEnrolling}
-                  className="bg-amber-600 hover:bg-amber-700 text-white shadow-sm h-8 text-xs font-medium gap-1.5"
+                  className="bg-amber-600 hover:bg-amber-700 text-white shadow-sm h-8 text-xs font-semibold gap-1.5"
                 >
                   {isEnrolling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Smartphone className="h-3.5 w-3.5" />}
                   Ativar 2FA Agora

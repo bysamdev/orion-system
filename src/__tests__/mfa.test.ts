@@ -244,14 +244,14 @@ describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
       expect(requiresMfa).toBe(true);
     });
 
-    it('deve identificar corretamente papéis técnicos sujeitos ao banner de recomendação', () => {
-      const isTechnicalRole = (role: string) =>
-        role === 'admin' || role === 'developer' || role === 'technician';
+    it('deve identificar corretamente que 2FA é requerido para gestor (admin) e desenvolvedor, e opcional para os demais', () => {
+      const isRequiredRole = (role: string) =>
+        role === 'admin' || role === 'developer';
 
-      expect(isTechnicalRole('admin')).toBe(true);
-      expect(isTechnicalRole('developer')).toBe(true);
-      expect(isTechnicalRole('technician')).toBe(true);
-      expect(isTechnicalRole('customer')).toBe(false);
+      expect(isRequiredRole('admin')).toBe(true);
+      expect(isRequiredRole('developer')).toBe(true);
+      expect(isRequiredRole('technician')).toBe(false);
+      expect(isRequiredRole('customer')).toBe(false);
     });
   });
 });
