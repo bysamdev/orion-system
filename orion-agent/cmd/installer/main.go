@@ -168,29 +168,34 @@ func relançarElevado() error {
 // stop" falhar ou não confirmar a parada a tempo; o WriteFile seguinte vai
 // falhar com um erro mais claro se o arquivo continuar travado.
 func pararServicoSeRodando() {
+	// Encerra qualquer instância de bandeja ou processo em execução
+	_ = exec.Command("taskkill", "/F", "/IM", "orion-agent.exe").Run()
+
 	out, err := exec.Command("sc", "query", "OrionAgent").CombinedOutput()
-	if err != nil || !strings.Contains(string(out), "RUNNING") {
-		return // não existe ainda, ou já não está rodando — nada a fazer
-	}
-
-	imprimirAviso("serviço OrionAgent já está em execução — parando antes de atualizar")
-	if _, err := exec.Command("sc", "stop", "OrionAgent").CombinedOutput(); err != nil {
-		imprimirAviso(fmt.Sprintf("não foi possível pedir a parada do serviço existente: %v", err))
-		return
-	}
-
-	// "sc stop" só sinaliza o pedido (STOP_PENDING) — espera de verdade o
-	// processo soltar o arquivo antes de seguir pra sobrescrita.
-	prazo := time.Now().Add(15 * time.Second)
-	for time.Now().Before(prazo) {
-		out, err := exec.Command("sc", "query", "OrionAgent").CombinedOutput()
-		if err == nil && strings.Contains(string(out), "STOPPED") {
-			imprimirOK("Serviço existente parado")
-			return
+	if err == nil && strings.Contains(string(out), "RUNNING") {
+		imprimirAviso("serviço OrionAgent em execução — parando para atualizar")
+		_ = exec.Command("sc", "stop", "OrionAgent").Run()
+		prazo := time.Now().Add(15 * time.Second)
+		for time.Now().Before(prazo) {
+			out, err := exec.Command("sc", "query", "OrionAgent").CombinedOutput()
+			if err == nil && strings.Contains(string(out), "STOPPED") {
+				imprimirOK("Serviço existente parado")
+				break
+			}
+			time.Sleep(300 * time.Millisecond)
 		}
-		time.Sleep(500 * time.Millisecond)
 	}
-	imprimirAviso("serviço existente não confirmou parada dentro do prazo — a gravação pode falhar")
+
+	// Aguarda o arquivo ser totalmente liberado pelo sistema
+	destinoExe := filepath.Join(pastaDestino, "orion-agent.exe")
+	prazo := time.Now().Add(5 * time.Second)
+	for time.Now().Before(prazo) {
+		if f, err := os.OpenFile(destinoExe, os.O_WRONLY, 0755); err == nil {
+			f.Close()
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 }
 
 // instalar copia os arquivos embutidos para pastaDestino e, se já houver uma
@@ -317,7 +322,8 @@ func instalar() error {
 
 // iniciarBandejaUsuario inicia a bandeja interativa na barra de tarefas do usuário
 func iniciarBandejaUsuario(caminhoExe string) {
-	cmd := exec.Command(caminhoExe)
+	cmd := exec.Command("cmd", "/C", fmt.Sprintf(`start "" %q`, caminhoExe))
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.DETACHED_PROCESS}
 	if err := cmd.Start(); err != nil {
 		imprimirAviso(fmt.Sprintf("não foi possível iniciar a bandeja interativa: %v", err))
 	} else {
@@ -355,14 +361,19 @@ func registrarEIniciarServico(caminhoExe string) error {
 	imprimirPasso(4, totalPassos, "Registrando e iniciando o serviço Windows...")
 
 	instalarCmd := exec.Command(caminhoExe, "install")
-	if out, err := instalarCmd.CombinedOutput(); err != nil {
-		imprimirAviso(fmt.Sprintf("install: %v — %s (seguindo para iniciar, pode já estar registrado)", err, strings.TrimSpace(string(out))))
+	out, err := instalarCmd.CombinedOutput()
+	if err != nil {
+		if strings.Contains(string(out), "already exists") {
+			imprimirOK("Serviço OrionAgent já registrado")
+		} else {
+			imprimirAviso(fmt.Sprintf("install: %v — %s", err, strings.TrimSpace(string(out))))
+		}
 	} else {
 		imprimirOK("Serviço OrionAgent registrado")
 	}
 
 	startCmd := exec.Command("sc", "start", "OrionAgent")
-	out, err := startCmd.CombinedOutput()
+	out, err = startCmd.CombinedOutput()
 	if err != nil {
 		// "1056" = serviço já em execução — não é falha real.
 		if strings.Contains(string(out), "1056") {

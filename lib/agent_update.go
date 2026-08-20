@@ -11,7 +11,7 @@ import "fmt"
 // monitoringHeartbeat compara isto com o agent_version que cada máquina
 // reporta; quando não bate, enfileira um comando de auto-atualização pra
 // ela sozinha (ver ComandoAutoUpdate).
-const LatestAgentVersion = "1.1.8"
+const LatestAgentVersion = "1.1.9"
 
 // ComandoAutoUpdate monta o texto do comando "orion-install" que o agente
 // já sabe interpretar (ver orion-agent/service/windows.go
