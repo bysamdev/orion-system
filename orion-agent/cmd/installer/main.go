@@ -198,6 +198,61 @@ func pararServicoSeRodando() {
 	}
 }
 
+// gravarExeMesmoEmUso escreve o binário do agente por cima do que já existe,
+// mesmo quando um processo ainda o mantém aberto.
+//
+// O Windows recusa SOBRESCREVER o .exe de um processo vivo, mas permite
+// RENOMEAR: o processo continua rodando a partir do arquivo renomeado e o
+// nome original fica livre para o binário novo.
+//
+// Isso importa no caminho de auto-atualização, onde o instalador roda pelo
+// serviço (sessão 0, conta NT SERVICE\OrionAgent). O taskkill de
+// pararServicoSeRodando derruba o serviço, mas NÃO alcança a bandeja do
+// usuário — está em outra sessão e sob outra conta, e a conta virtual do
+// serviço não tem privilégio para encerrá-la. A bandeja seguia viva
+// segurando C:\Orion\orion-agent.exe, o os.WriteFile falhava com "Access is
+// denied", instalar() abortava antes de re-registrar o serviço e a máquina
+// ficava com o agente PARADO — sem monitoramento e sem se recuperar sozinha.
+//
+// O arquivo antigo é removido na próxima instalação: enquanto a bandeja
+// antiga estiver viva, ele continua travado.
+func gravarExeMesmoEmUso(destino string, conteudo []byte) error {
+	limparBinariosAntigos(filepath.Dir(destino))
+
+	if err := os.WriteFile(destino, conteudo, 0755); err == nil {
+		return nil
+	}
+
+	// Só chega aqui quando algum processo ainda segura o arquivo.
+	antigo := fmt.Sprintf("%s.old-%d", destino, time.Now().UnixNano())
+	if err := os.Rename(destino, antigo); err != nil {
+		return fmt.Errorf("liberar o executável em uso (%s): %w", destino, err)
+	}
+	imprimirAviso("executável em uso por outro processo — substituído via renomeação")
+
+	if err := os.WriteFile(destino, conteudo, 0755); err != nil {
+		// Devolve o original ao lugar para não deixar a instalação sem binário.
+		_ = os.Rename(antigo, destino)
+		return err
+	}
+	return nil
+}
+
+// limparBinariosAntigos apaga os .old-* deixados por atualizações passadas.
+// Best-effort: os que ainda estiverem em uso continuam travados e caem na
+// próxima passagem.
+func limparBinariosAntigos(pasta string) {
+	entradas, err := os.ReadDir(pasta)
+	if err != nil {
+		return
+	}
+	for _, e := range entradas {
+		if strings.Contains(e.Name(), "orion-agent.exe.old-") {
+			_ = os.Remove(filepath.Join(pasta, e.Name()))
+		}
+	}
+}
+
 // instalar copia os arquivos embutidos para pastaDestino e, se já houver uma
 // agent_key real configurada (não o placeholder do template), registra e
 // inicia o serviço Windows. Sem uma chave real, orion-agent.exe se recusa a
@@ -219,7 +274,7 @@ func instalar() error {
 	pararServicoSeRodando()
 
 	destinoExe := filepath.Join(pastaDestino, "orion-agent.exe")
-	if err := os.WriteFile(destinoExe, agenteEmbutido, 0755); err != nil {
+	if err := gravarExeMesmoEmUso(destinoExe, agenteEmbutido); err != nil {
 		return fmt.Errorf("gravar orion-agent.exe: %w", err)
 	}
 	imprimirOK(destinoExe)
