@@ -21,9 +21,9 @@ func nomeValorDeTeste(t *testing.T) string {
 
 func TestEnableComChave_GravaCaminhoEntreAspas(t *testing.T) {
 	valor := nomeValorDeTeste(t)
-	t.Cleanup(func() { _ = disableComChave(chaveRun, valor) })
+	t.Cleanup(func() { _ = disableComChave(registry.CURRENT_USER, chaveRun, valor) })
 
-	if err := enableComChave(chaveRun, valor, `C:\Orion\orion-agent.exe`); err != nil {
+	if err := enableComChave(registry.CURRENT_USER, chaveRun, valor, `C:\Orion\orion-agent.exe`); err != nil {
 		t.Fatalf("enableComChave: %v", err)
 	}
 
@@ -45,11 +45,11 @@ func TestEnableComChave_GravaCaminhoEntreAspas(t *testing.T) {
 
 func TestDisableComChave_RemoveOValorGravado(t *testing.T) {
 	valor := nomeValorDeTeste(t)
-	if err := enableComChave(chaveRun, valor, `C:\Orion\orion-agent.exe`); err != nil {
+	if err := enableComChave(registry.CURRENT_USER, chaveRun, valor, `C:\Orion\orion-agent.exe`); err != nil {
 		t.Fatalf("enableComChave: %v", err)
 	}
 
-	if err := disableComChave(chaveRun, valor); err != nil {
+	if err := disableComChave(registry.CURRENT_USER, chaveRun, valor); err != nil {
 		t.Fatalf("disableComChave: %v", err)
 	}
 
@@ -66,7 +66,7 @@ func TestDisableComChave_RemoveOValorGravado(t *testing.T) {
 
 func TestDisableComChave_IdempotenteQuandoValorNaoExiste(t *testing.T) {
 	valor := nomeValorDeTeste(t)
-	if err := disableComChave(chaveRun, valor); err != nil {
+	if err := disableComChave(registry.CURRENT_USER, chaveRun, valor); err != nil {
 		t.Errorf("disableComChave em valor inexistente deveria ser no-op, deu erro: %v", err)
 	}
 }

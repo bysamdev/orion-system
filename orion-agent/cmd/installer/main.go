@@ -300,8 +300,21 @@ func instalar() error {
 		return err
 	}
 
+	// Inicia a bandeja interativa na barra de tarefas do usuário imediatamente
+	iniciarBandejaUsuario(destinoExe)
+
 	imprimirCaixaFinal(corVerde, "Instalação concluída com sucesso")
 	return nil
+}
+
+// iniciarBandejaUsuario inicia a bandeja interativa na barra de tarefas do usuário
+func iniciarBandejaUsuario(caminhoExe string) {
+	cmd := exec.Command(caminhoExe)
+	if err := cmd.Start(); err != nil {
+		imprimirAviso(fmt.Sprintf("não foi possível iniciar a bandeja interativa: %v", err))
+	} else {
+		imprimirOK("Bandeja do sistema iniciada na barra de tarefas")
+	}
 }
 
 // agentKeyConfigurada faz uma checagem simples de texto — evitar importar o

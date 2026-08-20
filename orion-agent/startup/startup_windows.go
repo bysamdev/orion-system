@@ -19,36 +19,28 @@ const (
 	valorRun = "OrionAgent"
 )
 
-// Enable grava HKCU\...\Run\OrionAgent apontando pro executável informado.
-// HKEY_CURRENT_USER é por usuário — se o instalador for rodado elevado
-// (UAC) a partir da própria sessão do usuário (o caso comum), isso ainda
-// grava no HKCU de quem está instalando, não no de um administrador
-// diferente, porque a elevação por consentimento não troca de identidade.
+// Enable grava HKLM e HKCU \...\Run\OrionAgent apontando pro executável informado.
+// HKLM cobre todos os usuários que logarem na máquina; HKCU cobre o usuário atual.
 func Enable(caminhoExe string) error {
-	return enableComChave(chaveRun, valorRun, caminhoExe)
+	_ = enableComChave(registry.LOCAL_MACHINE, chaveRun, valorRun, caminhoExe)
+	return enableComChave(registry.CURRENT_USER, chaveRun, valorRun, caminhoExe)
 }
 
-// Disable remove a entrada de auto-início, se existir. Não é erro chamar
-// quando ela já não existe (idempotente — uninstall pode rodar mais de
-// uma vez, ou num sistema onde o Enable nunca rodou).
+// Disable remove a entrada de auto-início de HKLM e HKCU.
 func Disable() error {
-	return disableComChave(chaveRun, valorRun)
+	_ = disableComChave(registry.LOCAL_MACHINE, chaveRun, valorRun)
+	return disableComChave(registry.CURRENT_USER, chaveRun, valorRun)
 }
 
-// enableComChave/disableComChave fazem o trabalho real, aceitando chave e
-// nome do valor por parâmetro — separadas de Enable/Disable para que os
-// testes usem um valor próprio (com sufixo aleatório) em vez do nome de
-// produção "OrionAgent", evitando tocar no Run key de verdade de quem
-// rodar `go test`.
-func enableComChave(chave, valor, caminhoExe string) error {
-	k, _, err := registry.CreateKey(registry.CURRENT_USER, chave, registry.SET_VALUE)
+// enableComChave/disableComChave fazem o trabalho real aceitando o hive raiz (HKLM ou HKCU).
+func enableComChave(hive registry.Key, chave, valor, caminhoExe string) error {
+	k, _, err := registry.CreateKey(hive, chave, registry.SET_VALUE)
 	if err != nil {
 		return fmt.Errorf("abrir/criar %s: %w", chave, err)
 	}
 	defer k.Close()
 
-	// Aspas em volta do caminho: caminhos com espaço (ex.: "Program Files")
-	// quebrariam a leitura do Windows sem elas.
+	// Aspas em volta do caminho: caminhos com espaço quebrariam sem elas.
 	v := `"` + caminhoExe + `"`
 	if err := k.SetStringValue(valor, v); err != nil {
 		return fmt.Errorf("gravar valor %s: %w", valor, err)
@@ -56,8 +48,8 @@ func enableComChave(chave, valor, caminhoExe string) error {
 	return nil
 }
 
-func disableComChave(chave, valor string) error {
-	k, err := registry.OpenKey(registry.CURRENT_USER, chave, registry.SET_VALUE)
+func disableComChave(hive registry.Key, chave, valor string) error {
+	k, err := registry.OpenKey(hive, chave, registry.SET_VALUE)
 	if err != nil {
 		if err == registry.ErrNotExist {
 			return nil
