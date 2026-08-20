@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ButtonPrimary } from '@/components/ui/button-primary';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Package, Plus, ShieldCheck, RefreshCw, Clock, Lock } from 'lucide-react';
+import { Loader2, Package, Plus, ShieldCheck, RefreshCw, Clock, Lock, Layers } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -80,9 +80,9 @@ const PatchManagement: React.FC = () => {
     <div className="w-full space-y-6">
       {/* Header */}
       <PageHeader
-        icon={Package}
+        icon={Layers}
         badge="AGENT & PATCHES"
-        title="Gerenciador de Instaladores"
+        title="Instaladores & Updates"
         description="Geração de instaladores parametrizados por empresa e implantação de patches remotos."
         actions={
           <ButtonPrimary onClick={() => setNewDialogOpen(true)} className="gap-2 font-bold" icon={<Plus className="w-4 h-4" />}>

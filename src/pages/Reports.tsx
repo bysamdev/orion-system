@@ -18,6 +18,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import {
   Loader2,
   ArrowLeft,
+  BarChart2,
   BarChart3,
   Clock,
   CheckCircle2,
@@ -330,9 +331,9 @@ const Reports: React.FC = () => {
   return (
     <div className="w-full space-y-6">
       <PageHeader
-        icon={TrendingUp}
+        icon={BarChart2}
         badge="MÉTRICAS & SLA"
-        title="Relatórios Gerenciais"
+        title="Insights & Relatórios"
         description="Métricas avançadas, análise de desempenho de chamados e exportação de dados."
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">

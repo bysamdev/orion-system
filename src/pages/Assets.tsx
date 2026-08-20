@@ -316,9 +316,9 @@ const Assets = () => {
           
           {/* Header */}
           <PageHeader
-            icon={Laptop}
+            icon={Cpu}
             badge="INVENTÁRIO COMPLETO"
-            title="Inventário de Dispositivos"
+            title="Inventário"
             description="Visão unificada de computadores, notebooks e servidores com estatísticas em tempo real."
             actions={
               <>

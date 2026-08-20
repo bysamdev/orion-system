@@ -69,7 +69,7 @@ export default function Admin() {
       <PageHeader
         icon={Shield}
         badge="GESTÃO DO SISTEMA"
-        title="Painel Administrativo"
+        title="Painel Admin"
         description={
           isTechnician
             ? 'Gerencie respostas prontas para agilizar o atendimento aos chamados'

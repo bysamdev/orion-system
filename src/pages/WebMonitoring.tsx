@@ -347,7 +347,7 @@ export default function WebMonitoring() {
       <PageHeader
         icon={Globe}
         badge="BLACKBOX & PING"
-        title="Monitoramento Web & Links"
+        title="Monitoramento Web"
         description="Status em tempo real, tempo de resposta em milissegundos e segurança SSL."
         actions={
           <>

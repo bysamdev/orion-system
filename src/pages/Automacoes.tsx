@@ -17,9 +17,9 @@ const Automacoes: React.FC = () => {
   return (
     <div className="w-full space-y-6">
       <PageHeader
-        icon={Zap}
+        icon={GitBranch}
         badge="TRIAGEM & WORKFLOWS"
-        title="Central de Automações"
+        title="Automações"
         description="Regras inteligentes de triagem, roteamento de chamados e execução de rotinas."
       />
 

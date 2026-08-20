@@ -91,7 +91,7 @@ export default function TicketHistory() {
         <PageHeader
           icon={History}
           badge="AUDITORIA & REGISTROS"
-          title="Histórico de Chamados"
+          title="Histórico"
           description="Consulte chamados resolvidos, fechados ou cancelados com filtros avançados."
         />
 
