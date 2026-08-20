@@ -14,6 +14,7 @@ import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { ptBR } from 'date-fns/locale';
 import { formatDate } from '@/lib/utils';
 import { useMeusTickets } from '@/hooks/useMyTickets';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 // Define types for tickets to avoid 'unknown' property errors
 interface Ticket {
@@ -87,17 +88,12 @@ export default function TicketHistory() {
     <div className="min-h-screen bg-background text-foreground">
       <main className="p-4 md:p-8 lg:p-12 max-w-[1400px] mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
-            <History className="w-6 h-6 text-purple-500" />
-          </div>
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-black text-foreground">Histórico de Chamados</h1>
-            <p className="text-sm font-medium text-muted-foreground mt-1 tracking-tight">
-              Consulte chamados resolvidos, fechados ou cancelados.
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          icon={History}
+          badge="AUDITORIA & REGISTROS"
+          title="Histórico de Chamados"
+          description="Consulte chamados resolvidos, fechados ou cancelados com filtros avançados."
+        />
 
         <Card className="border-border/40 shadow-xl shadow-primary/5 overflow-visible bg-card/50 backdrop-blur-sm">
           <CardHeader className="border-b border-border/40 pb-6">

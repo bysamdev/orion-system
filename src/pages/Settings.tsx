@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff, Settings2 } from "lucide-react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { useUserProfile, useUserRole } from "@/hooks/useUserRole";
@@ -18,6 +18,7 @@ import { profileUpdateSchema } from "@/lib/validation";
 import { useErrorHandler } from "@/lib/useErrorHandler";
 import { invokeOrionFunction } from "@/lib/orion-functions";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -190,13 +191,16 @@ export default function Settings() {
 
   return (
     <div className="w-full space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Configurações</h1>
-        <p className="text-muted-foreground mb-8">Gerencie suas preferências e configurações da conta</p>
+      <PageHeader
+        icon={Settings2}
+        badge="PREFERÊNCIAS & CONTA"
+        title="Configurações"
+        description="Gerencie suas preferências pessoais, perfil e segurança da conta."
+      />
           
-          <Tabs 
-            defaultValue="profile" 
-            className="space-y-6"
+      <Tabs 
+        defaultValue="profile" 
+        className="space-y-6"
             onValueChange={(value) => {
               window.dispatchEvent(new CustomEvent('clear-global-search'));
               document.getElementById('global-search-ticket')?.blur();
@@ -486,7 +490,6 @@ export default function Settings() {
               </TabsContent>
             )}
           </Tabs>
-        </div>
     </div>
   );
 }

@@ -9,9 +9,10 @@ import { RoutingRulesManagement } from '@/components/admin/RoutingRulesManagemen
 import { ResolutionChecklistManagement } from '@/components/admin/ResolutionChecklistManagement';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
-import { Loader2, Settings2, Users, Building, FileText, MessageSquare, ListChecks, GitBranch, Book } from 'lucide-react';
+import { Loader2, Settings2, Users, Building, FileText, MessageSquare, ListChecks, GitBranch, Book, Shield } from 'lucide-react';
 import { SLAConfiguration } from '@/components/admin/SLAConfiguration';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/shared/PageHeader';
 export default function Admin() {
   const { data: role, isLoading } = useUserRole();
 
@@ -65,15 +66,18 @@ export default function Admin() {
 
   return (
     <div className="w-full space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Administração</h1>
-        <p className="text-muted-foreground mb-6">
-          {isTechnician
-            ? 'Gerencie respostas prontas para agilizar o atendimento'
-            : 'Gerencie usuários, empresas, contratos e configurações'}
-        </p>
-        
-        <Tabs defaultValue={isTechnician ? 'responses' : 'users'} className="w-full">
+      <PageHeader
+        icon={Shield}
+        badge="GESTÃO DO SISTEMA"
+        title="Painel Administrativo"
+        description={
+          isTechnician
+            ? 'Gerencie respostas prontas para agilizar o atendimento aos chamados'
+            : 'Gerencie usuários, empresas, contratos e configurações globais do Orion.'
+        }
+      />
+      
+      <Tabs defaultValue={isTechnician ? 'responses' : 'users'} className="w-full">
           <div className="overflow-x-auto pb-1">
             <TabsList className="bg-muted/50 p-1 rounded-xl w-auto inline-flex flex-wrap sm:flex-nowrap">
               {/* Abas exclusivas para admin/developer */}
@@ -131,7 +135,6 @@ export default function Admin() {
             </>
           )}
         </Tabs>
-      </div>
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 interface PortalTicket {
   id: string;
@@ -85,24 +86,22 @@ export default function ClientPortal() {
     <div className="w-full flex flex-col space-y-6">
       <div className="flex-1 w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
-        {/* Sessão de Boas-vindas: Foco em ação rápida de abertura de chamado */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">
-              Olá, {firstName}!
-            </h1>
-            <p className="text-muted-foreground text-base sm:text-lg font-medium">
-              Como podemos ajudar você hoje?
-            </p>
-          </div>
-          <ButtonPrimary 
-            onClick={() => navigate('/novo-ticket')}
-            className="h-12 sm:h-14 px-6 sm:px-8 rounded-2xl font-bold shadow-2xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 text-base sm:text-lg"
-            icon={<Plus className="w-5 h-5 sm:w-6 sm:h-6" />}
-          >
-            Abrir Novo Chamado
-          </ButtonPrimary>
-        </div>
+        {/* Sessão de Boas-vindas padronizada */}
+        <PageHeader
+          icon={LifeBuoy}
+          badge="PORTAL DE SUPORTE"
+          title={`Olá, ${firstName}!`}
+          description="Como podemos ajudar você hoje? Acompanhe seus atendimentos ou abra uma nova solicitação."
+          actions={
+            <ButtonPrimary 
+              onClick={() => navigate('/novo-ticket')}
+              className="h-12 px-6 rounded-2xl font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+              icon={<Plus className="w-5 h-5" />}
+            >
+              Abrir Novo Chamado
+            </ButtonPrimary>
+          }
+        />
 
         {/* Atalhos Rápidos: Acesso ao histórico, Wiki e Suporte Humano */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

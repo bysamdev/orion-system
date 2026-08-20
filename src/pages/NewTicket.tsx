@@ -32,6 +32,7 @@ import { invokeOrionFunction } from '@/lib/orion-functions';
 import { cn } from '@/lib/utils';
 import { suggestCategory, CATEGORY_LABELS } from '@/lib/ticket-helpers';
 import { useKBSuggestions } from '@/hooks/useKBSuggestions';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 const ticketSchema = ticketCreationSchema;
 type TicketFormValues = z.infer<typeof ticketSchema>;
@@ -393,32 +394,29 @@ const NewTicket = () => {
 
   return (
     <div className="max-w-5xl mx-auto w-full space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="hover:bg-primary/5 transition-colors gap-2 text-muted-foreground">
-            <ArrowLeft className="w-4 h-4" /> Voltar
-          </Button>
-          
-          <div className="flex items-center gap-2">
+      <PageHeader
+        icon={Ticket}
+        badge="ABERTURA DE CHAMADO"
+        title="Abrir Novo Chamado"
+        description={`Passo ${step} de 3 — ${
+          step === 1 ? "Identificação do problema" :
+          step === 2 ? "Detalhes e priorização" :
+          "Anexos e finalização"
+        }`}
+        actions={
+          <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-xl border border-border/40">
             {[1, 2, 3].map((s) => (
               <div 
                 key={s} 
                 className={cn(
-                  "h-1.5 w-8 rounded-full transition-all duration-500",
-                  step >= s ? "bg-primary" : "bg-muted"
+                  "h-2 w-8 rounded-full transition-all duration-500",
+                  step >= s ? "bg-primary shadow-sm shadow-primary/30" : "bg-muted"
                 )} 
               />
             ))}
           </div>
-        </div>
-
-        <div className="space-y-1">
-          <h1 ref={stepHeadingRef} tabIndex={-1} className="text-3xl font-black tracking-tighter text-foreground outline-none">Abrir Novo Chamado</h1>
-          <p className="text-muted-foreground font-medium" aria-live="polite">Passo {step} de 3 — {
-            step === 1 ? "Identificação do problema" :
-            step === 2 ? "Detalhes e priorização" :
-            "Anexos e finalização"
-          }</p>
-        </div>
+        }
+      />
 
         <div className={cn(
           "gap-8 items-start",

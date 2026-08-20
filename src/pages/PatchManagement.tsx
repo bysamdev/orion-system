@@ -17,6 +17,7 @@ import { AgentInstallerCard } from '@/components/patch/AgentInstallerCard';
 import { NewPackageDialog } from '@/components/patch/NewPackageDialog';
 import { DeployDialog } from '@/components/patch/DeployDialog';
 import { useQueryClient } from '@tanstack/react-query';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 const STATUS_STYLE: Record<string, string> = {
   pending:    'bg-amber-500/10 text-amber-600 border-amber-500/30',
@@ -78,22 +79,17 @@ const PatchManagement: React.FC = () => {
   return (
     <div className="w-full space-y-6">
       {/* Header */}
-        <div className="flex items-center justify-between gap-4 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl bg-purple-600 text-white shadow-lg shadow-purple-500/30">
-              <Package className="w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight">Instaladores & Updates</h1>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
-                Scripts · Instaladores · Implantação Remota
-              </p>
-            </div>
-          </div>
+      <PageHeader
+        icon={Package}
+        badge="AGENT & PATCHES"
+        title="Gerenciador de Instaladores"
+        description="Geração de instaladores parametrizados por empresa e implantação de patches remotos."
+        actions={
           <ButtonPrimary onClick={() => setNewDialogOpen(true)} className="gap-2 font-bold" icon={<Plus className="w-4 h-4" />}>
             Novo Pacote
           </ButtonPrimary>
-        </div>
+        }
+      />
 
         {/* Security banner */}
         <div className="mb-8 p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl flex items-start gap-3">

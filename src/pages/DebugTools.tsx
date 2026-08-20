@@ -15,6 +15,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatDate } from '@/lib/utils';
 import { ehTituloDeTicketDeTeste } from '@/lib/testDataDetection';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 interface SLATestResult {
   id: string;
@@ -447,24 +448,17 @@ const DebugTools = () => {
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/')} className="gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Voltar
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold flex items-center gap-2.5">
-                <Wrench className="w-7 h-7 text-primary" />
-                <span>Debug Tools</span>
-              </h1>
-              <p className="text-muted-foreground">Ferramentas para validação de regras de negócio</p>
-            </div>
-          </div>
-          <Badge variant="outline" className="text-lg px-4 py-2">
-            Role: {role}
-          </Badge>
-        </div>
+        <PageHeader
+          icon={Wrench}
+          badge="DIAGNÓSTICO & QA"
+          title="Ferramentas de Debug"
+          description="Ferramentas técnicas para validação de SLA, rate limits e auditoria de regras de negócio."
+          actions={
+            <Badge variant="outline" className="text-sm px-3 py-1.5 font-mono font-bold bg-muted/30">
+              Role: {role}
+            </Badge>
+          }
+        />
 
         {/* SLA Test */}
         <Card>

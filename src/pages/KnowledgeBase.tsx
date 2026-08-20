@@ -492,7 +492,14 @@ export default function KnowledgeBase() {
           <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-blue-500/10 rounded-full -ml-32 -mb-32 blur-3xl" />
           
           <div className="max-w-4xl mx-auto space-y-6 relative z-10 text-center">
-
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="p-2 bg-primary/10 rounded-xl flex items-center justify-center">
+                <Book className="w-5 h-5 text-primary" />
+              </div>
+              <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-semibold uppercase tracking-widest text-[10px]">
+                BASE DE CONHECIMENTO & TUTORIAIS
+              </Badge>
+            </div>
 
             <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl">
               Como podemos <span className="text-primary">ajudar você hoje?</span>

@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { BellOff, CheckCheck } from "lucide-react";
+import { BellOff, CheckCheck, Bell } from "lucide-react";
 import { useNotifications, Notification } from "@/hooks/useNotifications";
 import { NotificationItem } from "@/components/shared/NotificationItem";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -22,20 +23,25 @@ const Notifications = () => {
   };
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">Notificações</h2>
-        {unreadCount > 0 && (
-          <Button
-            variant="outline"
-            onClick={() => markAllAsRead()}
-            className="text-xs text-primary border-primary/20 hover:bg-primary/10"
-          >
-            <CheckCheck className="w-4 h-4 mr-2" />
-            Marcar todas como lidas
-          </Button>
-        )}
-      </div>
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-5xl mx-auto">
+      <PageHeader
+        icon={Bell}
+        badge="CENTRAL DE AVISOS"
+        title="Notificações"
+        description="Histórico de alertas de chamados, prazos de SLA e avisos do sistema."
+        actions={
+          unreadCount > 0 ? (
+            <Button
+              variant="outline"
+              onClick={() => markAllAsRead()}
+              className="text-xs text-primary border-primary/20 hover:bg-primary/10 rounded-xl"
+            >
+              <CheckCheck className="w-4 h-4 mr-2" />
+              Marcar todas como lidas
+            </Button>
+          ) : undefined
+        }
+      />
 
       <div className="flex gap-2 border-b border-border/40 pb-4 mb-4">
         <Button

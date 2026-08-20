@@ -58,6 +58,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 import { BulletChart } from '@/components/reports/BulletChart';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { GaugeChart } from '@/components/reports/GaugeChart';
 import { TechnicianComparisonChart } from '@/components/reports/TechnicianComparisonChart';
 import {
@@ -328,18 +329,12 @@ const Reports: React.FC = () => {
 
   return (
     <div className="w-full space-y-6">
-      <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <Button variant="ghost" onClick={() => navigate('/')} className="mb-4">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar ao Dashboard
-            </Button>
-            <h1 className="text-3xl font-bold text-foreground">Relatórios Gerenciais</h1>
-            <p className="text-muted-foreground mt-1">
-              Métricas, análise de desempenho e exportação de dados
-            </p>
-          </div>
-
+      <PageHeader
+        icon={TrendingUp}
+        badge="MÉTRICAS & SLA"
+        title="Relatórios Gerenciais"
+        description="Métricas avançadas, análise de desempenho de chamados e exportação de dados."
+        actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {/* Alternador de modo */}
             <div
@@ -401,7 +396,8 @@ const Reports: React.FC = () => {
               </Button>
             </div>
           </div>
-        </div>
+        }
+      />
 
         {/* Filtros */}
         <Card className="mb-6">

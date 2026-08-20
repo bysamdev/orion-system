@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 export type WebPeriod = '1h' | '6h' | '24h' | '7d';
 
@@ -343,37 +344,34 @@ export default function WebMonitoring() {
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            Monitoramento de Conectividade
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Status em tempo real, tempo de resposta em milissegundos e segurança SSL.
-          </p>
-        </div>
+      <PageHeader
+        icon={Globe}
+        badge="BLACKBOX & PING"
+        title="Monitoramento Web & Links"
+        description="Status em tempo real, tempo de resposta em milissegundos e segurança SSL."
+        actions={
+          <>
+            <Badge
+              variant="outline"
+              className="gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold"
+            >
+              <Activity className="w-3.5 h-3.5 animate-pulse" />
+              {webStats.online + networkStats.online} Alvos Online
+            </Badge>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge
-            variant="outline"
-            className="gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold"
-          >
-            <Activity className="w-3.5 h-3.5 animate-pulse" />
-            {webStats.online + networkStats.online} Alvos Online
-          </Badge>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="rounded-xl font-semibold gap-1.5"
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', isRefreshing && 'animate-spin')} />
-            Atualizar
-          </Button>
-        </div>
-      </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="rounded-xl font-semibold gap-1.5"
+            >
+              <RefreshCw className={cn('w-3.5 h-3.5', isRefreshing && 'animate-spin')} />
+              Atualizar
+            </Button>
+          </>
+        }
+      />
 
       {/* ── Main Navigation Tabs ── */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'web' | 'network')} className="space-y-6">

@@ -40,6 +40,7 @@ import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 import { MachineWithMetric } from '@/hooks/useMonitoring';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AssetTopologyGraph } from '@/components/assets/AssetTopologyGraph';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 const deviceIcons: Record<string, React.ElementType> = {
   'Computador': Monitor,
@@ -314,45 +315,33 @@ const Assets = () => {
         <main className="flex-1 p-6 lg:p-10 max-w-[1600px] mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/40 pb-6">
-            <div className="space-y-1">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="p-2 bg-primary/10 rounded-xl">
-                  <Laptop className="w-5 h-5 text-primary" />
-                </div>
-                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-semibold uppercase tracking-widest text-[10px]">
-                  INVENTÁRIO COMPLETO
-                </Badge>
-              </div>
-              <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-foreground">
-                Inventário de Dispositivos
-              </h1>
-              <p className="text-sm text-muted-foreground font-medium">
-                Visão unificada de computadores, notebooks e servidores com estatísticas em tempo real.
-              </p>
-            </div>
+          <PageHeader
+            icon={Laptop}
+            badge="INVENTÁRIO COMPLETO"
+            title="Inventário de Dispositivos"
+            description="Visão unificada de computadores, notebooks e servidores com estatísticas em tempo real."
+            actions={
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleForceRefresh}
+                  disabled={isRefreshing}
+                  className="h-11 px-4 rounded-xl border-border/50 bg-background/50 hover:bg-accent font-semibold transition-all"
+                >
+                  <RefreshCw className={cn("w-4 h-4 mr-2 text-primary", isRefreshing && "animate-spin")} />
+                  Atualizar Telemetria
+                </Button>
 
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={handleForceRefresh}
-                disabled={isRefreshing}
-                className="h-11 px-4 rounded-xl border-border/50 bg-background/50 hover:bg-accent font-semibold transition-all"
-              >
-                <RefreshCw className={cn("w-4 h-4 mr-2 text-primary", isRefreshing && "animate-spin")} />
-                Atualizar Telemetria
-              </Button>
-
-              <Dialog open={isAssetDialogOpen} onOpenChange={(open) => {
-                setIsAssetDialogOpen(open);
-                if (!open) resetForm();
-              }}>
-                <DialogTrigger asChild>
-                  <ButtonPrimary className="h-11 px-5 rounded-xl font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95" icon={<Plus className="w-4 h-4" />}>
-                    Novo Ativo
-                  </ButtonPrimary>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                <Dialog open={isAssetDialogOpen} onOpenChange={(open) => {
+                  setIsAssetDialogOpen(open);
+                  if (!open) resetForm();
+                }}>
+                  <DialogTrigger asChild>
+                    <ButtonPrimary className="h-11 px-5 rounded-xl font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95" icon={<Plus className="w-4 h-4" />}>
+                      Novo Ativo
+                    </ButtonPrimary>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>{editingAsset ? 'Editar Ativo/Dispositivo' : 'Cadastrar Novo Ativo'}</DialogTitle>
                     <DialogDescription>
@@ -479,8 +468,9 @@ const Assets = () => {
                   </form>
                 </DialogContent>
               </Dialog>
-            </div>
-          </div>
+            </>
+          }
+        />
 
           {/* Filtros Globais (Aplicados tanto à lista quanto à topologia) */}
           <Card className="border-border/40 shadow-xl bg-card/60 backdrop-blur-md overflow-hidden mb-6">

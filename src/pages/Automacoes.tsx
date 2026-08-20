@@ -8,6 +8,7 @@ import { HistoryTab } from '@/components/automation/HistoryTab';
 import { TemplatesTab } from '@/components/automation/TemplatesTab';
 import { SLATab } from '@/components/automation/SLATab';
 import { Clock } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 const Automacoes: React.FC = () => {
   const { data: profile } = useUserProfile();
@@ -15,17 +16,12 @@ const Automacoes: React.FC = () => {
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex items-center gap-4 mb-8">
-          <div className="p-3 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
-            <GitBranch className="w-7 h-7" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight">Motor de Automação</h1>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
-              Regras · Gatilhos · Workflows
-            </p>
-          </div>
-        </div>
+      <PageHeader
+        icon={Zap}
+        badge="TRIAGEM & WORKFLOWS"
+        title="Central de Automações"
+        description="Regras inteligentes de triagem, roteamento de chamados e execução de rotinas."
+      />
 
         {!companyId ? (
           <Card className="border-dashed">

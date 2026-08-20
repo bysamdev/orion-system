@@ -38,6 +38,7 @@ import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 export interface AlertsDashboardProps {
   onAlertClick?: (machineId: string) => void;
@@ -519,55 +520,40 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
 
   return (
     <div className="w-full space-y-6">
-      <div className="w-full space-y-6">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="p-3 rounded-2xl bg-red-600 text-white shadow-lg shadow-red-600/30">
-                <AlertTriangle className="w-7 h-7" />
-              </div>
-              {mergedAlerts.length > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full animate-ping" />
-              )}
-            </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-foreground">
-                Central de Alertas
-              </h1>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                Zona Vermelha — Atenção Imediata &amp; Conformidade
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+        <PageHeader
+          icon={AlertTriangle}
+          badge="ZONA VERMELHA & CONFORMIDADE"
+          title="Central de Alertas"
+          description="Supervisão de riscos imediatos, falhas de segurança e conformidade da frota."
+          actions={
+            <>
               <Badge
                 variant="outline"
                 className={cn(
-                  'gap-1.5 font-bold',
+                  'gap-1.5 font-bold px-3 py-1.5 rounded-xl',
                   mergedAlerts.length > 0
                     ? 'text-red-600 border-red-500/30 bg-red-500/10'
                     : 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10'
                 )}
               >
-                <AlertTriangle className="w-3 h-3" />
+                <AlertTriangle className="w-3.5 h-3.5" />
                 {mergedAlerts.length} alerta{mergedAlerts.length !== 1 ? 's' : ''} ativo{mergedAlerts.length !== 1 ? 's' : ''}
               </Badge>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              className="gap-2 rounded-xl font-bold"
-              disabled={refreshing}
-            >
-              <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
-              Atualizar
-            </Button>
-          </div>
-        </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                className="gap-2 rounded-xl font-bold h-10 px-4"
+                disabled={refreshing}
+              >
+                <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
+                Atualizar
+              </Button>
+            </>
+          }
+        />
 
         {/* Content */}
         {isLoading ? (
@@ -671,7 +657,6 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
           </ScrollArea>
         </div>
       )}
-    </div>
 
       {/* Machine Details Drawer */}
       <MachineDrawer
