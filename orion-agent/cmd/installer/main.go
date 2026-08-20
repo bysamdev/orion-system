@@ -23,7 +23,9 @@ import (
 
 	"golang.org/x/sys/windows"
 
+	"orion-agent/addremove"
 	"orion-agent/startup"
+	"orion-agent/version"
 )
 
 //go:embed assets/orion-agent.exe
@@ -221,6 +223,16 @@ func instalar() error {
 		imprimirAviso(fmt.Sprintf("não foi possível configurar o início automático no login: %v", err))
 	} else {
 		imprimirOK("Início automático no login configurado")
+	}
+
+	// Registro em Configurações > Aplicativos Instalados — sem isso o
+	// agente existe na máquina mas não aparece ali nem no Painel de
+	// Controle, e desinstalar exigia saber de cor o comando
+	// `orion-agent.exe uninstall`.
+	if err := addremove.Registrar(destinoExe, version.Version); err != nil {
+		imprimirAviso(fmt.Sprintf("não foi possível registrar em Aplicativos Instalados: %v", err))
+	} else {
+		imprimirOK("Registrado em Aplicativos Instalados (Configurações > Apps)")
 	}
 
 	// Instalador gerado pelo Orion System pra uma empresa específica traz a
