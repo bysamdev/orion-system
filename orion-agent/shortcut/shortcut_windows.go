@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"golang.org/x/sys/windows/registry"
+
+	"orion-agent/tray"
 )
 
 // CreatePortalShortcut cria o atalho "Abrir Chamado Orion" na Área de Trabalho com o ícone do Orion.
@@ -43,7 +45,11 @@ func CreatePortalShortcut(apiURL string, machineToken string) error {
 	return nil
 }
 
-// criarAtalhoEm grava o atalho num caminho arbitrário com o ícone embutido.
+// criarAtalhoEm grava o atalho num caminho arbitrário com o ícone real do
+// Orion System (o mesmo .ico multi-resolução que a bandeja usa — ver
+// tray.DataIcon), não o ícone genérico embutido no .exe. IconFile de um
+// atalho .url só aceita um caminho de arquivo, então o .ico precisa existir
+// em disco antes.
 func criarAtalhoEm(caminho, apiURL, machineToken string) error {
 	apiURL = strings.TrimRight(strings.TrimSpace(apiURL), "/")
 	if apiURL == "" {
@@ -55,12 +61,18 @@ func criarAtalhoEm(caminho, apiURL, machineToken string) error {
 	} else {
 		targetURL = fmt.Sprintf("%s/novo-ticket", apiURL)
 	}
-	exePath := `C:\Orion\orion-agent.exe`
-	if curExe, err := os.Executable(); err == nil && curExe != "" {
-		exePath = curExe
+
+	iconPath, err := gravarIconeOrion()
+	if err != nil {
+		// Sem o .ico, o atalho ainda funciona — só cai de volta pro ícone
+		// genérico do .exe em vez de falhar a criação inteira.
+		iconPath = `C:\Orion\orion-agent.exe`
+		if curExe, errExe := os.Executable(); errExe == nil && curExe != "" {
+			iconPath = curExe
+		}
 	}
 
-	content := fmt.Sprintf("[InternetShortcut]\nURL=%s\nIconIndex=0\nIconFile=%s\n", targetURL, exePath)
+	content := fmt.Sprintf("[InternetShortcut]\nURL=%s\nIconIndex=0\nIconFile=%s\n", targetURL, iconPath)
 
 	if atual, err := os.ReadFile(caminho); err == nil && string(atual) == content {
 		return nil
@@ -71,6 +83,26 @@ func criarAtalhoEm(caminho, apiURL, machineToken string) error {
 	}
 
 	return nil
+}
+
+// gravarIconeOrion garante que tray.DataIcon exista em disco ao lado do
+// executável (C:\Orion\orion.ico) e devolve o caminho. Best-effort e idempotente
+// — grava de novo só se o conteúdo mudou (ex: ícone atualizado numa nova
+// versão do agente).
+func gravarIconeOrion() (string, error) {
+	pastaExe := `C:\Orion`
+	if curExe, err := os.Executable(); err == nil && curExe != "" {
+		pastaExe = filepath.Dir(curExe)
+	}
+	caminhoIco := filepath.Join(pastaExe, "orion.ico")
+
+	if atual, err := os.ReadFile(caminhoIco); err == nil && string(atual) == string(tray.DataIcon) {
+		return caminhoIco, nil
+	}
+	if err := os.WriteFile(caminhoIco, tray.DataIcon, 0644); err != nil {
+		return "", fmt.Errorf("gravar orion.ico: %w", err)
+	}
+	return caminhoIco, nil
 }
 
 func getDesktopPath() (string, error) {

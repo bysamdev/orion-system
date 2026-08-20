@@ -119,3 +119,53 @@ func TestCriarAtalhoEm_ArquivoInexistenteEhCriadoNormalmente(t *testing.T) {
 		t.Fatalf("arquivo não foi criado: %v", err)
 	}
 }
+
+// TestCriarAtalhoEm_ApontaParaOIconeRealDoOrion cobre o pedido: o atalho
+// precisa mostrar a logo do Orion, não o ícone genérico do .exe. IconFile
+// deve apontar pro orion.ico gravado ao lado do executável (o mesmo
+// tray.DataIcon usado na bandeja), não pro próprio orion-agent.exe.
+func TestCriarAtalhoEm_ApontaParaOIconeRealDoOrion(t *testing.T) {
+	caminho := filepath.Join(t.TempDir(), "atalho.url")
+
+	if err := criarAtalhoEm(caminho, "https://orion.exemplo.test", "tok-1"); err != nil {
+		t.Fatalf("criarAtalhoEm: %v", err)
+	}
+
+	conteudo, err := os.ReadFile(caminho)
+	if err != nil {
+		t.Fatal(err)
+	}
+	str := string(conteudo)
+	if strings.Contains(str, "IconFile=") && strings.HasSuffix(strings.TrimSpace(strings.SplitN(str, "IconFile=", 2)[1]), "orion-agent.exe") {
+		t.Error("IconFile aponta pro .exe (ícone genérico) em vez de orion.ico (logo do Orion)")
+	}
+	if !strings.Contains(str, "orion.ico") {
+		t.Errorf("esperava IconFile apontando pra orion.ico, saída: %s", str)
+	}
+}
+
+// TestGravarIconeOrion_EhIdempotente garante que gravar o mesmo ícone duas
+// vezes não regrava o arquivo à toa.
+func TestGravarIconeOrion_EhIdempotente(t *testing.T) {
+	caminho, err := gravarIconeOrion()
+	if err != nil {
+		t.Fatalf("gravarIconeOrion: %v", err)
+	}
+	defer os.Remove(caminho)
+
+	info1, err := os.Stat(caminho)
+	if err != nil {
+		t.Fatalf("orion.ico não foi criado: %v", err)
+	}
+
+	if _, err := gravarIconeOrion(); err != nil {
+		t.Fatalf("segunda chamada: %v", err)
+	}
+	info2, err := os.Stat(caminho)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info1.ModTime() != info2.ModTime() {
+		t.Error("gravarIconeOrion regravou um arquivo com conteúdo idêntico")
+	}
+}

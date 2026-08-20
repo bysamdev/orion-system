@@ -11,7 +11,16 @@ import (
 
 	"github.com/getlantern/systray"
 	"github.com/pkg/browser"
+
+	"orion-agent/version"
 )
+
+// tooltipVersao monta o texto do tooltip do ícone com a versão instalada —
+// o usuário pedia isso ao passar o mouse pra confirmar se a máquina já
+// pegou uma atualização recente sem precisar abrir o painel.
+func tooltipVersao(status string) string {
+	return fmt.Sprintf("Orion System v%s — %s", version.Version, status)
+}
 
 // TrayManager organiza as ações e o estado da bandeja do sistema vinculadas ao agente.
 type TrayManager struct {
@@ -44,7 +53,7 @@ func (tm *TrayManager) Run() {
 func (tm *TrayManager) onReady() {
 	systray.SetIcon(DataIcon) // Ícone embutido no arquivo icon_data.go
 	systray.SetTitle("Orion Agent")
-	systray.SetTooltip("Orion System - Suporte Ativo")
+	systray.SetTooltip(tooltipVersao("Suporte Ativo"))
 
 	// Linha de status no topo do menu. Fica desabilitada (não é clicável): serve
 	// apenas para o usuário enxergar o estado real do agente. Antes disso, clicar
@@ -122,7 +131,7 @@ func (tm *TrayManager) aplicarStatusLocked() {
 		return
 	}
 	tm.mStatus.SetTitle("Status: " + tm.status)
-	systray.SetTooltip("Orion System — " + tm.status)
+	systray.SetTooltip(tooltipVersao(tm.status))
 }
 
 // onExitInternal é executado quando o systray finaliza, garantindo que o agente limpe seus recursos.
