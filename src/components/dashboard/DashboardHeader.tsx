@@ -1,13 +1,11 @@
 import React from 'react';
-import { LayoutDashboard } from 'lucide-react';
-import { PageHeader } from '@/components/shared/PageHeader';
 
 interface DashboardHeaderProps {
   userName?: string;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
-  userName = "Usuário"
+  userName = "Samuel Terres"
 }) => {
   const currentDate = new Date();
   const dateString = currentDate.toLocaleDateString('pt-BR', {
@@ -18,12 +16,13 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   });
 
   return (
-    <PageHeader
-      icon={LayoutDashboard}
-      badge="COCKPIT OPERACIONAL"
-      title={`Olá, ${userName}!`}
-      description={`Hoje é ${dateString} — Visão consolidada da fila de atendimento, SLA e carga de trabalho.`}
-      className="mb-8"
-    />
+    <header className="mb-8">
+      <h1 className="text-4xl md:text-5xl font-light text-foreground tracking-tight">
+        Olá <span className="font-bold">{userName}!</span>
+      </h1>
+      <p className="text-muted-foreground text-sm mt-2 capitalize font-medium">
+        Hoje é {dateString}
+      </p>
+    </header>
   );
 };
