@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"strings"
 	"time"
 
 	"github.com/kardianos/service"
@@ -16,6 +17,7 @@ import (
 	"orion-agent/addremove"
 	"orion-agent/config"
 	agentsvc "orion-agent/service"
+	"orion-agent/shortcut"
 	"orion-agent/startup"
 	"orion-agent/tray"
 )
@@ -113,41 +115,13 @@ func main() {
 			return
 		}
 
-		// Instância única (correção B.10, revisada): o serviço Windows
-		// (NT SERVICE\OrionAgent) e uma execução interativa (usuário
-		// clicou no .exe, ou o atalho de login abriu sozinho) coexistem na
-		// mesma máquina de propósito — é assim que a bandeja aparece sem
-		// abrir mão da cobertura do serviço em máquina sem ninguém logado.
-		// O que não pode coexistir são DOIS laços de heartbeat/RMM ao
-		// mesmo tempo (comandos remotos executados em duplicidade): o
-		// mutex nomeado global decide qual processo é o dono do laço —
-		// unica=true quer dizer "ninguém mais está mandando heartbeat
-		// agora", então esta execução interativa assume esse papel. Se
-		// unica=false (o serviço já está ativo), a bandeja sobe só como
-		// interface — ícone, menu, links do portal — sem seu próprio
-		// laço, evitando heartbeat duplicado.
-		unica, err := garantirInstanciaUnica()
-		if err != nil {
-			logger.Printf("[AVISO] Não foi possível verificar instância única: %v — assumindo laço próprio.", err)
-			unica = true
+		// Verifica se o serviço Windows OrionAgent já está ativo em segundo plano
+		servicoAtivo := false
+		if out, err := exec.Command("sc", "query", "OrionAgent").CombinedOutput(); err == nil && strings.Contains(string(out), "RUNNING") {
+			servicoAtivo = true
 		}
 
-		// Se estivermos em modo interativo (ex: clicado pelo usuário), iniciamos a Tray.
-		//
-		// IMPORTANTE ao compilar orion-agent.exe: use
-		// `go build -ldflags="-H=windowsgui" ...`. Sem essa flag, o Windows
-		// aloca uma janela de console toda vez que este .exe roda fora do
-		// SCM (clique direto, atalho) — mesmo esse caminho nunca escrevendo
-		// nada nela, já que a saída real vai para agent.log. A flag marca o
-		// binário como subsistema GUI: nenhum console é criado ao clicar,
-		// mas se alguém rodar `orion-agent.exe install` a partir de um
-		// terminal já aberto, a saída continua aparecendo ali normalmente
-		// (herda os handles do processo pai). Não se aplica ao instalador
-		// (cmd/installer), que é propositalmente um wizard de console.
-		//
-		// Rodamos a lógica do agente em background (goroutine) para não travar o menu
-		// — só quando este processo é quem deve mandar o heartbeat (ver unica acima).
-		if unica {
+		if !servicoAtivo {
 			go func() {
 				logger.Printf("Iniciando monitoramento em background — Servidor: %s", cfg.APIURL)
 				if err := s.Run(); err != nil {
@@ -156,14 +130,13 @@ func main() {
 			}()
 		} else {
 			logger.Println("Serviço OrionAgent já está ativo em segundo plano — bandeja sobe só como interface, sem laço de heartbeat próprio.")
-			// Sem isso, "Abrir Portal"/"Abrir Chamado" ficariam presos em
-			// "aguardando primeiro check-in" pra sempre nesta instância —
-			// o token existe em disco (o serviço já o gravou), só não
-			// tinha sido lido por este processo.
 			if err := svc.PreloadMachineToken(); err != nil {
 				logger.Printf("[AVISO] Não foi possível ler a identidade da máquina salva em disco: %v", err)
 			}
 		}
+
+		// Garante que o atalho "Abrir Chamado Orion" com o ícone do sistema exista no Desktop
+		_ = shortcut.CreatePortalShortcut(cfg.APIURL, svc.GetTicketURL())
 
 		// Gerenciador da bandeja do sistema (perto do relógio).
 		// Este bloco é bloqueante e mantém o processo vivo.

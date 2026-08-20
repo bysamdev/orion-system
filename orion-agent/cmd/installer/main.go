@@ -24,6 +24,7 @@ import (
 	"golang.org/x/sys/windows"
 
 	"orion-agent/addremove"
+	"orion-agent/shortcut"
 	"orion-agent/startup"
 	"orion-agent/version"
 )
@@ -236,6 +237,13 @@ func instalar() error {
 		imprimirAviso(fmt.Sprintf("não foi possível registrar em Aplicativos Instalados: %v", err))
 	} else {
 		imprimirOK("Registrado em Aplicativos Instalados (Configurações > Apps)")
+	}
+
+	// Criação do atalho na Área de Trabalho com o ícone do Orion
+	if err := shortcut.CreatePortalShortcut(flagAPIURL, ""); err != nil {
+		imprimirAviso(fmt.Sprintf("não foi possível criar o atalho na Área de Trabalho: %v", err))
+	} else {
+		imprimirOK("Atalho 'Abrir Chamado Orion' criado na Área de Trabalho")
 	}
 
 	// Instalador gerado pelo Orion System pra uma empresa específica traz a
