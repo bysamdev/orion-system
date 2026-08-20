@@ -14,6 +14,7 @@ import { invokeOrionFunction } from '@/lib/orion-functions';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatDate } from '@/lib/utils';
+import { ehTituloDeTicketDeTeste } from '@/lib/testDataDetection';
 
 interface SLATestResult {
   id: string;
@@ -72,6 +73,24 @@ const DebugTools = () => {
   // Check access - only developer or admin
   const hasAccess = role === 'developer' || role === 'admin';
 
+  // 4 tickets [DEBUG-SLA-TEST] ficaram visíveis no histórico real dos
+  // clientes por um teste rodado sem checagem de ambiente (corrigido em
+  // runSlaTest). Aproveita o trigger de auditoria que já existe em `tickets`
+  // (audit_tickets_changes/audit_tickets_trigger → audit_log, já assinado em
+  // tempo real logo abaixo) pra avisar assim que um novo ticket com padrão
+  // de nome de teste for criado, em vez de precisar notar manualmente no log.
+  const avisarSeTicketDeTeste = (entry: AuditLogEntry) => {
+    if (entry.table_name !== 'tickets' || entry.action !== 'INSERT') return;
+    const titulo = entry.new_data?.title;
+    if (ehTituloDeTicketDeTeste(titulo)) {
+      toast({
+        title: 'Possível ticket de teste em produção',
+        description: `"${titulo}" (ticket ${entry.record_id}) — verifique se foi criado por engano fora do ambiente de desenvolvimento.`,
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Load audit logs on mount and setup realtime
   useEffect(() => {
     if (hasAccess) {
@@ -89,7 +108,9 @@ const DebugTools = () => {
           },
           (payload) => {
             console.log('New audit log:', payload);
-            setAuditLogs(prev => [payload.new as AuditLogEntry, ...prev.slice(0, 4)]);
+            const entry = payload.new as AuditLogEntry;
+            setAuditLogs(prev => [entry, ...prev.slice(0, 4)]);
+            avisarSeTicketDeTeste(entry);
           }
         )
         .subscribe();
@@ -121,7 +142,21 @@ const DebugTools = () => {
   // SLA Test - Create tickets with different priorities
   const runSlaTest = async () => {
     if (!user || !profile) return;
-    
+
+    // Correção: este teste inserta tickets reais na tabela `tickets` — não
+    // existe ambiente de staging separado (mesmo projeto Supabase serve dev
+    // e produção), então sem esta checagem qualquer execução em produção
+    // deixava tickets [DEBUG-SLA-TEST] visíveis no histórico real dos
+    // clientes (4 tickets encontrados e removidos em 2026-08-20).
+    if (!import.meta.env.DEV) {
+      toast({
+        title: 'Teste desabilitado em produção',
+        description: 'Este teste cria tickets reais no banco. Rode-o apenas em ambiente de desenvolvimento (npm run dev).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSlaRunning(true);
     setSlaResults([]);
     const newTestIds: string[] = [];
@@ -441,11 +476,16 @@ const DebugTools = () => {
             <CardDescription>
               Cria tickets com diferentes prioridades e valida se o banco calcula corretamente a data de SLA.
               Esperado: Urgente (2h), Alta (8h), Média (24h), Baixa (72h)
+              {!import.meta.env.DEV && (
+                <span className="block mt-1 text-destructive font-medium">
+                  Desabilitado em produção — cria tickets reais no banco. Rode em ambiente de desenvolvimento.
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
-              <Button onClick={runSlaTest} disabled={isSlaRunning} className="gap-2">
+              <Button onClick={runSlaTest} disabled={isSlaRunning || !import.meta.env.DEV} className="gap-2">
                 {isSlaRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                 Simular Criação de Tickets
               </Button>
