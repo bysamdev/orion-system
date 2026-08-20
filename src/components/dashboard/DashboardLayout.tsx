@@ -21,13 +21,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 }) => {
   useTimerGuard();
 
+  React.useEffect(() => {
+    // Garante que o cookie de estado da sidebar seja redefinido para sempre aberto
+    document.cookie = 'sidebar_state=true; path=/; max-age=31536000';
+  }, []);
+
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={true}>
       <AppSidebar />
       <SidebarInset className="min-w-0 flex-1 overflow-x-hidden">
         {/* TopBar sticky */}
         <header className="flex sticky top-0 bg-background/80 backdrop-blur-sm h-16 shrink-0 items-center gap-3 border-b border-border/30 px-3 sm:px-6 lg:px-8 z-30">
-          <SidebarTrigger className="text-muted-foreground hover:text-foreground shrink-0" />
           <div className="flex-1 min-w-0">
             <TopBar />
           </div>

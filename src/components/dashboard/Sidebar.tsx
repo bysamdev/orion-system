@@ -144,7 +144,7 @@ export const AppSidebar: React.FC = () => {
   };
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="offcanvas">
       <SidebarHeader>
         <button
           onClick={() => navigate('/')}
@@ -158,9 +158,9 @@ export const AppSidebar: React.FC = () => {
           onClick={() => navigate('/')}
           className="flex items-center gap-3 px-3 py-2 mx-1 mb-1 rounded-lg cursor-pointer group border-t border-sidebar-border/60 pt-3"
         >
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">{profile?.full_name || 'Carregando...'}</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+          <div className="flex flex-col min-w-0 flex-1">
+            <span className="text-sm font-medium truncate">{profile?.full_name || 'Carregando...'}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide truncate">
               {role ? roleLabel[role] : '...'}
             </span>
           </div>
