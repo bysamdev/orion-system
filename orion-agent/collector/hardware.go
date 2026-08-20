@@ -169,14 +169,66 @@ func primeiroIPv4NaoLoopback(ifaces []net.Interface) string {
 	return ip
 }
 
+// isVirtualInterface verifica se a interface é um adaptador virtual conhecido (Hyper-V, WSL, VirtualBox, VMware, Docker, VPN, etc.)
+func isVirtualInterface(name string) bool {
+	low := strings.ToLower(name)
+	virtualKeywords := []string{
+		"vethernet", "hyper-v", "wsl", "virtual", "vbox", "vmware",
+		"docker", "tailscale", "zerotier", "tap", "wintun", "tunnel",
+		"bluetooth", "pseudo", "loopback", "npcap", "teredo", "isatap",
+	}
+	for _, kw := range virtualKeywords {
+		if strings.Contains(low, kw) {
+			return true
+		}
+	}
+	return false
+}
+
 // primeiroIPv4EMacNaoLoopback varre um snapshot de interfaces e devolve, de
 // uma vez só, o primeiro IPv4 não-loopback ativo E o endereço MAC da
-// interface física que o carrega — evita uma segunda varredura de
-// net.Interfaces() só para descobrir o MAC "principal" (mesma preocupação
-// de custo documentada acima para o IP, ver primaryIP).
+// interface física que o carrega.
+// Prioriza a rota de saída real (UDP dial) e adaptadores físicos sobre virtuais.
 func primeiroIPv4EMacNaoLoopback(ifaces []net.Interface) (ip, mac string) {
+	if len(ifaces) == 0 {
+		return "", ""
+	}
+
+	// 1. Tenta descobrir o IP de saída principal via UDP dial (sem tráfego na rede)
+	conn, err := net.DialTimeout("udp", "8.8.8.8:80", 200*time.Millisecond)
+	if err == nil {
+		if localAddr, ok := conn.LocalAddr().(*net.UDPAddr); ok && localAddr.IP != nil && !localAddr.IP.IsLoopback() {
+			outboundIP := localAddr.IP.To4()
+			if outboundIP != nil {
+				ipStr := outboundIP.String()
+				// Procura a interface exata que possui esse IP para pegar o MAC correspondente
+				for _, iface := range ifaces {
+					if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+						continue
+					}
+					addrs, _ := iface.Addrs()
+					for _, addr := range addrs {
+						var addrIP net.IP
+						switch v := addr.(type) {
+						case *net.IPNet:
+							addrIP = v.IP
+						case *net.IPAddr:
+							addrIP = v.IP
+						}
+						if addrIP != nil && addrIP.Equal(outboundIP) {
+							conn.Close()
+							return ipStr, iface.HardwareAddr.String()
+						}
+					}
+				}
+			}
+		}
+		conn.Close()
+	}
+
+	// 2. Passo 1: Busca apenas interfaces FÍSICAS (ignora adaptadores virtuais como vEthernet, WSL, etc.)
 	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 || isVirtualInterface(iface.Name) {
 			continue
 		}
 		addrs, _ := iface.Addrs()
@@ -192,14 +244,51 @@ func primeiroIPv4EMacNaoLoopback(ifaces []net.Interface) (ip, mac string) {
 				continue
 			}
 			if ip4 := addrIP.To4(); ip4 != nil {
-				ip = ip4.String()
-				mac = iface.HardwareAddr.String()
-				if mac != "" {
-					return ip, mac
+				candidateIP := ip4.String()
+				candidateMac := iface.HardwareAddr.String()
+				if candidateMac != "" {
+					return candidateIP, candidateMac
+				}
+				if ip == "" {
+					ip = candidateIP
 				}
 			}
 		}
 	}
+
+	// 3. Passo 2 (Fallback): Se só existirem interfaces virtuais ativas
+	if ip == "" || mac == "" {
+		for _, iface := range ifaces {
+			if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+				continue
+			}
+			addrs, _ := iface.Addrs()
+			for _, addr := range addrs {
+				var addrIP net.IP
+				switch v := addr.(type) {
+				case *net.IPNet:
+					addrIP = v.IP
+				case *net.IPAddr:
+					addrIP = v.IP
+				}
+				if addrIP == nil || addrIP.IsLoopback() {
+					continue
+				}
+				if ip4 := addrIP.To4(); ip4 != nil {
+					if ip == "" {
+						ip = ip4.String()
+					}
+					if mac == "" {
+						mac = iface.HardwareAddr.String()
+					}
+					if ip != "" && mac != "" {
+						return ip, mac
+					}
+				}
+			}
+		}
+	}
+
 	if mac == "" {
 		for _, iface := range ifaces {
 			if iface.Flags&net.FlagLoopback == 0 && len(iface.HardwareAddr) > 0 {
