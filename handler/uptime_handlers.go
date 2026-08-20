@@ -64,6 +64,10 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+	if escopo, err := escopoDoUsuario(r.Context(), user.ID); err != nil || !papeisComandoRemoto[escopo.Role] {
+		http.Error(w, "Acesso restrito: apenas administradores e técnicos podem gerenciar monitoramento web", http.StatusForbidden)
+		return
+	}
 
 	var req createEndpointReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -247,6 +251,10 @@ func monitoringDeleteWebEndpoint(w http.ResponseWriter, r *http.Request) {
 	user, err := requireAuth(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if escopo, err := escopoDoUsuario(r.Context(), user.ID); err != nil || !papeisComandoRemoto[escopo.Role] {
+		http.Error(w, "Acesso restrito: apenas administradores e técnicos podem gerenciar monitoramento web", http.StatusForbidden)
 		return
 	}
 
