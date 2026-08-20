@@ -22,7 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { StatusBadge } from '@/components/shared/StatusBadge';
@@ -102,6 +102,33 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant =
   );
 };
 
+// ──── Indicador de Tempo Decorrido com Horário Exato no Hover ────
+const TimeAgoBadge: React.FC<{ date: string | Date | undefined | null }> = ({ date }) => {
+  if (!date) return <span className="text-muted-foreground text-xs">—</span>;
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return <span className="text-muted-foreground text-xs">—</span>;
+
+  const timeAgo = formatDistanceToNow(d, { addSuffix: true, locale: ptBR });
+  const exactTime = format(d, "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR });
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/80 hover:text-foreground font-medium transition-colors cursor-help group/time">
+          <Clock className="w-3.5 h-3.5 text-muted-foreground/50 group-hover/time:text-primary transition-colors shrink-0" />
+          <span className="capitalize">{timeAgo}</span>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="bg-popover/95 backdrop-blur-sm border-border/60 shadow-xl text-xs px-3 py-1.5 rounded-xl z-50">
+        <div className="space-y-0.5 text-center">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Horário de abertura</p>
+          <p className="text-foreground font-mono font-semibold">{exactTime}</p>
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+};
+
 // ──── Linha de ticket na tabela (Revitalizada) ────
 const TicketRow: React.FC<{ ticket: Ticket }> = React.memo(({ ticket }) => {
   const navigate = useNavigate();
@@ -129,6 +156,9 @@ const TicketRow: React.FC<{ ticket: Ticket }> = React.memo(({ ticket }) => {
       </TableCell>
       <TableCell className="py-4 text-center">
         <StatusBadge status={ticket.status} />
+      </TableCell>
+      <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
+        <TimeAgoBadge date={ticket.created_at} />
       </TableCell>
       <TableCell className="py-4">
         <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} variant="compact" />
@@ -614,12 +644,13 @@ export const TechnicianDashboard: React.FC = () => {
             <TabsContent value="unassigned" className="mt-0">
               <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
                 <CardContent className="p-0 overflow-x-auto">
-                  <Table className="min-w-[650px]">
+                  <Table className="min-w-[750px]">
                     <TableHeader className="bg-muted/5">
                       <TableRow className="hover:bg-transparent border-b border-border/40">
                         <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
                         <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Descrição</TableHead>
                         <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-12">Prioridade</TableHead>
+                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-12">Aberto Há</TableHead>
                         <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest h-12">Prazo SLA</TableHead>
                         <TableHead className="w-[150px] h-12 text-right pr-6">Ação</TableHead>
                       </TableRow>
@@ -627,7 +658,7 @@ export const TechnicianDashboard: React.FC = () => {
                     <TableBody>
                       {filteredUnassignedTickets.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="h-48 text-center text-muted-foreground italic text-xs">
+                          <TableCell colSpan={6} className="h-48 text-center text-muted-foreground italic text-xs">
                             {searchTerm || priorityFilter !== 'all' || categoryFilter !== 'all' || companyFilter !== 'all' || slaFilter !== 'all'
                               ? 'Nenhum chamado encontrado na fila de espera com os filtros aplicados.'
                               : 'Fila limpa! Nenhum chamado aguardando atendimento.'}
@@ -654,6 +685,9 @@ export const TechnicianDashboard: React.FC = () => {
                             <TableCell className="py-4">
                               <PriorityBadge priority={t.priority} size="sm" />
                             </TableCell>
+                            <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
+                              <TimeAgoBadge date={t.created_at} />
+                            </TableCell>
                             <TableCell className="py-4">
                               <SLABadge slaStatus={t.sla_status} slaDueDate={t.sla_due_date} createdAt={t.created_at} variant="compact" />
                             </TableCell>
@@ -678,13 +712,14 @@ export const TechnicianDashboard: React.FC = () => {
             <TabsContent value="my-tickets" className="mt-0">
               <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
                 <CardContent className="p-0 overflow-x-auto">
-                  <Table className="min-w-[650px]">
+                  <Table className="min-w-[750px]">
                     <TableHeader className="bg-muted/5">
                       <TableRow className="hover:bg-transparent border-b border-border/40">
                         <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
                         <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Descrição</TableHead>
                         <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-12">Prioridade</TableHead>
                         <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-12 text-center">Status</TableHead>
+                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-12">Aberto Há</TableHead>
                         <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest h-12">Prazo SLA</TableHead>
                         <TableHead className="w-[120px] h-12"></TableHead>
                       </TableRow>
@@ -692,7 +727,7 @@ export const TechnicianDashboard: React.FC = () => {
                     <TableBody>
                       {filteredMyTickets.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="h-48 text-center text-muted-foreground italic text-xs">
+                          <TableCell colSpan={7} className="h-48 text-center text-muted-foreground italic text-xs">
                             Nenhum chamado encontrado nesta categoria.
                           </TableCell>
                         </TableRow>
@@ -708,13 +743,14 @@ export const TechnicianDashboard: React.FC = () => {
             <TabsContent value="all-tickets" className="mt-0">
               <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
                 <CardContent className="p-0 overflow-x-auto">
-                  <Table className="min-w-[650px]">
+                  <Table className="min-w-[750px]">
                     <TableHeader className="bg-muted/5">
                       <TableRow className="hover:bg-transparent border-b border-border/40">
                         <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
                         <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Descrição</TableHead>
                         <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-12">Prioridade</TableHead>
                         <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-12 text-center">Status</TableHead>
+                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-12">Aberto Há</TableHead>
                         <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest h-12">Prazo SLA</TableHead>
                         <TableHead className="w-[120px] h-12"></TableHead>
                       </TableRow>
@@ -722,7 +758,7 @@ export const TechnicianDashboard: React.FC = () => {
                     <TableBody>
                       {filteredAllTickets.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="h-48 text-center text-muted-foreground italic text-xs">
+                          <TableCell colSpan={7} className="h-48 text-center text-muted-foreground italic text-xs">
                             Nenhum chamado ativo encontrado no momento.
                           </TableCell>
                         </TableRow>
