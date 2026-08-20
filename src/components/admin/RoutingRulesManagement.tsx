@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { resolverNomeExibicao } from '@/lib/routingRuleDisplay';
 
 export const RoutingRulesManagement = () => {
   const { user } = useAuth();
@@ -129,7 +130,7 @@ export const RoutingRulesManagement = () => {
     setIsDialogOpen(true);
   };
 
-  const { data: technicians = [] } = useQuery({
+  const { data: technicians = [], isLoading: techniciansLoading } = useQuery({
     queryKey: ['technicians', profile?.company_id],
     queryFn: async () => {
       if (!profile?.company_id) return [];
@@ -144,7 +145,19 @@ export const RoutingRulesManagement = () => {
     enabled: !!profile?.company_id,
   });
 
-  const { data: companies = [] } = useCompanies();
+  const { data: companies = [], isLoading: companiesLoading } = useCompanies();
+
+  // Nome exibido pra quem lê a regra — o UUID continua sendo o valor real
+  // usado em conditions.value/actions.target, só a renderização troca. Os
+  // fallbacks "removido(a)" só valem depois que a lista correspondente
+  // termina de carregar — senão toda regra pisca esse texto por um instante
+  // enquanto technicians/companies ainda estão vazios (query em andamento).
+  const nomePorTecnico = new Map(technicians.map((t: { id: string; full_name: string }) => [t.id, t.full_name]));
+  const nomePorEmpresa = new Map((companies as Array<{ id: string; name: string | null }>).map((c) => [c.id, c.name]));
+  const nomeDoTecnico = (id: string | undefined) =>
+    resolverNomeExibicao(id, techniciansLoading, nomePorTecnico, 'Técnico removido');
+  const nomeDaEmpresa = (id: string | undefined) =>
+    resolverNomeExibicao(id, companiesLoading, nomePorEmpresa, 'Empresa removida');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -353,14 +366,21 @@ export const RoutingRulesManagement = () => {
                   <TableCell className="font-bold">{rule.name}</TableCell>
                   <TableCell>
                     <span className="text-xs bg-muted text-foreground px-2 py-1 rounded-md font-medium border border-border/50">
-                      [{rule.conditions?.field}] {rule.conditions?.operator} "{rule.conditions?.value}"
+                      [{rule.conditions?.field}] {rule.conditions?.operator} "
+                      {rule.conditions?.field === 'company_id'
+                        ? nomeDaEmpresa(rule.conditions?.value)
+                        : rule.conditions?.value}
+                      "
                     </span>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                        <ArrowRightLeft className="w-3 h-3 text-muted-foreground" />
                        <span className="text-xs font-bold text-primary truncate max-w-[150px]">
-                         {rule.actions?.type === 'assign_to_user' ? 'Atribuir a: ' : ''}{rule.actions?.target}
+                         {rule.actions?.type === 'assign_to_user' ? 'Atribuir a: ' : ''}
+                         {rule.actions?.type === 'assign_to_user'
+                           ? nomeDoTecnico(rule.actions?.target)
+                           : rule.actions?.target}
                        </span>
                     </div>
                   </TableCell>
