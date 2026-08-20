@@ -1,0 +1,389 @@
+apiVersion: 1
+
+groups:
+  # ══════════════════════════════════════════════════════════════
+  # Grupo 1: Agentes Orion (Windows/Linux endpoints monitorados)
+  # ══════════════════════════════════════════════════════════════
+  - orgId: 1
+    name: orion-agent-alerts
+    folder: Orion
+    interval: 1m
+    rules:
+      - uid: orion-agent-offline
+        title: Agente Offline
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'up{job="orion_agents"}'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        for: 5m
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: "{{ $labels.hostname }} está offline há mais de 5 minutos"
+          description: "O agente Orion não responde. Verificar conectividade, firewall ou se o serviço está rodando."
+
+      - uid: orion-cpu-alto-sustentado
+        title: CPU Alto Sustentado
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_cpu_usage_percent'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [90] }
+              refId: C
+        for: 10m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "{{ $labels.hostname }} com CPU acima de 90% por mais de 10 minutos"
+          description: "Verificar processos em execução. Possível carga anormal ou malware."
+
+      - uid: orion-disco-cheio-em-breve
+        title: Disco Ficará Cheio em Breve
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: '(orion_disk_total_bytes - orion_disk_used_bytes) / clamp_min(deriv(orion_disk_used_bytes[6h]), 1e-9) / 86400'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [7] }
+              refId: C
+        for: 15m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "{{ $labels.hostname }} vai encher o disco em menos de 7 dias"
+          description: "Ação necessária: limpar logs, arquivos temporários ou expandir disco."
+
+      - uid: orion-antivirus-desativado
+        title: Antivírus Desativado
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'max by (hostname) (orion_security_antivirus_status)'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        for: 5m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Nenhum antivírus ativo em {{ $labels.hostname }}"
+
+      - uid: orion-firewall-desativado
+        title: Firewall Desativado
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_security_firewall_status'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        for: 5m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Firewall desativado em {{ $labels.hostname }}"
+
+      - uid: orion-windows-nao-ativado
+        title: Windows Não Ativado
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_windows_activation_status'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        for: 15m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "Licença do Windows não ativada em {{ $labels.hostname }}"
+
+  # ══════════════════════════════════════════════════════════════
+  # Grupo 2: Host Debian Server (Node Exporter)
+  # ══════════════════════════════════════════════════════════════
+  - orgId: 1
+    name: debian-host-alerts
+    folder: Orion
+    interval: 1m
+    rules:
+      - uid: debian-host-offline
+        title: Servidor Debian Offline
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'up{job="node"}'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        for: 2m
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: "Servidor Debian (debian-server) está offline"
+          description: "Node Exporter parou de responder. Verificar se o servidor está ligado e acessível."
+
+      - uid: debian-disco-85pct
+        title: Disco do Servidor > 85%
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: '100 - ((node_filesystem_avail_bytes{job="node",mountpoint="/",fstype!="tmpfs"} / node_filesystem_size_bytes{job="node",mountpoint="/",fstype!="tmpfs"}) * 100)'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [85] }
+              refId: C
+        for: 5m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "Disco raiz do servidor Debian acima de 85%"
+          description: "Uso atual: {{ $value | printf \"%.1f\" }}%. Limpar logs e arquivos antigos."
+
+      - uid: debian-ram-90pct
+        title: RAM do Servidor > 90%
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: '100 - ((node_memory_MemAvailable_bytes{job="node"} / node_memory_MemTotal_bytes{job="node"}) * 100)'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [90] }
+              refId: C
+        for: 5m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "Memória RAM do servidor Debian acima de 90%"
+          description: "Uso atual: {{ $value | printf \"%.1f\" }}%. Verificar containers com consumo excessivo."
+
+      - uid: debian-cpu-85pct
+        title: CPU do Servidor > 85%
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: '100 - (avg by(instance) (rate(node_cpu_seconds_total{job="node",mode="idle"}[5m])) * 100)'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [85] }
+              refId: C
+        for: 5m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "CPU do servidor Debian sustentada acima de 85%"
+          description: "Uso atual: {{ $value | printf \"%.1f\" }}%. Verificar processo causador com 'top' ou 'htop'."
+
+  # ══════════════════════════════════════════════════════════════
+  # Grupo 3: Disponibilidade Web & Rede (Blackbox Exporter)
+  # ══════════════════════════════════════════════════════════════
+  - orgId: 1
+    name: blackbox-alerts
+    folder: Orion
+    interval: 1m
+    rules:
+      - uid: site-fora-do-ar
+        title: Site / Endpoint Fora do Ar
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'probe_success{job="blackbox_http"}'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        for: 1m
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: "Site {{ $labels.instance }} está OFFLINE"
+          description: "O endpoint não respondeu com sucesso. Verificar servidor web, DNS e certificado SSL."
+
+      - uid: ssl-expirando
+        title: Certificado SSL Expirando em Breve
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: '(probe_ssl_earliest_cert_expiry{job="blackbox_http"} - time()) / 86400'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [14] }
+              refId: C
+        for: 1h
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "Certificado SSL de {{ $labels.instance }} expira em menos de 14 dias"
+          description: "Dias restantes: {{ $value | printf \"%.0f\" }}. Renovar certificado SSL urgente."
+
+  # ══════════════════════════════════════════════════════════════
+  # Grupo 4: Containers Docker (cAdvisor)
+  # ══════════════════════════════════════════════════════════════
+  - orgId: 1
+    name: container-alerts
+    folder: Orion
+    interval: 1m
+    rules:
+      - uid: container-reiniciando-loop
+        title: Container em Loop de Reinicialização
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'increase(container_last_seen{job="docker",image!=""}[5m])'
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'time() - container_last_seen{job="docker",image!=""}'
+              instant: true
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [120] }
+              refId: C
+        for: 3m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "Container {{ $labels.name }} pode estar em crash/restart loop"
+          description: "Container parou de reportar métricas por mais de 2 minutos. Verificar logs com 'docker logs'."

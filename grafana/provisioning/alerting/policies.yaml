@@ -1,0 +1,39 @@
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: orion-webhook
+    group_by:
+      - alertname
+      - severity
+      - team
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      # Alertas de disponibilidade (online/offline) precisam reafirmar
+      # "ainda fora do ar" com frequencia bem maior que o padrao de 4h:
+      # o Orion System AUTO-RESOLVE o alerta "Agente Offline" no proprio
+      # heartbeat (qualquer check-in que chegue, mesmo um so antes de cair
+      # de novo, ja marca a maquina como online de volta) -- sem um
+      # repeat_interval curto aqui, uma maquina que teve so UM heartbeat
+      # isolado durante uma queda mais longa ficava travada como "Online"
+      # no painel ate o proximo aviso do Grafana, ate 4h depois.
+      - receiver: orion-webhook
+        matchers:
+          - alertname =~ Agente Offline|Servidor Debian Offline
+        group_by:
+          - alertname
+          - instance
+        group_wait: 10s
+        group_interval: 1m
+        repeat_interval: 2m
+        continue: false
+
+      - receiver: orion-webhook
+        matchers:
+          - severity =~ critical|warning
+        group_by:
+          - alertname
+          - instance
+        continue: false
