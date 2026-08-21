@@ -161,6 +161,17 @@ func (d *DB) UpdateUserRole(ctx context.Context, userID, role string) error {
 	return err
 }
 
+// MergeUserData reatribui todos os dados de sourceID pra targetID (função
+// SQL merge_user_data — revogada de anon/authenticated por design, só
+// alcançável por quem conecta direto no Postgres com a connection string do
+// backend, ver migration 20260820220000). Não apaga sourceID de auth.users
+// nem profiles — isso é responsabilidade do chamador, via
+// sb.AdminDeleteUserByID, depois que este UPDATE em massa terminar.
+func (d *DB) MergeUserData(ctx context.Context, sourceID, targetID string) error {
+	_, err := d.pool.Exec(ctx, `select merge_user_data($1::uuid, $2::uuid)`, sourceID, targetID)
+	return err
+}
+
 func (d *DB) ProfileByID(ctx context.Context, userID string) (email string, fullName *string, err error) {
 	var fn *string
 	var em string

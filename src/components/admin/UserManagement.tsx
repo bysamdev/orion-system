@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, Pencil, AlertTriangle } from 'lucide-react';
+import { Loader2, Plus, Trash2, Pencil, AlertTriangle, Merge } from 'lucide-react';
 import type { UserRole } from '@/hooks/useUserRole';
 import { userRoleSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
@@ -61,6 +61,9 @@ export const UserManagement = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [isLimitReached, setIsLimitReached] = useState(false);
+  const [mergingSourceUser, setMergingSourceUser] = useState<UserData | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<string>('');
+  const [isMerging, setIsMerging] = useState(false);
   const [formData, setFormData] = useState<NewUserForm>({
     full_name: '',
     email: '',
@@ -221,6 +224,65 @@ export const UserManagement = () => {
     setDeletingUserId(userId);
     deleteUserMutation.mutate(userId);
   }, [deleteUserMutation]);
+
+  // Mescla dados de um usuário-fantasma (criado pelo agente na primeira vez
+  // que alguém abriu chamado pela bandeja) num usuário real de login — o
+  // source (quem abriu o dialog) desaparece, o target escolhido recebe tudo.
+  const mergeUsersMutation = useMutation({
+    mutationFn: async ({ sourceUserId, targetUserId }: { sourceUserId: string; targetUserId: string }) => {
+      const { data, error } = await invokeOrionFunction('merge-users', {
+        source_user_id: sourceUserId,
+        target_user_id: targetUserId,
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Erro ao mesclar usuários');
+      }
+      const result = data as { error?: string; warning?: string };
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+      return result;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      if (result?.warning) {
+        toast({
+          title: 'Dados mesclados',
+          description: 'O usuário de origem não pôde ser removido automaticamente — remova-o manualmente.',
+        });
+      } else {
+        toast({
+          title: 'Sucesso',
+          description: 'Usuários mesclados — os dados foram unificados.',
+        });
+      }
+      setMergingSourceUser(null);
+      setMergeTargetId('');
+    },
+    onError: (error: Error) => {
+      logError('mergeUsersMutation', error);
+      toast({
+        title: 'Erro ao mesclar',
+        description: error.message || 'Não foi possível mesclar os usuários',
+        variant: 'destructive',
+      });
+    },
+    onSettled: () => {
+      setIsMerging(false);
+    },
+  });
+
+  const handleOpenMergeDialog = useCallback((userItem: UserData) => {
+    setMergingSourceUser(userItem);
+    setMergeTargetId('');
+  }, []);
+
+  const handleConfirmMerge = useCallback(() => {
+    if (!mergingSourceUser || !mergeTargetId) return;
+    setIsMerging(true);
+    mergeUsersMutation.mutate({ sourceUserId: mergingSourceUser.id, targetUserId: mergeTargetId });
+  }, [mergingSourceUser, mergeTargetId, mergeUsersMutation]);
 
   const handleUpdateUserRole = useCallback((userId: string, newRole: UserRole) => {
     updateRoleMutation.mutate({ userId, newRole });
@@ -522,6 +584,7 @@ export const UserManagement = () => {
                 onUpdateRole={handleUpdateUserRole}
                 onEdit={handleOpenEditDialog}
                 onDelete={handleDeleteUser}
+                onMerge={handleOpenMergeDialog}
                 isDeleting={deletingUserId === userItem.id}
                 isCurrentUser={userItem.id === user?.id}
                 isUpdating={isUpdating}
@@ -673,6 +736,61 @@ export const UserManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Mesclagem — junta o usuário-fantasma criado pelo agente
+          (machine-login) com um usuário real de login. */}
+      <Dialog open={!!mergingSourceUser} onOpenChange={(open) => { if (!open) { setMergingSourceUser(null); setMergeTargetId(''); } }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Merge className="h-4 w-4" />
+              Mesclar Usuário
+            </DialogTitle>
+            <DialogDescription>
+              Os dados de <strong>{mergingSourceUser?.full_name || mergingSourceUser?.email}</strong> ({mergingSourceUser?.email}) serão movidos
+              para o usuário escolhido abaixo, e esta conta será removida. Use quando o agente criou uma
+              conta separada da conta de login do mesmo usuário.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="merge_target">Mesclar em (usuário que permanece) *</Label>
+              <Select value={mergeTargetId || undefined} onValueChange={setMergeTargetId}>
+                <SelectTrigger id="merge_target">
+                  <SelectValue placeholder="Selecione o usuário de destino" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users
+                    ?.filter((candidate) => candidate.id !== mergingSourceUser?.id)
+                    .map((candidate) => (
+                      <SelectItem key={candidate.id} value={candidate.id}>
+                        {candidate.full_name || 'Sem nome'} ({candidate.email})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {mergeTargetId && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Atenção:</strong> esta ação não pode ser desfeita. A conta de origem será excluída
+                  depois que os dados forem movidos.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setMergingSourceUser(null); setMergeTargetId(''); }}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmMerge} disabled={!mergeTargetId || isMerging} variant="destructive">
+              {isMerging && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Mesclar e Excluir Origem
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </Card>
     </div>
   );
@@ -683,6 +801,7 @@ interface UserRowProps {
   onUpdateRole: (userId: string, newRole: UserRole) => void;
   onEdit: (userItem: UserData) => void;
   onDelete: (userId: string) => void;
+  onMerge: (userItem: UserData) => void;
   isDeleting: boolean;
   isCurrentUser: boolean;
   isUpdating: boolean;
@@ -693,6 +812,7 @@ const UserRow = React.memo(({
   onUpdateRole,
   onEdit,
   onDelete,
+  onMerge,
   isDeleting,
   isCurrentUser,
   isUpdating,
@@ -740,6 +860,23 @@ const UserRow = React.memo(({
           >
             <Pencil className="h-4 w-4" />
           </Button>
+          {!isCurrentUser && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => onMerge(userItem)}
+                >
+                  <Merge className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Mesclar com outro usuário</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           {!isCurrentUser && (
             <AlertDialog>
               <AlertDialogTrigger asChild>

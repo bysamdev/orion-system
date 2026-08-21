@@ -198,6 +198,103 @@ func deleteUserAdmin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ─── MergeUsers ──────────────────────────────────────────────────────────────
+//
+// Junta os dados de um usuário-fantasma criado automaticamente pelo agente
+// (machine-login, ver handler/auth_handlers.go) com um usuário real de
+// login direto — cenário comum: o mesmo humano acaba com duas contas, uma
+// de cada caminho. sourceID desaparece (dados movidos, depois apagado);
+// targetID é quem permanece.
+
+type mergeUsersReq struct {
+	SourceUserID string `json:"source_user_id"`
+	TargetUserID string `json:"target_user_id"`
+}
+
+func mergeUsers(w http.ResponseWriter, r *http.Request) {
+	u, err := requireAuth(r)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
+		return
+	}
+	escopo, err := escopoDoUsuario(r.Context(), u.ID)
+	if err != nil || (escopo.Role != "admin" && escopo.Role != "developer") {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Apenas administradores podem mesclar usuários"})
+		return
+	}
+
+	var req mergeUsersReq
+	if err := lib.DecodeBody(r, &req); err != nil || strings.TrimSpace(req.SourceUserID) == "" || strings.TrimSpace(req.TargetUserID) == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "source_user_id e target_user_id são obrigatórios"})
+		return
+	}
+	if req.SourceUserID == req.TargetUserID {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "source e target não podem ser o mesmo usuário"})
+		return
+	}
+	if req.SourceUserID == u.ID {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Você não pode mesclar sua própria conta como origem"})
+		return
+	}
+
+	sourceEmail, _, err := db.ProfileByID(r.Context(), req.SourceUserID)
+	if err != nil {
+		if errors.Is(err, lib.ErrNoRows) {
+			lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Usuário de origem não encontrado"})
+			return
+		}
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno"})
+		return
+	}
+	if _, _, err := db.ProfileByID(r.Context(), req.TargetUserID); err != nil {
+		if errors.Is(err, lib.ErrNoRows) {
+			lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Usuário de destino não encontrado"})
+			return
+		}
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno"})
+		return
+	}
+
+	// SEC-02: admin de tenant só mescla usuários da própria empresa —
+	// checa os DOIS lados (source e target), não só o alvo que some.
+	if !escopo.Global() {
+		sourceCompanyID, err := db.CompanyByUserID(r.Context(), req.SourceUserID)
+		if err != nil || !escopo.PodeVerEmpresa(sourceCompanyID) {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Usuário de origem não pertence à sua empresa"})
+			return
+		}
+		targetCompanyID, err := db.CompanyByUserID(r.Context(), req.TargetUserID)
+		if err != nil || !escopo.PodeVerEmpresa(targetCompanyID) {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Usuário de destino não pertence à sua empresa"})
+			return
+		}
+	}
+
+	if err := db.MergeUserData(r.Context(), req.SourceUserID, req.TargetUserID); err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao mesclar dados: %v", err)})
+		return
+	}
+
+	// A exclusão do usuário-origem é best-effort DEPOIS do merge: os dados já
+	// foram movidos com sucesso nesse ponto, então uma falha aqui (ex.: rate
+	// limit da API do Supabase Auth) não deve reverter o trabalho já feito —
+	// o admin pode excluir o usuário órfão manualmente depois pela mesma tela.
+	if err := sb.AdminDeleteUserByID(r.Context(), req.SourceUserID); err != nil {
+		lib.WriteJSON(w, http.StatusOK, map[string]any{
+			"success": true,
+			"message": "Dados mesclados, mas não foi possível remover o usuário de origem automaticamente — exclua-o manualmente.",
+			"warning": err.Error(),
+		})
+		return
+	}
+
+	lib.WriteJSON(w, http.StatusOK, map[string]any{
+		"success":       true,
+		"message":       "Usuários mesclados com sucesso",
+		"merged_source": map[string]any{"id": req.SourceUserID, "email": sourceEmail},
+	})
+}
+
 // ─── CreateUserCredentials ───────────────────────────────────────────────────
 
 func createUserCredentials(w http.ResponseWriter, r *http.Request) {

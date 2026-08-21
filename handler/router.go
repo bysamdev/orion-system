@@ -169,6 +169,7 @@ func buildRouter() http.Handler {
 		// /functions/*
 		r.Post("/api/functions/admin-update-user", adminUpdateUser)
 		r.Post("/api/functions/delete-user-admin", deleteUserAdmin)
+		r.Post("/api/functions/merge-users", mergeUsers)
 		r.Post("/api/functions/create-user-credentials", createUserCredentials)
 		r.Post("/api/functions/check-rate-limit", checkRateLimit)
 		r.Post("/api/functions/send-password-changed-alert", sendPasswordChangedAlert)
