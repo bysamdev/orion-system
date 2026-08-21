@@ -224,7 +224,13 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           ticketsRes,
           alertsRes,
         ] = await Promise.all([
-          supabase.from('machines' as any).select('*'),
+          // approval_status='approved': máquinas pendentes (nunca vistas
+          // antes, ver migration add_machine_approval_gate) não devem
+          // aparecer no inventário até um admin/técnico revisar — mesmo
+          // filtro já aplicado no backend Go (lib.MachinesByGroupID,
+          // DashboardSummaryData), necessário aqui de novo porque esta
+          // query vai direto no PostgREST, não passa pelo handler Go.
+          supabase.from('machines' as any).select('*').eq('approval_status', 'approved'),
           supabase.from('machine_hardware' as any).select('*'),
           supabase.from('companies').select('id, name'),
           supabase.from('tickets').select('id, company_id, asset_id, status, metadata'),
