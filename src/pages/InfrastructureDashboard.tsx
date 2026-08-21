@@ -40,17 +40,17 @@ export default function InfrastructureDashboard() {
         description="Supervisão global da infraestrutura corporativa e central de incidentes."
         actions={
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full sm:w-auto">
-            <TabsList className="grid w-full sm:w-[320px] grid-cols-2 p-1 bg-muted/60 rounded-xl border border-border/40">
+            <TabsList className="grid w-full sm:w-[320px] grid-cols-2 p-1 bg-muted/60 rounded-xl border border-border/40 h-11">
               <TabsTrigger
                 value="sistemas"
-                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold transition-all"
+                className="rounded-lg h-full data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold transition-all"
               >
                 <Monitor className="w-4 h-4 mr-2" />
                 Sistemas
               </TabsTrigger>
               <TabsTrigger
                 value="alertas"
-                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-red-500 font-bold transition-all"
+                className="rounded-lg h-full data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-red-500 font-bold transition-all"
               >
                 <AlertTriangle className="w-4 h-4 mr-2" />
                 Alertas

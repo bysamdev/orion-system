@@ -387,12 +387,12 @@ export default function WebMonitoring() {
       {/* ── Main Navigation Tabs ── */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'web' | 'network')} className="space-y-6">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <TabsList className="grid w-full sm:w-auto grid-cols-2 max-w-sm bg-muted/60 p-1 rounded-2xl border border-border/40">
-            <TabsTrigger value="web" className="flex items-center gap-2 rounded-xl font-semibold text-xs sm:text-sm py-2">
+          <TabsList className="grid w-full sm:w-auto grid-cols-2 max-w-sm h-11 bg-muted/60 p-1 rounded-xl border border-border/40">
+            <TabsTrigger value="web" className="flex items-center justify-center gap-2 rounded-lg font-semibold text-xs sm:text-sm h-full">
               <Globe className="w-4 h-4" />
               Sites &amp; APIs ({webStats.total})
             </TabsTrigger>
-            <TabsTrigger value="network" className="flex items-center gap-2 rounded-xl font-semibold text-xs sm:text-sm py-2">
+            <TabsTrigger value="network" className="flex items-center justify-center gap-2 rounded-lg font-semibold text-xs sm:text-sm h-full">
               <Radio className="w-4 h-4" />
               Links &amp; Redes ({networkStats.total})
             </TabsTrigger>
