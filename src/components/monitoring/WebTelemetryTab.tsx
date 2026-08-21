@@ -358,24 +358,24 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
               <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                 Latência de Links (RTT)
               </span>
-              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary">
                 <Radio className="w-4 h-4" />
               </div>
             </div>
 
             <div>
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-2xl sm:text-3xl font-black tracking-tight text-purple-600 dark:text-purple-400">
+                <span className="text-2xl sm:text-3xl font-black tracking-tight text-primary">
                   {networkSummary.avgLatency !== null ? `${networkSummary.avgLatency} ms` : '–'}
                 </span>
-                <Badge variant="outline" className="text-[10px] font-bold text-purple-600 bg-purple-500/10 border-purple-500/30">
+                <Badge variant="outline" className="text-[10px] font-bold text-primary bg-primary/10 border-primary/30">
                   <Zap className="w-2.5 h-2.5" />
                   ICMP Ping
                 </Badge>
               </div>
               <Progress
                 value={networkSummary.avgLatency ? Math.min(100, Math.max(10, (networkSummary.avgLatency / 150) * 100)) : 0}
-                className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-purple-500"
+                className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-primary"
               />
             </div>
 
@@ -492,8 +492,8 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
                 <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorStarlink" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="#906090" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#906090" stopOpacity={0.0} />
                     </linearGradient>
                     <linearGradient id="colorDedicated" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
@@ -528,7 +528,7 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
                     type="monotone"
                     dataKey="Starlink"
                     name="Starlink (RTT)"
-                    stroke="#a855f7"
+                    stroke="#906090"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorStarlink)"

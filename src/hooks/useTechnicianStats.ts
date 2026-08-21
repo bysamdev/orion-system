@@ -136,8 +136,8 @@ export const useTechnicianWorkload = (userId: string | undefined, role?: string)
         { name: 'Abertos', value: statusCount['open'], color: 'hsl(var(--warning))' },
         { name: 'Em Atendimento', value: statusCount['in-progress'], color: 'hsl(var(--primary))' },
         { name: 'Reabertos', value: statusCount['reopened'], color: 'hsl(var(--destructive))' },
-        { name: 'Aguard. Cliente', value: statusCount['awaiting-customer'], color: '#a855f7' },
-        { name: 'Aguard. Terceiro', value: statusCount['awaiting-third-party'], color: '#6366f1' },
+        { name: 'Aguard. Cliente', value: statusCount['awaiting-customer'], color: '#906090' },
+        { name: 'Aguard. Terceiro', value: statusCount['awaiting-third-party'], color: '#604878' },
       ].filter(item => item.value > 0);
     },
     enabled: !!userId,

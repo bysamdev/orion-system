@@ -20,25 +20,30 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
 
 @layer base {
   :root {
-    --background: 283 25% 98%;
-    --foreground: 283 15% 14%;
+    --color-primary: #483078;
+    --color-primary-dark: #301860;
+    --color-primary-muted: #604878;
+    --color-primary-light: #906090;
 
-    --card: 283 30% 99%;
-    --card-foreground: 283 15% 14%;
+    --background: 265 25% 98%;
+    --foreground: 260 25% 12%;
 
-    --popover: 283 30% 99%;
-    --popover-foreground: 283 15% 14%;
+    --card: 265 30% 99%;
+    --card-foreground: 260 25% 12%;
 
-    --primary: 283 94% 12%;
+    --popover: 265 30% 99%;
+    --popover-foreground: 260 25% 12%;
+
+    --primary: 260 43% 33%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 283 20% 93%;
-    --secondary-foreground: 283 15% 18%;
+    --secondary: 265 20% 93%;
+    --secondary-foreground: 260 25% 16%;
 
-    --muted: 283 18% 95%;
-    --muted-foreground: 283 8% 42%;
+    --muted: 265 18% 95%;
+    --muted-foreground: 265 12% 42%;
 
-    --accent: 283 94% 12%;
+    --accent: 300 20% 47%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -50,42 +55,52 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 283 20% 89%;
-    --input: 283 20% 89%;
-    --ring: 283 94% 12%;
+    --border: 265 20% 89%;
+    --input: 265 20% 89%;
+    --ring: 260 43% 33%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 283 22% 97%;
-    --sidebar-foreground: 283 10% 30%;
-    --sidebar-primary: 283 94% 12%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 283 55% 95%;
-    --sidebar-accent-foreground: 283 94% 14%;
-    --sidebar-border: 283 18% 90%;
-    --sidebar-ring: 283 94% 12%;
+    --sidebar-background: 265 24% 97%;
+    --sidebar-foreground: 260 15% 28%;
+    --sidebar-primary: 260 43% 33%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 265 35% 94%;
+    --sidebar-accent-foreground: 260 43% 25%;
+    --sidebar-border: 265 18% 89%;
+    --sidebar-ring: 260 43% 33%;
   }
 
   .dark {
-    --background: 283 26% 7%;
-    --foreground: 283 12% 96%;
+    --color-primary: #483078;
+    --color-primary-dark: #301860;
+    --color-primary-muted: #604878;
+    --color-primary-light: #906090;
 
-    --card: 283 24% 11%;
-    --card-foreground: 283 12% 96%;
+    /* Background principal: derivado de #301860 com profundidade, evitando preto puro */
+    --background: 260 55% 6.5%;
+    --foreground: 260 15% 96%;
 
-    --popover: 283 24% 11%;
-    --popover-foreground: 283 12% 96%;
+    /* Cards e Superfícies: derivados de #301860 e #483078 */
+    --card: 260 42% 10.5%;
+    --card-foreground: 260 15% 96%;
 
-    --primary: 283 60% 46%;
+    --popover: 260 38% 12%;
+    --popover-foreground: 260 15% 96%;
+
+    /* Elementos primários: #483078 ajustado para brilho perfeito em dark */
+    --primary: 260 43% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 283 20% 17%;
-    --secondary-foreground: 283 12% 96%;
+    /* Elementos secundários / suporte: #604878 */
+    --secondary: 265 24% 18%;
+    --secondary-foreground: 260 15% 95%;
 
-    --muted: 283 20% 17%;
-    --muted-foreground: 283 12% 68%;
+    --muted: 265 22% 15%;
+    --muted-foreground: 265 14% 65%;
 
-    --accent: 283 60% 46%;
+    /* Destaques: #906090 */
+    --accent: 300 20% 47%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -97,18 +112,20 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 283 20% 21%;
-    --input: 283 20% 21%;
-    --ring: 283 60% 46%;
+    /* Bordas e Dividers discretos e elegantes */
+    --border: 265 20% 18%;
+    --input: 265 20% 18%;
+    --ring: 260 43% 45%;
 
-    --sidebar-background: 283 26% 6%;
-    --sidebar-foreground: 283 12% 92%;
-    --sidebar-primary: 283 60% 46%;
+    /* Sidebar com profundidade */
+    --sidebar-background: 260 55% 5.5%;
+    --sidebar-foreground: 260 12% 90%;
+    --sidebar-primary: 260 43% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 283 38% 19%;
-    --sidebar-accent-foreground: 283 70% 86%;
-    --sidebar-border: 283 20% 17%;
-    --sidebar-ring: 283 60% 46%;
+    --sidebar-accent: 265 28% 16%;
+    --sidebar-accent-foreground: 260 20% 96%;
+    --sidebar-border: 265 22% 14%;
+    --sidebar-ring: 260 43% 45%;
   }
 }
 
@@ -118,16 +135,37 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans antialiased selection:bg-primary/30 selection:text-foreground;
+  }
+
+  /* Custom Scrollbars para Tema Dark SaaS */
+  .dark ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .dark ::-webkit-scrollbar-track {
+    background: hsl(260 55% 6.5%);
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: hsl(265 20% 22%);
+    border-radius: 4px;
+    border: 2px solid hsl(260 55% 6.5%);
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: hsl(265 24% 30%);
   }
 }
+
 @layer utilities {
   .capitalize-first::first-letter {
     text-transform: uppercase;
   }
 
   .glass-card {
-    @apply bg-white/70 dark:bg-black/40 backdrop-blur-lg border border-white/20 dark:border-white/10 shadow-xl;
+    @apply bg-white/70 dark:bg-card/70 backdrop-blur-xl border border-white/20 dark:border-border/60 shadow-xl;
   }
 
   .glow-green {
@@ -143,10 +181,10 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
   }
 
   .glow-primary {
-    box-shadow: 0 0 15px hsla(283, 60%, 46%, 0.35);
+    box-shadow: 0 0 15px hsla(260, 43%, 45%, 0.35);
   }
 
   .neon-border {
-    @apply border-primary/50 shadow-[0_0_15px_hsla(283,60%,46%,0.25)];
+    @apply border-primary/50 shadow-[0_0_15px_hsla(260,43%,45%,0.25)];
   }
 }

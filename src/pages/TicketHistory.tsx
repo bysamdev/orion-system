@@ -101,12 +101,12 @@ export default function TicketHistory() {
           <CardHeader className="border-b border-border/40 pb-6">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
               <div className="relative w-full md:max-w-md group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-purple-500" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
                 <Input
                   autoComplete="off" placeholder="Pesquisar histórico..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-purple-500/20 rounded-2xl transition-all"
+                  className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-2xl transition-all"
                 />
               </div>
               <div className="flex gap-2">
@@ -280,7 +280,7 @@ const TicketHistoryRow = React.memo(({ ticket, profilesMap, onClick }: TicketHis
         #{ticket.ticket_number}
       </TableCell>
       <TableCell className="py-4">
-        <p className="text-sm font-bold text-foreground group-hover:text-purple-500 transition-colors">{ticket.title}</p>
+        <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{ticket.title}</p>
         <p className="text-[10px] font-medium text-muted-foreground">{resolveUserDisplayName(ticket.requester_name, profilesMap, { fallback: 'Cliente' })} · {ticket.company_name || 'N/A'}</p>
       </TableCell>
       <TableCell className="py-4">
@@ -295,7 +295,7 @@ const TicketHistoryRow = React.memo(({ ticket, profilesMap, onClick }: TicketHis
         </span>
       </TableCell>
       <TableCell className="py-4 text-right pr-6">
-        <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-purple-500 transition-colors inline-block" />
+        <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors inline-block" />
       </TableCell>
     </TableRow>
   );

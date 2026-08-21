@@ -25,8 +25,8 @@ const PERIODS: MetricPeriod[] = ['1h', '6h', '24h', '7d'];
 
 const METRIC_TABS: { key: MetricType; label: string; icon: any; color: string }[] = [
   { key: 'all', label: 'Todos', icon: Activity, color: 'text-primary' },
-  { key: 'cpu', label: 'CPU', icon: Cpu, color: 'text-indigo-500' },
-  { key: 'ram', label: 'RAM', icon: Layers, color: 'text-emerald-500' },
+  { key: 'cpu', label: 'CPU', icon: Cpu, color: 'text-primary' },
+  { key: 'ram', label: 'RAM', icon: Layers, color: 'text-brand-400' },
   { key: 'disk', label: 'Disco', icon: HardDrive, color: 'text-amber-500' },
 ];
 
@@ -235,7 +235,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                   type="monotone"
                   dataKey="CPU"
                   name="CPU (%)"
-                  stroke="rgb(99, 102, 241)"
+                  stroke="#906090"
                   strokeWidth={2.5}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
@@ -245,7 +245,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                   type="monotone"
                   dataKey="RAM"
                   name="RAM (%)"
-                  stroke="rgb(16, 185, 129)"
+                  stroke="#7c529e"
                   strokeWidth={2.5}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
@@ -255,7 +255,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                   type="monotone"
                   dataKey="Disco"
                   name="Disco (%)"
-                  stroke="rgb(245, 158, 11)"
+                  stroke="#f59e0b"
                   strokeWidth={2.5}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
@@ -266,16 +266,16 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
               <AreaChart data={chartData} margin={{ top: 10, right: 10, bottom: 5, left: -20 }}>
                 <defs>
                   <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="rgb(99, 102, 241)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="rgb(99, 102, 241)" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#906090" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#906090" stopOpacity={0.0} />
                   </linearGradient>
                   <linearGradient id="colorRam" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="rgb(16, 185, 129)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="rgb(16, 185, 129)" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#7c529e" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#7c529e" stopOpacity={0.0} />
                   </linearGradient>
                   <linearGradient id="colorDisk" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="rgb(245, 158, 11)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="rgb(245, 158, 11)" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
@@ -297,7 +297,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                     type="monotone"
                     dataKey="CPU"
                     name="Uso de CPU"
-                    stroke="rgb(99, 102, 241)"
+                    stroke="#906090"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorCpu)"
@@ -310,7 +310,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                     type="monotone"
                     dataKey="RAM"
                     name="Uso de RAM"
-                    stroke="rgb(16, 185, 129)"
+                    stroke="#7c529e"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorRam)"
@@ -323,7 +323,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                     type="monotone"
                     dataKey="Disco"
                     name="Uso de Disco"
-                    stroke="rgb(245, 158, 11)"
+                    stroke="#f59e0b"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorDisk)"

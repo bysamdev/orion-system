@@ -191,7 +191,7 @@ export default function ClientPortal() {
                     className={cn(
                       "group border transition-all duration-200 cursor-pointer overflow-hidden rounded-xl bg-card/60 backdrop-blur-sm hover:border-primary/40 hover:shadow-md",
                       isAwaitingCustomer 
-                        ? "border-purple-500/50 bg-purple-500/5 hover:border-purple-500" 
+                        ? "border-primary/50 bg-primary/5 hover:border-primary" 
                         : isResolved
                         ? "border-emerald-500/50 bg-emerald-500/5 hover:border-emerald-500"
                         : isInProgress
@@ -204,7 +204,7 @@ export default function ClientPortal() {
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className={cn(
                           "p-2 rounded-lg flex-shrink-0",
-                          isAwaitingCustomer ? "bg-purple-500/10 text-purple-600 dark:text-purple-400" :
+                          isAwaitingCustomer ? "bg-primary/10 text-primary" :
                           isResolved ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
                           isInProgress ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" :
                           "bg-primary/10 text-primary"
@@ -236,7 +236,7 @@ export default function ClientPortal() {
                               {formatTimeAgo(ticket.created_at)}
                             </span>
                             {isAwaitingCustomer && (
-                              <span className="text-purple-600 dark:text-purple-400 font-bold">
+                              <span className="text-primary font-bold">
                                 • Aguardando sua resposta
                               </span>
                             )}
@@ -248,7 +248,7 @@ export default function ClientPortal() {
                         {isAwaitingCustomer ? (
                           <Button 
                             size="sm"
-                            className="h-8 px-3 text-xs bg-purple-600 hover:bg-purple-700 text-white font-bold gap-1.5 rounded-lg shadow-sm"
+                            className="h-8 px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1.5 rounded-lg shadow-sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/ticket/${ticket.id}`);

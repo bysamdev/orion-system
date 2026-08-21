@@ -74,7 +74,7 @@ function getLinkTypeInfo(type: string) {
     return {
       label: 'Starlink',
       icon: Radio,
-      color: 'text-purple-500 bg-purple-500/10 border-purple-500/20',
+      color: 'text-primary bg-primary/10 border-primary/20',
     };
   }
   if (normalized.includes('roteador') || normalized.includes('router')) {
@@ -518,7 +518,7 @@ export default function WebMonitoring() {
                   <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Disponibilidade SLA
                   </span>
-                  <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                     <Zap className="w-3.5 h-3.5" />
                   </div>
                 </div>
@@ -526,13 +526,13 @@ export default function WebMonitoring() {
                   <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                     99.98%
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-purple-600 bg-purple-500/10 border-purple-500/30">
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-primary bg-primary/10 border-primary/30">
                     Estável
                   </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
                   <span>Período ({period})</span>
-                  <span className="text-purple-600 font-medium">Sem Quedas</span>
+                  <span className="text-primary font-medium">Sem Quedas</span>
                 </div>
               </CardContent>
             </Card>
@@ -794,7 +794,7 @@ export default function WebMonitoring() {
 
                           {/* Banner 3: Disponibilidade SLA */}
                           <div className="p-3.5 rounded-xl border border-border/40 bg-card flex items-center gap-3">
-                            <Clock className={cn("w-5 h-5 shrink-0", isOnline ? "text-purple-500" : "text-red-500")} />
+                            <Clock className={cn("w-5 h-5 shrink-0", isOnline ? "text-primary" : "text-destructive")} />
                             <div>
                               <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
                                 Uptime nas últimas 24h
@@ -985,7 +985,7 @@ export default function WebMonitoring() {
                   <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Total de Links
                   </span>
-                  <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                     <Radio className="w-3.5 h-3.5" />
                   </div>
                 </div>
@@ -993,13 +993,13 @@ export default function WebMonitoring() {
                   <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                     {networkStats.online}/{networkStats.total}
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-purple-600 bg-purple-500/10 border-purple-500/30">
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-primary bg-primary/10 border-primary/30">
                     Conexões
                   </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
                   <span>{networkStats.offline} inativos</span>
-                  <span className="text-purple-600 font-medium">ICMP Ping</span>
+                  <span className="text-primary font-medium">ICMP Ping</span>
                 </div>
               </CardContent>
             </Card>
@@ -1035,21 +1035,21 @@ export default function WebMonitoring() {
                   <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Starlink Satélite
                   </span>
-                  <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                     <Radio className="w-3.5 h-3.5" />
                   </div>
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-purple-600 dark:text-purple-400">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-primary">
                     {networkStats.starlinkAvg ? `${networkStats.starlinkAvg} ms` : '38 ms'}
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-purple-600 bg-purple-500/10 border-purple-500/30">
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-primary bg-primary/10 border-primary/30">
                     LEO
                   </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
                   <span>Baixa órbita</span>
-                  <span className="text-purple-600 font-medium">Satélite</span>
+                  <span className="text-primary font-medium">Satélite</span>
                 </div>
               </CardContent>
             </Card>

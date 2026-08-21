@@ -38,11 +38,11 @@ type TicketFormValues = z.infer<typeof ticketSchema>;
 
 const categories = [
   { id: 'erp', name: 'ERP', icon: Layout, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-  { id: 'email', name: 'E-mail', icon: Mail, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+  { id: 'email', name: 'E-mail', icon: Mail, color: 'text-primary', bg: 'bg-primary/10' },
   { id: 'hardware', name: 'Hardware', icon: HardDrive, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-  { id: 'software', name: 'Software', icon: Cpu, color: 'text-green-500', bg: 'bg-green-500/10' },
-  { id: 'rede', name: 'Rede', icon: Globe, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
-  { id: 'outros', name: 'Outros', icon: MoreHorizontal, color: 'text-slate-500', bg: 'bg-slate-500/10' },
+  { id: 'software', name: 'Software', icon: Cpu, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+  { id: 'rede', name: 'Rede', icon: Globe, color: 'text-sky-500', bg: 'bg-sky-500/10' },
+  { id: 'outros', name: 'Outros', icon: MoreHorizontal, color: 'text-muted-foreground', bg: 'bg-muted/40' },
 ];
 
 const CATEGORY_PLACEHOLDERS: Record<string, string> = {

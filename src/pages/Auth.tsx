@@ -54,8 +54,8 @@ const orbitIcons: OrbitIconConfig[] = [
   {
     // Ticket / Chamado
     component: () => (
-      <div className="flex items-center justify-center size-9 rounded-full bg-purple-100 border border-purple-300 text-purple-700 shadow-[0_2px_10px_rgba(168,85,247,0.3)] dark:bg-purple-600/30 dark:backdrop-blur-md dark:border-purple-400/60 dark:text-purple-200 dark:shadow-[0_0_16px_rgba(168,85,247,0.5)]">
-        <Ticket className="size-4 text-purple-700 dark:text-purple-200 stroke-[2.2]" />
+      <div className="flex items-center justify-center size-9 rounded-full bg-primary/10 border border-primary/30 text-primary shadow-[0_2px_10px_hsla(var(--primary),0.2)] dark:bg-primary/20 dark:backdrop-blur-md dark:border-primary/40 dark:text-primary-foreground dark:shadow-[0_0_16px_hsla(var(--primary),0.4)]">
+        <Ticket className="size-4 text-primary dark:text-primary stroke-[2.2]" />
       </div>
     ),
     className: 'border-none bg-transparent',
@@ -696,7 +696,7 @@ const Auth = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-              <Sparkles className="size-5 text-purple-600 dark:text-purple-400" />
+              <Sparkles className="size-5 text-primary" />
               Recuperar Senha
             </DialogTitle>
             <DialogDescription>
@@ -729,7 +729,7 @@ const Auth = () => {
               </Button>
               <Button
                 type="submit"
-                className="bg-purple-700 hover:bg-purple-800 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                 disabled={isResetting}
               >
                 {isResetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -114,7 +114,7 @@ const SemDados: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
 // nenhuma casava e a pizza inteira caía no cinza de fallback.
 const STATUS_COLORS: Record<string, string> = {
   open: '#3b82f6', // blue-500
-  'in-progress': '#a855f7', // purple-500
+  'in-progress': '#906090', // Roxo claro Orion
   'awaiting-customer': '#eab308', // yellow-500
   'awaiting-third-party': '#f97316', // orange-500
   resolved: '#22c55e', // green-500
