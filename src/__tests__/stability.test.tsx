@@ -108,19 +108,25 @@ describe('1. Root Error Boundary & Sanitization', () => {
   });
 
   it('sanitizes sensitive data from error messages and stack traces', () => {
+    // Valores abaixo são fabricados só pra bater nos padrões que
+    // sanitizeErrorMessage detecta (prefixo "eyJ"/"sbp_", chave "password",
+    // "postgres://user:pass@") — nenhum é um segredo real, mas scanners de
+    // segredo (ex: gitguard) não sabem disso e alarmavam falso positivo a
+    // cada commit deste arquivo. Sufixo _NAOEHSEGREDOREAL deixa isso óbvio
+    // tanto pra humano quanto pra scanner sem enfraquecer o teste.
     const rawError = [
-      'Error: Failed request to https://api.supabase.co/rest/v1/tickets?apikey=sbp_secretkey123456789',
-      'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.doNotLeakThis',
-      'Connection string: postgresql://postgres:SuperSecretPassword123@db.supabase.co:5432/postgres',
-      'Payload: {"password": "MySuperSecretPassword!"}',
+      'Error: Failed request to https://api.supabase.co/rest/v1/tickets?apikey=sbp_FAKETESTKEY_NAOEHSEGREDOREAL',
+      'Authorization: Bearer eyJFAKEHEADER_NAOEHSEGREDOREAL.eyJFAKEPAYLOAD_NAOEHSEGREDOREAL.FAKESIGNATURE_NAOEHSEGREDOREAL',
+      'Connection string: postgresql://fakeuser:FAKEPASSWORD_NAOEHSEGREDOREAL@db.supabase.co:5432/postgres',
+      'Payload: {"password": "FAKEPASSWORDVALUE_NAOEHSEGREDOREAL"}',
     ].join('\n');
 
     const sanitized = sanitizeErrorMessage(rawError);
 
-    expect(sanitized).not.toContain('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9');
-    expect(sanitized).not.toContain('sbp_secretkey123456789');
-    expect(sanitized).not.toContain('SuperSecretPassword123');
-    expect(sanitized).not.toContain('MySuperSecretPassword!');
+    expect(sanitized).not.toContain('eyJFAKEHEADER_NAOEHSEGREDOREAL');
+    expect(sanitized).not.toContain('sbp_FAKETESTKEY_NAOEHSEGREDOREAL');
+    expect(sanitized).not.toContain('FAKEPASSWORD_NAOEHSEGREDOREAL');
+    expect(sanitized).not.toContain('FAKEPASSWORDVALUE_NAOEHSEGREDOREAL');
     expect(sanitized).toContain('[REDACTED');
   });
 
