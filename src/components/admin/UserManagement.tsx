@@ -51,6 +51,11 @@ interface UserData {
   status: string;
 }
 
+// Conta-fantasma criada pelo agente no primeiro chamado aberto pela bandeja
+// (ver handler/auth_handlers.go, machineLogin) — nunca tem senha/login real.
+// Regra do usuário: ao mesclar, o destino deve ser sempre a conta com login.
+const isGhostAccount = (email: string) => /^machine-[^@]+@orion\.internal$/i.test(email);
+
 export const UserManagement = () => {
   const { toast } = useToast();
   const { session, user } = useAuth();
@@ -762,14 +767,30 @@ export const UserManagement = () => {
                 <SelectContent>
                   {users
                     ?.filter((candidate) => candidate.id !== mergingSourceUser?.id)
+                    .slice()
+                    .sort((a, b) => Number(isGhostAccount(a.email)) - Number(isGhostAccount(b.email)))
                     .map((candidate) => (
                       <SelectItem key={candidate.id} value={candidate.id}>
                         {candidate.full_name || 'Sem nome'} ({candidate.email})
+                        {isGhostAccount(candidate.email) ? ' — conta do agente' : ' — login'}
                       </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Prioridade: escolha sempre a conta com login (técnico, gestor ou cliente cadastrado) como destino —
+                ela fica no topo da lista.
+              </p>
             </div>
+            {mergeTargetId && isGhostAccount(users?.find((u) => u.id === mergeTargetId)?.email || '') && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Atenção:</strong> o destino escolhido é uma conta criada pelo agente (sem login).
+                  O usuário com login deveria ser sempre o destino.
+                </AlertDescription>
+              </Alert>
+            )}
             {mergeTargetId && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -826,7 +847,21 @@ const UserRow = React.memo(({
         <span className="truncate block">{userItem.full_name || 'Sem nome'}</span>
       </TableCell>
       <TableCell className="max-w-[200px]">
-        <span className="truncate block">{userItem.email}</span>
+        <span className="truncate flex items-center gap-1.5">
+          {userItem.email}
+          {isGhostAccount(userItem.email) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  agente
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Conta criada automaticamente pelo agente, sem login próprio</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </span>
       </TableCell>
       <TableCell className="max-w-[150px]">
         <span className="truncate block">{userItem.company_name}</span>
