@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/kardianos/service"
@@ -366,6 +367,12 @@ func executeCommand(command string) (string, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "cmd", "/C", command)
+	// Sem isso, o Windows abre e fecha rapidinho uma janela de console
+	// visível toda vez que um comando remoto roda — o agente é um
+	// serviço em segundo plano, sem console próprio, então cmd.exe
+	// herda o comportamento padrão de abrir uma janela nova. Mesmo
+	// padrão já usado em notify_windows.go.
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	out, err := cmd.CombinedOutput()
 
 	if ctx.Err() == context.DeadlineExceeded {
@@ -589,6 +596,10 @@ func runInstaller(filePath, silentArgs string) (string, error) {
 		return "", fmt.Errorf("extensão de arquivo não suportada: %s", ext)
 	}
 
+	// Mesmo motivo do executeCommand acima: sem HideWindow, msiexec/
+	// powershell/cmd/o instalador baixado abrem uma janela de console
+	// visível (mesmo rodando dentro do serviço, sem sessão interativa).
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }

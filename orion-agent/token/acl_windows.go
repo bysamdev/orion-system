@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"os/user"
+	"syscall"
 )
 
 // endurecerACLDoDiretorio restringe leitura e escrita de dir a SYSTEM, ao grupo
@@ -62,7 +63,13 @@ func endurecerACLDoDiretorio(dir string) error {
 
 	args := append([]string{dir, "/inheritance:r", "/grant:r"}, concessoes...)
 
-	out, err := exec.Command("icacls", args...).CombinedOutput()
+	cmd := exec.Command("icacls", args...)
+	// Roda toda vez que o token é salvo — inclusive na sessão interativa
+	// da bandeja (não só no serviço em background, ver comentário acima),
+	// então sem isso é exatamente a janela de console que abre e fecha na
+	// tela do usuário. Mesmo padrão de service/windows.go/security_windows.go.
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("icacls falhou ao endurecer %q: %w (saída: %s)", dir, err, string(out))
 	}
