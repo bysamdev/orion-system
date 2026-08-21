@@ -421,6 +421,14 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
     return (groups || []).reduce((acc, g) => acc + (g.total_machines || 0), 0);
   }, [dashboard, groups]);
 
+  const totalOfflineAll = useMemo(() => {
+    return Math.max(0, totalMachinesAll - totalOnlineAll);
+  }, [totalMachinesAll, totalOnlineAll]);
+
+  const totalAlertAll = useMemo(() => {
+    return (groups || []).reduce((acc, g) => acc + (g.alert_machines || 0), 0);
+  }, [groups]);
+
   // Auto-select "all" if none selected
   React.useEffect(() => {
     if (!selectedGroupId) {
@@ -666,42 +674,99 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
           <aside className="w-full lg:w-60 xl:w-64 flex-shrink-0">
             <div className="sticky top-8">
               <div className="mb-6">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 px-3">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-3">
                   Filtrar por Status
                 </h3>
-                <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 px-1">
-                   <Button 
-                    variant={statusFilter === 'all' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="justify-start gap-2"
+                <div className="space-y-1 pr-3 pl-1">
+                  {/* Todos */}
+                  <button
                     onClick={() => setStatusFilter('all')}
-                   >
-                     Todos
-                   </Button>
-                   <Button 
-                    variant={statusFilter === 'online' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="justify-start gap-2 text-green-600"
+                    className={cn(
+                      'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors mb-1 group relative',
+                      statusFilter === 'all'
+                        ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                        : 'hover:bg-muted/70 text-foreground border border-transparent'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <LayoutGrid className={cn("w-4 h-4 shrink-0", statusFilter === 'all' ? "text-primary-foreground" : "text-muted-foreground")} />
+                      <span className="text-sm truncate leading-tight font-semibold">Todos</span>
+                    </div>
+                    <span className={cn(
+                      'text-xs font-semibold',
+                      statusFilter === 'all' ? 'text-primary-foreground opacity-90' : 'text-muted-foreground'
+                    )}>
+                      {totalMachinesAll}
+                    </span>
+                  </button>
+
+                  {/* Online */}
+                  <button
                     onClick={() => setStatusFilter('online')}
-                   >
-                     <Wifi className="w-3.5 h-3.5" /> Online
-                   </Button>
-                   <Button 
-                    variant={statusFilter === 'offline' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="justify-start gap-2 text-red-600"
+                    className={cn(
+                      'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors mb-1 group relative',
+                      statusFilter === 'online'
+                        ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                        : 'hover:bg-muted/70 text-foreground border border-transparent'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Wifi className={cn("w-4 h-4 shrink-0", statusFilter === 'online' ? "text-primary-foreground" : "text-emerald-500")} />
+                      <span className="text-sm truncate leading-tight font-semibold">Online</span>
+                    </div>
+                    <span className={cn(
+                      'text-xs font-semibold',
+                      statusFilter === 'online' ? 'text-primary-foreground opacity-90' : 'text-emerald-600 dark:text-emerald-400'
+                    )}>
+                      {totalOnlineAll}
+                    </span>
+                  </button>
+
+                  {/* Offline */}
+                  <button
                     onClick={() => setStatusFilter('offline')}
-                   >
-                     <WifiOff className="w-3.5 h-3.5" /> Offline
-                   </Button>
-                   <Button 
-                    variant={statusFilter === 'alert' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="justify-start gap-2 text-yellow-600"
+                    className={cn(
+                      'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors mb-1 group relative',
+                      statusFilter === 'offline'
+                        ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                        : 'hover:bg-muted/70 text-foreground border border-transparent'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <WifiOff className={cn("w-4 h-4 shrink-0", statusFilter === 'offline' ? "text-primary-foreground" : "text-red-500")} />
+                      <span className="text-sm truncate leading-tight font-semibold">Offline</span>
+                    </div>
+                    <span className={cn(
+                      'text-xs font-semibold',
+                      statusFilter === 'offline' ? 'text-primary-foreground opacity-90' : 'text-red-500'
+                    )}>
+                      {totalOfflineAll}
+                    </span>
+                  </button>
+
+                  {/* Com Alerta */}
+                  <button
                     onClick={() => setStatusFilter('alert')}
-                   >
-                     <AlertTriangle className="w-3.5 h-3.5" /> Com Alerta
-                   </Button>
+                    className={cn(
+                      'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors mb-1 group relative',
+                      statusFilter === 'alert'
+                        ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                        : 'hover:bg-muted/70 text-foreground border border-transparent'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <AlertTriangle className={cn("w-4 h-4 shrink-0", statusFilter === 'alert' ? "text-primary-foreground" : "text-amber-500")} />
+                      <span className="text-sm truncate leading-tight font-semibold">Com Alerta</span>
+                    </div>
+                    {totalAlertAll > 0 && (
+                      <span className={cn(
+                        'text-xs font-semibold',
+                        statusFilter === 'alert' ? 'text-primary-foreground opacity-90' : 'text-amber-500'
+                      )}>
+                        {totalAlertAll}
+                      </span>
+                    )}
+                  </button>
                 </div>
               </div>
 
