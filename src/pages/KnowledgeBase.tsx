@@ -493,13 +493,10 @@ export default function KnowledgeBase() {
       <div className="flex-1 flex flex-col">
         
         {/* HERO SECTION */}
-        <div className="relative overflow-hidden bg-gradient-to-b from-primary/10 via-primary/5 to-background border-b border-border/40 py-12 px-6 lg:px-12">
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full -mr-64 -mt-64 blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-blue-500/10 rounded-full -ml-32 -mb-32 blur-3xl" />
-          
+        <div className="relative bg-card/60 border-b border-border/70 py-12 px-6 lg:px-12">
           <div className="max-w-4xl mx-auto space-y-6 relative z-10 text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <div className="p-2 bg-primary/10 rounded-xl flex items-center justify-center">
+              <div className="p-2 bg-primary/10 rounded-lg flex items-center justify-center">
                 <BookOpen className="w-5 h-5 text-primary" />
               </div>
               <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-semibold uppercase tracking-widest text-[10px]">
@@ -507,22 +504,22 @@ export default function KnowledgeBase() {
               </Badge>
             </div>
 
-            <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl">
-              Como podemos <span className="text-primary">ajudar você hoje?</span>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground">
+              Como podemos <span className="text-primary font-black">ajudar você hoje?</span>
             </h1>
             
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            <p className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto">
               Pesquise dúvidas frequentes, siga os guias passo a passo ou aprenda a permitir o acesso remoto do suporte.
             </p>
             
             {/* BUSCA DESTAQUE */}
             <div className="relative group max-w-2xl mx-auto pt-2">
               <div className="absolute inset-y-0 left-5 top-2 flex items-center pointer-events-none transition-colors group-focus-within:text-primary">
-                <Search className="w-6 h-6 text-muted-foreground" />
+                <Search className="w-5 h-5 text-muted-foreground" />
               </div>
               <Input 
                 placeholder="Digite sua dúvida (ex: TeamViewer, impressora, abrir chamado)..." 
-                className="h-16 pl-14 pr-6 bg-card/90 border-border/60 shadow-xl rounded-2xl text-lg focus-visible:ring-primary/30 transition-all placeholder:text-muted-foreground/60"
+                className="h-14 pl-14 pr-6 bg-background border-border shadow-sm rounded-xl text-base focus-visible:ring-primary/30 transition-all placeholder:text-muted-foreground/60"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -532,12 +529,12 @@ export default function KnowledgeBase() {
 
         {/* TOP 3 HIGHLIGHT CARDS */}
         {!search && (
-          <div className="bg-muted/20 border-b border-border/40 py-8 px-6 lg:px-12">
+          <div className="bg-muted/30 border-b border-border/50 py-8 px-6 lg:px-12">
             <div className="max-w-6xl mx-auto space-y-6">
               
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold tracking-tight">Guia Rápido & Principais Tutoriais</h2>
+                  <h2 className="text-xl font-bold tracking-tight text-foreground">Guia Rápido & Principais Tutoriais</h2>
                   <p className="text-sm text-muted-foreground">Acesso direto aos recursos mais utilizados do suporte.</p>
                 </div>
               </div>
@@ -545,19 +542,19 @@ export default function KnowledgeBase() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 {/* CARD 1 DESTAQUE: COMO ABRIR UM CHAMADO */}
-                <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-card to-card hover:border-emerald-500/40 transition-all shadow-md group relative overflow-hidden flex flex-col justify-between">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Ticket className="w-24 h-24 text-emerald-500" />
+                <Card className="border-border/80 bg-card hover:border-emerald-500/40 transition-all shadow-sm group relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <Ticket className="w-24 h-24 text-foreground" />
                   </div>
                   
                   <CardContent className="p-6 space-y-4 relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/15 rounded-full border border-emerald-500/30">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-emerald-500/10 rounded-md border border-emerald-500/20">
                       <Ticket className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Passo a Passo</span>
                     </div>
 
                     <div className="space-y-2">
-                      <h3 className="text-2xl font-bold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                      <h3 className="text-xl font-bold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                         Como abrir um chamado
                       </h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">
@@ -565,13 +562,17 @@ export default function KnowledgeBase() {
                       </p>
                     </div>
 
-                    <div className="space-y-2 pt-2 border-t border-border/40 text-xs text-foreground/80">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <div className="space-y-2.5 pt-3 border-t border-border/60 text-xs text-foreground/90">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold text-[10.5px] shrink-0">
+                          1
+                        </span>
                         <span>Clique no botão <strong>+ Novo Ticket</strong> no menu topo.</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold text-[10.5px] shrink-0">
+                          2
+                        </span>
                         <span>Descreva o problema e anexe prints se houver.</span>
                       </div>
                     </div>
@@ -580,7 +581,7 @@ export default function KnowledgeBase() {
                   <div className="p-6 pt-0 relative z-10">
                     <Button 
                       variant="outline"
-                      className="w-full justify-between font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 group-hover:border-emerald-500/60"
+                      className="w-full justify-between font-semibold text-emerald-600 dark:text-emerald-400 border-border hover:bg-emerald-500/10 hover:border-emerald-500/40"
                       onClick={() => openHighlightArticle(0)}
                     >
                       Ver tutorial completo <ArrowRight className="w-4 h-4" />
@@ -589,24 +590,24 @@ export default function KnowledgeBase() {
                 </Card>
 
                 {/* CARD 2 DESTAQUE PRINCIPAL: ACESSO REMOTO VIA TEAMVIEWER */}
-                <Card className="border-blue-500/30 bg-gradient-to-br from-blue-500/15 via-card to-card hover:border-blue-500/60 transition-all shadow-md group relative overflow-hidden flex flex-col justify-between">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Monitor className="w-24 h-24 text-blue-500" />
+                <Card className="border-border/80 bg-card hover:border-primary/40 transition-all shadow-sm group relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <Monitor className="w-24 h-24 text-foreground" />
                   </div>
 
                   <CardContent className="p-6 space-y-4 relative z-10">
                     <div className="flex items-center justify-between">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/15 rounded-full border border-blue-500/30">
+                      <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-primary/10 rounded-md border border-primary/20">
                         <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                         </span>
-                        <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Padrão Corporativo</span>
+                        <span className="text-[11px] font-bold text-primary uppercase tracking-wider">Padrão Corporativo</span>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <h3 className="text-2xl font-bold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      <h3 className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">
                         Acesso Remoto (TeamViewer)
                       </h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">
@@ -614,10 +615,10 @@ export default function KnowledgeBase() {
                       </p>
                     </div>
 
-                    <div className="bg-background/80 backdrop-blur-md rounded-xl p-3.5 border border-border/50 space-y-2">
+                    <div className="bg-muted/40 rounded-xl p-3.5 border border-border/60 space-y-2">
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-muted-foreground font-medium">Instrução Rápida:</span>
-                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-none font-bold">Obrigatório</Badge>
+                        <Badge variant="secondary" className="bg-primary/10 text-primary border-none font-bold">Obrigatório</Badge>
                       </div>
                       <p className="text-xs text-foreground/90 font-medium">
                         Abra o <strong>TeamViewer</strong> pré-instalado na máquina e informe sua <strong>ID</strong> e <strong>Senha</strong> no chamado.
@@ -627,7 +628,7 @@ export default function KnowledgeBase() {
 
                   <div className="p-6 pt-0 relative z-10">
                     <Button 
-                      className="w-full justify-between font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20"
+                      className="w-full justify-between font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
                       onClick={() => openHighlightArticle(1)}
                     >
                       Como liberar acesso TeamViewer <ArrowRight className="w-4 h-4" />

@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, Cpu, Loader2, Terminal, Copy, Check, Package2 } from 'lucide-react';
+import { Download, Cpu, Loader2, FileCode2, Copy, Check, Package2 } from 'lucide-react';
 import { useCompanies } from '@/hooks/useCompanies';
 import { baixarInstaladorDoAgente, baixarInstaladorMsi } from '@/hooks/useAgentInstaller';
 import { useToast } from '@/hooks/use-toast';
@@ -71,19 +71,19 @@ export const AgentInstallerCard: React.FC = () => {
   };
 
   return (
-    <Card className="mb-8 border-primary/20 bg-primary/[0.03]">
+    <Card className="mb-8 border-border/80 bg-card shadow-sm">
       <CardContent className="p-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-5">
           <div className="flex items-center gap-4 flex-1 min-w-0">
-            <div className="p-3 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 flex-shrink-0">
+            <div className="p-3 rounded-xl bg-primary text-primary-foreground shadow-sm flex-shrink-0">
               <Cpu className="w-6 h-6" />
             </div>
             <div className="min-w-0">
-              <h2 className="font-black text-base">Instalador do Orion Agent</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <h2 className="font-bold text-base text-foreground">Instalador do Orion Agent</h2>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                 O <span className="font-semibold text-foreground">.exe</span> já sai configurado com a chave do
                 cliente escolhido. O <span className="font-semibold text-foreground">.msi</span> é um build único
-                pra qualquer empresa — a chave entra via comando do msiexec, pra deploy por GPO/SCCM/Intune.
+                para qualquer empresa: a chave entra via parâmetro do msiexec para deploy por GPO, SCCM ou Intune.
               </p>
             </div>
           </div>
@@ -140,7 +140,7 @@ export const AgentInstallerCard: React.FC = () => {
         )}
 
         <div className="mt-4 pt-4 border-t border-border/40 flex items-start gap-2 text-[11px] text-muted-foreground">
-          <Terminal className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <FileCode2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-primary" />
           <p>
             .exe: aponte um Script de Inicialização do GPO pro arquivo baixado com a flag{' '}
             <code className="px-1 py-0.5 rounded bg-muted font-mono">/silent</code>. .msi: use o comando acima

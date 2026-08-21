@@ -216,8 +216,11 @@ export const RoutingRulesManagement = () => {
                 </div>
               </div>
 
-              <div className="p-4 bg-muted/20 border-l-4 border-l-primary/50 rounded-r-xl space-y-4">
-                <h4 className="font-bold text-sm text-foreground uppercase tracking-widest">Condição (SE)</h4>
+              <div className="p-4 bg-muted/30 border border-border/80 rounded-xl space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                  <h4 className="font-bold text-xs text-foreground uppercase tracking-wider">Condição (SE)</h4>
+                </div>
                 <div className="grid grid-cols-3 gap-2">
                   <Select value={conditionField} onValueChange={setConditionField}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -259,8 +262,11 @@ export const RoutingRulesManagement = () => {
                 </div>
               </div>
 
-              <div className="p-4 bg-muted/20 border-l-4 border-l-indigo-500/50 rounded-r-xl space-y-4">
-                <h4 className="font-bold text-sm text-foreground uppercase tracking-widest">Ação (ENTÃO)</h4>
+              <div className="p-4 bg-muted/30 border border-border/80 rounded-xl space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                  <h4 className="font-bold text-xs text-foreground uppercase tracking-wider">Ação (ENTÃO)</h4>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Select value={actionType} onValueChange={setActionType}>
                     <SelectTrigger><SelectValue /></SelectTrigger>

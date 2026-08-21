@@ -1065,34 +1065,35 @@ const Reports: React.FC = () => {
             {
               rotulo: 'Dentro do Prazo',
               valor: metrics.slaOk,
-              borda: 'border-l-green-600',
-              // Tons -700/-400 no lugar de -600: o -600 sobre fundo claro fica
-              // abaixo de 4.5:1, e no escuro sumia contra o card.
+              dot: 'bg-green-500',
               texto: 'text-green-700 dark:text-green-400',
               badge: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-600/30',
             },
             {
               rotulo: 'Em Atenção',
               valor: metrics.slaAttention,
-              borda: 'border-l-amber-600',
+              dot: 'bg-amber-500',
               texto: 'text-amber-700 dark:text-amber-400',
               badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-600/30',
             },
             {
               rotulo: 'Prazo Estourado',
               valor: metrics.slaBreached,
-              borda: 'border-l-red-600',
+              dot: 'bg-red-500',
               texto: 'text-red-700 dark:text-red-400',
               badge: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-600/30',
             },
           ].map((s) => (
-            <Card key={s.rotulo} className={cn('border-l-4 h-full', s.borda)}>
+            <Card key={s.rotulo} className="border-border/80 bg-card h-full shadow-sm">
               <CardContent className="h-full p-4 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {s.rotulo}
-                  </p>
-                  <p className={cn('text-2xl font-bold tabular-nums mt-1 leading-none', s.texto)}>
+                  <div className="flex items-center gap-2">
+                    <span className={cn('w-2 h-2 rounded-full shrink-0', s.dot)} />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {s.rotulo}
+                    </p>
+                  </div>
+                  <p className={cn('text-2xl font-bold tabular-nums mt-1.5 leading-none', s.texto)}>
                     {s.valor}
                   </p>
                 </div>

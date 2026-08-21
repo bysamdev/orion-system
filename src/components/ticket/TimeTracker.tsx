@@ -99,8 +99,8 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ ticketId }) => {
   return (
     <div className="space-y-4">
       <Card className={cn(
-        "border-none shadow-none transition-all",
-        isCurrentTicketActive ? "bg-primary/10 border-l-4 border-l-primary" : "bg-muted/30"
+        "shadow-sm transition-all rounded-xl",
+        isCurrentTicketActive ? "bg-primary/10 border border-primary/30" : "bg-muted/30 border border-border/40"
       )}>
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-4">

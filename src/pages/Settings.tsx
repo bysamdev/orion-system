@@ -7,10 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff, Settings2, Settings as SettingsIcon } from "lucide-react";
+import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff, Settings2, Settings as SettingsIcon, FileText } from "lucide-react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { TwoFactorAuthSettings } from "@/components/settings/TwoFactorAuthSettings";
+import { InstitutionalLegalDialog } from "@/components/shared/InstitutionalLegalDialog";
 import { useUserProfile, useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +32,8 @@ export default function Settings() {
   
   const [fullName, setFullName] = useState('');
   const [department, setDepartment] = useState('');
+  const [legalOpen, setLegalOpen] = useState(false);
+  const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
 
   // Estados para alterar senha
   const [currentPassword, setCurrentPassword] = useState('');
@@ -495,6 +498,51 @@ export default function Settings() {
               </TabsContent>
             )}
           </Tabs>
+
+          {/* Seção Institucional e Conformidade */}
+          <Card className="border-border/70 bg-card shadow-sm mt-6">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-bold text-foreground">Conformidade e Transparência</CardTitle>
+                  <CardDescription className="text-xs">
+                    Diretrizes de privacidade, segurança de dados e condições de uso da plataforma Orion System.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-xs font-semibold h-9"
+                  onClick={() => { setLegalTab('terms'); setLegalOpen(true); }}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Ver Termos de Uso
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-xs font-semibold h-9"
+                  onClick={() => { setLegalTab('privacy'); setLegalOpen(true); }}
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  Ver Política de Privacidade
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <InstitutionalLegalDialog
+            open={legalOpen}
+            onOpenChange={setLegalOpen}
+            defaultTab={legalTab}
+          />
     </div>
   );
 }

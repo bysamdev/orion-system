@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Home,
   Ticket,
@@ -25,6 +25,7 @@ import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNotifications } from '@/hooks/useNotifications';
+import { InstitutionalLegalDialog } from '@/components/shared/InstitutionalLegalDialog';
 import {
   Sidebar,
   SidebarContent,
@@ -97,6 +98,8 @@ export const AppSidebar: React.FC = () => {
   const { data: profile } = useUserProfile();
   const { toast } = useToast();
   const { setOpenMobile, isMobile } = useSidebar();
+  const [legalOpen, setLegalOpen] = useState(false);
+  const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
   // const { unreadCount } = useNotifications();
 
   const roleLabel: Record<string, string> = {
@@ -203,6 +206,32 @@ export const AppSidebar: React.FC = () => {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+
+        <div className="pt-2 px-3 pb-1 border-t border-sidebar-border/60 flex items-center justify-between text-[11px] text-muted-foreground/70">
+          <button
+            type="button"
+            onClick={() => { setLegalTab('terms'); setLegalOpen(true); }}
+            className="hover:text-foreground transition-colors"
+          >
+            Termos
+          </button>
+          <span>•</span>
+          <button
+            type="button"
+            onClick={() => { setLegalTab('privacy'); setLegalOpen(true); }}
+            className="hover:text-foreground transition-colors"
+          >
+            Privacidade
+          </button>
+          <span>•</span>
+          <span>v1.0</span>
+        </div>
+
+        <InstitutionalLegalDialog
+          open={legalOpen}
+          onOpenChange={setLegalOpen}
+          defaultTab={legalTab}
+        />
       </SidebarFooter>
     </Sidebar>
   );

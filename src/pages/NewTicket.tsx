@@ -413,7 +413,7 @@ const NewTicket = () => {
 
         <div className="space-y-1">
           <h1 ref={stepHeadingRef} tabIndex={-1} className="text-3xl font-black tracking-tighter text-foreground outline-none">Abrir Novo Chamado</h1>
-          <p className="text-muted-foreground font-medium" aria-live="polite">Passo {step} de 3 — {
+          <p className="text-muted-foreground font-medium" aria-live="polite">Passo {step} de 3: {
             step === 1 ? "Identificação do problema" :
             step === 2 ? "Detalhes e priorização" :
             "Anexos e finalização"
@@ -430,7 +430,7 @@ const NewTicket = () => {
             "space-y-6",
             (suggestions.length > 0 || isSuggestionsLoading) ? "lg:col-span-2" : "w-full"
           )}>
-            <Card className="border-border/40 shadow-2xl shadow-primary/5 overflow-hidden bg-card/50 backdrop-blur-sm">
+            <Card className="border-border/70 shadow-sm overflow-hidden bg-card">
               <CardContent className="p-4 md:p-8">
             <Form {...form}>
               <form 
