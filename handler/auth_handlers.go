@@ -11,6 +11,21 @@ import (
 	"orion-api/lib"
 )
 
+// nomeRequisitante decide o nome exibido no chamado/perfil-fantasma da
+// máquina. Reflete quem está logado no Windows AGORA (currentUser, gravado
+// em machines.current_user a cada heartbeat — 60s), não fica travado no
+// primeiro usuário que já usou a máquina: ela pode trocar de setor/pessoa e
+// o requester do chamado precisa acompanhar quem realmente abriu, não quem
+// usava a máquina há meses. O e-mail-fantasma que autentica a sessão segue
+// fixo por máquina (não muda, ver machineEmail em machineLogin) — só o nome
+// exibido muda.
+func nomeRequisitante(hostname string, currentUser *string) string {
+	if currentUser != nil && *currentUser != "" {
+		return fmt.Sprintf("%s (%s)", *currentUser, hostname)
+	}
+	return fmt.Sprintf("Suporte (%s)", hostname)
+}
+
 // machineLogin lida com o acesso simplificado (passwordless) para máquinas que possuem o Orion Agent.
 // Este endpoint é chamado quando o usuário clica em "Abrir Portal" no menu da bandeja do Windows.
 // Rota: GET /api/auth/machine-login?token=<TOKEN_DA_MAQUINA>
@@ -68,7 +83,7 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 		tokenPrefix = token[:12]
 	}
 	machineEmail := strings.ToLower(fmt.Sprintf("machine-%s@orion.internal", tokenPrefix))
-	machineName := fmt.Sprintf("Suporte (%s)", m.Hostname)
+	machineName := nomeRequisitante(m.Hostname, m.CurrentUser)
 
 	// 4. Verificamos se esta máquina já tem um "usuário-fantasma" registrado.
 	var profileUpdate lib.ProfileUpdate

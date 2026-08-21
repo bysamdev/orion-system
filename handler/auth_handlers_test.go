@@ -113,3 +113,30 @@ func TestCaminhoRelativoSeguro(t *testing.T) {
 		}
 	}
 }
+
+// TestNomeRequisitante cobre o pedido: o requester do chamado precisa
+// acompanhar quem está logado no Windows AGORA, não ficar travado no
+// primeiro usuário da máquina (ela pode trocar de setor/pessoa).
+func TestNomeRequisitante(t *testing.T) {
+	usuario := "joao.silva"
+
+	casos := []struct {
+		nome        string
+		hostname    string
+		currentUser *string
+		esperado    string
+	}{
+		{"usuário Windows logado", "PC-VENDAS-03", &usuario, "joao.silva (PC-VENDAS-03)"},
+		{"sem usuário resolvido (nil)", "PC-VENDAS-03", nil, "Suporte (PC-VENDAS-03)"},
+		{"current_user vazio", "PC-VENDAS-03", strPtr(""), "Suporte (PC-VENDAS-03)"},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			if got := nomeRequisitante(c.hostname, c.currentUser); got != c.esperado {
+				t.Errorf("nomeRequisitante(%q, %v) = %q, esperado %q", c.hostname, c.currentUser, got, c.esperado)
+			}
+		})
+	}
+}
+
+func strPtr(s string) *string { return &s }
