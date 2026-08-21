@@ -242,17 +242,17 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap self-stretch sm:self-auto justify-end">
-          {/* Filter badges */}
-          <div className="flex items-center bg-muted/40 p-1 rounded-xl border border-border/40">
+          {/* Period Selector */}
+          <div className="inline-flex h-11 items-center bg-muted/60 p-1 rounded-2xl border border-border/40">
             {(['1h', '6h', '24h', '7d'] as TelemetryPeriod[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={cn(
-                  'px-2.5 py-1 text-xs font-bold rounded-lg transition-all',
+                  'h-full px-3.5 text-xs font-semibold rounded-xl transition-all',
                   period === p
-                    ? 'bg-primary text-primary-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {p}
@@ -420,51 +420,39 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
       </div>
 
       {/* ── Category View Selector Bar ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded-2xl bg-muted/30 border border-border/40">
-        <div className="flex items-center gap-2 pl-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 rounded-2xl bg-muted/60 border border-border/40">
+        <div className="flex items-center gap-2 pl-3">
           <Layers className="w-4 h-4 text-primary" />
           <span className="text-xs font-bold uppercase tracking-wider text-foreground">
             Filtro de Telemetria
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Button
-            variant={categoryFilter === 'all' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setCategoryFilter('all')}
-            className="h-8 text-xs rounded-xl font-semibold gap-1.5"
-          >
-            <Activity className="w-3.5 h-3.5" />
-            Visão Geral Completa
-          </Button>
-          <Button
-            variant={categoryFilter === 'web' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setCategoryFilter('web')}
-            className="h-8 text-xs rounded-xl font-semibold gap-1.5"
-          >
-            <Globe className="w-3.5 h-3.5" />
-            Endpoints Web ({webSummary.total})
-          </Button>
-          <Button
-            variant={categoryFilter === 'network' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setCategoryFilter('network')}
-            className="h-8 text-xs rounded-xl font-semibold gap-1.5"
-          >
-            <Radio className="w-3.5 h-3.5" />
-            Links Starlink &amp; Redes ({networkSummary.total})
-          </Button>
-          <Button
-            variant={categoryFilter === 'ssl' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setCategoryFilter('ssl')}
-            className="h-8 text-xs rounded-xl font-semibold gap-1.5"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Segurança SSL / TLS
-          </Button>
+        <div className="flex items-center gap-1 flex-wrap">
+          {[
+            { id: 'all', label: 'Visão Geral Completa', icon: Activity },
+            { id: 'web', label: `Endpoints Web (${webSummary.total})`, icon: Globe },
+            { id: 'network', label: `Links Starlink & Redes (${networkSummary.total})`, icon: Radio },
+            { id: 'ssl', label: 'Segurança SSL / TLS', icon: ShieldCheck },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isSelected = categoryFilter === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setCategoryFilter(item.id as TelemetryCategoryFilter)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all',
+                  isSelected
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

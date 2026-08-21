@@ -387,28 +387,28 @@ export default function WebMonitoring() {
       {/* ── Main Navigation Tabs ── */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'web' | 'network')} className="space-y-6">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <TabsList className="grid w-full sm:w-auto grid-cols-2 max-w-sm h-11 bg-muted/60 p-1 rounded-xl border border-border/40">
-            <TabsTrigger value="web" className="flex items-center justify-center gap-2 rounded-lg font-semibold text-xs sm:text-sm h-full">
+          <TabsList className="grid w-full sm:w-auto grid-cols-2 max-w-sm">
+            <TabsTrigger value="web" className="gap-2">
               <Globe className="w-4 h-4" />
               Sites &amp; APIs ({webStats.total})
             </TabsTrigger>
-            <TabsTrigger value="network" className="flex items-center justify-center gap-2 rounded-lg font-semibold text-xs sm:text-sm h-full">
+            <TabsTrigger value="network" className="gap-2">
               <Radio className="w-4 h-4" />
               Links &amp; Redes ({networkStats.total})
             </TabsTrigger>
           </TabsList>
 
           {/* Period selector for charts */}
-          <div className="flex items-center self-end sm:self-auto bg-muted/40 p-1 rounded-xl border border-border/40">
+          <div className="inline-flex h-11 items-center self-end sm:self-auto bg-muted/60 p-1 rounded-2xl border border-border/40">
             {(['1h', '6h', '24h', '7d'] as WebPeriod[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={cn(
-                  'px-2.5 py-1 text-xs font-bold rounded-lg transition-all',
+                  'h-full px-3.5 text-xs font-semibold rounded-xl transition-all',
                   period === p
-                    ? 'bg-primary text-primary-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {p}

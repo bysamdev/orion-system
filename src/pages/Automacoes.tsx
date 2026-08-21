@@ -31,17 +31,17 @@ const Automacoes: React.FC = () => {
           </Card>
         ) : (
           <Tabs defaultValue="rules" className="space-y-6">
-            <TabsList className="bg-muted/40 border border-border/50 h-11 p-1">
-              <TabsTrigger value="rules" className="gap-2 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <TabsList>
+              <TabsTrigger value="rules" className="gap-2">
                 <GitBranch className="w-4 h-4" /> Regras
               </TabsTrigger>
-              <TabsTrigger value="history" className="gap-2 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsTrigger value="history" className="gap-2">
                 <History className="w-4 h-4" /> Histórico
               </TabsTrigger>
-              <TabsTrigger value="sla" className="gap-2 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsTrigger value="sla" className="gap-2">
                 <Clock className="w-4 h-4" /> SLA & Contratos
               </TabsTrigger>
-              <TabsTrigger value="templates" className="gap-2 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsTrigger value="templates" className="gap-2">
                 <Zap className="w-4 h-4" /> Templates
               </TabsTrigger>
             </TabsList>

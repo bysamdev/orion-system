@@ -79,7 +79,7 @@ export default function Admin() {
       
       <Tabs defaultValue={isTechnician ? 'responses' : 'users'} className="w-full">
           <div className="overflow-x-auto pb-1">
-            <TabsList className="bg-muted/50 p-1 rounded-xl w-auto inline-flex flex-wrap sm:flex-nowrap">
+            <TabsList className="w-auto inline-flex flex-wrap sm:flex-nowrap">
               {/* Abas exclusivas para admin/developer */}
               {!isTechnician && (
                 <>
