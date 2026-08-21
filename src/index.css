@@ -41,7 +41,7 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     --secondary-foreground: 224 28% 16%;
 
     --muted: 220 14% 95%;
-    --muted-foreground: 220 10% 46%;
+    --muted-foreground: 220 12% 38%;
 
     --accent: 260 25% 92%;
     --accent-foreground: 260 43% 25%;
@@ -55,11 +55,11 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 220 13% 89%;
-    --input: 220 13% 89%;
+    --border: 220 13% 86%;
+    --input: 220 13% 86%;
     --ring: 260 43% 33%;
 
-    --radius: 0.5rem;
+    --radius: 0.375rem;
 
     --sidebar-background: 220 18% 97%;
     --sidebar-foreground: 224 20% 28%;
@@ -67,7 +67,7 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 16% 92%;
     --sidebar-accent-foreground: 260 43% 25%;
-    --sidebar-border: 220 14% 89%;
+    --sidebar-border: 220 14% 87%;
     --sidebar-ring: 260 43% 33%;
   }
 
@@ -97,7 +97,7 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     --secondary-foreground: 220 15% 95%;
 
     --muted: 222 16% 16%;
-    --muted-foreground: 220 12% 65%;
+    --muted-foreground: 220 14% 70%;
 
     /* Destaques e badges */
     --accent: 260 25% 20%;
@@ -113,8 +113,8 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     --warning-foreground: 0 0% 100%;
 
     /* Bordas e Dividers discretos e elegantes */
-    --border: 220 16% 19%;
-    --input: 220 16% 19%;
+    --border: 220 16% 22%;
+    --input: 220 16% 22%;
     --ring: 260 62% 62%;
 
     /* Sidebar com profundidade consistente */
@@ -124,7 +124,7 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 222 20% 14%;
     --sidebar-accent-foreground: 220 20% 96%;
-    --sidebar-border: 220 16% 16%;
+    --sidebar-border: 220 16% 18%;
     --sidebar-ring: 260 62% 62%;
   }
 }
@@ -134,28 +134,39 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     @apply border-border;
   }
 
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased selection:bg-primary/25 selection:text-foreground;
   }
 
-  /* Custom Scrollbars para Tema Dark SaaS */
-  .dark ::-webkit-scrollbar {
+  /* Universal Custom Scrollbars (Light & Dark) com 7px fixos para evitar layout shift */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  ::-webkit-scrollbar {
     width: 7px;
     height: 7px;
   }
 
-  .dark ::-webkit-scrollbar-track {
-    background: hsl(222 24% 9.5%);
+  ::-webkit-scrollbar-track {
+    background: transparent;
   }
 
-  .dark ::-webkit-scrollbar-thumb {
-    background: hsl(220 16% 22%);
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
     border-radius: 4px;
-    border: 2px solid hsl(222 24% 9.5%);
+    border: 2px solid transparent;
+    background-clip: padding-box;
   }
 
-  .dark ::-webkit-scrollbar-thumb:hover {
-    background: hsl(220 18% 30%);
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+    background-clip: padding-box;
   }
 }
 

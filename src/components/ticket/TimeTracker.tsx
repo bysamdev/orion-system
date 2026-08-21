@@ -148,12 +148,12 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ ticketId }) => {
           variant="ghost" 
           size="sm" 
           onClick={() => setShowManual(true)}
-          className="w-full text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-primary rounded-xl gap-2"
+          className="w-full text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-primary rounded-md gap-2"
         >
           <Plus className="w-3.5 h-3.5" /> Lançamento Manual
         </Button>
       ) : (
-        <div className="p-4 bg-muted/20 border border-border/40 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="p-4 bg-muted/20 border border-border/40 rounded-lg space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex items-center gap-2">
             <Clock className="w-3.5 h-3.5 text-primary" />
             <h4 className="text-[10px] font-black uppercase tracking-widest">Adicionar Horas</h4>

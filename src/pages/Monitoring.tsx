@@ -245,7 +245,7 @@ function MachinesGrid({
 
     if (totalMatching === 0 && search) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-2xl opacity-60">
+        <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-lg opacity-60">
           <div className="p-4 bg-muted rounded-full">
             <Monitor className="h-10 w-10 text-muted-foreground/40" />
           </div>
@@ -288,7 +288,7 @@ function MachinesGrid({
                   ))}
                 </div>
               ) : (
-                <div className="p-6 rounded-2xl border border-dashed border-border/50 bg-muted/20 text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5 py-8">
+                <div className="p-6 rounded-lg border border-dashed border-border/50 bg-muted/20 text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5 py-8">
                   <Monitor className="w-5 h-5 text-muted-foreground/40" />
                   <span>Nenhum dispositivo cadastrado neste grupo ainda.</span>
                 </div>
@@ -342,7 +342,7 @@ function MachinesGrid({
             totalCount={selectedGroup.total_machines}
           />
         )}
-        <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-2xl opacity-60">
+        <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-lg opacity-60">
           <div className="p-4 bg-muted rounded-full">
             <Monitor className="h-10 w-10 text-muted-foreground/40" />
           </div>
@@ -875,7 +875,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
 
       {/* Group Dialog */}
       <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="sm:max-w-md rounded-lg">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
               {editingGroup ? 'Editar Grupo' : 'Novo Grupo / Cliente'}

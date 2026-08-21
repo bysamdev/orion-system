@@ -25,10 +25,10 @@ export const InstitutionalLegalDialog: React.FC<InstitutionalLegalDialogProps> =
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] p-0 flex flex-col gap-0 overflow-hidden sm:rounded-2xl border-border bg-card">
+      <DialogContent className="max-w-2xl max-h-[85vh] p-0 flex flex-col gap-0 overflow-hidden sm:rounded-xl border-border bg-card">
         <DialogHeader className="p-6 pb-4 border-b border-border/70">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
               <Shield className="w-5 h-5" />
             </div>
             <div>

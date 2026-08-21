@@ -164,10 +164,10 @@ export class RootErrorBoundary extends Component<Props, State> {
 
       return (
         <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4 sm:p-6 select-text">
-          <div className="max-w-xl w-full bg-card border border-border/80 shadow-2xl rounded-3xl p-6 sm:p-8 space-y-6 text-center animate-in fade-in zoom-in-95 duration-300">
+          <div className="max-w-xl w-full bg-card border border-border/80 shadow-2xl rounded-xl p-6 sm:p-8 space-y-6 text-center animate-in fade-in zoom-in-95 duration-300">
             {/* Header Icon */}
             <div className="flex justify-center">
-              <div className="p-4 bg-destructive/10 rounded-2xl border border-destructive/20 text-destructive shadow-lg shadow-destructive/5">
+              <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/20 text-destructive shadow-lg shadow-destructive/5">
                 <AlertCircle className="h-12 w-12 stroke-[2.2]" />
               </div>
             </div>
@@ -188,7 +188,7 @@ export class RootErrorBoundary extends Component<Props, State> {
             </div>
 
             {/* Sanitized summary banner */}
-            <div className="p-3.5 bg-muted/40 rounded-2xl border border-border/60 text-left text-xs font-mono text-muted-foreground flex items-start gap-2.5 overflow-hidden">
+            <div className="p-3.5 bg-muted/40 rounded-lg border border-border/60 text-left text-xs font-mono text-muted-foreground flex items-start gap-2.5 overflow-hidden">
               <ShieldAlert className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
               <span className="truncate flex-1 font-medium">{sanitizedMsg}</span>
             </div>
@@ -197,7 +197,7 @@ export class RootErrorBoundary extends Component<Props, State> {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <Button
                 onClick={this.handleReload}
-                className="w-full sm:w-auto font-bold gap-2 rounded-xl shadow-lg shadow-primary/20 h-11 px-6"
+                className="w-full sm:w-auto font-bold gap-2 rounded-md shadow-lg shadow-primary/20 h-10 px-5"
               >
                 <RefreshCw className="h-4 w-4" />
                 Recarregar Sistema
@@ -206,7 +206,7 @@ export class RootErrorBoundary extends Component<Props, State> {
               <Button
                 variant="outline"
                 onClick={this.handleClearCacheAndReload}
-                className="w-full sm:w-auto font-bold gap-2 rounded-xl border-border/70 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 h-11 px-5 transition-colors"
+                className="w-full sm:w-auto font-bold gap-2 rounded-md border-border/70 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 h-10 px-4 transition-colors"
               >
                 <Trash2 className="h-4 w-4" />
                 Limpar Cache e Reiniciar
@@ -215,7 +215,7 @@ export class RootErrorBoundary extends Component<Props, State> {
               <Button
                 variant="ghost"
                 onClick={this.handleReset}
-                className="w-full sm:w-auto font-bold gap-2 rounded-xl h-11 px-4 text-muted-foreground hover:text-foreground"
+                className="w-full sm:w-auto font-bold gap-2 rounded-md h-10 px-4 text-muted-foreground hover:text-foreground"
               >
                 <RotateCcw className="h-4 w-4" />
                 Tentar Novamente
@@ -245,7 +245,7 @@ export class RootErrorBoundary extends Component<Props, State> {
               </div>
 
               {this.state.showDetails && (
-                <div className="mt-3 p-4 bg-muted/50 rounded-2xl border border-border/60 text-[11px] font-mono overflow-auto max-h-48 custom-scrollbar space-y-2 text-muted-foreground">
+                <div className="mt-3 p-4 bg-muted/50 rounded-lg border border-border/60 text-[11px] font-mono overflow-auto max-h-48 custom-scrollbar space-y-2 text-muted-foreground">
                   <div>
                     <strong className="text-foreground font-bold">Mensagem:</strong> {sanitizedMsg}
                   </div>

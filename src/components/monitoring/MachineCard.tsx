@@ -295,7 +295,7 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
           onClick={() => onSelect(machine, 'overview')}
           className={cn(
             'group cursor-pointer transition-all duration-200 relative overflow-hidden',
-            'bg-card/90 hover:bg-card border rounded-2xl shadow-sm hover:shadow-md',
+            'bg-card/90 hover:bg-card border rounded-lg shadow-sm hover:shadow-md',
             'flex flex-col justify-between hover:border-foreground/20 dark:hover:border-primary/40',
             alerting
               ? 'border-amber-500/40 shadow-amber-500/5'
@@ -528,7 +528,7 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent
             onClick={(e) => e.stopPropagation()}
-            className="rounded-2xl sm:max-w-md"
+            className="rounded-lg sm:max-w-md"
           >
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2 text-destructive">
@@ -575,7 +575,7 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
 MachineCard.displayName = 'MachineCard';
 
 export const MachineCardSkeleton: React.FC = () => (
-  <Card className="border rounded-2xl bg-card/80 shadow-sm">
+  <Card className="border rounded-lg bg-card/80 shadow-sm">
     <CardContent className="p-4 space-y-3.5">
       {/* Header skeleton */}
       <div className="flex items-start justify-between gap-3">

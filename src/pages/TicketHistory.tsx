@@ -106,12 +106,12 @@ export default function TicketHistory() {
                   autoComplete="off" placeholder="Pesquisar histórico..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-2xl transition-all"
+                  className="pl-12 h-10 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-md transition-all"
                 />
               </div>
               <div className="flex gap-2">
                 {(statusFilter !== 'all' || priorityFilter !== 'all' || searchTerm !== '') && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground h-12 rounded-2xl px-4 text-xs font-bold uppercase tracking-wider">
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground h-10 rounded-md px-4 text-xs font-bold uppercase tracking-wider">
                     <X className="w-4 h-4 mr-2" /> Limpar
                   </Button>
                 )}
@@ -119,7 +119,7 @@ export default function TicketHistory() {
                   variant={advancedOpen ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => setAdvancedOpen(!advancedOpen)}
-                  className="h-12 rounded-2xl border-border/40 font-bold text-xs uppercase tracking-wider px-6 transition-colors shadow-sm"
+                  className="h-10 rounded-md border-border/40 font-bold text-xs uppercase tracking-wider px-5 transition-colors shadow-sm"
                 >
                   <Filter className="w-4 h-4 mr-2" /> Filtros Analíticos
                 </Button>
@@ -127,11 +127,11 @@ export default function TicketHistory() {
             </div>
 
             {advancedOpen && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 p-4 bg-muted/20 rounded-2xl border border-border/40 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 p-4 bg-muted/20 rounded-lg border border-border/40 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Status</label>
                   <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                    <SelectTrigger className="h-10 bg-background border-border/40 rounded-xl">
+                    <SelectTrigger className="h-10 bg-background border-border/40 rounded-md">
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>

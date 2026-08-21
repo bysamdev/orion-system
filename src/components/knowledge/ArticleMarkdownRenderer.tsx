@@ -71,9 +71,9 @@ export const ArticleMarkdownRenderer: React.FC<ArticleMarkdownRendererProps> = (
       elements.push(
         <div 
           key={`print-${index}`} 
-          className="my-5 p-4 rounded-2xl bg-gradient-to-r from-muted/40 via-muted/20 to-muted/40 border border-dashed border-border/60 flex flex-col sm:flex-row items-start sm:items-center gap-3.5 shadow-sm"
+          className="my-5 p-4 rounded-lg bg-gradient-to-r from-muted/40 via-muted/20 to-muted/40 border border-dashed border-border/60 flex flex-col sm:flex-row items-start sm:items-center gap-3.5 shadow-sm"
         >
-          <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
+          <div className="p-2 rounded-md bg-primary/10 text-primary shrink-0">
             <Image className="w-5 h-5" />
           </div>
           <div className="space-y-1 flex-1">
@@ -112,7 +112,7 @@ export const ArticleMarkdownRenderer: React.FC<ArticleMarkdownRendererProps> = (
       if (quoteText.includes('[!NOTE]') || quoteText.includes('Se o problema persistir') || quoteText.includes('Aviso de Suporte')) {
         const cleanMessage = quoteText.replace(/\[!NOTE\]|\*\*|\*/g, '').trim();
         elements.push(
-          <div key={`alert-note-${index}`} className="my-6 p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 space-y-1.5">
+          <div key={`alert-note-${index}`} className="my-6 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 space-y-1.5">
             <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-xs">
               <Info className="w-4 h-4 shrink-0" />
               <span>Nota de Suporte</span>
@@ -128,7 +128,7 @@ export const ArticleMarkdownRenderer: React.FC<ArticleMarkdownRendererProps> = (
       if (quoteText.includes('[!WARNING]') || quoteText.includes('Cuidados com a Segurança') || quoteText.includes('Atenção:')) {
         const cleanMessage = quoteText.replace(/\[!WARNING\]|\[!IMPORTANT\]|\*\*|\*/g, '').trim();
         elements.push(
-          <div key={`alert-warn-${index}`} className="my-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
+          <div key={`alert-warn-${index}`} className="my-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="space-y-1 text-xs text-foreground/90">
               <span className="font-bold text-amber-600 dark:text-amber-400 block">Aviso Importante</span>

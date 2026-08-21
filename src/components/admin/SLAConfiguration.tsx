@@ -130,7 +130,7 @@ export const SLAConfiguration: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-muted/20 p-6 rounded-2xl border border-border/50">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-muted/20 p-6 rounded-lg border border-border/50">
         <div>
           <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" />
@@ -241,11 +241,11 @@ export const SLAConfiguration: React.FC = () => {
                     </span>
                   </div>
                   
-                  <div className="flex gap-2 mt-4">
-                     <Badge variant="outline" className="border-rose-500/30 text-rose-600 bg-rose-500/10">Urg: {sla.urgent_hours}h</Badge>
-                     <Badge variant="outline" className="border-orange-500/30 text-orange-600 bg-orange-500/10">Alta: {sla.high_hours}h</Badge>
-                     <Badge variant="outline" className="border-blue-500/30 text-blue-600 bg-blue-500/10">Méd: {sla.medium_hours}h</Badge>
-                     <Badge variant="outline" className="border-slate-500/30 text-slate-600 bg-slate-500/10">Bxa: {sla.low_hours}h</Badge>
+                  <div className="flex gap-2 mt-4 flex-wrap">
+                     <Badge variant="outline" className="border-rose-500/30 text-rose-700 dark:text-rose-400 bg-rose-500/10">Urg: {sla.urgent_hours}h</Badge>
+                     <Badge variant="outline" className="border-orange-500/30 text-orange-700 dark:text-orange-400 bg-orange-500/10">Alta: {sla.high_hours}h</Badge>
+                     <Badge variant="outline" className="border-blue-500/30 text-blue-700 dark:text-blue-400 bg-blue-500/10">Méd: {sla.medium_hours}h</Badge>
+                     <Badge variant="outline" className="border-slate-500/30 text-slate-700 dark:text-slate-300 bg-slate-500/10">Bxa: {sla.low_hours}h</Badge>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 md:self-center">

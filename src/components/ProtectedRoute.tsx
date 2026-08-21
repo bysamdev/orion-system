@@ -100,8 +100,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center animate-in fade-in duration-300">
         <div className="flex flex-col items-center gap-4 max-w-sm">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-sm">
-            <Loader2 className="w-7 h-7 animate-spin text-primary" />
+          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 shadow-sm">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
 
           <div className="space-y-1.5">
@@ -114,7 +114,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           </div>
 
           {hasTimedOut && (
-            <div className="mt-4 p-4 rounded-2xl bg-muted/60 border border-border/50 text-left space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full">
+            <div className="mt-4 p-4 rounded-lg bg-muted/60 border border-border/50 text-left space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full">
               <div className="flex items-start gap-2.5">
                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -127,7 +127,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
                   variant="outline"
                   size="sm"
                   disabled={isRetrying}
-                  className="w-full rounded-xl text-xs font-semibold gap-1.5 h-8 border-border/60"
+                  className="w-full rounded-md text-xs font-semibold gap-1.5 h-8 border-border/60"
                   onClick={handleRetry}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
@@ -137,7 +137,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="flex-1 rounded-xl text-xs font-semibold h-8"
+                    className="flex-1 rounded-md text-xs font-semibold h-8"
                     onClick={() => window.location.reload()}
                   >
                     Recarregar
@@ -145,7 +145,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="flex-1 rounded-xl text-xs font-semibold h-8 text-destructive hover:text-destructive"
+                    className="flex-1 rounded-md text-xs font-semibold h-8 text-destructive hover:text-destructive"
                     onClick={() => navigate('/auth')}
                   >
                     <LogIn className="w-3.5 h-3.5 mr-1" />
@@ -175,7 +175,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (isRoleError) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center animate-in fade-in duration-300">
-        <div className="flex flex-col items-center gap-4 max-w-md p-6 bg-card rounded-2xl border border-border shadow-lg">
+        <div className="flex flex-col items-center gap-4 max-w-md p-6 bg-card rounded-lg border border-border shadow-lg">
           <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center text-destructive">
             <AlertTriangle className="w-6 h-6" />
           </div>

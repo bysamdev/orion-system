@@ -1189,7 +1189,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
 
       {/* Excluir Máquina Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-2xl">
+        <AlertDialogContent className="rounded-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="w-5 h-5" />
@@ -1201,11 +1201,11 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl font-bold">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-md font-bold">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteMachine}
               disabled={deleteMachine.isPending}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl"
+              className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-md"
             >
               {deleteMachine.isPending ? 'Excluindo...' : 'Sim, Excluir Registro'}
             </AlertDialogAction>

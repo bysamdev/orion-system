@@ -159,7 +159,7 @@ export const ResolutionDialog: React.FC<ResolutionDialogProps> = ({
 
           {/* Checklist de Resolução (se configurado para a categoria) */}
           {hasChecklist && (
-            <div className="space-y-2 p-3.5 bg-muted/30 border border-border/50 rounded-2xl">
+            <div className="space-y-2 p-3.5 bg-muted/30 border border-border/50 rounded-lg">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <CheckSquare className="w-3.5 h-3.5 text-primary" />

@@ -71,7 +71,7 @@ export default function Avaliacao() {
         
         {/* Logo / Header */}
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4 border border-primary/20">
             <TicketIcon className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-foreground">Avaliação de Atendimento</h1>

@@ -92,7 +92,7 @@ const PatchManagement: React.FC = () => {
       />
 
         {/* Security banner */}
-        <div className="mb-8 p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl flex items-start gap-3">
+        <div className="mb-8 p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-lg flex items-start gap-3">
           <ShieldCheck className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-bold text-indigo-700 dark:text-indigo-400">Verificação de Segurança Ativa</p>

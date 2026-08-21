@@ -465,7 +465,7 @@ const NewTicket = () => {
                             form.clearErrors('category');
                           }}
                             className={cn(
-                              "relative group p-4 md:p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 md:gap-4 text-center h-32 md:h-40 justify-center overflow-hidden",
+                              "relative group p-4 md:p-6 rounded-lg border-2 transition-all flex flex-col items-center gap-3 md:gap-4 text-center h-32 md:h-40 justify-center overflow-hidden",
                               currentCategory === cat.id 
                                 ? "border-primary bg-primary/5 shadow-xl shadow-primary/10" 
                                 : "border-border/40 bg-muted/20 hover:border-primary/20 hover:bg-muted/30"
@@ -641,7 +641,7 @@ const NewTicket = () => {
                       />
                     </div>
 
-                    <section className="p-6 bg-muted/10 border border-border/40 rounded-2xl space-y-4">
+                    <section className="p-6 bg-muted/10 border border-border/40 rounded-lg space-y-4">
                       <div className="flex items-center gap-2">
                         <ShieldCheck className="w-5 h-5 text-primary" />
                         <h4 className="text-sm font-bold">Acesso Remoto (Opcional)</h4>
@@ -653,7 +653,7 @@ const NewTicket = () => {
                     </section>
 
                     {/* Dica de Cola Rápida (Ctrl + V) */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-muted/20 border border-border/40 rounded-2xl text-xs text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-muted/20 border border-border/40 rounded-lg text-xs text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <Clipboard className="w-4 h-4 text-primary shrink-0" />
                         <span>Você pode colar capturas de tela (<kbd className="px-1.5 py-0.5 bg-background font-mono rounded border text-[11px] font-bold text-foreground">Ctrl + V</kbd>) diretamente para anexar.</span>
@@ -671,7 +671,7 @@ const NewTicket = () => {
                   <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                     <section className="space-y-4">
                       <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Anexar evidências</Label>
-                      <div className="bg-muted/10 border-2 border-dashed border-border/60 rounded-2xl p-6 transition-all hover:bg-muted/20 hover:border-primary/20">
+                      <div className="bg-muted/10 border-2 border-dashed border-border/60 rounded-lg p-6 transition-all hover:bg-muted/20 hover:border-primary/20">
                         <FileUpload
                           onFilesSelected={(files) => setPendingFiles(prev => [...prev, ...files])}
                           isUploading={isSubmitting}
@@ -734,7 +734,7 @@ const NewTicket = () => {
                     )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 flex flex-col gap-4">
+                      <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 flex flex-col gap-4">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-primary/10 rounded-full">
                             <AlertCircle className="w-4 h-4 text-primary" />
@@ -763,7 +763,7 @@ const NewTicket = () => {
                         </div>
                       </div>
 
-                      <div className="bg-muted/10 border border-border/40 rounded-2xl p-6 flex items-start gap-4">
+                      <div className="bg-muted/10 border border-border/40 rounded-lg p-6 flex items-start gap-4">
                         <div className="p-2 bg-muted/20 rounded-full">
                           <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
                         </div>

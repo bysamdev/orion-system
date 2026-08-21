@@ -120,14 +120,14 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
         </div>
 
         {/* Period Selector Buttons */}
-        <div className="inline-flex h-9 items-center bg-muted/60 p-1 rounded-2xl border border-border/40">
+        <div className="inline-flex h-8 items-center bg-muted/60 p-1 rounded-lg border border-border/40">
           {PERIODS.map((p) => (
             <button
               key={p}
               type="button"
               onClick={() => onPeriodChange(p)}
               className={cn(
-                'h-full px-2.5 rounded-xl text-[11px] font-semibold transition-all',
+                'h-full px-2.5 rounded-md text-[11px] font-medium transition-all',
                 period === p
                   ? 'bg-background text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -141,7 +141,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
 
       {/* Metric Selector Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex h-10 items-center gap-1 bg-muted/60 p-1 rounded-2xl border border-border/40">
+        <div className="inline-flex h-9 items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border/40">
           {METRIC_TABS.map((tab) => {
             const Icon = tab.icon;
             const isSelected = activeMetric === tab.key;
@@ -151,7 +151,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                 type="button"
                 onClick={() => handleMetricSelect(tab.key)}
                 className={cn(
-                  'inline-flex h-full items-center gap-1.5 px-3 rounded-xl text-xs font-semibold transition-all',
+                  'inline-flex h-full items-center gap-1.5 px-3 rounded-md text-xs font-medium transition-all',
                   isSelected
                     ? 'bg-background text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'

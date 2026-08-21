@@ -634,7 +634,7 @@ const Assets = () => {
                       {c.valor}
                     </p>
                   </div>
-                  <div className={cn('shrink-0 p-3 rounded-2xl', c.fundo, c.cor)}>
+                  <div className={cn('shrink-0 p-3 rounded-lg', c.fundo, c.cor)}>
                     <c.icone className="w-6 h-6" />
                   </div>
                 </CardContent>

@@ -226,7 +226,7 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
   return (
     <div className={cn('space-y-6', className)}>
       {/* ── Top Bar Controls & Period Selectors ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-card border border-border/40 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-lg bg-card border border-border/40 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
             <Activity className="w-5 h-5 animate-pulse" />
@@ -243,7 +243,7 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
 
         <div className="flex items-center gap-2 flex-wrap self-stretch sm:self-auto justify-end">
           {/* Period Selector */}
-          <div className="inline-flex h-11 items-center bg-muted/60 p-1 rounded-2xl border border-border/40">
+          <div className="inline-flex h-11 items-center bg-muted/60 p-1 rounded-lg border border-border/40">
             {(['1h', '6h', '24h', '7d'] as TelemetryPeriod[]).map((p) => (
               <button
                 key={p}
@@ -420,7 +420,7 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
       </div>
 
       {/* ── Category View Selector Bar ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 rounded-2xl bg-muted/60 border border-border/40">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 rounded-lg bg-muted/60 border border-border/40">
         <div className="flex items-center gap-2 pl-3">
           <Layers className="w-4 h-4 text-primary" />
           <span className="text-xs font-bold uppercase tracking-wider text-foreground">

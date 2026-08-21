@@ -669,12 +669,12 @@ export default function KnowledgeBase() {
             </div>
 
             {displayArticles.length === 0 ? (
-              <div className="text-center py-16 bg-muted/10 rounded-3xl border-2 border-dashed border-border/40 space-y-4">
-                <div className="w-16 h-16 bg-background rounded-2xl flex items-center justify-center mx-auto border border-border/40 shadow-sm">
-                  <Book className="w-8 h-8 text-muted-foreground/40" />
+              <div className="text-center py-16 bg-muted/10 rounded-xl border-2 border-dashed border-border/40 space-y-4">
+                <div className="w-14 h-14 bg-background rounded-lg flex items-center justify-center mx-auto border border-border/40 shadow-sm">
+                  <Book className="w-7 h-7 text-muted-foreground/40" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-xl font-bold">Nenhum artigo encontrado</h3>
+                  <h3 className="text-lg font-bold">Nenhum artigo encontrado</h3>
                   <p className="text-muted-foreground text-sm">Tente pesquisar com outros termos de busca.</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setSearch('')}>
@@ -682,11 +682,11 @@ export default function KnowledgeBase() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {displayArticles.map(article => (
                   <Card 
                     key={article.id} 
-                    className="group border-border/60 hover:border-primary/50 hover:shadow-lg transition-all duration-300 cursor-pointer rounded-2xl bg-card relative overflow-hidden flex flex-col justify-between"
+                    className="group border-border/60 hover:border-primary/40 hover:shadow-md transition-all duration-200 cursor-pointer rounded-lg bg-card relative overflow-hidden flex flex-col justify-between"
                     onClick={() => setReadingArticle(article)}
                   >
                     <CardContent className="p-5 space-y-3">

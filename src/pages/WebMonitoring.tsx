@@ -399,7 +399,7 @@ export default function WebMonitoring() {
           </TabsList>
 
           {/* Period selector for charts */}
-          <div className="inline-flex h-11 items-center self-end sm:self-auto bg-muted/60 p-1 rounded-2xl border border-border/40">
+          <div className="inline-flex h-11 items-center self-end sm:self-auto bg-muted/60 p-1 rounded-lg border border-border/40">
             {(['1h', '6h', '24h', '7d'] as WebPeriod[]).map((p) => (
               <button
                 key={p}
@@ -556,7 +556,7 @@ export default function WebMonitoring() {
                   Adicionar Monitor
                 </Button>
               </DialogTrigger>
-              <DialogContent className="rounded-2xl">
+              <DialogContent className="rounded-lg">
                 <DialogHeader>
                   <DialogTitle>Novo Monitor Web</DialogTitle>
                   <DialogDescription>Adicione um site ou API para monitoramento contínuo.</DialogDescription>
@@ -605,7 +605,7 @@ export default function WebMonitoring() {
             ) : endpoints.length === 0 ? (
               <Card className="border-dashed border-2 border-border/60 bg-muted/20">
                 <CardContent className="p-12 text-center flex flex-col items-center justify-center space-y-3">
-                  <div className="p-4 rounded-2xl bg-muted/60 text-muted-foreground">
+                  <div className="p-4 rounded-lg bg-muted/60 text-muted-foreground">
                     <Globe className="w-8 h-8" />
                   </div>
                   <div>
@@ -644,7 +644,7 @@ export default function WebMonitoring() {
                       {/* Left: Icon & Name & URL */}
                       <div className="flex items-center gap-3.5 min-w-0 flex-1">
                         <div className={cn(
-                          'p-3 rounded-2xl shrink-0 transition-colors',
+                          'p-3 rounded-lg shrink-0 transition-colors',
                           isOnline
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                             : 'bg-red-500/10 text-red-600 dark:text-red-400'
@@ -1130,7 +1130,7 @@ export default function WebMonitoring() {
                     Novo Link
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="rounded-2xl">
+                <DialogContent className="rounded-lg">
                   <DialogHeader>
                     <DialogTitle>Novo Link de Internet</DialogTitle>
                     <DialogDescription>Cadastre um link dedicado, conexão Starlink ou roteador de rede.</DialogDescription>
@@ -1242,7 +1242,7 @@ export default function WebMonitoring() {
           ) : filteredNetworkLinks.length === 0 ? (
             <Card className="border-dashed border-2 border-border/60 bg-muted/20">
               <CardContent className="p-12 text-center flex flex-col items-center justify-center space-y-3">
-                <div className="p-4 rounded-2xl bg-muted/60 text-muted-foreground">
+                <div className="p-4 rounded-lg bg-muted/60 text-muted-foreground">
                   <Radio className="w-8 h-8" />
                 </div>
                 <div>

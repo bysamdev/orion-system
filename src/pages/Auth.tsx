@@ -531,7 +531,7 @@ const Auth = () => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.25 }}
-              className="w-full max-w-md p-6 sm:p-8 rounded-2xl border border-border bg-card/90 backdrop-blur-xl shadow-2xl space-y-6"
+              className="w-full max-w-md p-6 sm:p-8 rounded-xl border border-border bg-card/90 backdrop-blur-xl shadow-2xl space-y-6"
             >
               {/* Cabeçalho do 2FA */}
               <div className="text-center space-y-2">

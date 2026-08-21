@@ -1104,7 +1104,7 @@ const TicketDetails: React.FC = () => {
                 </span>
               </div>
               
-              <div className="bg-muted/30 rounded-2xl p-4 space-y-1">
+              <div className="bg-muted/30 rounded-lg p-4 space-y-1">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Duração do Chamado</p>
                 <p className="text-xl font-black text-foreground tracking-tight">
                   {formatDurationHuman(elapsedServiceMinutes)}
@@ -1117,11 +1117,11 @@ const TicketDetails: React.FC = () => {
               {/* Detalhes de faturamento caso seja cliente esporádico e tenha apontamentos */}
               {isSporadic && (totalMinutes > 0 || billableMinutes > 0) && (
                 <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="bg-muted/20 rounded-xl p-3 border border-border/30">
+                  <div className="bg-muted/20 rounded-md p-3 border border-border/30">
                     <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Apontado</p>
                     <p className="text-base font-bold">{totalMinutes > 0 ? formatMinutes(totalMinutes) : '—'}</p>
                   </div>
-                  <div className="bg-muted/20 rounded-xl p-3 border border-border/30">
+                  <div className="bg-muted/20 rounded-md p-3 border border-border/30">
                     <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Faturável</p>
                     <p className="text-base font-bold text-primary">{billableMinutes > 0 ? formatMinutes(billableMinutes) : '—'}</p>
                   </div>
@@ -1131,7 +1131,7 @@ const TicketDetails: React.FC = () => {
 
             {/* Cronógrafo Opcional em Menu Suspenso (Apenas para clientes marcados como esporádico) */}
             {isSporadic && canManageTickets && (
-              <Collapsible defaultOpen={false} className="border border-border/40 rounded-2xl bg-card overflow-hidden shadow-sm">
+              <Collapsible defaultOpen={false} className="border border-border/40 rounded-lg bg-card overflow-hidden shadow-sm">
                 <CollapsibleTrigger asChild>
                   <button
                     type="button"

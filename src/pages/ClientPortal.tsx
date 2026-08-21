@@ -97,7 +97,7 @@ export default function ClientPortal() {
           actions={
             <ButtonPrimary 
               onClick={() => navigate('/novo-ticket')}
-              className="h-12 px-6 rounded-2xl font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+              className="h-12 px-6 rounded-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
               icon={<Plus className="w-5 h-5" />}
             >
               Abrir Novo Chamado
@@ -112,7 +112,7 @@ export default function ClientPortal() {
             onClick={() => navigate('/historico')}
           >
             <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-primary/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
+              <div className="p-3 xl:p-4 bg-primary/10 rounded-lg group-hover:scale-110 transition-transform shrink-0">
                 <History className="w-6 h-6 xl:w-8 xl:h-8 text-primary" />
               </div>
               <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
@@ -127,7 +127,7 @@ export default function ClientPortal() {
             onClick={() => navigate('/conhecimento')}
           >
             <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-secondary/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
+              <div className="p-3 xl:p-4 bg-secondary/10 rounded-lg group-hover:scale-110 transition-transform shrink-0">
                 <Book className="w-6 h-6 xl:w-8 xl:h-8 text-secondary-foreground" />
               </div>
               <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
@@ -142,7 +142,7 @@ export default function ClientPortal() {
             onClick={() => navigate('/novo-ticket')}
           >
             <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-warning/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
+              <div className="p-3 xl:p-4 bg-warning/10 rounded-lg group-hover:scale-110 transition-transform shrink-0">
                 <MessageSquare className="w-6 h-6 xl:w-8 xl:h-8 text-warning" />
               </div>
               <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">

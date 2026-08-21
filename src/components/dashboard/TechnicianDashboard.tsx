@@ -94,7 +94,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant =
             </div>
           </div>
         </div>
-        <div className={cn("p-3 rounded-2xl transition-all group-hover:rotate-12", styles[variant])}>
+        <div className={cn("p-3 rounded-lg transition-all group-hover:rotate-12", styles[variant])}>
           <Icon className="w-6 h-6" />
         </div>
       </div>
@@ -505,7 +505,7 @@ export const TechnicianDashboard: React.FC = () => {
                 placeholder="Busque por #número, título ou cliente..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-2xl transition-all"
+                className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-lg transition-all"
               />
               {searchTerm && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -529,7 +529,7 @@ export const TechnicianDashboard: React.FC = () => {
           </div>
 
           {advancedFiltersOpen && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-muted/10 rounded-2xl border border-border/40 animate-in fade-in slide-in-from-top-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-muted/10 rounded-lg border border-border/40 animate-in fade-in slide-in-from-top-2">
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Prioridade</label>
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -628,7 +628,7 @@ export const TechnicianDashboard: React.FC = () => {
           <div id="tickets-section" className="scroll-mt-6" />
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="flex items-center justify-between">
-              <TabsList className="bg-muted/10 p-1 rounded-2xl border border-border/40">
+              <TabsList className="bg-muted/10 p-1 rounded-lg border border-border/40">
                 <TabsTrigger value="unassigned" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
                   Fila de Espera ({unassigned.length})
                 </TabsTrigger>
@@ -811,7 +811,7 @@ export const TechnicianDashboard: React.FC = () => {
                   <button
                     key={t.id}
                     onClick={() => navigate(`/ticket/${t.id}`)}
-                    className="w-full group p-4 rounded-2xl border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/20 transition-all text-left flex items-center gap-4"
+                    className="w-full group p-4 rounded-lg border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/20 transition-all text-left flex items-center gap-4"
                   >
                     <div className="w-10 h-10 rounded-xl bg-background border border-border/40 flex items-center justify-center group-hover:scale-90 transition-transform">
                       <span className="text-[10px] font-mono font-bold">#{t.ticket_number}</span>
