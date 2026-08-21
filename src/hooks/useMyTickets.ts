@@ -4,6 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Ticket } from './useTickets';
 import { MOCK_TICKETS, getMockTicketsByStatus } from '@/mocks/tickets';
 
+// Teto de segurança pras filas abaixo (ativos/SLA-em-risco/não-atribuídos)
+// que não têm controle de página — diferente de useMeusTickets, que já
+// pagina de verdade. Essas filas se auto-limitam pelo filtro de status
+// (só tickets ainda abertos), mas sem um teto explícito nada impede que
+// cresçam sem limite conforme o volume de chamados simultâneos aumenta.
+const ACTIVE_QUEUE_SAFETY_LIMIT = 500;
+
 /**
  * Hook para buscar tickets atribuídos ao técnico logado (ativos)
  */
@@ -24,7 +31,8 @@ export const useMyActiveTickets = (userId: string | undefined) => {
         .select('*')
         .eq('assigned_to_user_id', userId)
         .in('status', ['in-progress', 'awaiting-customer', 'awaiting-third-party', 'resolved', 'open', 'reopened'])
-        .order('sla_due_date', { ascending: true, nullsFirst: false });
+        .order('sla_due_date', { ascending: true, nullsFirst: false })
+        .limit(ACTIVE_QUEUE_SAFETY_LIMIT);
 
       if (error) throw error;
       return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
@@ -50,7 +58,8 @@ export const useSLAAtRiskTickets = () => {
         .from('tickets')
         .select('*')
         .not('status', 'in', '("resolved","closed","cancelled")')
-        .order('sla_due_date', { ascending: true, nullsFirst: false });
+        .order('sla_due_date', { ascending: true, nullsFirst: false })
+        .limit(ACTIVE_QUEUE_SAFETY_LIMIT);
 
       if (error) throw error;
       
@@ -85,7 +94,8 @@ export const useUnassignedTicketsEnhanced = () => {
         .select('*')
         .is('assigned_to_user_id', null)
         .in('status', ['open', 'reopened', 'awaiting-customer', 'awaiting-third-party'])
-        .order('sla_due_date', { ascending: true, nullsFirst: false });
+        .order('sla_due_date', { ascending: true, nullsFirst: false })
+        .limit(ACTIVE_QUEUE_SAFETY_LIMIT);
 
       if (error) throw error;
       return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
@@ -110,7 +120,8 @@ export const useAllActiveTickets = () => {
         .from('tickets')
         .select('*')
         .in('status', ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'])
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(ACTIVE_QUEUE_SAFETY_LIMIT);
 
       if (error) throw error;
       return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;

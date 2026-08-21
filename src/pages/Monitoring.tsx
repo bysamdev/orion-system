@@ -46,7 +46,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { MonitoringOnboarding } from '@/components/monitoring/MonitoringOnboarding';
 import { PendingMachinesBanner } from '@/components/monitoring/PendingMachinesBanner';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
-import { useUserRole } from '@/hooks/useUserRole';
+import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import {
   Dialog,
   DialogContent,
@@ -379,6 +379,7 @@ function MachinesGrid({
 // ── Página Principal de Monitoramento (NOC View) ───────────
 const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExternalMachine, hideHeader }) => {
   const { data: role, isLoading: roleLoading } = useUserRole();
+  const { data: userProfile } = useUserProfile();
   const queryClient = useQueryClient();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>('all');
   const [selectedMachine, setSelectedMachine] = useState<MachineWithMetric | null>(null);
@@ -398,7 +399,10 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
     company_id: '',
   });
 
-  useRealtimeMachines();
+  // role 'developer' = escopo global (ver escopo.Global() no backend) —
+  // esse perfil legitimamente vê máquinas de qualquer empresa, então o
+  // canal Realtime fica sem filtro de company_id pra ele.
+  useRealtimeMachines(role === 'developer' ? undefined : userProfile?.company_id ?? undefined);
 
   const { data: dashboard } = useMonitoringDashboard();
   const { data: groups, isLoading: groupsLoading } = useMonitoringGroups();

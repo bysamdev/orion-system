@@ -84,7 +84,7 @@ const Assets = () => {
 
   const { data: companies } = useCompanies();
 
-  useRealtimeMachines();
+  useRealtimeMachines(role === 'developer' ? undefined : profile?.company_id ?? undefined);
 
   // Load Device Inventory from unified hook
   const {

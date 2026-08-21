@@ -176,7 +176,7 @@ SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_versio
          ELSE 'Geral'
        END AS domain,
        m.mac_address, m.current_user,
-       hw.security_info, hw.remote_software, hw.battery_info, hw.update_status,
+       hw.security_info,
        m.cpu_usage, m.ram_total, m.ram_used, m.disk_total, m.disk_used, m.uptime, m.metrics_collected_at
 FROM public.machines m
 JOIN public.machine_groups mg ON mg.id = m.group_id
@@ -192,10 +192,59 @@ ORDER BY m.hostname`, groupID, companyID)
 	var out []MachineWithMetric
 	for rows.Next() {
 		var r MachineWithMetric
+		// remote_software/battery_info/update_status ficam de fora desta
+		// listagem (Correção A.15, PERFORMANCE.md §4.2): nenhuma tela que
+		// renderiza a listagem de máquinas (MachineCard.tsx) lê esses três
+		// campos — só o drawer de detalhe lê, e já busca o próprio hardware
+		// completo via monitoringMachineDetail/MachineHardwareByMachineID.
+		// security_info continua aqui porque MachineCard usa direto pro
+		// badge "Sem Antivírus" na grade. Isso tira 3 blobs JSONB do
+		// payload de um polling que roda a cada ciclo pra N máquinas.
 		if err := rows.Scan(&r.ID, &r.GroupID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
 			&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt,
 			&r.Domain, &r.MACAddress, &r.CurrentUser,
-			&r.SecurityInfo, &r.RemoteSoftware, &r.BatteryInfo, &r.UpdateStatus,
+			&r.SecurityInfo,
+			&r.CPUUsage, &r.RAMTotal, &r.RAMUsed, &r.DiskTotal, &r.DiskUsed, &r.Uptime, &r.CollectedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// AllMachines lista todas as máquinas aprovadas (de todos os grupos) numa
+// única query — substitui o padrão anterior do front-end de 1 request por
+// grupo (useAllMachines em useMonitoring.ts fazia Promise.all sobre
+// MachinesByGroupID por grupo). companyID nil = todas as empresas.
+func (d *DB) AllMachines(ctx context.Context, companyID *string) ([]MachineWithMetric, error) {
+	rows, err := d.pool.Query(ctx, `
+SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_version,
+       m.status, m.last_seen, m.agent_version, m.created_at,
+       CASE
+         WHEN m.domain IS NOT NULL AND m.domain <> 'WORKGROUP' AND m.domain <> 'NT SERVICE' AND m.domain <> 'local' AND m.domain <> m.hostname THEN m.domain
+         WHEN mg.name IS NOT NULL THEN mg.name
+         ELSE 'Geral'
+       END AS domain,
+       m.mac_address, m.current_user,
+       hw.security_info,
+       m.cpu_usage, m.ram_total, m.ram_used, m.disk_total, m.disk_used, m.uptime, m.metrics_collected_at
+FROM public.machines m
+LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
+LEFT JOIN public.machine_hardware hw ON hw.machine_id = m.id
+WHERE m.approval_status = 'approved'
+  AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
+ORDER BY m.hostname`, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MachineWithMetric
+	for rows.Next() {
+		var r MachineWithMetric
+		if err := rows.Scan(&r.ID, &r.GroupID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
+			&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt,
+			&r.Domain, &r.MACAddress, &r.CurrentUser,
+			&r.SecurityInfo,
 			&r.CPUUsage, &r.RAMTotal, &r.RAMUsed, &r.DiskTotal, &r.DiskUsed, &r.Uptime, &r.CollectedAt); err != nil {
 			return nil, err
 		}

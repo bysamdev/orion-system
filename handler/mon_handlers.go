@@ -195,6 +195,35 @@ func monitoringRejectMachine(w http.ResponseWriter, r *http.Request) {
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
+// monitoringAllMachines lista todas as máquinas aprovadas do escopo do
+// chamador num único round-trip — usado pela visão "Todos" do
+// Monitoramento, que antes fazia 1 request por grupo no front-end
+// (useAllMachines, ver useMonitoring.ts).
+func monitoringAllMachines(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	machines, err := db.AllMachines(ctx, escopo.FiltroEmpresa())
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar máquinas"})
+		return
+	}
+	if machines == nil {
+		machines = []lib.MachineWithMetric{}
+	}
+	lib.WriteJSON(w, http.StatusOK, machines)
+}
+
 func monitoringGroupMachines(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 	defer cancel()

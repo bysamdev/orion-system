@@ -55,6 +55,13 @@ interface DateRangeArgs {
   dateTo: string;
 }
 
+// Teto de segurança, não paginação de UI: esta query não tem controles de
+// página (diferente de useMeusTickets em useMyTickets.ts, que já pagina de
+// verdade via .range()). Sem isso, uma chamada sem status nem dateRange
+// buscaria a tabela tickets inteira. order('created_at', desc) garante que
+// o corte mantém os mais recentes.
+const TICKET_LIST_SAFETY_LIMIT = 1000;
+
 export const useTickets = (status?: string, dateRange?: DateRangeArgs) => {
   return useQuery({
     queryKey: ['tickets', status, dateRange],
@@ -86,6 +93,8 @@ export const useTickets = (status?: string, dateRange?: DateRangeArgs) => {
         // escala conforme o histórico cresce.
         query = query.or(construirFiltroPeriodoRelatorio(dateRange));
       }
+
+      query = query.limit(TICKET_LIST_SAFETY_LIMIT);
 
       const { data: tickets, error } = await query;
 

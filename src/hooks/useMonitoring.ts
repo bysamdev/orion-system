@@ -194,12 +194,21 @@ export interface DashboardSummary {
   active_alerts: number;
 }
 
+// Fallback de segurança pras queries de monitoramento que já são
+// invalidadas por useRealtimeMachines a cada heartbeat (INSERT/UPDATE em
+// machines dispara invalidateQueries(['monitoring']) — ver
+// src/hooks/useRealtimeMachines.ts). Com refetchInterval igual ao dos
+// heartbeats (30s), Realtime + polling faziam o mesmo fetch duas vezes por
+// ciclo. Mantido em 2min só pra cobrir o caso do canal Realtime cair
+// silenciosamente (CHANNEL_ERROR) — não é mais o mecanismo primário.
+const FALLBACK_REFETCH_MONITORING = 120_000;
+
 // ─── Hooks ───────────────────────────────────────────────
 export function useMonitoringDashboard() {
   return useQuery<DashboardSummary>({
     queryKey: ['monitoring', 'dashboard'],
     queryFn: () => apiGet('/api/monitoring/dashboard'),
-    refetchInterval: 30_000,
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
   });
 }
 
@@ -207,7 +216,7 @@ export function useMonitoringGroups() {
   return useQuery<MachineGroup[]>({
     queryKey: ['monitoring', 'groups'],
     queryFn: () => apiGet('/api/monitoring/groups'),
-    refetchInterval: 30_000,
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
   });
 }
 
@@ -215,7 +224,7 @@ export function usePendingMachines() {
   return useQuery<PendingMachine[]>({
     queryKey: ['monitoring', 'pending-machines'],
     queryFn: () => apiGet('/api/monitoring/machines/pending'),
-    refetchInterval: 30_000,
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
   });
 }
 
@@ -246,29 +255,18 @@ export function useGroupMachines(groupId: string | null) {
     queryKey: ['monitoring', 'group-machines', groupId],
     queryFn: () => apiGet(`/api/monitoring/groups/${groupId}/machines`),
     enabled: !!groupId,
-    refetchInterval: 30_000,
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
   });
 }
 
+// Antes fazia 1 request HTTP por grupo (Promise.all(groups.map(...))) — N
+// requests em paralelo pra montar uma lista que /api/monitoring/machines
+// já devolve pronta num único round-trip.
 export function useAllMachines() {
-  const { data: groups = [] } = useMonitoringGroups();
   return useQuery<MachineWithMetric[]>({
-    queryKey: ['monitoring', 'all-machines', groups.map(g => g.id).join(',')],
-    queryFn: async () => {
-      if (groups.length === 0) return [];
-      const results = await Promise.all(
-        groups.map(g =>
-          apiGet<MachineWithMetric[]>(`/api/monitoring/groups/${g.id}/machines`).catch(() => [])
-        )
-      );
-      const map = new Map<string, MachineWithMetric>();
-      results.flat().forEach(m => {
-        if (m && m.id) map.set(m.id, m);
-      });
-      return Array.from(map.values());
-    },
-    enabled: groups.length > 0,
-    refetchInterval: 30_000,
+    queryKey: ['monitoring', 'all-machines'],
+    queryFn: () => apiGet<MachineWithMetric[]>('/api/monitoring/machines'),
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
   });
 }
 
@@ -277,7 +275,7 @@ export function useMachineDetail(machineId: string | null) {
     queryKey: ['monitoring', 'machine-detail', machineId],
     queryFn: () => apiGet(`/api/monitoring/machines/${machineId}`),
     enabled: !!machineId,
-    refetchInterval: 30_000,
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
   });
 }
 
