@@ -239,6 +239,22 @@ func (s *Svc) tick() {
 	if s.getMachineToken() == "" {
 		t, err := token.LoadToken()
 		if err != nil {
+			// Máquina nunca registrada nesta instalação — antes de gerar
+			// identidade e registrar de verdade, checa se este processo está
+			// rodando dentro de uma VM de análise dinâmica (sandbox
+			// multi-engine tipo VirusTotal). Essas ferramentas executam o
+			// .exe de verdade numa VM descartável pra observar comportamento;
+			// sem esta checagem, cada análise futura (VT redistribui a
+			// amostra pra dezenas de parceiros) registraria mais uma máquina
+			// fantasma no painel. Só roda nesta ramificação porque uma
+			// máquina já registrada e aprovada não deve mais ser
+			// reavaliada — protege contra falso positivo em VM legítima já
+			// em produção (Hyper-V/ESXi real), que passou pelo gate manual
+			// no primeiro registro.
+			if collector.DetectarAmbienteDeSandbox() {
+				s.logger.Println("[INFO] Ambiente de VM de análise detectado (VirtualBox/VMware/QEMU/Xen) — pulando registro nesta execução.")
+				return
+			}
 			s.logger.Printf("[INFO] Identidade local não encontrada, gerando nova identidade de máquina.")
 			t, err = token.GenerateRandomIdentity()
 			if err != nil {

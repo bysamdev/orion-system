@@ -108,11 +108,11 @@ export default function ClientPortal() {
         {/* Atalhos Rápidos: Acesso ao histórico, Wiki e Suporte Humano */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card 
-            className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" 
+            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-3xl overflow-hidden shadow-sm" 
             onClick={() => navigate('/historico')}
           >
             <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-primary/10 rounded-lg group-hover:scale-110 transition-transform shrink-0">
+              <div className="p-3 xl:p-4 bg-primary/10 border border-primary/20 rounded-2xl group-hover:scale-105 transition-transform shrink-0">
                 <History className="w-6 h-6 xl:w-8 xl:h-8 text-primary" />
               </div>
               <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
@@ -123,11 +123,11 @@ export default function ClientPortal() {
           </Card>
 
           <Card 
-            className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" 
+            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-3xl overflow-hidden shadow-sm" 
             onClick={() => navigate('/conhecimento')}
           >
             <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-secondary/10 rounded-lg group-hover:scale-110 transition-transform shrink-0">
+              <div className="p-3 xl:p-4 bg-secondary/15 border border-border/30 rounded-2xl group-hover:scale-105 transition-transform shrink-0">
                 <Book className="w-6 h-6 xl:w-8 xl:h-8 text-secondary-foreground" />
               </div>
               <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
@@ -138,11 +138,11 @@ export default function ClientPortal() {
           </Card>
 
           <Card 
-            className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" 
+            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-3xl overflow-hidden shadow-sm" 
             onClick={() => navigate('/novo-ticket')}
           >
             <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-warning/10 rounded-lg group-hover:scale-110 transition-transform shrink-0">
+              <div className="p-3 xl:p-4 bg-warning/15 border border-warning/30 rounded-2xl group-hover:scale-105 transition-transform shrink-0">
                 <MessageSquare className="w-6 h-6 xl:w-8 xl:h-8 text-warning" />
               </div>
               <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
@@ -165,14 +165,14 @@ export default function ClientPortal() {
                 <h2 className="text-lg font-bold tracking-tight text-foreground">
                   Chamados em Andamento
                 </h2>
-                <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5">
+                <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 rounded-full">
                   {openTickets.length}
                 </Badge>
               </div>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-xs font-bold gap-1 text-muted-foreground hover:text-foreground h-8"
+                className="text-xs font-bold gap-1 text-muted-foreground hover:text-foreground h-8 rounded-xl"
                 onClick={() => navigate('/historico')}
               >
                 Ver histórico completo <ChevronRight className="w-3.5 h-3.5" />
@@ -184,30 +184,29 @@ export default function ClientPortal() {
                 const isAwaitingCustomer = ticket.status === 'awaiting-customer';
                 const isResolved = ticket.status === 'resolved';
                 const isInProgress = ticket.status === 'in-progress';
-
                 return (
                   <Card 
                     key={ticket.id} 
                     className={cn(
-                      "group border transition-all duration-200 cursor-pointer overflow-hidden rounded-xl bg-card/60 backdrop-blur-sm hover:border-primary/40 hover:shadow-md",
+                      "group border transition-all duration-200 cursor-pointer overflow-hidden rounded-2xl bg-card shadow-sm hover:border-primary/40 hover:shadow-md",
                       isAwaitingCustomer 
                         ? "border-primary/50 bg-primary/5 hover:border-primary" 
                         : isResolved
                         ? "border-emerald-500/50 bg-emerald-500/5 hover:border-emerald-500"
                         : isInProgress
                         ? "border-blue-500/30 bg-blue-500/5 hover:border-blue-500/60"
-                        : "border-border/60 hover:border-primary/40"
+                        : "border-border/40 hover:border-primary/40"
                     )}
                     onClick={() => navigate(`/ticket/${ticket.id}`)}
                   >
                     <CardContent className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className={cn(
-                          "p-2 rounded-lg flex-shrink-0",
-                          isAwaitingCustomer ? "bg-primary/10 text-primary" :
-                          isResolved ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
-                          isInProgress ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" :
-                          "bg-primary/10 text-primary"
+                          "p-2.5 rounded-xl border flex-shrink-0",
+                          isAwaitingCustomer ? "bg-primary/10 text-primary border-primary/20" :
+                          isResolved ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" :
+                          isInProgress ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20" :
+                          "bg-primary/10 text-primary border-primary/20"
                         )}>
                           <Ticket className="w-4 h-4" />
                         </div>
@@ -248,7 +247,7 @@ export default function ClientPortal() {
                         {isAwaitingCustomer ? (
                           <Button 
                             size="sm"
-                            className="h-8 px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1.5 rounded-lg shadow-sm"
+                            className="h-8 px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1.5 rounded-xl shadow-sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/ticket/${ticket.id}`);
@@ -260,20 +259,20 @@ export default function ClientPortal() {
                         ) : isResolved ? (
                           <Button 
                             size="sm"
-                            className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 rounded-lg shadow-sm"
+                            className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 rounded-xl shadow-sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/ticket/${ticket.id}`);
                             }}
                           >
                             <CheckCircle2 className="w-3 h-3" />
-                            Ver Resolução
+                            Avaliar & Concluir
                           </Button>
                         ) : (
                           <Button 
                             size="sm" 
                             variant="outline"
-                            className="h-8 px-3 text-xs font-semibold gap-1 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-all"
+                            className="h-8 px-3 text-xs font-semibold gap-1 rounded-xl group-hover:bg-primary group-hover:text-primary-foreground transition-all"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/ticket/${ticket.id}`);

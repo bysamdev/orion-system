@@ -182,6 +182,7 @@ FROM public.machines m
 JOIN public.machine_groups mg ON mg.id = m.group_id
 LEFT JOIN public.machine_hardware hw ON hw.machine_id = m.id
 WHERE mg.name = (SELECT name FROM public.machine_groups WHERE id = $1)
+  AND m.approval_status = 'approved'
   AND ($2::uuid IS NULL OR m.company_id = $2::uuid)
 ORDER BY m.hostname`, groupID, companyID)
 	if err != nil {
@@ -313,6 +314,79 @@ func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, com
 		VALUES ($1, 'Grupo gerado automaticamente')
 		RETURNING id::text`, groupName).Scan(&id)
 	return id, err
+}
+
+// PendingMachineRow é o subconjunto de colunas que o admin precisa pra
+// decidir aprovar ou rejeitar uma máquina nunca vista antes — sem métricas
+// nem hardware, que não fazem sentido pra uma máquina ainda não confiável.
+type PendingMachineRow struct {
+	ID           string    `json:"id"`
+	Hostname     string    `json:"hostname"`
+	IPAddress    *string   `json:"ip_address"`
+	OS           *string   `json:"os"`
+	Domain       *string   `json:"domain"`
+	CurrentUser  *string   `json:"current_user"`
+	AgentVersion *string   `json:"agent_version"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+// PendingMachines lista máquinas aguardando aprovação manual (ver migration
+// add_machine_approval_gate). companyID nil = todas as empresas.
+func (d *DB) PendingMachines(ctx context.Context, companyID *string) ([]PendingMachineRow, error) {
+	rows, err := d.pool.Query(ctx, `
+SELECT id::text, hostname, ip_address, os, domain, "current_user", agent_version, created_at
+FROM public.machines
+WHERE approval_status = 'pending' AND ($1::uuid IS NULL OR company_id = $1::uuid)
+ORDER BY created_at DESC`, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PendingMachineRow
+	for rows.Next() {
+		var r PendingMachineRow
+		if err := rows.Scan(&r.ID, &r.Hostname, &r.IPAddress, &r.OS, &r.Domain, &r.CurrentUser, &r.AgentVersion, &r.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ApproveMachine libera uma máquina pendente pra aparecer no painel e nos
+// contadores de dashboard. companyID nil = sem checagem de tenant (chamador
+// já validado como escopo global); caso contrário restringe à empresa do
+// chamador (SEC-02).
+func (d *DB) ApproveMachine(ctx context.Context, machineID string, companyID *string) error {
+	cmd, err := d.pool.Exec(ctx, `
+UPDATE public.machines SET approval_status = 'approved'
+WHERE id = $1 AND approval_status = 'pending' AND ($2::uuid IS NULL OR company_id = $2::uuid)`,
+		machineID, companyID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("máquina não encontrada ou já não está pendente")
+	}
+	return nil
+}
+
+// RejectMachine remove definitivamente uma máquina pendente (não é um
+// "status rejected" que fica visível em lugar nenhum do painel — é o mesmo
+// fim de uma máquina fantasma de sandbox: sai do banco, CASCADE cuida do
+// resto). companyID nil = sem checagem de tenant.
+func (d *DB) RejectMachine(ctx context.Context, machineID string, companyID *string) error {
+	cmd, err := d.pool.Exec(ctx, `
+DELETE FROM public.machines
+WHERE id = $1 AND approval_status = 'pending' AND ($2::uuid IS NULL OR company_id = $2::uuid)`,
+		machineID, companyID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("máquina não encontrada ou já não está pendente")
+	}
+	return nil
 }
 
 func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, currentUserSID, companyID, deviceType, macAddress, domain string) (string, error) {
@@ -582,14 +656,14 @@ func (d *DB) DashboardSummaryData(ctx context.Context, companyID *string) (Dashb
 	err := d.pool.QueryRow(ctx, `
 SELECT
   (SELECT COUNT(*) FROM public.machines
-    WHERE $1::uuid IS NULL OR company_id = $1::uuid) AS total,
+    WHERE approval_status = 'approved' AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS total,
   (SELECT COUNT(*) FROM public.machines
-    WHERE (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS online,
+    WHERE approval_status = 'approved' AND (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS online,
   (SELECT COUNT(*) FROM public.machines
-    WHERE NOT (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS offline,
+    WHERE approval_status = 'approved' AND NOT (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS offline,
   (SELECT COUNT(*) FROM public.machine_alerts a
     JOIN public.machines m ON m.id = a.machine_id
-    WHERE a.resolved = false AND ($1::uuid IS NULL OR m.company_id = $1::uuid)) AS active_alerts
+    WHERE a.resolved = false AND m.approval_status = 'approved' AND ($1::uuid IS NULL OR m.company_id = $1::uuid)) AS active_alerts
 `, companyID).Scan(&s.Total, &s.Online, &s.Offline, &s.ActiveAlerts)
 	return s, err
 }
@@ -606,6 +680,7 @@ SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE m.status = 'offline' AND m.last_seen < now() - INTERVAL '1 hour'
+  AND m.approval_status = 'approved'
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL
@@ -618,6 +693,7 @@ SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE m.disk_total > 0 AND (m.disk_used::float8 / m.disk_total) > 0.90
+  AND m.approval_status = 'approved'
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL
@@ -630,6 +706,7 @@ SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE m.cpu_usage > 85
+  AND m.approval_status = 'approved'
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL
@@ -641,6 +718,7 @@ FROM public.machine_alerts a
 JOIN public.machines m ON m.id = a.machine_id
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE a.resolved = false AND a.type <> 'updates'
+  AND m.approval_status = 'approved'
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 ORDER BY severity DESC, alert_type
 `, companyID)

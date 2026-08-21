@@ -66,10 +66,10 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant =
     <button 
       onClick={onClick}
       className={cn(
-        "relative group text-left p-6 rounded-3xl transition-all duration-300 overflow-hidden glass-card h-full w-full",
+        "relative group text-left p-6 rounded-3xl transition-all duration-300 overflow-hidden bg-card border border-border/40 hover:border-primary/40 shadow-sm hover:shadow-md h-full w-full",
         active 
           ? cn("ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02]", glows[variant])
-          : "hover:scale-[1.01] hover:border-primary/30"
+          : "hover:scale-[1.01]"
       )}
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-125 duration-700" />
@@ -94,7 +94,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant =
             </div>
           </div>
         </div>
-        <div className={cn("p-3 rounded-lg transition-all group-hover:rotate-12", styles[variant])}>
+        <div className={cn("p-3 rounded-2xl border transition-all group-hover:rotate-6", styles[variant])}>
           <Icon className="w-6 h-6" />
         </div>
       </div>
@@ -505,7 +505,7 @@ export const TechnicianDashboard: React.FC = () => {
                 placeholder="Busque por #número, título ou cliente..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-lg transition-all"
+                className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-2xl transition-all"
               />
               {searchTerm && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -521,7 +521,7 @@ export const TechnicianDashboard: React.FC = () => {
                 variant={advancedFiltersOpen ? "default" : "outline"} 
                 size="sm" 
                 onClick={() => setAdvancedFiltersOpen(!advancedFiltersOpen)}
-                className="rounded-xl border-border/40 font-bold text-xs gap-2 transition-colors"
+                className="rounded-2xl border-border/40 font-bold text-xs gap-2 transition-colors h-12 px-4"
               >
                 <Filter className="w-3.5 h-3.5" /> Filtros Avançados
               </Button>
@@ -529,7 +529,7 @@ export const TechnicianDashboard: React.FC = () => {
           </div>
 
           {advancedFiltersOpen && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-muted/10 rounded-lg border border-border/40 animate-in fade-in slide-in-from-top-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-muted/10 rounded-2xl border border-border/40 animate-in fade-in slide-in-from-top-2">
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Prioridade</label>
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -628,21 +628,21 @@ export const TechnicianDashboard: React.FC = () => {
           <div id="tickets-section" className="scroll-mt-6" />
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="flex items-center justify-between">
-              <TabsList className="bg-muted/10 p-1 rounded-lg border border-border/40">
-                <TabsTrigger value="unassigned" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
+              <TabsList className="inline-flex">
+                <TabsTrigger value="unassigned">
                   Fila de Espera ({unassigned.length})
                 </TabsTrigger>
-                <TabsTrigger value="my-tickets" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
+                <TabsTrigger value="my-tickets">
                   Meus Chamados ({filteredMyTickets.length})
                 </TabsTrigger>
-                <TabsTrigger value="all-tickets" className="rounded-xl px-6 py-2 font-bold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
+                <TabsTrigger value="all-tickets">
                   Todos os Chamados ({filteredAllTickets.length})
                 </TabsTrigger>
               </TabsList>
             </div>
 
             <TabsContent value="unassigned" className="mt-0">
-              <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
+              <Card className="border-border/40 shadow-sm rounded-3xl overflow-hidden bg-card">
                 <CardContent className="p-0 overflow-x-auto">
                   <Table className="min-w-[750px]">
                     <TableHeader className="bg-muted/5">
@@ -695,7 +695,7 @@ export const TechnicianDashboard: React.FC = () => {
                               <Button 
                                 size="sm" 
                                 onClick={(e) => { e.stopPropagation(); handleAssumeTicket(t.id); }} 
-                                className="h-8 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider relative z-20 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
+                                className="h-8 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider relative z-20 shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
                               >
                                 <HandHelping className="w-3.5 h-3.5" /> Assumir
                               </Button>
@@ -710,7 +710,7 @@ export const TechnicianDashboard: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="my-tickets" className="mt-0">
-              <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
+              <Card className="border-border/40 shadow-sm rounded-3xl overflow-hidden bg-card">
                 <CardContent className="p-0 overflow-x-auto">
                   <Table className="min-w-[750px]">
                     <TableHeader className="bg-muted/5">
@@ -741,7 +741,7 @@ export const TechnicianDashboard: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="all-tickets" className="mt-0">
-              <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
+              <Card className="border-border/40 shadow-sm rounded-3xl overflow-hidden bg-card">
                 <CardContent className="p-0 overflow-x-auto">
                   <Table className="min-w-[750px]">
                     <TableHeader className="bg-muted/5">
@@ -776,7 +776,7 @@ export const TechnicianDashboard: React.FC = () => {
         {/* Sidebar Info Area */}
         <div className="xl:col-span-4 space-y-8 min-w-0">
           {/* Workload Section */}
-          <Card className="border-border/40 shadow-lg rounded-3xl bg-card/50 backdrop-blur-sm overflow-hidden">
+          <Card className="border-border/40 shadow-sm rounded-3xl bg-card overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center justify-between">
                 Sua Carga de Trabalho
@@ -811,9 +811,9 @@ export const TechnicianDashboard: React.FC = () => {
                   <button
                     key={t.id}
                     onClick={() => navigate(`/ticket/${t.id}`)}
-                    className="w-full group p-4 rounded-lg border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/20 transition-all text-left flex items-center gap-4"
+                    className="w-full group p-3.5 rounded-2xl border border-border/40 bg-muted/15 hover:bg-primary/5 hover:border-primary/20 transition-all text-left flex items-center gap-3.5"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-background border border-border/40 flex items-center justify-center group-hover:scale-90 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-background border border-border/40 flex items-center justify-center group-hover:scale-95 transition-transform">
                       <span className="text-[10px] font-mono font-bold">#{t.ticket_number}</span>
                     </div>
                     <div className="flex-1 min-w-0">

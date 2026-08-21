@@ -107,6 +107,94 @@ func monitoringListGroups(w http.ResponseWriter, r *http.Request) {
 	lib.WriteJSON(w, http.StatusOK, groups)
 }
 
+// monitoringPendingMachines lista máquinas que já mandaram heartbeat mas
+// ainda não foram aprovadas por um admin/técnico — a fila que existe pra
+// nunca mais uma VM de sandbox (VirusTotal e afins) aparecer direto como
+// máquina online no painel (ver migration add_machine_approval_gate).
+func monitoringPendingMachines(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem revisar máquinas pendentes"})
+		return
+	}
+
+	pending, err := db.PendingMachines(ctx, escopo.FiltroEmpresa())
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar máquinas pendentes"})
+		return
+	}
+	if pending == nil {
+		pending = []lib.PendingMachineRow{}
+	}
+	lib.WriteJSON(w, http.StatusOK, pending)
+}
+
+// monitoringApproveMachine libera uma máquina pendente pra entrar no painel.
+func monitoringApproveMachine(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem aprovar máquinas"})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "ID é obrigatório"})
+		return
+	}
+	if err := db.ApproveMachine(ctx, id, escopo.FiltroEmpresa()); err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
+// monitoringRejectMachine nega e apaga uma máquina pendente — mesmo destino
+// de uma máquina fantasma de sandbox: some do banco, nunca mais aparece na
+// fila (CASCADE cuida de hardware/alertas/comandos associados).
+func monitoringRejectMachine(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem rejeitar máquinas"})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "ID é obrigatório"})
+		return
+	}
+	if err := db.RejectMachine(ctx, id, escopo.FiltroEmpresa()); err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
 func monitoringGroupMachines(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 	defer cancel()

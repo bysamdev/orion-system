@@ -44,6 +44,7 @@ import { MachineCard, MachineCardSkeleton } from '@/components/monitoring/Machin
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 import { useQueryClient } from '@tanstack/react-query';
 import { MonitoringOnboarding } from '@/components/monitoring/MonitoringOnboarding';
+import { PendingMachinesBanner } from '@/components/monitoring/PendingMachinesBanner';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
@@ -408,6 +409,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
   const deleteGroup = useDeleteGroup();
 
   const isAdminOrGestor = role === 'admin' || role === 'developer';
+  const canApproveMachines = isAdminOrGestor || role === 'technician';
 
   const { data: externalMachineDetail } = useMachineDetail(externalMachineId || null);
 
@@ -667,6 +669,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
             }
           />
         )}
+
+        {canApproveMachines && <PendingMachinesBanner />}
 
         {/* ── Body ── */}
         <div className="flex flex-col lg:flex-row gap-6">

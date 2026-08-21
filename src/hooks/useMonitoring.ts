@@ -88,6 +88,20 @@ export interface MachineGroup {
   online_machines: number;
 }
 
+// Máquina que mandou heartbeat mas ainda não foi aprovada por um
+// admin/técnico (ver migration add_machine_approval_gate). Não carrega
+// métricas/hardware — só o suficiente pra decidir aprovar ou rejeitar.
+export interface PendingMachine {
+  id: string;
+  hostname: string;
+  ip_address: string | null;
+  os: string | null;
+  domain: string | null;
+  current_user: string | null;
+  agent_version: string | null;
+  created_at: string;
+}
+
 export interface MachineWithMetric {
   id: string;
   group_id: string | null;
@@ -194,6 +208,36 @@ export function useMonitoringGroups() {
     queryKey: ['monitoring', 'groups'],
     queryFn: () => apiGet('/api/monitoring/groups'),
     refetchInterval: 30_000,
+  });
+}
+
+export function usePendingMachines() {
+  return useQuery<PendingMachine[]>({
+    queryKey: ['monitoring', 'pending-machines'],
+    queryFn: () => apiGet('/api/monitoring/machines/pending'),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useApproveMachine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (machineId: string) =>
+      apiPost<{ success: boolean }>(`/api/monitoring/machines/${machineId}/approve`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring'] });
+    },
+  });
+}
+
+export function useRejectMachine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (machineId: string) =>
+      apiPost<{ success: boolean }>(`/api/monitoring/machines/${machineId}/reject`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'pending-machines'] });
+    },
   });
 }
 
