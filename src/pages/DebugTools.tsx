@@ -254,7 +254,7 @@ const DebugTools = () => {
       return;
     }
 
-    console.log('Starting rate limit test with token:', accessToken.slice(0, 20) + '...');
+    console.log('Starting rate limit test...');
 
     const newTestIds: string[] = [];
 

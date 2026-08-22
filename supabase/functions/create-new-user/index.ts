@@ -109,6 +109,23 @@ serve(async (req) => {
       );
     }
 
+    // SEC-14: Validar se o administrador não-global está restrito à sua própria empresa
+    const { data: isGlobalScope } = await supabaseAdmin.rpc('is_master_company_user', { _user_id: currentUser.id });
+    if (!isGlobalScope) {
+      const { data: callerProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('company_id')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (!callerProfile?.company_id || callerProfile.company_id !== body.company_id) {
+        return new Response(
+          JSON.stringify({ error: 'Não é permitido criar usuários em outra empresa' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // 1. Criar usuário no Auth
     const { data: authData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
       email: body.email,

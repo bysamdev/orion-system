@@ -29,9 +29,17 @@ func NewSupabaseClient(baseURL, anonKey, serviceKey string) *SupabaseClient {
 	}
 }
 
+type AuthFactor struct {
+	ID         string `json:"id"`
+	Status     string `json:"status"`
+	FactorType string `json:"factor_type"`
+}
+
 type AuthUser struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
+	ID      string       `json:"id"`
+	Email   string       `json:"email"`
+	AAL     string       `json:"aal,omitempty"`
+	Factors []AuthFactor `json:"factors,omitempty"`
 }
 
 func (c *SupabaseClient) GetUserByAccessToken(ctx context.Context, token string) (*AuthUser, error) {

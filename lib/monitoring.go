@@ -31,6 +31,7 @@ type MachineRow struct {
 	Status         string           `json:"status"`
 	LastSeen       *time.Time       `json:"last_seen"`
 	AgentVersion   *string          `json:"agent_version"`
+	ApprovalStatus *string          `json:"approval_status,omitempty"`
 	CreatedAt      time.Time        `json:"created_at"`
 	MachineToken   *string          `json:"machine_token"`
 	MachineUUID    *string          `json:"machine_uuid"`
@@ -257,7 +258,7 @@ func (d *DB) MachineByID(ctx context.Context, id string) (*MachineRow, error) {
 	var r MachineRow
 	err := d.pool.QueryRow(ctx, `
 SELECT m.id::text, m.group_id::text, m.company_id::text, m.hostname, m.ip_address, m.os, m.os_version,
-       m.status, m.last_seen, m.agent_version, m.created_at,
+       m.status, m.last_seen, m.agent_version, m.approval_status, m.created_at,
        CASE 
          WHEN m.domain IS NOT NULL AND m.domain <> 'WORKGROUP' AND m.domain <> 'NT SERVICE' AND m.domain <> 'local' AND m.domain <> m.hostname THEN m.domain
          WHEN mg.name IS NOT NULL THEN mg.name
@@ -268,7 +269,7 @@ FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE m.id = $1`, id).Scan(
 		&r.ID, &r.GroupID, &r.CompanyID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
-		&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt, &r.Domain, &r.MACAddress, &r.CurrentUser)
+		&r.Status, &r.LastSeen, &r.AgentVersion, &r.ApprovalStatus, &r.CreatedAt, &r.Domain, &r.MACAddress, &r.CurrentUser)
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +472,8 @@ func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, o
 INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type, domain)
 VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $14)
 ON CONFLICT (machine_token) DO UPDATE
-  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=$11, local_ip=$3, logged_in_user=$9, mac_address=$12, device_type=$13, domain=$14
+  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=COALESCE(public.machines.company_id, $11), local_ip=$3, logged_in_user=$9, mac_address=$12, device_type=$13, domain=$14
+  WHERE public.machines.company_id IS NULL OR public.machines.company_id = $11::uuid
 RETURNING id::text`, groupID, cleanHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID), NilIfEmpty(macAddress), deviceType, NilIfEmpty(domain)).Scan(&id)
 	return id, err
 }
@@ -602,16 +604,36 @@ WHERE id = $1`, machineID, status)
 }
 
 type InsertCommandInput struct {
-	MachineID string
-	Command   string
+	MachineID        string
+	Command          string
+	ExecutedByUserID *string
+	ExecutedByName   *string
 }
 
 func (d *DB) CreateCommand(ctx context.Context, in InsertCommandInput) (string, error) {
 	var id string
 	err := d.pool.QueryRow(ctx, `
-INSERT INTO public.machine_commands (machine_id, command, status)
-VALUES ($1, $2, 'pending') RETURNING id::text`, in.MachineID, in.Command).Scan(&id)
+INSERT INTO public.machine_commands (machine_id, command, status, executed_by_user_id, executed_by_name)
+VALUES ($1, $2, 'pending', $3, $4) RETURNING id::text`, in.MachineID, in.Command, NilIfEmpty(pointerToString(in.ExecutedByUserID)), NilIfEmpty(pointerToString(in.ExecutedByName))).Scan(&id)
 	return id, err
+}
+
+func pointerToString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// CommandCompanyID returns the company_id associated with the machine that owns the command.
+func (d *DB) CommandCompanyID(ctx context.Context, commandID string) (*string, error) {
+	var companyID *string
+	err := d.pool.QueryRow(ctx, `
+SELECT m.company_id::text
+FROM public.machine_commands c
+JOIN public.machines m ON m.id = c.machine_id
+WHERE c.id = $1`, commandID).Scan(&companyID)
+	return companyID, err
 }
 
 // marcadorAutoUpdate identifica, dentro do texto do comando, um comando de

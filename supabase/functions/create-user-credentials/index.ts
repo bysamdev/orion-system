@@ -255,7 +255,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: `Usuário criado com sucesso! Credenciais provisórias: ${tempPassword} (E-mail não enviado: chave Resend ausente).`,
+          message: `Usuário criado com sucesso. O serviço de e-mail não está configurado; utilize a recuperação de senha para definir o primeiro acesso.`,
           user_id: userId,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -356,7 +356,7 @@ serve(async (req) => {
         success: true,
         message: emailData?.id 
           ? `Usuário criado e credenciais enviadas para ${email}`
-          : `Usuário criado com sucesso (senha: ${tempPassword}).`,
+          : `Usuário criado com sucesso. Não foi possível enviar o e-mail automaticamente; utilize o link de recuperação.`,
         user_id: userId,
         email_id: emailData?.id || null,
       }),

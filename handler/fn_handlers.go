@@ -4,9 +4,11 @@ package handler
 // These are equivalent to the existing backend-go /functions/* routes.
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -352,7 +354,10 @@ func createUserCredentials(w http.ResponseWriter, r *http.Request) {
 	// GenerateRandomPassword usa crypto/rand sobre um alfabeto de 70 símbolos.
 	pw := lib.GenerateRandomPassword(16)
 
-	out, err := sb.AdminCreateUser(r.Context(), lib.CreateUserInput{
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	out, err := sb.AdminCreateUser(ctx, lib.CreateUserInput{
 		Email: req.Email, Password: pw, EmailConfirm: true,
 		UserMetadata: map[string]interface{}{"full_name": req.FullName},
 	})
@@ -363,7 +368,7 @@ func createUserCredentials(w http.ResponseWriter, r *http.Request) {
 	userID := out.User.ID
 
 	for i := 0; i < 6; i++ {
-		if err := db.EnsureProfileRowExists(r.Context(), userID); err == nil {
+		if err := db.EnsureProfileRowExists(ctx, userID); err == nil {
 			break
 		}
 		time.Sleep(250 * time.Millisecond)
@@ -376,9 +381,20 @@ func createUserCredentials(w http.ResponseWriter, r *http.Request) {
 			profileUp.Department = &v
 		}
 	}
-	_ = db.UpdateProfile(r.Context(), userID, profileUp)
+	if err := db.UpdateProfile(ctx, userID, profileUp); err != nil {
+		log.Printf("[ERRO] falha ao atualizar profile do novo usuário %s: %v (executando rollback)", userID, err)
+		_ = sb.AdminDeleteUserByID(ctx, userID)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao configurar perfil do usuário"})
+		return
+	}
+
 	if req.Role != "customer" {
-		_ = db.UpdateUserRole(r.Context(), userID, req.Role)
+		if err := db.UpdateUserRole(ctx, userID, req.Role); err != nil {
+			log.Printf("[ERRO] falha ao definir role %s para novo usuário %s: %v (executando rollback)", req.Role, userID, err)
+			_ = sb.AdminDeleteUserByID(ctx, userID)
+			lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao configurar função do usuário"})
+			return
+		}
 	}
 
 	emailHTML, _ := lib.RenderTemplate(`<!doctype html>
@@ -397,11 +413,16 @@ func createUserCredentials(w http.ResponseWriter, r *http.Request) {
 		"LoginURL": cfg.LoginURL, "TempPassword": pw,
 	})
 
-	emailOut, err := mailer.Send(r.Context(), lib.SendEmailInput{
+	emailOut, err := mailer.Send(ctx, lib.SendEmailInput{
 		To: req.Email, Subject: "Bem-vindo ao Orion System - Suas Credenciais", HTML: emailHTML,
 	})
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao enviar e-mail: %v", err)})
+		log.Printf("[ERRO] falha ao enviar e-mail de boas-vindas para %s: %v", req.Email, err)
+		lib.WriteJSON(w, http.StatusOK, map[string]any{
+			"success": true,
+			"message": "Usuário criado com sucesso. O e-mail automático não pôde ser entregue; utilize a recuperação de senha.",
+			"user_id": userID,
+		})
 		return
 	}
 
@@ -519,6 +540,14 @@ func sendPasswordChangedAlert(w http.ResponseWriter, r *http.Request) {
 // ─── ResetPasswordWithToken ───────────────────────────────────────────────────
 
 func resetPasswordWithToken(w http.ResponseWriter, r *http.Request) {
+	if !limiterResetPassword.Permitir(lib.ClientIP(r)) {
+		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "Muitas tentativas. Aguarde 1 minuto."})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
 	var req struct {
 		Token       string `json:"token"`
 		NewPassword string `json:"newPassword"`
@@ -538,7 +567,7 @@ func resetPasswordWithToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenData, err := db.InviteTokenByToken(r.Context(), req.Token)
+	tokenData, err := db.InviteTokenByToken(ctx, req.Token)
 	if err != nil {
 		if errors.Is(err, lib.ErrNoRows) {
 			lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Token inválido ou expirado"})
@@ -549,23 +578,26 @@ func resetPasswordWithToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if time.Now().After(tokenData.ExpiresAt) {
-		_ = db.DeleteInviteToken(r.Context(), req.Token)
+		_ = db.DeleteInviteToken(ctx, req.Token)
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Token expirado"})
 		return
 	}
 
-	userID, err := db.AuthUserIDByEmail(r.Context(), tokenData.Email)
+	userID, err := db.AuthUserIDByEmail(ctx, tokenData.Email)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Usuário não encontrado"})
 		return
 	}
 
-	if err := sb.AdminUpdateUserByID(r.Context(), userID, lib.AdminUpdateUserInput{Password: &pw}); err != nil {
-		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": fmt.Sprintf("Erro ao atualizar senha: %v", err)})
+	if err := sb.AdminUpdateUserByID(ctx, userID, lib.AdminUpdateUserInput{Password: &pw}); err != nil {
+		log.Printf("[ERRO] falha ao atualizar senha via invite token: %v", err)
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Erro ao atualizar senha"})
 		return
 	}
 
-	_ = db.DeleteInviteToken(r.Context(), req.Token)
+	if err := db.DeleteInviteToken(ctx, req.Token); err != nil {
+		log.Printf("[AVISO] falha ao deletar invite token %s após uso: %v", req.Token, err)
+	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "message": "Senha definida com sucesso"})
 }
 

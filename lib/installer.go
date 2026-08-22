@@ -75,10 +75,20 @@ func InstaladorMsiBytes() []byte {
 // OrionAgent.wxs recebe a config (ver orion-agent/cmd/installer/main.go
 // pras flags equivalentes no .exe).
 func ComandoMsiexecPersonalizado(nomeArquivoMsi, agentKey, apiURL, companyName string) string {
-	escapar := func(s string) string { return strings.ReplaceAll(s, `"`, "'") }
+	limpar := func(s string) string {
+		s = strings.ReplaceAll(s, `"`, "")
+		s = strings.ReplaceAll(s, "&", "")
+		s = strings.ReplaceAll(s, "|", "")
+		s = strings.ReplaceAll(s, ";", "")
+		s = strings.ReplaceAll(s, "%", "")
+		s = strings.ReplaceAll(s, "^", "")
+		s = strings.ReplaceAll(s, "\r", "")
+		s = strings.ReplaceAll(s, "\n", "")
+		return strings.TrimSpace(s)
+	}
 	return fmt.Sprintf(
 		`msiexec /i %s AGENTKEY="%s" APIURL="%s" COMPANYNAME="%s" /quiet /norestart`,
-		nomeArquivoMsi, escapar(agentKey), escapar(apiURL), escapar(companyName),
+		limpar(nomeArquivoMsi), limpar(agentKey), limpar(apiURL), limpar(companyName),
 	)
 }
 

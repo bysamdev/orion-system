@@ -229,11 +229,21 @@ const TicketDetails: React.FC = () => {
     queryKey: ['kb-suggestions', ticket?.category, ticket?.title],
     queryFn: async (): Promise<Array<{ id: string; title: string; slug: string; category: string }>> => {
       if (!ticket) return [];
-      // knowledge_articles is not in the generated types, so we cast the table name
-      const { data, error } = await (supabase.from as (t: string) => ReturnType<typeof supabase.from>)('knowledge_articles')
-        .select('id, title, slug, category')
-        .or(`category.eq."${ticket.category}",title.ilike.%${ticket.title.split(' ')[0]}%`)
-        .limit(3);
+      const cleanCat = (ticket.category || '').replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
+      const firstWord = (ticket.title || '').split(' ')[0]?.replace(/[^a-zA-Z0-9]/g, '') || '';
+      
+      let query = (supabase.from as (t: string) => ReturnType<typeof supabase.from>)('knowledge_articles')
+        .select('id, title, slug, category');
+
+      if (cleanCat && firstWord) {
+        query = query.or(`category.eq."${cleanCat}",title.ilike.%${firstWord}%`);
+      } else if (cleanCat) {
+        query = query.eq('category', cleanCat);
+      } else if (firstWord) {
+        query = query.ilike('title', `%${firstWord}%`);
+      }
+
+      const { data, error } = await query.limit(3);
       if (error) return [];
       return (data ?? []) as Array<{ id: string; title: string; slug: string; category: string }>;
     },

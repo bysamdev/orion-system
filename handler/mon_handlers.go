@@ -863,6 +863,11 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if machine.ApprovalStatus != nil && *machine.ApprovalStatus != "approved" {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: comandos só podem ser enviados para máquinas aprovadas"})
+		return
+	}
+
 	if permitido, msg := autorizarComandoRemoto(escopo, machine.CompanyID); !permitido {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": msg})
 		return
@@ -882,11 +887,19 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userName := user.Email
+	if _, fullName, err := db.ProfileByID(ctx, user.ID); err == nil && fullName != nil && *fullName != "" {
+		userName = *fullName
+	}
+
 	id, err := db.CreateCommand(ctx, lib.InsertCommandInput{
-		MachineID: machineID,
-		Command:   req.Command,
+		MachineID:        machineID,
+		Command:          req.Command,
+		ExecutedByUserID: &user.ID,
+		ExecutedByName:   &userName,
 	})
 	if err != nil {
+		log.Printf("[ERRO] falha ao criar comando remoto: %v", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro ao criar comando"})
 		return
 	}
@@ -899,7 +912,6 @@ func monitoringGetMachineCommands(w http.ResponseWriter, r *http.Request) {
 
 	user, err := requireAuth(r.WithContext(ctx))
 	if err != nil {
-		fmt.Printf("[DEBUG] mon_handlers list cmds auth error: %v\n", err)
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
@@ -911,6 +923,7 @@ func monitoringGetMachineCommands(w http.ResponseWriter, r *http.Request) {
 	}
 	cmds, err := db.ListCommandsByMachineID(ctx, machineID, 50)
 	if err != nil {
+		log.Printf("[ERRO] falha ao listar comandos da máquina %s: %v", machineID, err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro ao buscar comandos"})
 		return
 	}
@@ -925,7 +938,7 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	// Require Agent Key
-	_, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
+	chaveEmpresaID, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
@@ -937,9 +950,22 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if chaveEmpresaID != "" && chaveEmpresaID != "global" {
+		machine, err := db.MachineByID(ctx, machineID)
+		if err != nil {
+			lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "máquina não encontrada"})
+			return
+		}
+		if machine.CompanyID == nil || *machine.CompanyID != chaveEmpresaID {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "máquina não pertence à empresa desta chave"})
+			return
+		}
+	}
+
 	cmds, err := db.GetPendingCommands(ctx, machineID)
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[ERRO] falha ao buscar comandos pendentes (machine=%s): %v", machineID, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro interno ao processar comandos"})
 		return
 	}
 
@@ -961,7 +987,7 @@ func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	// Require Agent Key
-	_, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
+	chaveEmpresaID, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
@@ -977,9 +1003,22 @@ func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if chaveEmpresaID != "" && chaveEmpresaID != "global" {
+		companyID, err := db.CommandCompanyID(ctx, req.ID)
+		if err != nil {
+			lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "comando não encontrado"})
+			return
+		}
+		if companyID == nil || *companyID != chaveEmpresaID {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "comando não pertence à empresa desta chave"})
+			return
+		}
+	}
+
 	err = db.UpdateCommandStatus(ctx, req.ID, req.Status, req.Output)
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[ERRO] falha ao atualizar status do comando %s: %v", req.ID, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro ao atualizar status do comando"})
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})

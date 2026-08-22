@@ -607,12 +607,27 @@ func runInstaller(filePath, silentArgs string) (string, error) {
 func (s *Svc) executeSelfHealingRemediation(alertType string, action string, payload string) {
 	s.logger.Printf("[SELF-HEAL] Executing remediation for alert %s: %s", alertType, action)
 	
-	// Simulate remediation execution
 	var output string
 	var err error
 	
 	if action == "restart_service" {
-		output, err = executeCommand(fmt.Sprintf("net stop %s && net start %s", payload, payload))
+		cleanService := strings.TrimSpace(payload)
+		if !regexp.MustCompile(`^[a-zA-Z0-9_\-\. ]+$`).MatchString(cleanService) {
+			output = "Nome de serviço inválido para reinicialização"
+			err = fmt.Errorf("nome de serviço inválido")
+		} else {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			stopCmd := exec.CommandContext(ctx, "net", "stop", cleanService)
+			stopCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			_ = stopCmd.Run()
+
+			startCmd := exec.CommandContext(ctx, "net", "start", cleanService)
+			startCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			out, startErr := startCmd.CombinedOutput()
+			output = string(out)
+			err = startErr
+		}
 	} else if action == "run_script" {
 		output, err = executeCommand(payload)
 	} else {

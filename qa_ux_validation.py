@@ -10,8 +10,8 @@ BASE    = "http://localhost:8080"
 SS_DIR  = "/Users/sam/.gemini/antigravity-ide/brain/200126c0-38c1-4866-8a82-61b99fe8c65e/artifacts/qa"
 os.makedirs(SS_DIR, exist_ok=True)
 
-ADMIN_EMAIL = "samterres42@gmail.com"
-ADMIN_PASS  = "!oivelox2004"
+ADMIN_EMAIL = os.environ.get("ORION_QA_ADMIN_EMAIL", "admin@orion.internal")
+ADMIN_PASS  = os.environ.get("ORION_QA_ADMIN_PASS", "")
 
 results = {}
 

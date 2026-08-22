@@ -12,6 +12,15 @@ serve(async (req) => {
   }
 
   try {
+    const expectedSecret = Deno.env.get('WHATSAPP_WEBHOOK_SECRET');
+    const providedSecret = req.headers.get('X-Webhook-Secret') ?? '';
+    if (expectedSecret && providedSecret !== expectedSecret) {
+      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -19,7 +28,8 @@ serve(async (req) => {
 
     // WhatsApp provider payload (e.g., Twilio or Meta Graph API)
     const payload = await req.json()
-    console.log('Received WhatsApp Webhook:', payload)
+    const phoneMasked = payload?.From ? String(payload.From).slice(0, 5) + '****' + String(payload.From).slice(-2) : 'unknown'
+    console.log('Received WhatsApp Webhook event from:', phoneMasked)
 
     // Simplified logic for a Twilio-like request
     const from = payload.From?.replace('whatsapp:', '')

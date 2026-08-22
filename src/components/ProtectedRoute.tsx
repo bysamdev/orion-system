@@ -48,10 +48,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       try {
         const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         if (isMounted && aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel === 'aal1') {
-          const hasBackupBypass = sessionStorage.getItem('orion_mfa_backup_passed') === 'true';
-          if (!hasBackupBypass) {
-            setNeedsMfaElevation(true);
-          }
+          setNeedsMfaElevation(true);
         }
       } catch (err) {
         console.warn('[ProtectedRoute] Erro ao verificar AAL:', err);

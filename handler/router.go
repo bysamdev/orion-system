@@ -46,6 +46,9 @@ var (
 	limiterMachineLogin = lib.NewRateLimiter(1*time.Minute, 20)
 	limiterHeartbeat    = lib.NewRateLimiter(1*time.Minute, 300)
 
+	// limiterResetPassword: 5 tentativas por minuto por IP para proteção contra brute-force
+	limiterResetPassword = lib.NewRateLimiter(1*time.Minute, 5)
+
 	// grafanaWebhook: autenticado por segredo compartilhado (não por IP nem
 	// login), mas ainda assim limitado — o Grafana pode reenviar em lote
 	// (re-notify) se o Orion ficar fora do ar por um tempo; o limite é
@@ -122,6 +125,7 @@ func buildRouter() http.Handler {
 	r.Use(middleware.ClientIPFromXFFTrustedProxies(proxiesConfiaveis()))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeadersMiddleware)
 	r.Use(maxBodySizeMiddleware)
 	r.Use(corsMiddleware)
 
@@ -407,6 +411,16 @@ func maxBodySizeMiddleware(next http.Handler) http.Handler {
 		if r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// securityHeadersMiddleware adds standard protective HTTP security headers.
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		next.ServeHTTP(w, r)
 	})
 }

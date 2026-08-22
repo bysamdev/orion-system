@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -456,7 +457,7 @@ export const TwoFactorAuthSettings = () => {
                 ) : (
                   <div
                     className="w-48 h-48 flex items-center justify-center bg-white p-2 rounded-lg"
-                    dangerouslySetInnerHTML={{ __html: enrollData.qrCode }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(enrollData.qrCode, { USE_PROFILES: { svg: true } }) }}
                   />
                 )}
                 <span className="text-[11px] text-muted-foreground mt-2">

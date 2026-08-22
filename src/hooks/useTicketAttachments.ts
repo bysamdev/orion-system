@@ -19,24 +19,30 @@ export interface TicketAttachment {
 export const getStoragePath = (fileUrl: string): string | null => {
   if (!fileUrl) return null;
 
+  let candidate: string | null = null;
   if (!fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
-    return fileUrl;
-  }
-
-  try {
-    const urlObj = new URL(fileUrl);
-    const pathname = urlObj.pathname;
-    const bucketMarker = '/ticket-files/';
-    const index = pathname.indexOf(bucketMarker);
-    if (index !== -1) {
-      const extracted = pathname.substring(index + bucketMarker.length);
-      return decodeURIComponent(extracted);
+    candidate = fileUrl;
+  } else {
+    try {
+      const urlObj = new URL(fileUrl);
+      const pathname = urlObj.pathname;
+      const bucketMarker = '/ticket-files/';
+      const index = pathname.indexOf(bucketMarker);
+      if (index !== -1) {
+        const extracted = pathname.substring(index + bucketMarker.length);
+        candidate = decodeURIComponent(extracted);
+      }
+    } catch {
+      // URL inválida ou formato inesperado
     }
-  } catch {
-    // URL inválida ou formato inesperado
   }
 
-  return null;
+  if (!candidate) return null;
+  // Previne Directory / Path Traversal
+  if (candidate.includes('..') || candidate.includes('\\')) {
+    return null;
+  }
+  return candidate.replace(/^\/+/, '');
 };
 
 export const useTicketAttachments = (ticketId: string) => {

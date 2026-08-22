@@ -131,6 +131,18 @@ func (d *DB) CreateNetworkLink(ctx context.Context, in CreateNetworkLinkInput) (
 		return nil, fmt.Errorf("ip_or_hostname é obrigatório")
 	}
 
+	cleanHost := host
+	if idx := strings.Index(cleanHost, "://"); idx != -1 {
+		cleanHost = cleanHost[idx+3:]
+	}
+	if h, _, err := net.SplitHostPort(cleanHost); err == nil {
+		cleanHost = h
+	}
+	validHostRegex := regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9\-\.]{0,253}[a-zA-Z0-9])?$`)
+	if !validHostRegex.MatchString(cleanHost) && net.ParseIP(cleanHost) == nil {
+		return nil, fmt.Errorf("ip_or_hostname possui formato inválido")
+	}
+
 	checkInterval := 300
 	if in.CheckIntervalSeconds != nil && *in.CheckIntervalSeconds > 0 {
 		checkInterval = *in.CheckIntervalSeconds

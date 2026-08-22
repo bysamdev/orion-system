@@ -93,16 +93,26 @@ func monitoringGrafanaSyncDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	companyID := chi.URLParam(r, "id")
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	if !escopo.PodeVerEmpresa(&companyID) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: empresa não é a sua"})
+		return
+	}
+
 	if cfg.GrafanaProvisionToken == "" {
 		lib.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "GRAFANA_PROVISION_TOKEN não configurado"})
 		return
 	}
 
-	companyID := chi.URLParam(r, "id")
 	provisioner := lib.NewGrafanaProvisioner(cfg.GrafanaURL, cfg.GrafanaProvisionToken)
 	if err := provisioner.DeleteCompanyDashboard(ctx, companyID); err != nil {
 		log.Printf("[ERRO] apagar pasta da empresa %s no Grafana: %v", companyID, err)
-		lib.WriteJSON(w, http.StatusBadGateway, map[string]any{"error": "Falha ao remover do Grafana: " + err.Error()})
+		lib.WriteJSON(w, http.StatusBadGateway, map[string]any{"error": "Falha ao sincronizar com o servidor de monitoramento"})
 		return
 	}
 

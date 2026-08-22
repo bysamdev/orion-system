@@ -237,6 +237,17 @@ func (d *DB) TicketUUIDByNumber(ctx context.Context, number int) (string, error)
 	return id, err
 }
 
+func (d *DB) TicketUUIDByNumberScoped(ctx context.Context, number int, companyFilter *string) (string, error) {
+	var id string
+	var err error
+	if companyFilter != nil && *companyFilter != "" {
+		err = d.pool.QueryRow(ctx, `select id::text from public.tickets where ticket_number = $1 and company_id = $2::uuid limit 1`, number, *companyFilter).Scan(&id)
+	} else {
+		err = d.pool.QueryRow(ctx, `select id::text from public.tickets where ticket_number = $1 limit 1`, number).Scan(&id)
+	}
+	return id, err
+}
+
 func (d *DB) EnsureProfileRowExists(ctx context.Context, userID string) error {
 	var exists bool
 	err := d.pool.QueryRow(ctx, `select exists(select 1 from public.profiles where id = $1)`, userID).Scan(&exists)

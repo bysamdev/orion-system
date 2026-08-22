@@ -106,7 +106,7 @@ const App = () => (
                   <Route path="/ativos" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><Assets /></AppRoute>} />
                   <Route path="/monitoramento-web" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><WebMonitoring /></AppRoute>} />
                   <Route path="/portal" element={<AppRoute><ClientPortal /></AppRoute>} />
-                  <Route path="/debug" element={<AppRoute><DebugTools /></AppRoute>} />
+                  <Route path="/debug" element={<AppRoute allowedRoles={['admin', 'developer']}><DebugTools /></AppRoute>} />
                   <Route path="/automacoes" element={<AppRoute allowedRoles={['admin', 'developer']}><Automacoes /></AppRoute>} />
                   <Route path="/instaladores" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><PatchManagement /></AppRoute>} />
                   <Route path="/notificacoes" element={<AppRoute><Notifications /></AppRoute>} />

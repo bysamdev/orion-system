@@ -743,6 +743,7 @@ export interface EscalateTicketParams {
   last_updated_at?: string | null;
   currentPriority?: string;
   currentAssignedTo?: string | null;
+  currentAssignedToUserId?: string | null;
 }
 
 export const useEscalateTicket = () => {
@@ -758,6 +759,7 @@ export const useEscalateTicket = () => {
       last_updated_at,
       currentPriority,
       currentAssignedTo,
+      currentAssignedToUserId,
     }: EscalateTicketParams) => {
       const targetAssignedTo = technicianName === 'unassigned' ? null : technicianName;
       const priorityChanged = newPriority !== currentPriority;
@@ -841,7 +843,12 @@ export const useEscalateTicket = () => {
           try {
             const revertData: Database['public']['Tables']['tickets']['Update'] = {};
             if (priorityChanged && currentPriority) revertData.priority = currentPriority;
-            if (assignmentChanged) revertData.assigned_to = currentAssignedTo;
+            if (assignmentChanged) {
+              revertData.assigned_to = currentAssignedTo;
+              if (currentAssignedToUserId !== undefined) {
+                revertData.assigned_to_user_id = currentAssignedToUserId;
+              }
+            }
             await supabase.from('tickets').update(revertData).eq('id', id);
           } catch (revertErr) {
             console.error('[useEscalateTicket] Falha ao reverter escalação:', revertErr);

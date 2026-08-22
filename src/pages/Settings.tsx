@@ -28,7 +28,7 @@ export default function Settings() {
   const { handleError, handleValidationError } = useErrorHandler();
   const { data: profile, isLoading: profileLoading } = useUserProfile();
   const { data: role } = useUserRole();
-  const isDeveloper = role === 'developer' || profile?.email === 'samterres42@gmail.com';
+  const isDeveloper = role === 'developer';
   
   const [fullName, setFullName] = useState('');
   const [department, setDepartment] = useState('');
