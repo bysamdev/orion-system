@@ -65,11 +65,10 @@ func criarAtalhoEm(caminho, apiURL, machineToken string) error {
 	iconPath, err := gravarIconeOrion()
 	if err != nil {
 		// Sem o .ico, o atalho ainda funciona — só cai de volta pro ícone
-		// genérico do .exe em vez de falhar a criação inteira.
+		// genérico do orion-agent.exe instalado (SEMPRE em C:\Orion, nunca
+		// o processo atual — ver comentário em gravarIconeOrion sobre por
+		// que os.Executable() aqui é o bug real, não a correção).
 		iconPath = `C:\Orion\orion-agent.exe`
-		if curExe, errExe := os.Executable(); errExe == nil && curExe != "" {
-			iconPath = curExe
-		}
 	}
 
 	content := fmt.Sprintf("[InternetShortcut]\nURL=%s\nIconIndex=0\nIconFile=%s\n", targetURL, iconPath)
@@ -85,16 +84,31 @@ func criarAtalhoEm(caminho, apiURL, machineToken string) error {
 	return nil
 }
 
-// gravarIconeOrion garante que tray.DataIcon exista em disco ao lado do
-// executável (C:\Orion\orion.ico) e devolve o caminho. Best-effort e idempotente
-// — grava de novo só se o conteúdo mudou (ex: ícone atualizado numa nova
-// versão do agente).
+// gravarIconeOrion garante que tray.DataIcon exista em C:\Orion\orion.ico
+// (a pasta de instalação FIXA — ver pastaDestino em cmd/installer/main.go,
+// nunca inferida de os.Executable()) e devolve o caminho.
+//
+// Usar os.Executable() aqui era o bug real, não uma conveniência: esta
+// função também é chamada durante a instalação/auto-atualização, quando o
+// processo em execução é o PRÓPRIO INSTALADOR (rodando de um download em
+// %TEMP%, Downloads, ou onde o técnico salvou o .exe) — não o
+// orion-agent.exe instalado. O .ico acabava gravado ao lado do instalador,
+// num caminho efêmero que some assim que o arquivo é limpo/movido,
+// deixando o atalho da Área de Trabalho com IconFile apontando pro nada
+// (ícone em branco) e um .ico órfão espalhado por aí (inclusive na própria
+// Área de Trabalho, se foi de lá que o instalador rodou). Best-effort e
+// idempotente — grava de novo só se o conteúdo mudou (ex: ícone atualizado
+// numa nova versão do agente).
 func gravarIconeOrion() (string, error) {
-	pastaExe := `C:\Orion`
-	if curExe, err := os.Executable(); err == nil && curExe != "" {
-		pastaExe = filepath.Dir(curExe)
-	}
-	caminhoIco := filepath.Join(pastaExe, "orion.ico")
+	return gravarIconeEm(`C:\Orion`)
+}
+
+// gravarIconeEm faz o trabalho de verdade sobre uma pasta arbitrária —
+// separada de gravarIconeOrion (que fixa C:\Orion) só pra permitir que o
+// teste de idempotência escreva num t.TempDir() em vez de tocar na
+// instalação real da máquina que roda `go test`.
+func gravarIconeEm(pasta string) (string, error) {
+	caminhoIco := filepath.Join(pasta, "orion.ico")
 
 	if atual, err := os.ReadFile(caminhoIco); err == nil && string(atual) == string(tray.DataIcon) {
 		return caminhoIco, nil

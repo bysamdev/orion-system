@@ -3,13 +3,13 @@
         "FileVersion": {
             "Major": 1,
             "Minor": 1,
-            "Patch": 23,
+            "Patch": 24,
             "Build": 0
         },
         "ProductVersion": {
             "Major": 1,
             "Minor": 1,
-            "Patch": 23,
+            "Patch": 24,
             "Build": 0
         },
         "FileFlagsMask": "3f",
@@ -21,12 +21,12 @@
     "StringFileInfo": {
         "CompanyName": "Orion System",
         "FileDescription": "Orion Installer — instalação e atualização do Orion Agent",
-        "FileVersion": "1.1.23",
+        "FileVersion": "1.1.24",
         "InternalName": "OrionInstaller.exe",
         "LegalCopyright": "Orion System",
         "OriginalFilename": "OrionInstaller.exe",
         "ProductName": "Orion Installer",
-        "ProductVersion": "1.1.23"
+        "ProductVersion": "1.1.24"
     },
     "VarFileInfo": {
         "Translation": {

@@ -26,6 +26,7 @@ import (
 	"orion-agent/addremove"
 	"orion-agent/shortcut"
 	"orion-agent/startup"
+	"orion-agent/token"
 	"orion-agent/version"
 )
 
@@ -314,13 +315,6 @@ func instalar() error {
 		imprimirOK("Registrado em Aplicativos Instalados (Configurações > Apps)")
 	}
 
-	// Criação do atalho na Área de Trabalho com o ícone do Orion
-	if err := shortcut.CreatePortalShortcut(flagAPIURL, ""); err != nil {
-		imprimirAviso(fmt.Sprintf("não foi possível criar o atalho na Área de Trabalho: %v", err))
-	} else {
-		imprimirOK("Atalho 'Abrir Chamado Orion' criado na Área de Trabalho")
-	}
-
 	// Instalador gerado pelo Orion System pra uma empresa específica traz a
 	// chave já colada no próprio .exe (ver selfconfig.go) — nesse caso
 	// gravamos agent.yaml com a chave pronta e SEMPRE sobrescrevemos: é
@@ -383,11 +377,58 @@ func instalar() error {
 		return err
 	}
 
+	// Criação do atalho na Área de Trabalho com o ícone do Orion — DEPOIS
+	// do serviço iniciar, não antes: correção de um bug real (não
+	// hipotético — reproduzido e confirmado em disco) onde o atalho saía
+	// com URL=.../novo-ticket (sem token, exige login manual) porque era
+	// criado aqui com machineToken="" antes mesmo do serviço existir pra
+	// gerar um. O tick() do serviço reescrevia com o token certo depois,
+	// mas só se o serviço sobrevivesse o suficiente pra rodar — e TODO
+	// reinstall/auto-atualização futuro voltava a quebrar o atalho nesse
+	// meio-tempo. Espera até 8s pelo primeiro heartbeat gravar a
+	// identidade (normalmente leva menos de 2s: run() chama tick()
+	// imediatamente ao subir — ver service/windows.go); se estourar o
+	// prazo, cria mesmo assim sem token — o mesmo tick() corrige depois,
+	// só não instantaneamente.
+	machineToken := esperarPrimeiroToken(8 * time.Second)
+	if err := shortcut.CreatePortalShortcut(flagAPIURL, machineToken); err != nil {
+		imprimirAviso(fmt.Sprintf("não foi possível criar o atalho na Área de Trabalho: %v", err))
+	} else if machineToken == "" {
+		imprimirAviso("atalho criado sem o link autenticado — o serviço ainda não completou o primeiro check-in; será corrigido automaticamente em instantes")
+	} else {
+		imprimirOK("Atalho 'Abrir Chamado Orion' criado na Área de Trabalho")
+	}
+
 	// Inicia a bandeja interativa na barra de tarefas do usuário imediatamente
 	iniciarBandejaUsuario(destinoExe)
 
 	imprimirCaixaFinal(corVerde, "Instalação concluída com sucesso")
 	return nil
+}
+
+// esperarPrimeiroToken faz polling em token.LoadToken() (o mesmo arquivo
+// que o serviço recém-iniciado grava assim que resolve a identidade da
+// máquina) até o prazo informado. Devolve "" se estourar o prazo — chamado
+// só decide o que fazer com isso, nunca é tratado como erro fatal aqui.
+func esperarPrimeiroToken(prazo time.Duration) string {
+	return esperarPrimeiroTokenVia(token.LoadToken, prazo)
+}
+
+// esperarPrimeiroTokenVia é a lógica de polling de verdade, com o loader
+// injetado — separada só pra ser testável sem depender do caminho fixo
+// real de token.GetTokenPath (mesma limitação de testabilidade já
+// documentada no pacote token).
+func esperarPrimeiroTokenVia(carregar func() (string, error), prazo time.Duration) string {
+	limite := time.Now().Add(prazo)
+	for {
+		if t, err := carregar(); err == nil && t != "" {
+			return t
+		}
+		if !time.Now().Before(limite) {
+			return ""
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
 }
 
 // iniciarBandejaUsuario inicia a bandeja interativa na barra de tarefas do usuário

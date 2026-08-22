@@ -144,21 +144,24 @@ func TestCriarAtalhoEm_ApontaParaOIconeRealDoOrion(t *testing.T) {
 	}
 }
 
-// TestGravarIconeOrion_EhIdempotente garante que gravar o mesmo ícone duas
-// vezes não regrava o arquivo à toa.
-func TestGravarIconeOrion_EhIdempotente(t *testing.T) {
-	caminho, err := gravarIconeOrion()
+// TestGravarIconeEm_EhIdempotente garante que gravar o mesmo ícone duas
+// vezes não regrava o arquivo à toa. Usa gravarIconeEm (não a pública
+// gravarIconeOrion, que agora é fixa em C:\Orion — ver comentário no bug
+// abaixo) sobre t.TempDir(), pra não tocar na instalação real da máquina
+// que roda `go test`.
+func TestGravarIconeEm_EhIdempotente(t *testing.T) {
+	pasta := t.TempDir()
+	caminho, err := gravarIconeEm(pasta)
 	if err != nil {
-		t.Fatalf("gravarIconeOrion: %v", err)
+		t.Fatalf("gravarIconeEm: %v", err)
 	}
-	defer os.Remove(caminho)
 
 	info1, err := os.Stat(caminho)
 	if err != nil {
 		t.Fatalf("orion.ico não foi criado: %v", err)
 	}
 
-	if _, err := gravarIconeOrion(); err != nil {
+	if _, err := gravarIconeEm(pasta); err != nil {
 		t.Fatalf("segunda chamada: %v", err)
 	}
 	info2, err := os.Stat(caminho)
@@ -166,6 +169,34 @@ func TestGravarIconeOrion_EhIdempotente(t *testing.T) {
 		t.Fatal(err)
 	}
 	if info1.ModTime() != info2.ModTime() {
-		t.Error("gravarIconeOrion regravou um arquivo com conteúdo idêntico")
+		t.Error("gravarIconeEm regravou um arquivo com conteúdo idêntico")
+	}
+}
+
+// TestGravarIconeOrion_IgnoraProcessoAtualEUsaSempreCOrion é o teste de
+// regressão direto do bug reproduzido em máquina real: gravarIconeOrion
+// usava os.Executable() pra decidir onde gravar orion.ico — quando chamada
+// de dentro do INSTALADOR (rodando de %TEMP%, Downloads, ou da própria
+// Área de Trabalho), o .ico saía gravado nesse caminho efêmero em vez de
+// C:\Orion, deixando o atalho com IconFile pra um arquivo que some assim
+// que o instalador é limpo/movido (confirmado: um atalho real apontava pra
+// "...\Temp\orion.ico", outro direto pro .exe do instalador em
+// "...\Temp\OrionInstaller-1.1.15.exe" — nenhum dos dois mais existia).
+// gravarIconeOrion() não recebe mais nenhum parâmetro nem lê
+// os.Executable() — é hardcoded pra C:\Orion, então não há mais como esse
+// caminho variar por quem chama.
+func TestGravarIconeOrion_IgnoraProcessoAtualEUsaSempreCOrion(t *testing.T) {
+	caminho, err := gravarIconeOrion()
+	if err != nil {
+		// Ambiente de CI sem C:\Orion gravável — não é o que este teste
+		// verifica (isso é coberto por TestGravarIconeEm_EhIdempotente
+		// sobre TempDir); só confirmamos que, quando funciona, o caminho é
+		// o certo.
+		t.Skipf("gravarIconeOrion falhou (ambiente sem acesso a C:\\Orion?): %v", err)
+	}
+	defer os.Remove(caminho)
+
+	if filepath.Dir(caminho) != `C:\Orion` {
+		t.Errorf("gravarIconeOrion() gravou em %q, esperado dentro de C:\\Orion", caminho)
 	}
 }
