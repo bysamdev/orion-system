@@ -1,0 +1,39 @@
+{
+    "FixedFileInfo": {
+        "FileVersion": {
+            "Major": 1,
+            "Minor": 1,
+            "Patch": 23,
+            "Build": 0
+        },
+        "ProductVersion": {
+            "Major": 1,
+            "Minor": 1,
+            "Patch": 23,
+            "Build": 0
+        },
+        "FileFlagsMask": "3f",
+        "FileFlags ": "00",
+        "FileOS": "040004",
+        "FileType": "01",
+        "FileSubType": "00"
+    },
+    "StringFileInfo": {
+        "CompanyName": "Orion System",
+        "FileDescription": "Orion Installer — instalação e atualização do Orion Agent",
+        "FileVersion": "1.1.23",
+        "InternalName": "OrionInstaller.exe",
+        "LegalCopyright": "Orion System",
+        "OriginalFilename": "OrionInstaller.exe",
+        "ProductName": "Orion Installer",
+        "ProductVersion": "1.1.23"
+    },
+    "VarFileInfo": {
+        "Translation": {
+            "LangID": "0409",
+            "CharsetID": "04B0"
+        }
+    },
+    "IconPath": "../../assets/orion.ico",
+    "ManifestPath": ""
+}
