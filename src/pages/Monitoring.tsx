@@ -45,6 +45,7 @@ import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 import { useQueryClient } from '@tanstack/react-query';
 import { MonitoringOnboarding } from '@/components/monitoring/MonitoringOnboarding';
 import { PendingMachinesBanner } from '@/components/monitoring/PendingMachinesBanner';
+import { ForceUpdateButton } from '@/components/monitoring/ForceUpdateButton';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import {
@@ -646,6 +647,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                     </Badge>
                   </div>
                 )}
+
+                {canApproveMachines && <ForceUpdateButton />}
 
                 {isAdminOrGestor && (
                   <Button

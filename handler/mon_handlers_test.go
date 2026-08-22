@@ -1,10 +1,40 @@
 package handler
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"orion-api/lib"
 )
+
+// TestMonitoringForceUpdateMachine_ExigeAuth e
+// TestMonitoringForceUpdateOutdated_ExigeAuth cobrem o caminho sem token —
+// os dois endpoints de "forçar atualização" (painel Orion System, botão
+// manual pra empurrar a versão mais recente sem esperar o heartbeat
+// detectar sozinho) precisam recusar antes de tocar em qualquer coisa,
+// mesmo padrão de TestMergeUsers_ExigeAuth em fn_handlers_test.go.
+func TestMonitoringForceUpdateMachine_ExigeAuth(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/monitoring/machines/qualquer-id/force-update", nil)
+
+	monitoringForceUpdateMachine(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, esperado 401 (sem token)", rec.Code)
+	}
+}
+
+func TestMonitoringForceUpdateOutdated_ExigeAuth(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/monitoring/machines/force-update-outdated", nil)
+
+	monitoringForceUpdateOutdated(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, esperado 401 (sem token)", rec.Code)
+	}
+}
 
 // TestAutorizarComandoRemoto cobre os três cenários exigidos pela auditoria:
 // customer nunca pode enviar comando remoto, técnico/admin de uma empresa não

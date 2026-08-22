@@ -192,6 +192,7 @@ export interface DashboardSummary {
   online: number;
   offline: number;
   active_alerts: number;
+  latest_agent_version?: string;
 }
 
 // Fallback de segurança pras queries de monitoramento que já são
@@ -362,6 +363,46 @@ export function useUpdateMachine() {
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<MachineWithMetric> }) => {
       return apiPost(`/api/monitoring/machines/${id}/update`, updates);
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring'] });
+    },
+  });
+}
+
+// Força o enfileiramento de uma atualização pra UMA máquina, sem esperar o
+// próximo heartbeat detectar a divergência de versão sozinho — útil quando
+// o admin sabe que o binário em disco está desatualizado mesmo que o
+// último heartbeat reportado não reflita isso (ex: bandeja presa numa
+// versão antiga até um restart manual).
+export function useForceUpdateMachine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (machineId: string) =>
+      apiPost<{ success: boolean; enqueued: boolean; message?: string }>(
+        `/api/monitoring/machines/${machineId}/force-update`, {}
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring'] });
+    },
+  });
+}
+
+export interface ForceUpdateOutdatedResult {
+  success: boolean;
+  enqueued: number;
+  already_pending: number;
+  already_updated: number;
+  errors: string[];
+}
+
+// Força atualização em TODAS as máquinas desatualizadas do escopo do
+// chamador de uma vez — o botão "Atualizar todas" pro caso comum de várias
+// máquinas terem ficado pra trás.
+export function useForceUpdateOutdated() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiPost<ForceUpdateOutdatedResult>('/api/monitoring/machines/force-update-outdated', {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['monitoring'] });
     },

@@ -80,6 +80,12 @@ func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{
 		"total": s.Total, "online": s.Online, "offline": s.Offline, "active_alerts": s.ActiveAlerts,
+		// Exposto pro front-end decidir quais máquinas estão desatualizadas
+		// (botão "Atualizar todas", ver ForceUpdateButton.tsx) sem
+		// hardcodear a versão mais recente em dois lugares — já bump
+		// bastante ao longo do desenvolvimento do agente pra arriscar ficar
+		// dessincronizado.
+		"latest_agent_version": lib.LatestAgentVersion,
 	})
 }
 
@@ -621,7 +627,9 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	// poll (a cada 30s), sem nenhuma ação manual no painel. Best-effort de
 	// propósito: nada aqui pode fazer o heartbeat falhar.
 	if req.AgentVersion != "" && req.AgentVersion != lib.LatestAgentVersion {
-		enfileirarAutoUpdateSeNecessario(ctx, machineID, targetCompanyID, req.AgentVersion, key)
+		if _, err := enfileirarAutoUpdateSeNecessario(ctx, machineID, targetCompanyID, req.AgentVersion, key); err != nil {
+			log.Printf("[AVISO] auto-atualização best-effort falhou (máquina %s): %v", machineID, err)
+		}
 	}
 
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "machine_id": machineID})
@@ -633,26 +641,34 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 // sem essa checagem, cada heartbeat (a cada ~60s) empilharia mais um
 // comando idêntico enquanto o anterior ainda não terminou de ser
 // executado/respondido pelo agente.
-func enfileirarAutoUpdateSeNecessario(ctx context.Context, machineID, companyID, versaoAtual, agentKey string) {
+//
+// enfileirado=false sem erro significa "pulado por já ter um comando
+// pendente" — não é falha, só não havia nada novo a fazer. Devolve
+// (bool, error) desde a correção que expôs isso no painel
+// (monitoringForceUpdateMachine/monitoringForceUpdateOutdated, ver
+// abaixo): antes só logava e retornava void, o que bastava pro caminho
+// best-effort do heartbeat mas não dava pro admin saber se o clique em
+// "Forçar atualização" realmente enfileirou algo.
+func enfileirarAutoUpdateSeNecessario(ctx context.Context, machineID, companyID, versaoAtual, agentKey string) (bool, error) {
 	jaTemAtualizacaoPendente, err := db.HasPendingUpdateCommand(ctx, machineID)
 	if err != nil {
 		log.Printf("[AVISO] verificar auto-atualização pendente (máquina %s): %v", machineID, err)
-		return
+		return false, fmt.Errorf("verificar atualização pendente: %w", err)
 	}
 	if jaTemAtualizacaoPendente {
-		return
+		return false, nil
 	}
 
 	companyName, err := db.CompanyName(ctx, companyID)
 	if err != nil {
 		log.Printf("[AVISO] nome da empresa pra auto-atualização (máquina %s): %v", machineID, err)
-		return
+		return false, fmt.Errorf("resolver empresa: %w", err)
 	}
 
 	downloadURL, _, sha256Hex, err := prepararInstaladorDaEmpresa(ctx, companyID, agentKey, apiURLPublica(), companyName)
 	if err != nil {
 		log.Printf("[AVISO] preparar instalador pra auto-atualização (máquina %s): %v", machineID, err)
-		return
+		return false, fmt.Errorf("preparar instalador: %w", err)
 	}
 
 	if _, err := db.CreateCommand(ctx, lib.InsertCommandInput{
@@ -660,9 +676,141 @@ func enfileirarAutoUpdateSeNecessario(ctx context.Context, machineID, companyID,
 		Command:   lib.ComandoAutoUpdate(downloadURL, sha256Hex),
 	}); err != nil {
 		log.Printf("[AVISO] enfileirar auto-atualização (máquina %s): %v", machineID, err)
-		return
+		return false, fmt.Errorf("enfileirar comando: %w", err)
 	}
 	log.Printf("[AUTO-UPDATE] comando enfileirado pra máquina %s (agente em %s, mais recente é %s)", machineID, versaoAtual, lib.LatestAgentVersion)
+	return true, nil
+}
+
+// monitoringForceUpdateMachine enfileira uma atualização pra UMA máquina
+// específica, a pedido explícito do admin — ao contrário do gatilho
+// automático em monitoringHeartbeat, ignora se agent_version já bate com
+// lib.LatestAgentVersion (o admin pode saber que o binário em disco está
+// desatualizado mesmo que o último heartbeat reportado não reflita isso —
+// ver a bandeja que fica presa numa versão antiga pra sempre até um
+// restart manual, já documentado nesta sessão).
+func monitoringForceUpdateMachine(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem forçar atualização"})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	machine, err := db.MachineByID(ctx, id)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Máquina não encontrada"})
+		return
+	}
+	if !podeVerMaquina(ctx, user.ID, machine.CompanyID) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+		return
+	}
+	if machine.CompanyID == nil {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Máquina sem empresa associada"})
+		return
+	}
+
+	agentKey, err := db.ActiveOrNewAPIKey(ctx, *machine.CompanyID, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao preparar a chave de autenticação"})
+		return
+	}
+
+	versaoAtual := ""
+	if machine.AgentVersion != nil {
+		versaoAtual = *machine.AgentVersion
+	}
+	enfileirado, err := enfileirarAutoUpdateSeNecessario(ctx, machine.ID, *machine.CompanyID, versaoAtual, agentKey)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	if !enfileirado {
+		lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "enqueued": false, "message": "Já existe uma atualização pendente pra esta máquina"})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "enqueued": true})
+}
+
+// monitoringForceUpdateOutdated enfileira atualização pra TODAS as máquinas
+// aprovadas do escopo do chamador cuja agent_version reportada não bate
+// com lib.LatestAgentVersion — o botão "Atualizar todas" do painel, pro
+// caso comum de várias máquinas terem ficado pra trás.
+func monitoringForceUpdateOutdated(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem forçar atualização"})
+		return
+	}
+
+	machines, err := db.AllMachines(ctx, escopo.FiltroEmpresa())
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar máquinas"})
+		return
+	}
+
+	// Uma chave de API por empresa, resolvida uma vez e reaproveitada —
+	// evita N chamadas a db.ActiveOrNewAPIKey quando várias máquinas
+	// desatualizadas são da mesma empresa (o caso comum).
+	chavesPorEmpresa := map[string]string{}
+	var enfileiradas, jaAtualizadas, puladas int
+	var erros []string
+
+	for _, m := range machines {
+		if m.AgentVersion == nil || *m.AgentVersion == lib.LatestAgentVersion {
+			jaAtualizadas++
+			continue
+		}
+		if m.CompanyID == nil {
+			continue
+		}
+
+		agentKey, ok := chavesPorEmpresa[*m.CompanyID]
+		if !ok {
+			agentKey, err = db.ActiveOrNewAPIKey(ctx, *m.CompanyID, user.ID)
+			if err != nil {
+				erros = append(erros, fmt.Sprintf("%s: erro ao preparar chave da empresa", m.Hostname))
+				continue
+			}
+			chavesPorEmpresa[*m.CompanyID] = agentKey
+		}
+
+		enfileirado, err := enfileirarAutoUpdateSeNecessario(ctx, m.ID, *m.CompanyID, *m.AgentVersion, agentKey)
+		if err != nil {
+			erros = append(erros, fmt.Sprintf("%s: %s", m.Hostname, err.Error()))
+			continue
+		}
+		if enfileirado {
+			enfileiradas++
+		} else {
+			puladas++
+		}
+	}
+
+	lib.WriteJSON(w, http.StatusOK, map[string]any{
+		"success":        true,
+		"enqueued":       enfileiradas,
+		"already_pending": puladas,
+		"already_updated": jaAtualizadas,
+		"errors":         erros,
+	})
 }
 
 // ─── Remote Commands ──────────────────────────────────────────────────────────
