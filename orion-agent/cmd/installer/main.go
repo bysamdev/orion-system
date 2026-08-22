@@ -29,6 +29,21 @@ import (
 	"orion-agent/version"
 )
 
+// comandoOculto monta um *exec.Cmd com a janela de console escondida.
+// Necessário porque este instalador roda tanto interativo (duplo-clique)
+// quanto disparado em silêncio pelo serviço, durante auto-atualização (ver
+// runInstaller em service/windows.go) — nos dois casos, cada taskkill/sc
+// interno sem isso abria e fechava uma janela de CMD visível na tela do
+// usuário (era essa a causa real do problema já relatado, não coberta
+// pelo fix anterior em service/windows.go/security_windows.go/
+// acl_windows.go, que só olhou o processo do serviço, não os filhos que o
+// próprio instalador spawna).
+func comandoOculto(nome string, args ...string) *exec.Cmd {
+	cmd := exec.Command(nome, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	return cmd
+}
+
 //go:embed assets/orion-agent.exe
 var agenteEmbutido []byte
 
@@ -169,15 +184,15 @@ func relançarElevado() error {
 // falhar com um erro mais claro se o arquivo continuar travado.
 func pararServicoSeRodando() {
 	// Encerra qualquer instância de bandeja ou processo em execução
-	_ = exec.Command("taskkill", "/F", "/IM", "orion-agent.exe").Run()
+	_ = comandoOculto("taskkill", "/F", "/IM", "orion-agent.exe").Run()
 
-	out, err := exec.Command("sc", "query", "OrionAgent").CombinedOutput()
+	out, err := comandoOculto("sc", "query", "OrionAgent").CombinedOutput()
 	if err == nil && strings.Contains(string(out), "RUNNING") {
 		imprimirAviso("serviço OrionAgent em execução — parando para atualizar")
-		_ = exec.Command("sc", "stop", "OrionAgent").Run()
+		_ = comandoOculto("sc", "stop", "OrionAgent").Run()
 		prazo := time.Now().Add(15 * time.Second)
 		for time.Now().Before(prazo) {
-			out, err := exec.Command("sc", "query", "OrionAgent").CombinedOutput()
+			out, err := comandoOculto("sc", "query", "OrionAgent").CombinedOutput()
 			if err == nil && strings.Contains(string(out), "STOPPED") {
 				imprimirOK("Serviço existente parado")
 				break
@@ -416,7 +431,7 @@ func agentKeyConfigurada(caminhoConfig string) (bool, error) {
 // nenhum (ao contrário de "install", ver comentário em
 // registrarEIniciarServico).
 func servicoJaRegistrado() bool {
-	_, err := exec.Command("sc", "query", "OrionAgent").CombinedOutput()
+	_, err := comandoOculto("sc", "query", "OrionAgent").CombinedOutput()
 	return err == nil
 }
 
@@ -445,7 +460,7 @@ func registrarEIniciarServico(caminhoExe string) error {
 	if servicoJaRegistrado() {
 		imprimirOK("Serviço OrionAgent já registrado")
 	} else {
-		instalarCmd := exec.Command(caminhoExe, "install")
+		instalarCmd := comandoOculto(caminhoExe, "install")
 		out, err := instalarCmd.CombinedOutput()
 		if err != nil {
 			imprimirAviso(fmt.Sprintf("install: %v — %s", err, strings.TrimSpace(string(out))))
@@ -457,7 +472,7 @@ func registrarEIniciarServico(caminhoExe string) error {
 		}
 	}
 
-	startCmd := exec.Command("sc", "start", "OrionAgent")
+	startCmd := comandoOculto("sc", "start", "OrionAgent")
 	out, err := startCmd.CombinedOutput()
 	if err != nil {
 		// "1056" = serviço já em execução — não é falha real.
@@ -504,7 +519,7 @@ func extrairSIDDeShowsid(saida string) (string, error) {
 }
 
 func concederAutoGerenciamento() error {
-	out, err := exec.Command("sc", "showsid", "OrionAgent").CombinedOutput()
+	out, err := comandoOculto("sc", "showsid", "OrionAgent").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("obter SID do serviço: %w — %s", err, strings.TrimSpace(string(out)))
 	}
@@ -521,7 +536,7 @@ func concederAutoGerenciamento() error {
 		"(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)" +
 		"(A;;CCLCSWRPWPLOCRRC;;;" + sid + ")"
 
-	out, err = exec.Command("sc", "sdset", "OrionAgent", sddl).CombinedOutput()
+	out, err = comandoOculto("sc", "sdset", "OrionAgent", sddl).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("aplicar ACL: %w — %s", err, strings.TrimSpace(string(out)))
 	}

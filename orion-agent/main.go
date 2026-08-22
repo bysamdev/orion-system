@@ -72,10 +72,14 @@ func main() {
 		fmt.Println("🚀 Inicie com: sc start OrionAgent (ou pelo Gerenciador de Serviços)")
 
 	case "uninstall":
-		_ = exec.Command("sc", "stop", "OrionAgent").Run()
+		pararCmd := exec.Command("sc", "stop", "OrionAgent")
+		esconderJanela(pararCmd)
+		_ = pararCmd.Run()
 		_ = s.Stop()
 		_ = s.Uninstall()
-		_ = exec.Command("sc", "delete", "OrionAgent").Run()
+		deletarCmd := exec.Command("sc", "delete", "OrionAgent")
+		esconderJanela(deletarCmd)
+		_ = deletarCmd.Run()
 		_ = startup.Disable()
 		_ = addremove.Remover()
 
@@ -117,7 +121,9 @@ func main() {
 
 		// Verifica se o serviço Windows OrionAgent já está ativo em segundo plano
 		servicoAtivo := false
-		if out, err := exec.Command("sc", "query", "OrionAgent").CombinedOutput(); err == nil && strings.Contains(string(out), "RUNNING") {
+		queryCmd := exec.Command("sc", "query", "OrionAgent")
+		esconderJanela(queryCmd)
+		if out, err := queryCmd.CombinedOutput(); err == nil && strings.Contains(string(out), "RUNNING") {
 			servicoAtivo = true
 		}
 

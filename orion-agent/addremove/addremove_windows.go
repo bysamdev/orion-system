@@ -85,6 +85,9 @@ func Remover() error {
 // é lançado; não espera a limpeza de verdade acontecer.
 func LimparPastaDepoisDeSair(pasta string) error {
 	cmd := exec.Command("cmd", "/C", fmt.Sprintf(`timeout /t 2 /nobreak >nul & taskkill /f /im orion-agent.exe >nul 2>&1 & timeout /t 1 /nobreak >nul & rmdir /s /q %q`, pasta))
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.DETACHED_PROCESS}
+	// DETACHED_PROCESS sozinho não esconde a janela — só evita herdar o
+	// console do pai; cmd.exe, sendo app de console, ainda aloca a própria
+	// janela nova e visível sem CREATE_NO_WINDOW junto.
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.DETACHED_PROCESS | windows.CREATE_NO_WINDOW}
 	return cmd.Start()
 }
