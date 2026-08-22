@@ -134,6 +134,16 @@ func (tm *TrayManager) aplicarStatusLocked() {
 	systray.SetTooltip(tooltipVersao(tm.status))
 }
 
+// Quit encerra a bandeja programaticamente, fora de um clique de menu —
+// mesmo caminho que "Sair" usa (systray.Quit() -> onExitInternal() ->
+// OnExit), reaproveitado pela checagem de auto-atualização em main.go: o
+// processo da bandeja precisa se encerrar sozinho depois de relançar uma
+// cópia nova de si mesmo (ver comentário sobre taskkill entre sessões em
+// main.go).
+func (tm *TrayManager) Quit() {
+	systray.Quit()
+}
+
 // onExitInternal é executado quando o systray finaliza, garantindo que o agente limpe seus recursos.
 func (tm *TrayManager) onExitInternal() {
 	if tm.OnExit != nil {

@@ -227,6 +227,50 @@ func main() {
 			}
 		}()
 
+		// Auto-recarregar a bandeja depois de uma auto-atualização remota.
+		//
+		// pararServicoSeRodando (cmd/installer/main.go) tenta matar esta
+		// bandeja via taskkill antes de sobrescrever orion-agent.exe, mas
+		// quando o instalador roda em modo silencioso (disparado pelo
+		// serviço durante auto-atualização) ele executa sob a conta virtual
+		// NT SERVICE\OrionAgent — sem privilégio pra encerrar um processo
+		// rodando na sessão interativa do usuário (mesma classe de limite
+		// de privilégio entre sessões já documentada em
+		// gravarExeMesmoEmUso/concederAutoGerenciamento). Resultado: o
+		// arquivo em disco e o serviço avançam de versão, mas esta bandeja
+		// continua rodando o binário antigo pra sempre — exatamente o "a
+		// versão na bandeja não atualiza" relatado.
+		//
+		// Em vez de depender de outro processo conseguir nos matar, nos
+		// vigiamos: se o mtime do nosso próprio executável mudar (o
+		// instalador reescreveu o arquivo), relançamos uma cópia nova de
+		// nós mesmos e encerramos esta de forma graciosa (mesmo caminho do
+		// clique em "Sair" — ver TrayManager.Quit).
+		if exePath, errExe := os.Executable(); errExe == nil {
+			if infoInicial, err := os.Stat(exePath); err == nil {
+				mtimeInicial := infoInicial.ModTime()
+				go func() {
+					ticker := time.NewTicker(60 * time.Second)
+					defer ticker.Stop()
+					for range ticker.C {
+						info, err := os.Stat(exePath)
+						if err != nil || !binarioFoiAtualizado(mtimeInicial, info.ModTime()) {
+							continue
+						}
+						logger.Println("[INFO] Binário do agente foi atualizado em disco — reiniciando a bandeja para carregar a versão nova.")
+						nova := exec.Command(exePath)
+						esconderJanela(nova)
+						if err := nova.Start(); err != nil {
+							logger.Printf("[ERRO] Falha ao relançar a bandeja após atualização: %v", err)
+							continue
+						}
+						t.Quit()
+						return
+					}
+				}()
+			}
+		}
+
 		t.Run()
 	}
 }
@@ -237,6 +281,14 @@ func main() {
 // autenticada sem senha — como parâmetro. Sem esta redação, cada clique na bandeja
 // gravava essa credencial em texto plano no agent.log, que fica na pasta do
 // executável e herda a ACL do diretório (legível por usuários comuns).
+// binarioFoiAtualizado decide se o mtime atual do executável indica que ele
+// foi reescrito em disco desde que este processo começou a rodar — critério
+// que a checagem periódica de auto-restart da bandeja usa (ver main()).
+// Extraída pra ser testável sem precisar de um os.Stat de verdade.
+func binarioFoiAtualizado(mtimeInicial, mtimeAtual time.Time) bool {
+	return mtimeAtual.After(mtimeInicial)
+}
+
 func redigirQuery(bruta string) string {
 	u, err := url.Parse(bruta)
 	if err != nil {
