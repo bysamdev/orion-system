@@ -495,7 +495,8 @@ func checkRateLimit(w http.ResponseWriter, r *http.Request) {
 // ─── SendPasswordChangedAlert ─────────────────────────────────────────────────
 
 func sendPasswordChangedAlert(w http.ResponseWriter, r *http.Request) {
-	if _, err := requireAuth(r); err != nil {
+	u, err := requireAuth(r)
+	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
@@ -504,12 +505,14 @@ func sendPasswordChangedAlert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// O destinatário é sempre o e-mail da sessão autenticada -- nunca o do
+	// payload. Payload só fornece full_name (cosmético, pro corpo do e-mail).
 	var req struct {
-		Email    string `json:"email"`
 		FullName string `json:"full_name"`
 	}
-	if err := lib.DecodeBody(r, &req); err != nil || strings.TrimSpace(req.Email) == "" {
-		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Email é obrigatório"})
+	_ = lib.DecodeBody(r, &req)
+	if strings.TrimSpace(u.Email) == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Sessão sem e-mail associado"})
 		return
 	}
 
@@ -526,7 +529,7 @@ func sendPasswordChangedAlert(w http.ResponseWriter, r *http.Request) {
 	})
 
 	out, err := mailer.Send(r.Context(), lib.SendEmailInput{
-		To:      req.Email,
+		To:      u.Email,
 		Subject: "🔐 Alerta: Sua senha foi alterada - Orion System",
 		HTML:    html,
 	})
@@ -540,13 +543,24 @@ func sendPasswordChangedAlert(w http.ResponseWriter, r *http.Request) {
 // ─── ResetPasswordWithToken ───────────────────────────────────────────────────
 
 func resetPasswordWithToken(w http.ResponseWriter, r *http.Request) {
-	if !limiterResetPassword.Permitir(lib.ClientIP(r)) {
+	ip := lib.ClientIP(r)
+	if !limiterResetPassword.Permitir(ip) {
 		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "Muitas tentativas. Aguarde 1 minuto."})
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
+
+	if db != nil {
+		allowed, rlErr := db.CheckRateLimit(ctx, "reset-password:"+ip, 60, 5)
+		if rlErr != nil {
+			log.Printf("[aviso] reset-password: falha ao checar rate limit persistente para IP %s: %v", ip, rlErr)
+		} else if !allowed {
+			lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "Muitas tentativas. Aguarde 1 minuto."})
+			return
+		}
+	}
 
 	var req struct {
 		Token       string `json:"token"`
@@ -596,7 +610,11 @@ func resetPasswordWithToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.DeleteInviteToken(ctx, req.Token); err != nil {
-		log.Printf("[AVISO] falha ao deletar invite token %s após uso: %v", req.Token, err)
+		maskedToken := req.Token
+		if len(maskedToken) > 6 {
+			maskedToken = maskedToken[:6] + "..."
+		}
+		log.Printf("[AVISO] falha ao deletar invite token %s após uso: %v", maskedToken, err)
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "message": "Senha definida com sucesso"})
 }

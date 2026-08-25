@@ -106,9 +106,17 @@ export const useUploadAttachment = () => {
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
-      
+
+      // Allowlist de extensão -- defesa em profundidade além do
+      // allowed_mime_types do bucket (que confia no Content-Type
+      // declarado pelo client e pode ser forjado fora do browser).
+      const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv'];
+      const fileExt = (file.name.split('.').pop() || '').toLowerCase();
+      if (!ALLOWED_EXTENSIONS.includes(fileExt)) {
+        throw new Error(`Tipo de arquivo não permitido: .${fileExt}`);
+      }
+
       // Gerar nome único para o arquivo
-      const fileExt = file.name.split('.').pop();
       const fileName = `${ticketId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       
       // Upload para o storage

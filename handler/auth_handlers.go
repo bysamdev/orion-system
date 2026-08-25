@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -42,6 +44,20 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 			"error": "muitas tentativas — aguarde um minuto e tente novamente",
 		})
 		return
+	}
+	if db != nil {
+		rlCtx, rlCancel := context.WithTimeout(r.Context(), 2*time.Second)
+		allowed, rlErr := db.CheckRateLimit(rlCtx, "machine-login:"+ip, 60, 20)
+		rlCancel()
+		if rlErr != nil {
+			log.Printf("[aviso] machine-login: falha ao checar rate limit persistente para IP %s: %v", ip, rlErr)
+		} else if !allowed {
+			log.Printf("[ALERTA] machine-login: limite de taxa (persistente, cross-instância) excedido para IP %s", ip)
+			lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{
+				"error": "muitas tentativas — aguarde um minuto e tente novamente",
+			})
+			return
+		}
 	}
 
 	// 1. Extraímos o token que identifica essa instalação específica do agente.

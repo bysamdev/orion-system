@@ -45,9 +45,20 @@ func ticketResolveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If it's already a UUID, just return it back to confirm
+	// If it's already a UUID, confirm existence + escopo de tenant antes de
+	// devolver -- sem isso, qualquer UUID (existente em outra empresa ou
+	// inventado) era ecoado de volta com 200 sem consultar o banco.
 	if uuidRegex.MatchString(idParam) {
-		lib.WriteJSON(w, http.StatusOK, map[string]any{"uuid": idParam})
+		uuid, err := db.TicketUUIDByIDScoped(ctx, idParam, escopo.FiltroEmpresa())
+		if err != nil {
+			if errors.Is(err, lib.ErrNoRows) {
+				lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Chamado não encontrado"})
+				return
+			}
+			lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
+			return
+		}
+		lib.WriteJSON(w, http.StatusOK, map[string]any{"uuid": uuid})
 		return
 	}
 

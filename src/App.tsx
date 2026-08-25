@@ -98,8 +98,8 @@ const App = () => (
                   <Route path="/admin" element={<AppRoute allowedRoles={['admin', 'developer']}><Admin /></AppRoute>} />
                   <Route path="/relatorios" element={<AppRoute allowedRoles={['admin', 'developer']}><Reports /></AppRoute>} />
                   <Route path="/sistemas" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><InfrastructureDashboard /></AppRoute>} />
-                  <Route path="/monitoramento" element={<AppRoute><Monitoring /></AppRoute>} />
-                  <Route path="/central-alertas" element={<AppRoute><AlertsDashboard /></AppRoute>} />
+                  <Route path="/monitoramento" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><Monitoring /></AppRoute>} />
+                  <Route path="/central-alertas" element={<AppRoute allowedRoles={['admin', 'developer', 'technician']}><AlertsDashboard /></AppRoute>} />
                   <Route path="/ticket/:id" element={<AppRoute><TicketDetails /></AppRoute>} />
                   <Route path="/historico" element={<AppRoute><TicketHistory /></AppRoute>} />
                   <Route path="/conhecimento" element={<AppRoute><KnowledgeBase /></AppRoute>} />

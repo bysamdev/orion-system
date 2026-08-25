@@ -11,8 +11,58 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
+
+// isBlockedIP recusa endereços privados/reservados (RFC 1918, loopback,
+// link-local -- inclui 169.254.169.254, metadados de nuvem) como alvo de
+// probe. Usado tanto na validação de DNS resolvido quanto no Control do
+// dialer, pra fechar a janela de DNS rebinding entre resolver e conectar.
+func isBlockedIP(ip net.IP) bool {
+	if ip == nil {
+		return true
+	}
+	return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+		ip.IsUnspecified() || ip.IsPrivate() || ip.IsMulticast()
+}
+
+// safeDialControl roda depois da resolução de DNS e antes do connect() de
+// verdade -- valida o IP que efetivamente vai receber a conexão, não o
+// hostname original, fechando a janela de DNS rebinding.
+func safeDialControl(network, address string, c syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		host = address
+	}
+	if ip := net.ParseIP(host); ip != nil && isBlockedIP(ip) {
+		return fmt.Errorf("conexão bloqueada: endereço privado/reservado %s", ip)
+	}
+	return nil
+}
+
+// hostHasBlockedIP resolve host (se já não for um IP) e recusa se qualquer
+// endereço resolvido for privado/reservado. Usado antes de chamar o comando
+// OS ping, que não passa pelo Control do net.Dialer.
+func hostHasBlockedIP(host string) bool {
+	if ip := net.ParseIP(host); ip != nil {
+		return isBlockedIP(ip)
+	}
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return true // falha ao resolver: bloqueia por padrão
+	}
+	for _, ip := range ips {
+		if isBlockedIP(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func newSafeDialer(timeout time.Duration) *net.Dialer {
+	return &net.Dialer{Timeout: timeout, Control: safeDialControl}
+}
 
 // NetworkLinkRow represents a row in public.network_links.
 type NetworkLinkRow struct {
@@ -225,7 +275,12 @@ func ProbeNetworkTarget(target string) (status string, pingMs int, err error) {
 
 	// 1. If target starts with http:// or https://, run HTTP probe
 	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
-		client := &http.Client{Timeout: 5 * time.Second}
+		client := &http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				DialContext: newSafeDialer(5 * time.Second).DialContext,
+			},
+		}
 		resp, err := client.Get(target)
 		if err == nil {
 			resp.Body.Close()
@@ -247,14 +302,19 @@ func ProbeNetworkTarget(target string) (status string, pingMs int, err error) {
 
 	// If explicit port was supplied, try TCP connection first
 	if port != "" {
-		conn, err := net.DialTimeout("tcp", target, 4*time.Second)
+		conn, err := newSafeDialer(4 * time.Second).Dial("tcp", target)
 		if err == nil {
 			conn.Close()
 			return "online", int(time.Since(start).Milliseconds()), nil
 		}
 	}
 
-	// 3. Try OS ping command (reliable without raw socket privileges)
+	// 3. Try OS ping command (reliable without raw socket privileges).
+	// exec.Command não passa pelo Control do net.Dialer -- valida o host
+	// resolvido antes de disparar o ping.
+	if hostHasBlockedIP(host) {
+		return "offline", 0, fmt.Errorf("destino bloqueado: endereço privado/reservado")
+	}
 	pingStatus, pingTime, pingErr := osPing(host)
 	if pingErr == nil && pingStatus == "online" {
 		return "online", pingTime, nil
@@ -266,7 +326,7 @@ func ProbeNetworkTarget(target string) (status string, pingMs int, err error) {
 		tcpPorts = append([]string{port}, tcpPorts...)
 	}
 	for _, p := range tcpPorts {
-		conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, p), 2*time.Second)
+		conn, err := newSafeDialer(2 * time.Second).Dial("tcp", net.JoinHostPort(host, p))
 		if err == nil {
 			conn.Close()
 			return "online", int(time.Since(start).Milliseconds()), nil

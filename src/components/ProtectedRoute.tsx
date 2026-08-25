@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Loader2, RefreshCw, AlertTriangle, LogIn, Home } from 'lucide-react';
 import { useUserRole, UserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';

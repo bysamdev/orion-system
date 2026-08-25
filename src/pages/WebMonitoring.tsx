@@ -46,6 +46,10 @@ import { PageHeader } from '@/components/shared/PageHeader';
 
 export type WebPeriod = '1h' | '6h' | '24h' | '7d';
 
+function safeHref(url: string) {
+  return /^https?:\/\//i.test(url) ? url : undefined;
+}
+
 function statusLabel(status: string) {
   if (status === 'pending') return 'PENDENTE';
   return status.toUpperCase();
@@ -660,7 +664,7 @@ export default function WebMonitoring() {
 
                           <div className="flex items-center gap-2 mt-1">
                             <a
-                              href={endpoint.url_or_ip}
+                              href={safeHref(endpoint.url_or_ip)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs text-muted-foreground hover:text-primary hover:underline font-mono truncate max-w-xs sm:max-w-md flex items-center gap-1"

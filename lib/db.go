@@ -248,6 +248,35 @@ func (d *DB) TicketUUIDByNumberScoped(ctx context.Context, number int, companyFi
 	return id, err
 }
 
+// TicketUUIDByIDScoped confirma que o ticket UUID existe e, se companyFilter
+// não for nil/vazio, que pertence a essa empresa -- espelha
+// TicketUUIDByNumberScoped pra fechar o mesmo caminho quando o ID informado
+// já vem como UUID em vez de número.
+func (d *DB) TicketUUIDByIDScoped(ctx context.Context, id string, companyFilter *string) (string, error) {
+	var got string
+	var err error
+	if companyFilter != nil && *companyFilter != "" {
+		err = d.pool.QueryRow(ctx, `select id::text from public.tickets where id = $1::uuid and company_id = $2::uuid limit 1`, id, *companyFilter).Scan(&got)
+	} else {
+		err = d.pool.QueryRow(ctx, `select id::text from public.tickets where id = $1::uuid limit 1`, id).Scan(&got)
+	}
+	return got, err
+}
+
+// CheckRateLimit incrementa o contador persistente (janela fixa) pra
+// bucket_key e retorna se essa chamada ainda está dentro do limite.
+// Complementa o limitador em memória (lib/ratelimit.go): esse aqui é
+// compartilhado entre todas as instâncias serverless, o outro protege só a
+// instância local sem round-trip ao banco.
+func (d *DB) CheckRateLimit(ctx context.Context, key string, windowSeconds, limit int) (allowed bool, err error) {
+	var count int
+	err = d.pool.QueryRow(ctx, `select public.check_rate_limit($1, $2, $3)`, key, windowSeconds, limit).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count <= limit, nil
+}
+
 func (d *DB) EnsureProfileRowExists(ctx context.Context, userID string) error {
 	var exists bool
 	err := d.pool.QueryRow(ctx, `select exists(select 1 from public.profiles where id = $1)`, userID).Scan(&exists)

@@ -89,8 +89,9 @@ export const CompanyManagement = () => {
     mutationFn: async (companyId: string) => {
       const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let result = 'orion_';
+      const randomBytes = window.crypto.getRandomValues(new Uint8Array(32));
       for (let i = 0; i < 32; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        result += chars.charAt(randomBytes[i] % chars.length);
       }
 
       const { data: userData } = await supabase.auth.getUser();

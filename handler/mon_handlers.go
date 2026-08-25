@@ -731,7 +731,8 @@ func monitoringForceUpdateMachine(w http.ResponseWriter, r *http.Request) {
 	}
 	enfileirado, err := enfileirarAutoUpdateSeNecessario(ctx, machine.ID, *machine.CompanyID, versaoAtual, agentKey)
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[erro] enfileirarAutoUpdateSeNecessario machine=%s: %v", machine.ID, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
 		return
 	}
 	if !enfileirado {
@@ -1092,7 +1093,8 @@ func monitoringUpdateMachine(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.UpdateMachine(ctx, id, refinedUpdates); err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[erro] UpdateMachine id=%s: %v", id, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -1142,7 +1144,8 @@ func monitoringCreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	id, err := db.CreateMachineGroup(ctx, req.Name, req.Description, req.ClientContact, req.CompanyID)
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[erro] CreateMachineGroup: %v", err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"id": id})
@@ -1210,7 +1213,8 @@ func monitoringUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.UpdateMachineGroup(ctx, id, refined); err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[erro] UpdateMachineGroup id=%s: %v", id, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -1252,7 +1256,8 @@ func monitoringDeleteGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.DeleteMachineGroup(ctx, id); err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[erro] DeleteMachineGroup id=%s: %v", id, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})

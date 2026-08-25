@@ -13,7 +13,7 @@ datasources:
       apiKeyKey: apikey
       customHeaders:
         - headerName: apikey
-          headerValue: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjeHdlYWxpbXNmeHFzdG9wcmRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3MDM4MDUsImV4cCI6MjA3NjI3OTgwNX0.AwpuHd329foLiEGY7OOllpALaw7KqHyReRciyr8tRM8
+          headerValue: $__env{SUPABASE_ANON_KEY}
         - headerName: Authorization
-          headerValue: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjeHdlYWxpbXNmeHFzdG9wcmRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3MDM4MDUsImV4cCI6MjA3NjI3OTgwNX0.AwpuHd329foLiEGY7OOllpALaw7KqHyReRciyr8tRM8
+          headerValue: Bearer $__env{SUPABASE_ANON_KEY}
     version: 1

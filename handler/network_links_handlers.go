@@ -46,7 +46,8 @@ func monitoringListNetworkLinks(w http.ResponseWriter, r *http.Request) {
 
 	links, err := db.ListNetworkLinks(ctx, companyID)
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar links de rede: " + err.Error()})
+		log.Printf("[erro] ListNetworkLinks company=%s: %v", companyID, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar links de rede"})
 		return
 	}
 
@@ -171,7 +172,8 @@ func cronProbeNetworkLinks(w http.ResponseWriter, r *http.Request) {
 
 	summary, err := db.ProbeAllNetworkLinks(r.Context())
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[erro] ProbeAllNetworkLinks: %v", err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
 		return
 	}
 

@@ -13,8 +13,14 @@ serve(async (req) => {
 
   try {
     const expectedSecret = Deno.env.get('WHATSAPP_WEBHOOK_SECRET');
+    if (!expectedSecret) {
+      return new Response(JSON.stringify({ error: 'Webhook não configurado' }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     const providedSecret = req.headers.get('X-Webhook-Secret') ?? '';
-    if (expectedSecret && providedSecret !== expectedSecret) {
+    if (providedSecret !== expectedSecret) {
       return new Response(JSON.stringify({ error: 'Não autorizado' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

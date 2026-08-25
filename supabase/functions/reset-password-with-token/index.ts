@@ -11,6 +11,12 @@ interface ResetPasswordRequest {
   newPassword: string;
 }
 
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!domain) return '***';
+  return `${local.slice(0, 2)}***@${domain}`;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -81,7 +87,7 @@ serve(async (req) => {
       throw new Error('Token expirado');
     }
 
-    console.log('Token válido para email:', tokenData.email);
+    console.log('Token válido para email:', maskEmail(tokenData.email));
 
     console.log('=== Passo 2: Buscando usuário pelo email ===');
 
@@ -96,7 +102,7 @@ serve(async (req) => {
     const user = users.find(u => u.email === tokenData.email);
 
     if (!user) {
-      console.error('Usuário não encontrado para email:', tokenData.email);
+      console.error('Usuário não encontrado para email:', maskEmail(tokenData.email));
       throw new Error('Usuário não encontrado');
     }
 
