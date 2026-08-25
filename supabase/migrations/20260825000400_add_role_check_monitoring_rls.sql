@@ -9,6 +9,10 @@
 -- =================================================================================
 
 -- monitored_endpoints: mantém SELECT como está, endurece INSERT/UPDATE/DELETE.
+-- Nomes de policy abaixo conferidos contra o estado real do banco de
+-- produção antes de aplicar (não os nomes originais da migration de
+-- criação -- outra correção já rodou em cima e renomeou).
+DROP POLICY IF EXISTS "Users can insert company endpoints" ON monitored_endpoints;
 DROP POLICY IF EXISTS "Users can insert their company endpoints" ON monitored_endpoints;
 CREATE POLICY "Staff can insert their company endpoints"
     ON monitored_endpoints FOR INSERT
@@ -17,6 +21,7 @@ CREATE POLICY "Staff can insert their company endpoints"
         AND (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'technician'::app_role) OR has_role(auth.uid(), 'developer'::app_role))
     );
 
+DROP POLICY IF EXISTS "Users can update company endpoints" ON monitored_endpoints;
 DROP POLICY IF EXISTS "Users can update their company endpoints" ON monitored_endpoints;
 CREATE POLICY "Staff can update their company endpoints"
     ON monitored_endpoints FOR UPDATE
@@ -25,6 +30,7 @@ CREATE POLICY "Staff can update their company endpoints"
         AND (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'technician'::app_role) OR has_role(auth.uid(), 'developer'::app_role))
     );
 
+DROP POLICY IF EXISTS "Users can delete company endpoints" ON monitored_endpoints;
 DROP POLICY IF EXISTS "Users can delete their company endpoints" ON monitored_endpoints;
 CREATE POLICY "Staff can delete their company endpoints"
     ON monitored_endpoints FOR DELETE

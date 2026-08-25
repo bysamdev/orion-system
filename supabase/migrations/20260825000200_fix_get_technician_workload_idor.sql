@@ -49,3 +49,9 @@ BEGIN
         p.id, p.full_name;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Grant tinha PUBLIC e anon soltos (achado ao checar advisors do Supabase
+-- pós-deploy) -- o guard acima já barra chamada anônima (auth.uid() nulo),
+-- mas fecha o grant também por menor privilégio.
+REVOKE ALL ON FUNCTION public.get_technician_workload(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_technician_workload(uuid) TO authenticated;
