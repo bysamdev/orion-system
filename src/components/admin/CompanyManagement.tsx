@@ -49,17 +49,41 @@ export const CompanyManagement = () => {
   const { data: companies, isLoading, refetch } = useQuery({
     queryKey: ['companies'],
     queryFn: async () => {
-      const { data, error } = await (supabase.from('companies') as any)
-        .select('*')
-        .order('name');
-      if (error) throw error;
-      return (data ?? []) as Array<{
+      const [compRes, machRes] = await Promise.all([
+        (supabase.from('companies') as any).select('*').order('name'),
+        (supabase.from('machines' as any) as any).select('company_id, domain').not('domain', 'is', null)
+      ]);
+      if (compRes.error) throw compRes.error;
+
+      const companyMachineDomains = new Map<string, { domain: string; isAgentDetected: boolean }>();
+      ((machRes.data || []) as any[]).forEach((m) => {
+        const rawDomain = (m.domain || '').trim();
+        if (m.company_id && rawDomain && rawDomain !== '.' && rawDomain !== 'local') {
+          const existing = companyMachineDomains.get(m.company_id);
+          if (!existing || (existing.domain === 'WORKGROUP' && rawDomain !== 'WORKGROUP')) {
+            companyMachineDomains.set(m.company_id, { domain: rawDomain, isAgentDetected: true });
+          }
+        }
+      });
+
+      return ((compRes.data ?? []) as any[]).map((company) => {
+        const detected = companyMachineDomains.get(company.id);
+        const resolvedDomain = company.domain || detected?.domain || null;
+        const isAutoDetected = !company.domain && !!detected?.domain;
+
+        return {
+          ...company,
+          domain: resolvedDomain,
+          isAutoDetected,
+        };
+      }) as Array<{
         id: string;
         name: string;
         cnpj: string | null;
         phone: string | null;
         address: string | null;
         domain?: string | null;
+        isAutoDetected?: boolean;
         has_contract?: boolean | null;
         created_at: string;
         updated_at?: string;
@@ -308,8 +332,25 @@ export const CompanyManagement = () => {
                       )}
                     </button>
                   </TableCell>
-                  <TableCell className="text-primary font-mono text-xs">
-                    {company.domain || '—'}
+                  <TableCell className="font-mono text-xs">
+                    {company.domain ? (
+                      <div className="flex items-center gap-1.5" title={company.isAutoDetected ? 'Domínio importado automaticamente do agente' : 'Domínio configurado'}>
+                        <span className={cn(
+                          "px-2 py-0.5 rounded font-mono text-xs inline-flex items-center gap-1 border",
+                          company.isAutoDetected 
+                            ? "bg-primary/10 text-primary border-primary/20 font-bold" 
+                            : "bg-muted text-foreground border-border/50"
+                        )}>
+                          {company.isAutoDetected && <Zap className="w-3 h-3 text-primary animate-pulse" />}
+                          {company.domain}
+                        </span>
+                        {company.isAutoDetected && (
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">(Agente)</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {company.cnpj || '—'}

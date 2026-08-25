@@ -10,6 +10,7 @@ export interface DeviceInventoryItem {
   hostname: string;
   company_id: string;
   company_name: string;
+  domain?: string;
   device_type: string;
   os?: string;
   ip_address?: string;
@@ -301,12 +302,16 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           const cleanHostname = rawHost.includes(' - ') ? rawHost.split(' - ')[0].trim() : rawHost.trim();
           const cleanName = m.name ? (m.name.includes(' - ') ? m.name.split(' - ')[0].trim() : m.name) : cleanHostname;
 
+          const domainRaw = m.domain || hw.domain || '';
+          const cleanDomain = (!domainRaw || domainRaw === '.') ? 'WORKGROUP' : domainRaw;
+
           return {
             id: m.id,
             name: cleanName,
             hostname: cleanHostname,
             company_id: m.company_id || '',
             company_name: compName,
+            domain: cleanDomain,
             device_type: deviceType,
             os: osStr,
             local_ip: localIp,

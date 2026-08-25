@@ -490,6 +490,11 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Sincroniza automaticamente o domínio da empresa se estiver vazio
+	if domain != "" && domain != "." && targetCompanyID != "" {
+		_ = db.SyncCompanyDomainIfEmpty(ctx, targetCompanyID, domain)
+	}
+
 	if err := db.UpdateMachineSnapshot(ctx, lib.InsertMetricInput{
 		MachineID: machineID, CPUUsage: req.CPUUsage,
 		RAMTotal: req.RAMTotal, RAMUsed: req.RAMUsed,

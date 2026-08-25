@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -307,6 +308,19 @@ func (d *DB) CompanyByDomain(ctx context.Context, domain string) (string, error)
 	var id string
 	err := d.pool.QueryRow(ctx, `SELECT id::text FROM public.companies WHERE domain = $1`, domain).Scan(&id)
 	return id, err
+}
+
+// SyncCompanyDomainIfEmpty updates a company's domain from the agent's reported domain if currently empty.
+func (d *DB) SyncCompanyDomainIfEmpty(ctx context.Context, companyID, domain string) error {
+	clean := strings.TrimSpace(domain)
+	if clean == "" || clean == "." || companyID == "" {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+		UPDATE public.companies 
+		SET domain = $1, updated_at = now() 
+		WHERE id = $2 AND (domain IS NULL OR domain = '' OR domain = 'WORKGROUP')`, clean, companyID)
+	return err
 }
 
 // MachineByToken retrieves machine details by its unique token.
