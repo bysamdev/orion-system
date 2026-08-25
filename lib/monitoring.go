@@ -473,7 +473,6 @@ INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, sta
 VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $14)
 ON CONFLICT (machine_token) DO UPDATE
   SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=COALESCE(public.machines.company_id, $11), local_ip=$3, logged_in_user=$9, mac_address=$12, device_type=$13, domain=$14
-  WHERE public.machines.company_id IS NULL OR public.machines.company_id = $11::uuid
 RETURNING id::text`, groupID, cleanHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID), NilIfEmpty(macAddress), deviceType, NilIfEmpty(domain)).Scan(&id)
 	return id, err
 }
