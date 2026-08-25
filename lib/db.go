@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,9 +42,46 @@ func NewDB(databaseURL string) (*DB, error) {
 		return dialer.DialContext(ctx, "tcp4", addr)
 	}
 	
-	cfg.MaxConns = 10
-	cfg.MaxConnIdleTime = 5 * time.Minute
-	cfg.HealthCheckPeriod = 30 * time.Second
+	// Dimensionamento dinâmico de conexões com suporte a PgBouncer
+	maxConns := int32(25)
+	if v := os.Getenv("DB_MAX_CONNS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			maxConns = int32(parsed)
+		}
+	}
+	cfg.MaxConns = maxConns
+
+	minConns := int32(2)
+	if v := os.Getenv("DB_MIN_CONNS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
+			minConns = int32(parsed)
+		}
+	}
+	cfg.MinConns = minConns
+
+	idleTime := 5 * time.Minute
+	if v := os.Getenv("DB_MAX_CONN_IDLE_TIME"); v != "" {
+		if parsed, err := time.ParseDuration(v); err == nil {
+			idleTime = parsed
+		}
+	}
+	cfg.MaxConnIdleTime = idleTime
+
+	lifetime := 30 * time.Minute
+	if v := os.Getenv("DB_MAX_CONN_LIFETIME"); v != "" {
+		if parsed, err := time.ParseDuration(v); err == nil {
+			lifetime = parsed
+		}
+	}
+	cfg.MaxConnLifetime = lifetime
+
+	healthCheck := 30 * time.Second
+	if v := os.Getenv("DB_HEALTH_CHECK_PERIOD"); v != "" {
+		if parsed, err := time.ParseDuration(v); err == nil {
+			healthCheck = parsed
+		}
+	}
+	cfg.HealthCheckPeriod = healthCheck
 
 	// PgBouncer em modo 'Transaction' não suporta Prepared Statements (protocolo estendido).
 	// Forçamos o 'Simple Protocol' para evitar o erro "prepared statement already exists".

@@ -1,12 +1,12 @@
 package lib
 
 import (
-
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"html/template"
+	"io"
 	"math/big"
 	"net"
 	"net/http"
@@ -14,6 +14,10 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 )
+
+// MaxJSONBodySize é o tamanho máximo permitido para o payload JSON (4 MB).
+// Protege o backend contra exaustão de memória em picos de concorrência ou DoS.
+const MaxJSONBodySize = 4 << 20
 
 // WriteJSON writes a JSON response with the given status code.
 func WriteJSON(w http.ResponseWriter, status int, v any) {
@@ -48,16 +52,18 @@ func ScopeFromContext(ctx context.Context) (UserScope, bool) {
 	return scope, ok
 }
 
-// DecodeBody decodes JSON from r.Body into out, disallowing unknown fields.
+// DecodeBody decodes JSON from r.Body into out, disallowing unknown fields, com limite de 4MB.
 func DecodeBody(r *http.Request, out any) error {
-	dec := json.NewDecoder(r.Body)
+	limitedReader := io.LimitReader(r.Body, MaxJSONBodySize)
+	dec := json.NewDecoder(limitedReader)
 	dec.DisallowUnknownFields()
 	return dec.Decode(out)
 }
 
-// DecodeLenient decodes JSON from r.Body into out, allowing unknown fields.
+// DecodeLenient decodes JSON from r.Body into out, allowing unknown fields, com limite de 4MB.
 func DecodeLenient(r *http.Request, out any) error {
-	return json.NewDecoder(r.Body).Decode(out)
+	limitedReader := io.LimitReader(r.Body, MaxJSONBodySize)
+	return json.NewDecoder(limitedReader).Decode(out)
 }
 
 // RenderTemplate renders a Go html/template with the given data.

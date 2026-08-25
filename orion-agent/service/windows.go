@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,6 +33,24 @@ import (
 	"orion-agent/token"
 	"orion-agent/version"
 )
+
+// jitterDuration adiciona uma variação aleatória de +/- percent% em torno de base
+// para evitar que centenas ou milhares de máquinas atinjam o servidor no mesmo milissegundo (thundering herd).
+func jitterDuration(base time.Duration, percent float64) time.Duration {
+	if percent <= 0 || base <= 0 {
+		return base
+	}
+	n, err := rand.Int(rand.Reader, big.NewInt(2000))
+	if err != nil {
+		return base
+	}
+	factor := (float64(n.Int64()-1000) / 1000.0) * (percent / 100.0)
+	jitter := float64(base) * (1.0 + factor)
+	if jitter <= 0 {
+		return base
+	}
+	return time.Duration(jitter)
+}
 
 // tempoLimiteEncerramento é o prazo que Stop() espera o loop principal (run())
 // realmente terminar antes de desistir e retornar mesmo assim. É var, não
@@ -194,13 +214,28 @@ func (s *Svc) GetTicketURL() string {
 func (s *Svc) run(ctx context.Context) {
 	s.logger.Println("🚀 Orion Agent iniciado com sucesso")
 	s.startMetricsServer(ctx)
+
+	// Jitter inicial no boot (0 a 3s) para desincronizar agentes ligando juntos
+	if initJitter, err := rand.Int(rand.Reader, big.NewInt(3000)); err == nil {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Duration(initJitter.Int64()) * time.Millisecond):
+		}
+	}
+
 	s.tick() // Fazemos a primeira coleta imediatamente ao subir
 
-	ticker := time.NewTicker(time.Duration(s.cfg.IntervalSeconds) * time.Second)
-	defer ticker.Stop()
+	baseInterval := time.Duration(s.cfg.IntervalSeconds) * time.Second
+	if baseInterval <= 0 {
+		baseInterval = 60 * time.Second
+	}
 
-	// Verificamos se existem comandos remotos para executar a cada 30 segundos.
-	commandTicker := time.NewTicker(30 * time.Second)
+	heartbeatTicker := time.NewTicker(jitterDuration(baseInterval, 10))
+	defer heartbeatTicker.Stop()
+
+	// Verificamos se existem comandos remotos para executar a cada 30 segundos (com jitter).
+	commandTicker := time.NewTicker(jitterDuration(30*time.Second, 10))
 	defer commandTicker.Stop()
 
 	for {
@@ -208,10 +243,12 @@ func (s *Svc) run(ctx context.Context) {
 		case <-ctx.Done():
 			s.logger.Println("🛑 Encerrando Orion Agent...")
 			return
-		case <-ticker.C:
+		case <-heartbeatTicker.C:
 			s.tick() // Ciclo normal de reporte de hardware/status
+			heartbeatTicker.Reset(jitterDuration(baseInterval, 10))
 		case <-commandTicker.C:
 			s.pollAndExecuteCommands() // Ciclo de verificação de comandos (RMM)
+			commandTicker.Reset(jitterDuration(30*time.Second, 10))
 		}
 	}
 }
