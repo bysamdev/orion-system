@@ -36,9 +36,10 @@ func TestMonitoringForceUpdateOutdated_ExigeAuth(t *testing.T) {
 	}
 }
 
-// TestAutorizarComandoRemoto cobre os três cenários exigidos pela auditoria:
-// customer nunca pode enviar comando remoto, técnico/admin de uma empresa não
-// pode comandar máquina de outra, e técnico/admin da empresa certa funciona.
+// TestAutorizarComandoRemoto cobre a política atual: customer nunca pode
+// enviar comando remoto (só vê seus próprios chamados); technician/admin/
+// developer têm visão MSP-wide por decisão de produto e podem comandar
+// máquina de qualquer empresa, inclusive máquina órfã (sem company_id).
 func TestAutorizarComandoRemoto(t *testing.T) {
 	empresaA := "empresa-a"
 	empresaB := "empresa-b"
@@ -62,16 +63,16 @@ func TestAutorizarComandoRemoto(t *testing.T) {
 			permitido:        false,
 		},
 		{
-			nome:             "technician de outra empresa é negado (SEC-01)",
+			nome:             "technician de outra empresa é permitido (visão MSP-wide)",
 			escopo:           lib.UserScope{Role: "technician", CompanyID: &empresaB},
 			machineCompanyID: &empresaA,
-			permitido:        false,
+			permitido:        true,
 		},
 		{
-			nome:             "admin de outra empresa é negado (SEC-01)",
+			nome:             "admin de outra empresa é permitido (visão MSP-wide)",
 			escopo:           lib.UserScope{Role: "admin", CompanyID: &empresaB},
 			machineCompanyID: &empresaA,
-			permitido:        false,
+			permitido:        true,
 		},
 		{
 			nome:             "technician da empresa correta é permitido",
@@ -92,14 +93,14 @@ func TestAutorizarComandoRemoto(t *testing.T) {
 			permitido:        true,
 		},
 		{
-			nome:             "master (escopo global) é permitido em qualquer empresa",
-			escopo:           lib.UserScope{Role: "admin", Master: true, CompanyID: &empresaA},
-			machineCompanyID: &empresaB,
+			nome:             "máquina órfã (sem company_id) é permitida pra escopo global",
+			escopo:           lib.UserScope{Role: "admin", CompanyID: &empresaA},
+			machineCompanyID: nil,
 			permitido:        true,
 		},
 		{
-			nome:             "máquina órfã (sem company_id) é negada pra escopo não-global",
-			escopo:           lib.UserScope{Role: "admin", CompanyID: &empresaA},
+			nome:             "máquina órfã (sem company_id) é negada pra customer",
+			escopo:           lib.UserScope{Role: "customer", CompanyID: &empresaA},
 			machineCompanyID: nil,
 			permitido:        false,
 		},
