@@ -86,14 +86,19 @@ func (d *DB) CompanyByUserID(ctx context.Context, userID string) (*string, error
 type UserScope struct {
 	CompanyID *string // empresa do usuário; nil quando o perfil não tem empresa
 	Role      string  // customer | technician | admin | developer
-	Master    bool    // pertence à empresa master (Orion System)
 }
 
-// Global informa se o usuário enxerga todas as empresas. Espelha exatamente a
-// condição usada nas policies de RLS em 20260614000001_enable_rls_machines.sql:
-// is_master_company_user(uid) OR has_role(uid, 'developer').
+// Global informa se o usuário enxerga todas as empresas.
+//
+// Por decisão de produto (por enquanto), technician/admin/developer têm visão
+// MSP-wide independente da empresa a que pertencem — só o papel customer é
+// restrito à própria empresa (ele só precisa ver seus próprios chamados).
+// Antes disso era decidido por ILIKE no nome da empresa ("Orion System",
+// "iBReady", "bysamdev") — qualquer papel, inclusive technician, virava
+// global só por estar numa dessas empresas; achado real de auditoria E2E
+// (técnico via máquinas de outro tenant). Trocado por checagem de papel.
 func (s UserScope) Global() bool {
-	return s.Master || s.Role == "developer"
+	return s.Role != "customer"
 }
 
 // FiltroEmpresa devolve o valor a passar como parâmetro de company_id nas
@@ -118,20 +123,18 @@ func (s UserScope) PodeVerEmpresa(companyID *string) bool {
 	return *companyID == *s.CompanyID
 }
 
-// UserScopeByID resolve empresa, papel e pertencimento à empresa master numa
-// única ida ao banco. LEFT JOIN em user_roles porque 'customer' é implícito:
-// createUserCredentials só grava a linha quando o papel não é customer.
+// UserScopeByID resolve empresa e papel do usuário numa única ida ao banco.
+// LEFT JOIN em user_roles porque 'customer' é implícito: createUserCredentials
+// só grava a linha quando o papel não é customer.
 func (d *DB) UserScopeByID(ctx context.Context, userID string) (UserScope, error) {
 	var s UserScope
 	err := d.pool.QueryRow(ctx, `
 SELECT p.company_id::text,
-       COALESCE(ur.role::text, 'customer'),
-       COALESCE(c.name ILIKE '%iBReady%' OR c.name ILIKE '%Orion System%' OR c.name ILIKE '%bysamdev%', false)
+       COALESCE(ur.role::text, 'customer')
 FROM public.profiles p
 LEFT JOIN public.user_roles ur ON ur.user_id = p.id
-LEFT JOIN public.companies  c  ON c.id = p.company_id
 WHERE p.id = $1
-LIMIT 1`, userID).Scan(&s.CompanyID, &s.Role, &s.Master)
+LIMIT 1`, userID).Scan(&s.CompanyID, &s.Role)
 	return s, err
 }
 
