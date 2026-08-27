@@ -454,11 +454,20 @@ func TestCorridaMachineTokenNaoDerrubaGetPortalURLComPanic(t *testing.T) {
 					}
 				}()
 				u := s.GetPortalURL()
-				// Contrato: ou a URL é vazia, ou carrega o token íntegro.
-				if u != "" && !strings.HasSuffix(u, tokenValido) {
-					mu.Lock()
-					corrompid++
-					mu.Unlock()
+				// Contrato: ou a URL é vazia, ou carrega o token íntegro no
+				// parâmetro "token". Não é mais HasSuffix(u, token): desde
+				// que GetPortalURL passou a anexar requester_user (usuário
+				// Windows/AD resolvido na hora do clique), o token deixou
+				// de ser necessariamente o último trecho da URL — mas
+				// continua sendo o valor exato do parâmetro "token",
+				// checado via url.Parse em vez de posição na string.
+				if u != "" {
+					parsed, err := url.Parse(u)
+					if err != nil || parsed.Query().Get("token") != tokenValido {
+						mu.Lock()
+						corrompid++
+						mu.Unlock()
+					}
 				}
 			}()
 		}
@@ -891,5 +900,61 @@ func TestExtensaoDaURLIgnoraQueryString(t *testing.T) {
 				t.Errorf("extensão %q contém caractere inválido para nome de arquivo no Windows", got)
 			}
 		})
+	}
+}
+
+// Testes de anexarUsuarioAtualVia — a correção que resolve o usuário
+// Windows/AD na hora do clique em "Abrir Chamado" (não o current_user
+// gravado no último heartbeat, que pode ter até um ciclo inteiro de
+// defasagem) e o embute na URL de login por máquina como requester_user,
+// consumido em nomeRequisitante/sanitizarRequesterUser (handler/auth_handlers.go).
+func TestAnexarUsuarioAtualVia_AnexaQuandoResolvido(t *testing.T) {
+	base := "https://orion.exemplo.test/api/auth/machine-login?token=abc"
+	resolver := func() string { return `CONTOSO\joao.silva` }
+
+	got := anexarUsuarioAtualVia(base, resolver)
+	esperado := base + "&requester_user=CONTOSO%5Cjoao.silva"
+
+	if got != esperado {
+		t.Errorf("anexarUsuarioAtualVia() = %q, esperado %q", got, esperado)
+	}
+}
+
+func TestAnexarUsuarioAtualVia_NaoAnexaQuandoResolverFalha(t *testing.T) {
+	base := "https://orion.exemplo.test/api/auth/machine-login?token=abc"
+	resolver := func() string { return "" }
+
+	got := anexarUsuarioAtualVia(base, resolver)
+
+	if got != base {
+		t.Errorf("anexarUsuarioAtualVia() = %q, esperado a URL sem alteração (%q) quando o resolver não resolve ninguém", got, base)
+	}
+}
+
+func TestAnexarUsuarioAtualVia_AparaEspacosDoResolver(t *testing.T) {
+	base := "https://orion.exemplo.test/api/auth/machine-login?token=abc"
+	resolver := func() string { return "  maria.souza  " }
+
+	got := anexarUsuarioAtualVia(base, resolver)
+	esperado := base + "&requester_user=maria.souza"
+
+	if got != esperado {
+		t.Errorf("anexarUsuarioAtualVia() = %q, esperado %q", got, esperado)
+	}
+}
+
+// TestGetTicketURLEGetPortalURL_SemTokenNaoChamaResolver garante que, sem
+// machine_token ainda persistido (agente recém-instalado, primeiro
+// heartbeat ainda não concluído), as duas funções continuam devolvendo ""
+// — comportamento pré-existente, não pode regredir com a adição do
+// requester_user.
+func TestGetTicketURLEGetPortalURL_SemTokenNaoChamaResolver(t *testing.T) {
+	s := &Svc{cfg: &config.Config{APIURL: "https://orion.exemplo.test"}}
+
+	if got := s.GetPortalURL(); got != "" {
+		t.Errorf("GetPortalURL() sem token = %q, esperado vazio", got)
+	}
+	if got := s.GetTicketURL(); got != "" {
+		t.Errorf("GetTicketURL() sem token = %q, esperado vazio", got)
 	}
 }

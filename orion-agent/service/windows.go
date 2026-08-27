@@ -197,17 +197,50 @@ func (s *Svc) GetPortalURL() string {
 	}
 	apiURL := strings.TrimRight(s.cfg.APIURL, "/")
 	// Usamos o redirecionador de login automático para que o usuário não precise digitar senha.
-	return fmt.Sprintf("%s/api/auth/machine-login?token=%s", apiURL, url.QueryEscape(tok))
+	u := fmt.Sprintf("%s/api/auth/machine-login?token=%s", apiURL, url.QueryEscape(tok))
+	return anexarUsuarioAtual(u)
 }
 
-// GetTicketURL gera a URL que leva direto à página de abertura de chamado, já autenticada.
+// GetTicketURL gera a URL que leva direto à página de abertura de chamado,
+// já autenticada. Construída em cima de GetPortalURL (não duplicando a
+// montagem) por dois motivos: a URL de ticket sempre estende a de portal
+// (mesmo token, mesmo requester_user — contrato coberto por
+// TestPortalETicketCompartilhamMesmoEndpointETokens), e a resolução do
+// usuário Windows/AD ativo (anexarUsuarioAtual, uma chamada WTS) roda uma
+// única vez por clique, não duas.
 func (s *Svc) GetTicketURL() string {
-	tok := strings.TrimSpace(s.getMachineToken())
-	if tok == "" {
+	portal := s.GetPortalURL()
+	if portal == "" {
 		return ""
 	}
-	apiURL := strings.TrimRight(s.cfg.APIURL, "/")
-	return fmt.Sprintf("%s/api/auth/machine-login?token=%s&redirect_to=/novo-ticket", apiURL, url.QueryEscape(tok))
+	return portal + "&redirect_to=/novo-ticket"
+}
+
+// anexarUsuarioAtual acrescenta requester_user=<usuário Windows/AD da sessão
+// ativa AGORA> à URL de login por máquina — resolvido na hora do clique
+// (collector.ResolverUsuarioAtual), não o valor de machines.current_user do
+// último heartbeat, que pode estar até um ciclo inteiro (30-60s) desatualizado
+// se a máquina tiver trocado de usuário nesse meio-tempo.
+//
+// Só afeta o TEXTO de exibição do requisitante no chamado (ver
+// nomeRequisitante em handler/auth_handlers.go) — não é usado como
+// identidade de autenticação nem de autorização; a sessão continua sendo a
+// do usuário-fantasma da máquina, por token. Best-effort: se a resolução
+// falhar (ex: sem sessão de console ativa), a URL sai sem o parâmetro e o
+// backend cai de volta pro current_user já salvo em machines.
+func anexarUsuarioAtual(u string) string {
+	return anexarUsuarioAtualVia(u, collector.ResolverUsuarioAtual)
+}
+
+// anexarUsuarioAtualVia é a lógica de verdade, com o resolvedor injetado —
+// separada só pra ser testável sem depender de uma sessão WTS real (mesma
+// limitação de testabilidade já documentada em device_type_windows_test.go).
+func anexarUsuarioAtualVia(u string, resolver func() string) string {
+	usuarioAtual := strings.TrimSpace(resolver())
+	if usuarioAtual == "" {
+		return u
+	}
+	return u + "&requester_user=" + url.QueryEscape(usuarioAtual)
 }
 
 // run é o loop principal do agente: coleta dados → envia para o servidor → aguarda o próximo intervalo.

@@ -28,6 +28,37 @@ func nomeRequisitante(hostname string, currentUser *string) string {
 	return fmt.Sprintf("Suporte (%s)", hostname)
 }
 
+// requesterUserMaxLen é generoso o bastante pra "DOMINIO\usuario" em
+// qualquer AD real, mas finito — nunca confiar num valor de query string
+// pra crescer sem limite dentro de profiles.full_name.
+const requesterUserMaxLen = 128
+
+// sanitizarRequesterUser limpa o parâmetro requester_user (ver
+// orion-agent/service/windows.go anexarUsuarioAtual) antes de usá-lo como
+// nome de exibição: remove caracteres de controle (newline incluso — evita
+// que um valor malicioso quebre visualmente o full_name ou linhas de log
+// que o imprimam) e corta num tamanho razoável. Só afeta o TEXTO exibido
+// pro requisitante do chamado — nunca é usado como chave de identidade,
+// autenticação ou autorização (essas continuam vindo do machine_token).
+func sanitizarRequesterUser(bruto string) string {
+	bruto = strings.TrimSpace(bruto)
+	if bruto == "" {
+		return ""
+	}
+	var sb strings.Builder
+	for _, r := range bruto {
+		if r < 0x20 || r == 0x7f {
+			continue
+		}
+		sb.WriteRune(r)
+	}
+	limpo := strings.TrimSpace(sb.String())
+	if len(limpo) > requesterUserMaxLen {
+		limpo = limpo[:requesterUserMaxLen]
+	}
+	return limpo
+}
+
 // machineLogin lida com o acesso simplificado (passwordless) para máquinas que possuem o Orion Agent.
 // Este endpoint é chamado quando o usuário clica em "Abrir Portal" no menu da bandeja do Windows.
 // Rota: GET /api/auth/machine-login?token=<TOKEN_DA_MAQUINA>
@@ -99,7 +130,21 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 		tokenPrefix = token[:12]
 	}
 	machineEmail := strings.ToLower(fmt.Sprintf("machine-%s@orion.internal", tokenPrefix))
-	machineName := nomeRequisitante(m.Hostname, m.CurrentUser)
+
+	// requester_user: usuário Windows/AD resolvido pelo agente NA HORA DO
+	// CLIQUE (ver anexarUsuarioAtual em orion-agent/service/windows.go),
+	// não o m.CurrentUser gravado no último heartbeat — que pode ter até um
+	// ciclo inteiro (30-60s) de defasagem se a máquina tiver trocado de
+	// usuário nesse meio-tempo. Prioridade sobre m.CurrentUser quando
+	// presente; cai de volta pro valor do heartbeat se o agente não
+	// conseguiu resolver a sessão ativa (ex: sem console interativo) ou se
+	// quem gerou o link foi um agente antigo que ainda não manda esse
+	// parâmetro.
+	currentUser := m.CurrentUser
+	if requesterUser := sanitizarRequesterUser(r.URL.Query().Get("requester_user")); requesterUser != "" {
+		currentUser = &requesterUser
+	}
+	machineName := nomeRequisitante(m.Hostname, currentUser)
 
 	// 4. Verificamos se esta máquina já tem um "usuário-fantasma" registrado.
 	var profileUpdate lib.ProfileUpdate
