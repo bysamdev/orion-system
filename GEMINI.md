@@ -16,7 +16,7 @@ para entender estrutura (economiza ~10-50x tokens por consulta):
 - `graphify query "<pergunta>"` — subgrafo focado
 - `graphify path "<A>" "<B>"` — caminho entre dois módulos/conceitos
 - `graphify explain "<conceito>"` — detalha um nó
-- Vault Obsidian: `Documents/Obsidian/Orion System/Graphify-Report.md`
+- Vault Obsidian: `Projetos/Obsidian-vault/Orion System/Graphify-Report.md`
 - Regenerar após mexer em código: `graphify . --update` (AST, sem custo de API)
 - O grafo NÃO deve subir pro GitHub (já está no .gitignore)
 
