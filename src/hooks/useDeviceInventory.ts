@@ -222,7 +222,7 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           machinesRes,
           hardwareRes,
           companiesRes,
-          ticketsRes,
+          machineTicketCountsRes,
           alertsRes,
         ] = await Promise.all([
           // approval_status='approved': máquinas pendentes (nunca vistas
@@ -234,14 +234,23 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           supabase.from('machines' as any).select('*').eq('approval_status', 'approved'),
           supabase.from('machine_hardware' as any).select('*'),
           supabase.from('companies').select('id, name'),
-          supabase.from('tickets').select('id, company_id, asset_id, status, metadata'),
+          // machine_ticket_counts(): RPC SECURITY DEFINER (migration
+          // create_machine_ticket_counts_function) — antes isso tentava
+          // casar t.asset_id || t.metadata.machine_id contra machines.id
+          // no cliente, mas nenhum chamado aberto pelo agente preenche
+          // esses campos, então sempre dava 0. A máquina sempre autentica
+          // "Abrir Chamado" pelo mesmo usuário-fantasma
+          // (machine-<token>@orion.internal); a função faz esse join no
+          // banco (só ela alcança auth.users, RLS não deixa o cliente ler
+          // isso direto).
+          supabase.rpc('machine_ticket_counts' as any),
           supabase.from('machine_alerts' as any).select('*'),
         ]);
 
         const machines = (machinesRes.data as any[]) || [];
         const hardwareList = (hardwareRes.data as any[]) || [];
         const companies = (companiesRes.data as any[]) || [];
-        const tickets = (ticketsRes.data as any[]) || [];
+        const machineTicketCounts = (machineTicketCountsRes.data as any[]) || [];
         const alerts = (alertsRes.data as any[]) || [];
 
         // Fall back to clean fallback data if machines table query errors or yields 0 rows
@@ -273,13 +282,9 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
         });
 
         const ticketsCountMap = new Map<string, number>();
-        (tickets || []).forEach((t) => {
-          const isClosed = ['closed', 'resolved', 'cancelled'].includes(t?.status?.toLowerCase());
-          if (!isClosed) {
-            const mId = t?.asset_id || t?.metadata?.machine_id;
-            if (mId) {
-              ticketsCountMap.set(mId, (ticketsCountMap.get(mId) || 0) + 1);
-            }
+        (machineTicketCounts || []).forEach((row) => {
+          if (row?.machine_id) {
+            ticketsCountMap.set(row.machine_id, Number(row.tickets_count) || 0);
           }
         });
 
