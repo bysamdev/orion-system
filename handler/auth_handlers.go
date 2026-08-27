@@ -125,11 +125,7 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Montamos a identidade digital desta máquina no sistema.
 	// Criamos um e-mail técnico interno para que o Supabase Auth possa gerenciar a sessão.
-	tokenPrefix := token
-	if len(token) > 12 {
-		tokenPrefix = token[:12]
-	}
-	machineEmail := strings.ToLower(fmt.Sprintf("machine-%s@orion.internal", tokenPrefix))
+	machineEmail := lib.MachineGhostEmail(token)
 
 	// requester_user: usuário Windows/AD resolvido pelo agente NA HORA DO
 	// CLIQUE (ver anexarUsuarioAtual em orion-agent/service/windows.go),

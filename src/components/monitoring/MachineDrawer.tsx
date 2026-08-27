@@ -72,6 +72,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { PerformanceChart } from './PerformanceChart';
 import { InventoryTab } from './InventoryTab';
+import { MachineTicketsTab } from './MachineTicketsTab';
 import { OsIcon, parseOsInfo } from './MachineCard';
 
 const RemoteTerminal = React.lazy(() =>
@@ -671,7 +672,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
             <div className="px-6 border-b border-border/40 bg-muted/5 shrink-0">
               <TabsList className="h-12 w-full justify-start bg-transparent p-0 gap-4 sm:gap-6 overflow-x-auto">
-                {['overview', 'telemetry', 'inventory', 'actions'].map(tab => (
+                {['overview', 'telemetry', 'inventory', 'tickets', 'actions'].map(tab => (
                   <TabsTrigger
                     key={tab}
                     value={tab}
@@ -681,6 +682,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                       overview: 'Resumo',
                       telemetry: 'Telemetria',
                       inventory: 'Inventário',
+                      tickets: 'Chamados',
                       actions: 'Terminal',
                     }[tab]}
                   </TabsTrigger>
@@ -1159,6 +1161,11 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                 {/* ── Inventory tab ── */}
                 <TabsContent value="inventory" className="mt-0">
                   <InventoryTab machine={machine} hardware={detail?.hardware} isOnline={isOnline} />
+                </TabsContent>
+
+                {/* ── Chamados tab ── */}
+                <TabsContent value="tickets" className="mt-0">
+                  <MachineTicketsTab machineId={machineId} />
                 </TabsContent>
 
                 {/* ── Terminal tab ── */}

@@ -314,6 +314,33 @@ export function useMachineAlerts(machineId: string | null) {
   });
 }
 
+// Histórico de chamados abertos por esta máquina — na prática, todo
+// chamado aberto por qualquer pessoa que usou essa máquina, já que
+// "Abrir Chamado" sempre autentica pelo mesmo usuário-fantasma dela
+// (ver lib.MachineGhostEmail no backend). Não é "meus chamados", é
+// "chamados desta máquina".
+export interface MachineTicket {
+  id: string;
+  ticket_number: number;
+  title: string;
+  status: string;
+  priority: string;
+  category: string | null;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+}
+
+export function useMachineTickets(machineId: string | null) {
+  return useQuery<MachineTicket[]>({
+    queryKey: ['monitoring', 'machine-tickets', machineId],
+    queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/tickets`),
+    enabled: !!machineId,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+  });
+}
+
 export function useCreateCommand() {
   const queryClient = useQueryClient();
   return useMutation({

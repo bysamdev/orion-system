@@ -230,6 +230,58 @@ func monitoringAllMachines(w http.ResponseWriter, r *http.Request) {
 	lib.WriteJSON(w, http.StatusOK, machines)
 }
 
+// monitoringMachineTickets lista o histórico de chamados abertos por uma
+// máquina — na prática, todo chamado aberto por qualquer pessoa que usou
+// essa máquina, já que a sessão do "Abrir Chamado" sempre autentica pelo
+// mesmo usuário-fantasma da máquina (ver lib.MachineGhostEmail). Sem
+// coluna nova nem migration: resolve o e-mail-fantasma a partir do
+// machine_token (nunca devolvido ao chamador) e busca o user_id
+// correspondente.
+func monitoringMachineTickets(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "ID é obrigatório"})
+		return
+	}
+
+	token, companyID, err := db.MachineTokenAndCompanyByID(ctx, id)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Máquina não encontrada"})
+		return
+	}
+	if !podeVerMaquina(ctx, user.ID, companyID) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+		return
+	}
+
+	// Máquina existe mas nunca completou um "Abrir Chamado" (nenhum
+	// usuário-fantasma chegou a ser criado) — histórico vazio, não erro.
+	ghostUserID, err := db.AuthUserIDByEmail(ctx, lib.MachineGhostEmail(token))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusOK, []lib.MachineTicketRow{})
+		return
+	}
+
+	tickets, err := db.TicketsByUserID(ctx, ghostUserID, 100)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar histórico de chamados"})
+		return
+	}
+	if tickets == nil {
+		tickets = []lib.MachineTicketRow{}
+	}
+	lib.WriteJSON(w, http.StatusOK, tickets)
+}
+
 func monitoringGroupMachines(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 	defer cancel()

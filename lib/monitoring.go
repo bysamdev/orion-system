@@ -254,6 +254,32 @@ ORDER BY m.hostname`, companyID)
 	return out, rows.Err()
 }
 
+// MachineGhostEmail deriva o e-mail-fantasma que identifica a sessão do
+// usuário-fantasma de uma máquina (ver machineLogin, handler/auth_handlers.go)
+// a partir do machine_token — mesma lógica usada ali, extraída pra cá pra
+// não duplicar quando outro ponto do backend precisa resolver "qual
+// usuário-fantasma pertence a esta máquina" (ver
+// monitoringMachineTickets: histórico de chamados por máquina, que
+// reaproveita esse e-mail pra achar o user_id sem precisar de nenhuma
+// coluna nova ligando machines a profiles).
+func MachineGhostEmail(token string) string {
+	prefix := token
+	if len(token) > 12 {
+		prefix = token[:12]
+	}
+	return strings.ToLower(fmt.Sprintf("machine-%s@orion.internal", prefix))
+}
+
+// MachineTokenAndCompanyByID busca só o machine_token e a company_id de uma
+// máquina — nunca exposto em nenhuma resposta JSON pro front-end (ao
+// contrário de MachineByID/MachineRow, que o painel lê direto); existe só
+// pro uso interno do backend precisar recalcular MachineGhostEmail sem
+// arriscar esse token vazar pra fora por engano.
+func (d *DB) MachineTokenAndCompanyByID(ctx context.Context, id string) (token string, companyID *string, err error) {
+	err = d.pool.QueryRow(ctx, `SELECT machine_token, company_id::text FROM public.machines WHERE id = $1`, id).Scan(&token, &companyID)
+	return token, companyID, err
+}
+
 func (d *DB) MachineByID(ctx context.Context, id string) (*MachineRow, error) {
 	var r MachineRow
 	err := d.pool.QueryRow(ctx, `

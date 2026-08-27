@@ -25,6 +25,20 @@ func TestMonitoringForceUpdateMachine_ExigeAuth(t *testing.T) {
 	}
 }
 
+// TestMonitoringMachineTickets_ExigeAuth cobre o histórico de chamados por
+// máquina (ver lib.MachineGhostEmail/db.TicketsByUserID) — mesmo padrão de
+// 401 sem token que os outros endpoints de máquina.
+func TestMonitoringMachineTickets_ExigeAuth(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/monitoring/machines/qualquer-id/tickets", nil)
+
+	monitoringMachineTickets(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, esperado 401 (sem token)", rec.Code)
+	}
+}
+
 func TestMonitoringForceUpdateOutdated_ExigeAuth(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/monitoring/machines/force-update-outdated", nil)

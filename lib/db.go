@@ -274,6 +274,51 @@ order by created_at desc
 	return out, rows.Err()
 }
 
+// MachineTicketRow é o subconjunto de colunas que o histórico de chamados
+// por máquina (ver monitoringMachineTickets, handler/mon_handlers.go)
+// mostra — nada sensível, só o suficiente pra listar/identificar o
+// chamado.
+type MachineTicketRow struct {
+	ID        string     `json:"id"`
+	Number    int        `json:"ticket_number"`
+	Title     string     `json:"title"`
+	Status    string     `json:"status"`
+	Priority  string     `json:"priority"`
+	Category  *string    `json:"category"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	ClosedAt  *time.Time `json:"closed_at"`
+}
+
+// TicketsByUserID lista os chamados abertos por um usuário específico —
+// usado pelo histórico de chamados por MÁQUINA: como toda máquina sempre
+// autentica pelo mesmo usuário-fantasma (ver MachineGhostEmail em
+// lib/monitoring.go), userID aqui é o ID desse usuário-fantasma, e a
+// listagem resultante é, na prática, "todo chamado aberto por qualquer
+// pessoa que usou essa máquina" — sem precisar de nenhuma coluna nova
+// ligando machines a tickets.
+func (d *DB) TicketsByUserID(ctx context.Context, userID string, limit int) ([]MachineTicketRow, error) {
+	rows, err := d.pool.Query(ctx, `
+SELECT id::text, ticket_number, title, status, priority, category, created_at, updated_at, resolved_at
+FROM public.tickets
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $2`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MachineTicketRow
+	for rows.Next() {
+		var r MachineTicketRow
+		if err := rows.Scan(&r.ID, &r.Number, &r.Title, &r.Status, &r.Priority, &r.Category, &r.CreatedAt, &r.UpdatedAt, &r.ClosedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) TicketUUIDByNumber(ctx context.Context, number int) (string, error) {
 	var id string
 	err := d.pool.QueryRow(ctx, `select id::text from public.tickets where ticket_number = $1 limit 1`, number).Scan(&id)
