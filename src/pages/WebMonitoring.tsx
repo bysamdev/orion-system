@@ -275,10 +275,12 @@ export default function WebMonitoring() {
     const online = endpoints.filter(e => e.status === 'online').length;
     const offline = endpoints.filter(e => e.status === 'offline').length;
     const pending = endpoints.filter(e => e.status === 'pending' || e.status === 'paused').length;
-    const uptimePct = total > 0 ? Math.round((online / total) * 100) : 100;
+    const httpsCount = endpoints.filter(e => e.url_or_ip?.toLowerCase().startsWith('https')).length;
+    const uptimePct = total > 0 ? ((online / total) * 100).toFixed(1) : '100.0';
+    const sslPct = total > 0 ? Math.round((httpsCount / total) * 100) : 100;
     const avgResponseTime = online > 0 ? 88 + (total % 5) * 6 : null;
 
-    return { total, online, offline, pending, uptimePct, avgResponseTime };
+    return { total, online, offline, pending, httpsCount, uptimePct, sslPct, avgResponseTime };
   }, [endpoints]);
 
   // Computed Network Stats
@@ -305,12 +307,20 @@ export default function WebMonitoring() {
       : null;
 
     const starlinkLinks = networkLinks.filter(l => l.type?.toLowerCase().includes('starlink'));
-    const starlinkAvg = starlinkLinks.length > 0 ? 38 : null;
+    const starlinkCount = starlinkLinks.length;
+    const starlinkOnline = starlinkLinks.filter(l => l.status === 'online');
+    const starlinkAvg = starlinkOnline.length > 0 
+      ? Math.round(starlinkOnline.reduce((a, b) => a + (b.latency_ms || 38), 0) / starlinkOnline.length)
+      : (starlinkCount > 0 ? 38 : null);
 
     const dedicatedLinks = networkLinks.filter(l => !l.type?.toLowerCase().includes('starlink') && !l.type?.toLowerCase().includes('roteador'));
-    const dedicatedAvg = dedicatedLinks.length > 0 ? 18 : null;
+    const dedicatedCount = dedicatedLinks.length;
+    const dedicatedOnline = dedicatedLinks.filter(l => l.status === 'online');
+    const dedicatedAvg = dedicatedOnline.length > 0
+      ? Math.round(dedicatedOnline.reduce((a, b) => a + (b.latency_ms || 18), 0) / dedicatedOnline.length)
+      : (dedicatedCount > 0 ? 18 : null);
 
-    return { total, online, offline, avgLatency, starlinkAvg, dedicatedAvg };
+    return { total, online, offline, avgLatency, starlinkCount, starlinkAvg, dedicatedCount, dedicatedAvg };
   }, [networkLinks]);
 
   // Chart time-series generator
@@ -500,47 +510,79 @@ export default function WebMonitoring() {
                   </div>
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
-                    100% Válidos
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                    {webStats.sslPct}% Válidos
                   </span>
                   <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
                     <ShieldCheck className="w-2.5 h-2.5" />
-                    SSL Ativo
+                    {webStats.httpsCount}/{webStats.total} HTTPS
                   </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>HTTPS</span>
-                  <span className="text-emerald-600 font-medium">Protegido</span>
+                  <span>Criptografia TLS</span>
+                  <span className={cn("font-medium", webStats.sslPct === 100 ? "text-emerald-600" : "text-amber-600")}>
+                    {webStats.sslPct === 100 ? '100% Protegido' : `${webStats.total - webStats.httpsCount} sem HTTPS`}
+                  </span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* KPI 4: Disponibilidade SLA */}
+            {/* KPI 4: Monitoramento de Quedas & Uptime */}
             <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
               <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Disponibilidade SLA
+                    Monitoramento de Quedas
                   </span>
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                    <Zap className="w-3.5 h-3.5" />
+                  <div className={cn("p-1.5 rounded-lg", webStats.offline === 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600")}>
+                    {webStats.offline === 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
                   </div>
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-                    99.98%
+                  <span className={cn("text-xl sm:text-2xl font-bold tracking-tight", webStats.offline === 0 ? "text-foreground" : "text-red-600 dark:text-red-400")}>
+                    {webStats.offline === 0 ? '0 Quedas' : `${webStats.offline} Queda(s)`}
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-primary bg-primary/10 border-primary/30">
-                    Estável
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[10px] font-bold px-1.5 py-0.2",
+                      webStats.offline === 0
+                        ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/30"
+                        : "text-red-600 bg-red-500/10 border-red-500/30"
+                    )}
+                  >
+                    {webStats.offline === 0 ? '100% Operacional' : 'Queda Detectada'}
                   </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
                   <span>Período ({period})</span>
-                  <span className="text-primary font-medium">Sem Quedas</span>
+                  <span className={cn("font-medium", webStats.offline === 0 ? "text-emerald-600" : "text-red-600")}>
+                    {webStats.offline === 0 ? 'Sem interrupções' : 'Alvos inacessíveis'}
+                  </span>
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Banner de Incidentes / Quedas Ativas */}
+          {webStats.offline > 0 && (
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3 text-red-950 dark:text-red-200">
+              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm font-bold text-red-600 dark:text-red-400">
+                  Alerta de Queda Ativa ({webStats.offline} {webStats.offline === 1 ? 'alvo fora do ar' : 'alvos fora do ar'})
+                </h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Os seguintes serviços não responderam às últimas verificações:
+                  {' '}
+                  <span className="font-semibold text-foreground">
+                    {endpoints.filter(e => e.status === 'offline').map(e => e.name).join(', ')}
+                  </span>
+                  . Verifique a hospedagem, rotas DNS ou conectividade do servidor.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Endpoints Web List Header & Dialog */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2">
@@ -796,7 +838,7 @@ export default function WebMonitoring() {
                             </div>
                           </div>
 
-                          {/* Banner 3: Disponibilidade SLA */}
+                          {/* Banner 3: Uptime & Disponibilidade */}
                           <div className="p-3.5 rounded-xl border border-border/40 bg-card flex items-center gap-3">
                             <Clock className={cn("w-5 h-5 shrink-0", isOnline ? "text-primary" : "text-destructive")} />
                             <div>
@@ -804,7 +846,7 @@ export default function WebMonitoring() {
                                 Uptime nas últimas 24h
                               </span>
                               <span className={cn("text-xs font-bold", isOnline ? "text-foreground" : "text-red-600 dark:text-red-400")}>
-                                {isOnline ? '99.98% Operacional' : '0.00% (Indisponível no momento)'}
+                                {isOnline ? '100% Operacional' : '0.0% (Indisponível no momento)'}
                               </span>
                             </div>
                           </div>
@@ -1033,6 +1075,7 @@ export default function WebMonitoring() {
               </CardContent>
             </Card>
 
+            {/* KPI 3: Starlink Satélite */}
             <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
               <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
@@ -1044,11 +1087,11 @@ export default function WebMonitoring() {
                   </div>
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-primary">
-                    {networkStats.starlinkAvg ? `${networkStats.starlinkAvg} ms` : '38 ms'}
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                    {networkStats.starlinkCount > 0 ? `${networkStats.starlinkCount} Link(s)` : '0 Links'}
                   </span>
                   <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-primary bg-primary/10 border-primary/30">
-                    LEO
+                    {networkStats.starlinkAvg ? `${networkStats.starlinkAvg} ms` : 'Satélite LEO'}
                   </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
@@ -1058,31 +1101,62 @@ export default function WebMonitoring() {
               </CardContent>
             </Card>
 
+            {/* KPI 4: Monitoramento de Quedas de Rede */}
             <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
               <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Dedicados &amp; Fibra
+                    Quedas de Rede
                   </span>
-                  <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                    <Router className="w-3.5 h-3.5" />
+                  <div className={cn("p-1.5 rounded-lg", networkStats.offline === 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600")}>
+                    {networkStats.offline === 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
                   </div>
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-blue-600 dark:text-blue-400">
-                    {networkStats.dedicatedAvg ? `${networkStats.dedicatedAvg} ms` : '18 ms'}
+                  <span className={cn("text-xl sm:text-2xl font-bold tracking-tight", networkStats.offline === 0 ? "text-foreground" : "text-red-600 dark:text-red-400")}>
+                    {networkStats.offline === 0 ? '0 Quedas' : `${networkStats.offline} Inativo(s)`}
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-blue-600 bg-blue-500/10 border-blue-500/30">
-                    Fibra
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[10px] font-bold px-1.5 py-0.2",
+                      networkStats.offline === 0
+                        ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/30"
+                        : "text-red-600 bg-red-500/10 border-red-500/30"
+                    )}
+                  >
+                    {networkStats.offline === 0 ? 'Rede Estável' : 'Queda Detectada'}
                   </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Corporativo</span>
-                  <span className="text-blue-600 font-medium">Estável</span>
+                  <span>Ping Contínuo</span>
+                  <span className={cn("font-medium", networkStats.offline === 0 ? "text-emerald-600" : "text-red-600")}>
+                    {networkStats.offline === 0 ? 'Sem perdas de pacote' : 'Host inacessível'}
+                  </span>
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Banner de Quedas de Rede */}
+          {networkStats.offline > 0 && (
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3 text-red-950 dark:text-red-200">
+              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm font-bold text-red-600 dark:text-red-400">
+                  Alerta de Queda de Link ({networkStats.offline} {networkStats.offline === 1 ? 'circuito fora do ar' : 'circuitos fora do ar'})
+                </h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Os seguintes links não responderam às sondas ICMP/Ping:
+                  {' '}
+                  <span className="font-semibold text-foreground">
+                    {networkLinks.filter(l => l.status === 'offline').map(l => l.name).join(', ')}
+                  </span>
+                  . Verifique o roteador, operadora ou cabo de rede do local.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Network Links Controls & Dialog */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2">
