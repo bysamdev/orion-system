@@ -31,111 +31,6 @@ export interface DeviceInventoryItem {
 
 export type DeviceItem = DeviceInventoryItem;
 
-export const FALLBACK_DEVICES: DeviceInventoryItem[] = [
-  {
-    id: 'mach-001',
-    hostname: 'SRV-DB-01',
-    company_id: 'comp-001',
-    company_name: 'TechCorp Solutions',
-    device_type: 'Servidor',
-    os: 'Windows Server 2022 Datacenter',
-    local_ip: '192.168.1.10',
-    ip_address: '192.168.1.10',
-    mac_address: '00:15:5D:01:A4:1B',
-    logged_in_user: 'Administrator',
-    logged_user: 'Administrator',
-    status: 'online',
-    alerts_count: 1,
-    tickets_count: 2,
-    last_seen: new Date().toISOString(),
-  },
-  {
-    id: 'mach-002',
-    hostname: 'NOTE-FIN-03',
-    company_id: 'comp-001',
-    company_name: 'TechCorp Solutions',
-    device_type: 'Notebook',
-    os: 'Windows 11 Pro 23H2',
-    local_ip: '192.168.1.105',
-    ip_address: '192.168.1.105',
-    mac_address: 'A4:83:E7:4F:9C:12',
-    logged_in_user: 'marina.silva',
-    logged_user: 'marina.silva',
-    status: 'online',
-    alerts_count: 0,
-    tickets_count: 0,
-    last_seen: new Date().toISOString(),
-  },
-  {
-    id: 'mach-003',
-    hostname: 'DESK-ENG-08',
-    company_id: 'comp-002',
-    company_name: 'Inovação Digital Ltda',
-    device_type: 'Computador',
-    os: 'Windows 10 Pro 22H2',
-    local_ip: '10.0.0.45',
-    ip_address: '10.0.0.45',
-    mac_address: 'BC:24:11:8A:DF:77',
-    logged_in_user: 'carlos.eduardo',
-    logged_user: 'carlos.eduardo',
-    status: 'offline',
-    alerts_count: 3,
-    tickets_count: 1,
-    last_seen: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
-  },
-  {
-    id: 'mach-004',
-    hostname: 'SRV-APP-MAIN',
-    company_id: 'comp-002',
-    company_name: 'Inovação Digital Ltda',
-    device_type: 'Servidor',
-    os: 'Ubuntu 22.04.4 LTS',
-    local_ip: '10.0.0.5',
-    ip_address: '10.0.0.5',
-    mac_address: '52:54:00:12:34:56',
-    logged_in_user: 'deploy',
-    logged_user: 'deploy',
-    status: 'online',
-    alerts_count: 0,
-    tickets_count: 0,
-    last_seen: new Date().toISOString(),
-  },
-  {
-    id: 'mach-005',
-    hostname: 'NOTE-DIR-01',
-    company_id: 'comp-003',
-    company_name: 'Logística Alfa',
-    device_type: 'Notebook',
-    os: 'macOS Sonoma 14.5',
-    local_ip: '172.16.0.88',
-    ip_address: '172.16.0.88',
-    mac_address: 'F4:D4:88:2E:19:A0',
-    logged_in_user: 'roberto.almeida',
-    logged_user: 'roberto.almeida',
-    status: 'online',
-    alerts_count: 0,
-    tickets_count: 1,
-    last_seen: new Date().toISOString(),
-  },
-  {
-    id: 'mach-006',
-    hostname: 'DESK-ATEND-02',
-    company_id: 'comp-003',
-    company_name: 'Logística Alfa',
-    device_type: 'Computador',
-    os: 'Windows 11 Pro 23H2',
-    local_ip: '172.16.0.102',
-    ip_address: '172.16.0.102',
-    mac_address: 'E0:D5:5E:11:22:33',
-    logged_in_user: 'patricia.costa',
-    logged_user: 'patricia.costa',
-    status: 'online',
-    alerts_count: 2,
-    tickets_count: 0,
-    last_seen: new Date().toISOString(),
-  },
-];
-
 function resolveDeviceType(hwType?: string | null, hostname?: string | null, os?: string | null): string {
   const candidate = (hwType || '').toLowerCase();
   if (candidate.includes('server') || candidate.includes('servidor')) return 'Servidor';
@@ -227,8 +122,7 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
         ] = await Promise.all([
           supabase
             .from('machines' as any)
-            .select('id, name, hostname, company_id, domain, status, last_seen, metrics_collected_at, created_at, approval_status')
-            .or('approval_status.eq.approved,approval_status.is.null'),
+            .select('id, name, hostname, company_id, domain, status, last_seen, metrics_collected_at, created_at, approval_status'),
           supabase
             .from('machine_hardware' as any)
             .select('machine_id, device_type, os, local_ip, mac_address, domain, logged_in_user, user, serial_number, brand, model'),
@@ -243,19 +137,20 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
             .eq('resolved', false),
         ]);
 
-        const machines = (machinesRes.data as any[]) || [];
+        if (machinesRes.error) {
+          console.warn('[useDeviceInventory] Erro na consulta de máquinas:', machinesRes.error);
+        }
+
+        const rawMachines = (machinesRes.data as any[]) || [];
+        // Filtra máquinas excluindo apenas as explicitamente rejeitadas
+        const machines = rawMachines.filter((m) => m.approval_status !== 'rejected');
         const hardwareList = (hardwareRes.data as any[]) || [];
         const companies = (companiesRes.data as any[]) || [];
         const machineTicketCounts = (machineTicketCountsRes.data as any[]) || [];
         const alerts = (alertsRes.data as any[]) || [];
 
-        // Fall back to clean fallback data if machines table query errors or yields 0 rows
-        if (machinesRes.error || machines.length === 0) {
-          let result = FALLBACK_DEVICES;
-          if (companyId && companyId !== 'all') {
-            result = (result || []).filter((d) => d.company_id === companyId);
-          }
-          return result;
+        if (machines.length === 0) {
+          return [];
         }
 
         const companyMap = new Map<string, string>();
@@ -337,14 +232,10 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           filtered = (filtered || []).filter((d) => d.company_id === companyId);
         }
 
-        return (filtered || []).length > 0 ? filtered : FALLBACK_DEVICES;
+        return filtered || [];
       } catch (err) {
-        console.warn('Error fetching device inventory from Supabase, using fallback:', err);
-        let result = FALLBACK_DEVICES;
-        if (companyId && companyId !== 'all') {
-          result = (result || []).filter((d) => d.company_id === companyId);
-        }
-        return result;
+        console.warn('[useDeviceInventory] Erro ao buscar inventário de dispositivos:', err);
+        return [];
       }
     },
     refetchInterval,
