@@ -100,13 +100,14 @@ export default function TicketHistory() {
         <Card className="border-border/40 shadow-xl shadow-primary/5 overflow-visible bg-card/50 backdrop-blur-sm">
           <CardHeader className="border-b border-border/40 pb-6">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="relative w-full md:max-w-md group">
+              <div className="relative w-full md:max-w-lg group">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
                 <Input
-                  autoComplete="off" placeholder="Pesquisar histórico..."
+                  autoComplete="off"
+                  placeholder="Buscar por #número, ID, usuário, título ou empresa..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-12 h-10 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-md transition-all"
+                  className="pl-12 h-10 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-md transition-all text-sm"
                 />
               </div>
               <div className="flex gap-2">
@@ -127,25 +128,27 @@ export default function TicketHistory() {
             </div>
 
             {advancedOpen && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 p-4 bg-muted/20 rounded-lg border border-border/40 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 p-4 bg-muted/20 rounded-lg border border-border/40 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Status</label>
                   <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                     <SelectTrigger className="h-10 bg-background border-border/40 rounded-md">
-                      <SelectValue placeholder="Todos" />
+                      <SelectValue placeholder="Todos os Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="all">Todos os Status</SelectItem>
+                      <SelectItem value="resolved">Resolvidos</SelectItem>
+                      <SelectItem value="closed">Fechados</SelectItem>
+                      <SelectItem value="cancelled">Cancelados</SelectItem>
                       <SelectItem value="open">Abertos</SelectItem>
                       <SelectItem value="in-progress">Em Atendimento</SelectItem>
-                      <SelectItem value="resolved">Resolvidos</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Prioridade</label>
                   <Select value={priorityFilter} onValueChange={handlePriorityFilterChange}>
-                    <SelectTrigger className="h-10 bg-background border-border/40 rounded-xl">
+                    <SelectTrigger className="h-10 bg-background border-border/40 rounded-md">
                       <SelectValue placeholder="Todas as Prioridades" />
                     </SelectTrigger>
                     <SelectContent>
@@ -271,6 +274,7 @@ interface TicketHistoryRowProps {
 }
 
 const TicketHistoryRow = React.memo(({ ticket, profilesMap, onClick }: TicketHistoryRowProps) => {
+  const requesterDisplay = resolveUserDisplayName(ticket.requester_name, profilesMap, { fallback: 'Cliente' });
   return (
     <TableRow 
       onClick={() => onClick(ticket.id)} 
@@ -281,7 +285,15 @@ const TicketHistoryRow = React.memo(({ ticket, profilesMap, onClick }: TicketHis
       </TableCell>
       <TableCell className="py-4">
         <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{ticket.title}</p>
-        <p className="text-[10px] font-medium text-muted-foreground">{resolveUserDisplayName(ticket.requester_name, profilesMap, { fallback: 'Cliente' })} · {ticket.company_name || 'N/A'}</p>
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+          <span className="font-semibold text-foreground/80">{requesterDisplay}</span>
+          {ticket.company_name && <span>· {ticket.company_name}</span>}
+          {ticket.category && (
+            <span className="px-1.5 py-0.5 rounded bg-muted/60 font-mono text-[9px] uppercase tracking-wider">
+              {ticket.category}
+            </span>
+          )}
+        </div>
       </TableCell>
       <TableCell className="py-4">
         <PriorityBadge priority={ticket.priority} size="sm" />

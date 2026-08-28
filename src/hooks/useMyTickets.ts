@@ -220,6 +220,21 @@ export const useMeusTickets = (userId: string | undefined, role: string | undefi
           }
         }
         
+        if (options.searchTerm) {
+          const raw = options.searchTerm.trim().toLowerCase();
+          const cleanNum = raw.replace(/^[#nº\s]+/i, '').trim();
+          mockData = mockData.filter(t => 
+            t.title?.toLowerCase().includes(raw) ||
+            t.description?.toLowerCase().includes(raw) ||
+            t.requester_name?.toLowerCase().includes(raw) ||
+            t.assigned_to?.toLowerCase().includes(raw) ||
+            t.category?.toLowerCase().includes(raw) ||
+            t.id?.toLowerCase().includes(raw) ||
+            t.user_id?.toLowerCase().includes(raw) ||
+            String(t.ticket_number) === cleanNum
+          );
+        }
+
         return { data: mockData as unknown as Ticket[], count: mockData.length };
       }
 
@@ -250,11 +265,52 @@ export const useMeusTickets = (userId: string | undefined, role: string | undefi
       }
 
       if (options.searchTerm) {
-        const isNumeric = !isNaN(Number(options.searchTerm)) && options.searchTerm.trim() !== '';
-        if (isNumeric) {
-          query = query.or(`title.ilike.%${options.searchTerm}%,ticket_number.eq.${Number(options.searchTerm)},requester_name.ilike.%${options.searchTerm}%`);
+        const rawTerm = options.searchTerm.trim();
+        const cleanNumber = rawTerm.replace(/^[#nº\s]+/i, '').trim();
+        const isNumeric = /^\d+$/.test(cleanNumber);
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTerm);
+        const safeTerm = rawTerm.replace(/[%_,()]/g, '');
+
+        if (isUUID) {
+          query = query.or(`id.eq.${rawTerm},user_id.eq.${rawTerm},assigned_to_user_id.eq.${rawTerm}`);
+        } else if (isNumeric) {
+          const num = parseInt(cleanNumber, 10);
+          query = query.or(`ticket_number.eq.${num},title.ilike.%${safeTerm}%,requester_name.ilike.%${safeTerm}%,description.ilike.%${safeTerm}%`);
         } else {
-          query = query.or(`title.ilike.%${options.searchTerm}%,requester_name.ilike.%${options.searchTerm}%`);
+          // Buscas auxiliares por Empresa e Perfil para enriquecer o filtro
+          let matchedCompanyIds: string[] = [];
+          let matchedUserIds: string[] = [];
+
+          if (safeTerm.length >= 2) {
+            try {
+              const [{ data: compData }, { data: profData }] = await Promise.all([
+                supabase.from('companies').select('id').ilike('name', `%${safeTerm}%`).limit(10),
+                supabase.from('profiles').select('id').or(`full_name.ilike.%${safeTerm}%,email.ilike.%${safeTerm}%`).limit(15),
+              ]);
+              if (compData) matchedCompanyIds = compData.map(c => c.id);
+              if (profData) matchedUserIds = profData.map(p => p.id);
+            } catch (e) {
+              console.warn('Erro ao buscar metadados de pesquisa:', e);
+            }
+          }
+
+          const orConditions = [
+            `title.ilike.%${safeTerm}%`,
+            `description.ilike.%${safeTerm}%`,
+            `requester_name.ilike.%${safeTerm}%`,
+            `assigned_to.ilike.%${safeTerm}%`,
+            `category.ilike.%${safeTerm}%`,
+          ];
+
+          if (matchedCompanyIds.length > 0) {
+            orConditions.push(`company_id.in.(${matchedCompanyIds.join(',')})`);
+          }
+          if (matchedUserIds.length > 0) {
+            orConditions.push(`user_id.in.(${matchedUserIds.join(',')})`);
+            orConditions.push(`assigned_to_user_id.in.(${matchedUserIds.join(',')})`);
+          }
+
+          query = query.or(orConditions.join(','));
         }
       }
 
