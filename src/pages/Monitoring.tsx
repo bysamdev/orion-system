@@ -218,14 +218,11 @@ function MachinesTableView({
         <Table>
           <TableHeader className="bg-muted/30">
             <TableRow>
-              <TableHead className="w-[110px] text-left font-bold text-xs">Status</TableHead>
-              <TableHead className="min-w-[180px] text-left font-bold text-xs">Dispositivo / Hostname</TableHead>
-              <TableHead className="min-w-[150px] text-left font-bold text-xs">IP & Usuário</TableHead>
-              <TableHead className="w-[120px] text-left font-bold text-xs">CPU</TableHead>
-              <TableHead className="w-[120px] text-left font-bold text-xs">Memória</TableHead>
-              <TableHead className="w-[120px] text-left font-bold text-xs">Disco</TableHead>
-              <TableHead className="w-[140px] text-center font-bold text-xs">Último Visto</TableHead>
-              <TableHead className="w-[80px] text-right pr-4 font-bold text-xs">Ações</TableHead>
+              <TableHead className="w-[120px] text-left font-bold text-xs">Status</TableHead>
+              <TableHead className="min-w-[220px] text-left font-bold text-xs">Dispositivo / Hostname</TableHead>
+              <TableHead className="min-w-[180px] text-left font-bold text-xs">IP & Usuário</TableHead>
+              <TableHead className="w-[160px] text-center font-bold text-xs">Último Visto</TableHead>
+              <TableHead className="w-[100px] text-right pr-4 font-bold text-xs">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -235,9 +232,6 @@ function MachinesTableView({
                 m.status === 'alerta' ||
                 (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false);
               const alerting = m.status === 'alerta' || hasDiskAlert(m);
-              const cpuPct = m.cpu_usage_percent ?? (m.latest_metric?.cpu_usage_percent != null ? Number(m.latest_metric.cpu_usage_percent) : null);
-              const ramPct = m.memory_usage_percent ?? (m.latest_metric?.memory_usage_percent != null ? Number(m.latest_metric.memory_usage_percent) : null);
-              const diskPct = m.disk_usage_percent ?? (m.latest_metric?.disk_usage_percent != null ? Number(m.latest_metric.disk_usage_percent) : null);
 
               return (
                 <TableRow
@@ -276,60 +270,6 @@ function MachinesTableView({
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    {cpuPct != null ? (
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs font-mono font-medium">
-                          <span>{Math.round(cpuPct)}%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all",
-                              cpuPct > 90 ? "bg-destructive" : cpuPct > 75 ? "bg-amber-500" : "bg-primary"
-                            )}
-                            style={{ width: `${Math.min(cpuPct, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ) : <span className="text-xs text-muted-foreground font-mono">—</span>}
-                  </TableCell>
-                  <TableCell>
-                    {ramPct != null ? (
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs font-mono font-medium">
-                          <span>{Math.round(ramPct)}%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all",
-                              ramPct > 90 ? "bg-destructive" : ramPct > 80 ? "bg-amber-500" : "bg-primary"
-                            )}
-                            style={{ width: `${Math.min(ramPct, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ) : <span className="text-xs text-muted-foreground font-mono">—</span>}
-                  </TableCell>
-                  <TableCell>
-                    {diskPct != null ? (
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs font-mono font-medium">
-                          <span>{Math.round(diskPct)}%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all",
-                              diskPct > 90 ? "bg-destructive" : diskPct > 80 ? "bg-amber-500" : "bg-primary"
-                            )}
-                            style={{ width: `${Math.min(diskPct, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ) : <span className="text-xs text-muted-foreground font-mono">—</span>}
-                  </TableCell>
                   <TableCell className="text-center whitespace-nowrap">
                     <span className="inline-block px-2.5 py-0.5 rounded-full bg-muted/60 font-mono text-[11px] font-semibold text-muted-foreground">
                       {formatCompactLastSeen(m.last_seen)}
@@ -339,13 +279,13 @@ function MachinesTableView({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 px-2 text-xs font-bold hover:text-primary"
+                      className="h-7 px-3 text-xs font-bold hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelect(m, 'overview');
                       }}
                     >
-                      Ver
+                      Ver detalhes
                     </Button>
                   </TableCell>
                 </TableRow>
