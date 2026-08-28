@@ -51,7 +51,7 @@ export const CompanyManagement = () => {
     queryFn: async () => {
       const [compRes, machRes] = await Promise.all([
         (supabase.from('companies') as any).select('*').order('name'),
-        (supabase.from('machines' as any) as any).select('company_id, domain').not('domain', 'is', null)
+        (supabase.from('machines' as any) as any).select('company_id, domain')
       ]);
       if (compRes.error) throw compRes.error;
 

@@ -11,8 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, Pencil, AlertTriangle, Merge } from 'lucide-react';
+import { Loader2, Plus, Trash2, Pencil, AlertTriangle, Merge, RefreshCw } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { UserRole } from '@/hooks/useUserRole';
 import { userRoleSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
@@ -119,37 +119,58 @@ export const UserManagement = () => {
     enabled: !!currentUserProfile?.company_id,
   });
 
-  const { data: users, isLoading } = useQuery({
+  const { data: users, isLoading, isError, error: usersError, refetch: refetchUsers } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
-      const { data: profiles, error: profilesError} = await supabase
-        .from('profiles')
-        .select('id, full_name, email, department, company_id')
-        .order('full_name');
+      const [profilesRes, companiesRes, rolesRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, full_name, email, department, company_id')
+          .order('full_name'),
+        supabase
+          .from('companies')
+          .select('id, name'),
+        supabase
+          .from('user_roles')
+          .select('user_id, role'),
+      ]);
 
-      if (profilesError) throw profilesError;
+      if (profilesRes.error) {
+        console.error('[UserManagement] Erro ao carregar perfis:', profilesRes.error);
+        throw profilesRes.error;
+      }
 
-      const companyIds = [...new Set(profiles.map(p => p.company_id))];
-      const { data: companies } = await supabase
-        .from('companies')
-        .select('id, name')
-        .in('id', companyIds);
+      const profiles = profilesRes.data || [];
+      const companies = companiesRes.data || [];
+      const roles = rolesRes.data || [];
+
+      const companyMap = new Map((companies || []).map(c => [c.id, c.name]));
       
-      const companyMap = new Map(companies?.map(c => [c.id, c.name]) || []);
+      const roleMap = new Map<string, string>();
+      const roleHierarchy: Record<string, number> = {
+        developer: 4,
+        admin: 3,
+        technician: 2,
+        customer: 1,
+      };
 
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-
-      if (rolesError) throw rolesError;
+      (roles || []).forEach(r => {
+        if (!r.user_id) return;
+        const currentRank = roleHierarchy[roleMap.get(r.user_id) || ''] || 0;
+        const newRank = roleHierarchy[r.role] || 0;
+        if (newRank >= currentRank) {
+          roleMap.set(r.user_id, r.role);
+        }
+      });
 
       return profiles.map(profile => ({
         ...profile,
         status: 'active',
-        role: roles.find(r => r.user_id === profile.id)?.role || 'customer',
-        company_name: companyMap.get(profile.company_id) || 'Sem empresa'
+        role: roleMap.get(profile.id) || 'customer',
+        company_name: profile.company_id ? (companyMap.get(profile.company_id) || 'Sem empresa') : 'Sem empresa'
       })) as UserData[];
-    }
+    },
+    staleTime: 10_000,
   });
 
   const updateRoleMutation = useMutation({
@@ -445,9 +466,48 @@ export const UserManagement = () => {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-4">
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-9 w-36 rounded-md" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 pt-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center justify-between p-3.5 border-b last:border-0">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-3 w-56" />
+                  </div>
+                  <Skeleton className="h-7 w-24 rounded-md" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card className="border-destructive/40 bg-destructive/5">
+        <CardContent className="flex flex-col items-center justify-center py-8 text-center gap-3">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+          <p className="text-sm font-semibold text-foreground">
+            Erro ao carregar usuários
+          </p>
+          <p className="text-xs text-muted-foreground max-w-sm">
+            {usersError instanceof Error ? usersError.message : 'Não foi possível carregar a lista de usuários.'}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => refetchUsers()} className="gap-2 mt-2">
+            <RefreshCw className="h-3.5 w-3.5" />
+            Tentar Novamente
+          </Button>
         </CardContent>
       </Card>
     );
