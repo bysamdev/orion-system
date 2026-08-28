@@ -367,7 +367,7 @@ export default function WebMonitoring() {
   }, [period, webStats]);
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* ── Page Header ── */}
       <PageHeader
         icon={Globe}
@@ -375,68 +375,67 @@ export default function WebMonitoring() {
         title="Monitoramento Web"
         description="Status em tempo real, tempo de resposta em milissegundos e segurança SSL."
         actions={
-          <>
-            <Badge
-              variant="outline"
-              className="gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold"
-            >
-              <Activity className="w-3.5 h-3.5 animate-pulse" />
-              {webStats.online + networkStats.online} Alvos Online
-            </Badge>
-
+          <div className="flex items-center gap-3">
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              disabled={isRefreshing}
+              disabled={isRefreshing || loadingWeb || loadingNetwork}
               className="rounded-xl font-semibold gap-1.5"
             >
-              <RefreshCw className={cn('w-3.5 h-3.5', isRefreshing && 'animate-spin')} />
+              <RefreshCw className={cn('w-3.5 h-3.5', (isRefreshing || loadingWeb || loadingNetwork) && 'animate-spin')} />
               Atualizar
             </Button>
-          </>
+          </div>
         }
       />
 
-      {/* ── Main Navigation Tabs ── */}
-      <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'web' | 'network')} className="space-y-6">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <TabsList className="grid w-full sm:w-auto grid-cols-2 max-w-sm">
-            <TabsTrigger value="web" className="gap-2">
-              <Globe className="w-4 h-4" />
-              Sites &amp; APIs ({webStats.total})
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'web' | 'network')} className="space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
+          <TabsList className="bg-muted/60 p-1 rounded-xl h-11 border border-border/40">
+            <TabsTrigger
+              value="web"
+              className="rounded-lg text-xs font-semibold px-4 h-9 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs"
+            >
+              <Globe className="w-3.5 h-3.5 mr-2" />
+              Endpoints Web & APIs ({webStats.total})
             </TabsTrigger>
-            <TabsTrigger value="network" className="gap-2">
-              <Radio className="w-4 h-4" />
-              Links &amp; Redes ({networkStats.total})
+            <TabsTrigger
+              value="network"
+              className="rounded-lg text-xs font-semibold px-4 h-9 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs"
+            >
+              <Radio className="w-3.5 h-3.5 mr-2" />
+              Links & Redes ({networkStats.total})
             </TabsTrigger>
           </TabsList>
 
-          {/* Period selector for charts */}
-          <div className="inline-flex h-11 items-center self-end sm:self-auto bg-muted/60 p-1 rounded-lg border border-border/40">
-            {(['1h', '6h', '24h', '7d'] as WebPeriod[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={cn(
-                  'h-full px-3.5 text-xs font-semibold rounded-xl transition-all',
-                  period === p
-                    ? 'bg-background text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {p}
-              </button>
-            ))}
+          {/* Period Selector Toggle */}
+          <div className="flex items-center gap-1.5 self-stretch sm:self-auto justify-end">
+            <div className="inline-flex h-9 items-center bg-muted/60 p-1 rounded-lg border border-border/40">
+              {(['1h', '6h', '24h', '7d'] as TelemetryPeriod[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={cn(
+                    'h-full px-3 text-xs font-semibold rounded-md transition-all',
+                    period === p
+                      ? 'bg-background text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════
-            ABA 1: SITES & APLICAÇÕES WEB
+            ABA 1: ENDPOINTS WEB & APIS
         ══════════════════════════════════════════════════════════════════ */}
         <TabsContent value="web" className="space-y-6 mt-0">
-          {/* KPI Matrix for Web (Compact & Minimal) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Web KPI Cards (Compact & Minimal) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* KPI 1: Monitores Web */}
             <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
               <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
@@ -1024,7 +1023,7 @@ export default function WebMonitoring() {
         ══════════════════════════════════════════════════════════════════ */}
         <TabsContent value="network" className="space-y-6 mt-0">
           {/* Network KPI Cards (Compact & Minimal) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
               <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">

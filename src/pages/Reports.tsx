@@ -315,17 +315,13 @@ const Reports: React.FC = () => {
 
   if (role !== 'admin' && role !== 'developer' && role !== 'technician') {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center space-y-2">
-              <p className="text-lg font-semibold text-foreground">Acesso Restrito</p>
-              <p className="text-sm text-muted-foreground">
-                Você não tem permissão para acessar os relatórios.
-              </p>
-            </div>
-          </div>
-        </main>
+      <div className="w-full flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-2">
+          <p className="text-lg font-semibold text-foreground">Acesso Restrito</p>
+          <p className="text-sm text-muted-foreground">
+            Você não tem permissão para acessar os relatórios.
+          </p>
+        </div>
       </div>
     );
   }

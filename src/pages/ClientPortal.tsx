@@ -108,46 +108,46 @@ export default function ClientPortal() {
         {/* Atalhos Rápidos: Acesso ao histórico, Wiki e Suporte Humano */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card 
-            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-3xl overflow-hidden shadow-sm" 
+            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-xl overflow-hidden shadow-xs" 
             onClick={() => navigate('/historico')}
           >
-            <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-primary/10 border border-primary/20 rounded-2xl group-hover:scale-105 transition-transform shrink-0">
-                <History className="w-6 h-6 xl:w-8 xl:h-8 text-primary" />
+            <CardContent className="p-5 sm:p-6 flex items-center gap-4">
+              <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <History className="w-6 h-6 text-primary" />
               </div>
-              <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight sm:truncate">Meus Chamados</h3>
-                <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Acompanhe o status e histórico de todas as suas solicitações.</p>
+              <div className="min-w-0 flex-1 space-y-1">
+                <h3 className="text-base font-bold leading-tight">Meus Chamados</h3>
+                <p className="text-xs text-muted-foreground line-clamp-2">Acompanhe o status e histórico de todas as suas solicitações.</p>
               </div>
             </CardContent>
           </Card>
 
           <Card 
-            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-3xl overflow-hidden shadow-sm" 
+            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-xl overflow-hidden shadow-xs" 
             onClick={() => navigate('/conhecimento')}
           >
-            <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-secondary/15 border border-border/30 rounded-2xl group-hover:scale-105 transition-transform shrink-0">
-                <Book className="w-6 h-6 xl:w-8 xl:h-8 text-secondary-foreground" />
+            <CardContent className="p-5 sm:p-6 flex items-center gap-4">
+              <div className="p-3 bg-secondary/15 border border-border/30 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <Book className="w-6 h-6 text-secondary-foreground" />
               </div>
-              <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight sm:truncate">Base de Conhecimento</h3>
-                <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Tire suas dúvidas e encontre soluções rápidas.</p>
+              <div className="min-w-0 flex-1 space-y-1">
+                <h3 className="text-base font-bold leading-tight">Base de Conhecimento</h3>
+                <p className="text-xs text-muted-foreground line-clamp-2">Tire suas dúvidas e encontre soluções rápidas.</p>
               </div>
             </CardContent>
           </Card>
 
           <Card 
-            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-3xl overflow-hidden shadow-sm" 
+            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-xl overflow-hidden shadow-xs" 
             onClick={() => navigate('/novo-ticket')}
           >
-            <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-warning/15 border border-warning/30 rounded-2xl group-hover:scale-105 transition-transform shrink-0">
-                <MessageSquare className="w-6 h-6 xl:w-8 xl:h-8 text-warning" />
+            <CardContent className="p-5 sm:p-6 flex items-center gap-4">
+              <div className="p-3 bg-warning/15 border border-warning/30 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <MessageSquare className="w-6 h-6 text-warning" />
               </div>
-              <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight sm:truncate">Falar com Consultor</h3>
-                <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Abra um chamado e fale diretamente com a equipe de suporte.</p>
+              <div className="min-w-0 flex-1 space-y-1">
+                <h3 className="text-base font-bold leading-tight">Falar com Consultor</h3>
+                <p className="text-xs text-muted-foreground line-clamp-2">Abra um chamado e fale diretamente com a equipe de suporte.</p>
               </div>
             </CardContent>
           </Card>

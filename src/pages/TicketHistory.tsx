@@ -87,15 +87,13 @@ export default function TicketHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <main className="p-4 md:p-8 lg:p-12 max-w-[1400px] mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        
-        <PageHeader
-          icon={History}
-          badge="AUDITORIA & REGISTROS"
-          title="Histórico"
-          description="Consulte chamados resolvidos, fechados ou cancelados com filtros avançados."
-        />
+    <div className="w-full space-y-6">
+      <PageHeader
+        icon={History}
+        badge="AUDITORIA & REGISTROS"
+        title="Histórico"
+        description="Consulte chamados resolvidos, fechados ou cancelados com filtros avançados."
+      />
 
         <Card className="border-border/40 shadow-xl shadow-primary/5 overflow-visible bg-card/50 backdrop-blur-sm">
           <CardHeader className="border-b border-border/40 pb-6">
@@ -202,12 +200,12 @@ export default function TicketHistory() {
                   <Table className="min-w-[700px]">
                     <TableHeader className="bg-muted/5">
                       <TableRow className="hover:bg-transparent border-b border-border/40">
-                        <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-14 pl-6">Nº</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-14">Ticket</TableHead>
-                        <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-14">Prioridade</TableHead>
-                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-14">Situação Final</TableHead>
-                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-14">Modificado em</TableHead>
-                        <TableHead className="w-[80px] h-14"></TableHead>
+                        <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-11 pl-6">Nº</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-11">Ticket</TableHead>
+                        <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-11">Prioridade</TableHead>
+                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-11">Situação Final</TableHead>
+                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-11">Modificado em</TableHead>
+                        <TableHead className="w-[80px] h-11"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -262,7 +260,6 @@ export default function TicketHistory() {
             )}
           </CardContent>
         </Card>
-      </main>
     </div>
   );
 }

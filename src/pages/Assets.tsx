@@ -322,11 +322,9 @@ const Assets = () => {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background flex flex-col">
-        <main className="flex-1 p-6 lg:p-10 max-w-[1600px] mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          
-          {/* Header */}
-          <PageHeader
+      <div className="w-full space-y-6">
+        {/* Header */}
+        <PageHeader
             icon={Cpu}
             badge="INVENTÁRIO COMPLETO"
             title="Inventário"
@@ -1121,7 +1119,6 @@ const Assets = () => {
             />
           )}
 
-        </main>
       </div>
     </TooltipProvider>
   );
