@@ -121,10 +121,11 @@ export default function Avaliacao() {
                     key={s}
                     type="button"
                     disabled={!user}
+                    aria-label={`${s} de 5 estrelas`}
                     onMouseEnter={() => setHoveredRating(s)}
                     onMouseLeave={() => setHoveredRating(0)}
                     onClick={() => setRating(s)}
-                    className="transition-all duration-200 hover:scale-125 focus:outline-none disabled:opacity-50 disabled:hover:scale-100"
+                    className="p-1 rounded-lg transition-all duration-200 hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
                   >
                     <Star 
                       className={cn(

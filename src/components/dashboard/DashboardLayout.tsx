@@ -30,8 +30,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     <SidebarProvider defaultOpen={true}>
       <AppSidebar />
       <SidebarInset className="min-w-0 flex-1 overflow-x-hidden">
-        {/* TopBar sticky */}
-        <header className="flex sticky top-0 bg-background/80 backdrop-blur-sm h-16 shrink-0 items-center gap-3 border-b border-border/30 px-3 sm:px-6 lg:px-8 z-30">
+        {/* TopBar sticky com botão de menu mobile */}
+        <header className="flex sticky top-0 bg-background/80 backdrop-blur-sm h-16 shrink-0 items-center gap-2 sm:gap-3 border-b border-border/30 px-3 sm:px-6 lg:px-8 z-30">
+          <SidebarTrigger className="shrink-0 -ml-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary" />
           <div className="flex-1 min-w-0">
             <TopBar />
           </div>

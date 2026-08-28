@@ -18,6 +18,10 @@ import {
   ChevronRight, ChevronLeft, ShieldCheck, AlertCircle, BookOpen, ExternalLink,
   X, Clipboard, Image as ImageIcon, Crown
 } from 'lucide-react';
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
+} from '@/components/ui/dialog';
+import { ArticleMarkdownRenderer } from '@/components/knowledge/ArticleMarkdownRenderer';
 import { FileUpload } from '@/components/ticket/FileUpload';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { useToast } from '@/hooks/use-toast';
@@ -86,6 +90,7 @@ const NewTicket = () => {
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [anyDropdownOpen, setAnyDropdownOpen] = useState(false);
   const [createdTicket, setCreatedTicket] = useState<{ id: string; number: number; priority: string } | null>(null);
+  const [previewArticle, setPreviewArticle] = useState<any | null>(null);
 
   // ── Smart: VIP Client detection ─────────────────
   const { data: companyInfo } = useQuery({
@@ -845,8 +850,8 @@ const NewTicket = () => {
                     <h4 className="font-bold text-sm leading-tight text-foreground">{article.title}</h4>
                     <p className="text-xs text-muted-foreground line-clamp-3">{article.content}</p>
                     <div className="flex items-center justify-between pt-2">
-                      <Button variant="ghost" size="sm" className="h-8 text-xs font-bold text-primary px-2" onClick={() => window.open(`/kb/${article.id}`, '_blank')}>
-                        Ler <ExternalLink className="w-3 h-3 ml-1" />
+                      <Button variant="ghost" size="sm" className="h-8 text-xs font-bold text-primary px-2" onClick={() => setPreviewArticle(article)}>
+                        Ler Artigo <ExternalLink className="w-3 h-3 ml-1" />
                       </Button>
                       <Button variant="secondary" size="sm" className="h-8 text-xs font-bold bg-green-500/10 text-green-600 hover:bg-green-500/20" onClick={() => {
                         toast({ title: 'Que ótimo!', description: 'Ficamos felizes que o artigo resolveu seu problema.' });
@@ -884,6 +889,47 @@ const NewTicket = () => {
             }</span>
           </div>
         </div>
+
+        {/* Modal de Prévia do Artigo da Base de Conhecimento */}
+        <Dialog open={!!previewArticle} onOpenChange={(open) => !open && setPreviewArticle(null)}>
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
+            <DialogHeader className="p-6 pb-2 border-b border-border/40">
+              <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-primary shrink-0" />
+                <span>{previewArticle?.title}</span>
+              </DialogTitle>
+              <DialogDescription>
+                Artigo de autoatendimento da Base de Conhecimento
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="p-6 overflow-y-auto flex-1 text-sm leading-relaxed">
+              {previewArticle?.content ? (
+                <ArticleMarkdownRenderer content={previewArticle.content} />
+              ) : (
+                <p className="text-muted-foreground italic">Sem conteúdo disponível.</p>
+              )}
+            </div>
+
+            <DialogFooter className="p-4 bg-muted/20 border-t border-border/40 flex flex-row items-center justify-between sm:justify-between gap-3">
+              <Button variant="outline" onClick={() => setPreviewArticle(null)}>
+                Continuar abrindo chamado
+              </Button>
+              <Button 
+                variant="default" 
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={() => {
+                  setPreviewArticle(null);
+                  toast({ title: 'Excelente!', description: 'Ficamos felizes que a solução ajudou você!' });
+                  navigate('/');
+                }}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                Isso resolveu meu problema!
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>
   );
 };

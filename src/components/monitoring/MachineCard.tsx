@@ -292,9 +292,18 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
     return (
       <>
         <Card
+          role="button"
+          tabIndex={0}
+          aria-label={`Máquina ${machine.hostname}, Status ${isOnline ? 'Online' : 'Offline'}, CPU ${cpuPct != null ? Math.round(cpuPct) : 0}%, RAM ${ramPct != null ? Math.round(ramPct) : 0}%`}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onSelect(machine, 'overview');
+            }
+          }}
           onClick={() => onSelect(machine, 'overview')}
           className={cn(
-            'group cursor-pointer transition-all duration-200 relative overflow-hidden',
+            'group cursor-pointer transition-all duration-200 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
             'bg-card/90 hover:bg-card border rounded-lg shadow-sm hover:shadow-md',
             'flex flex-col justify-between hover:border-foreground/20 dark:hover:border-primary/40',
             alerting

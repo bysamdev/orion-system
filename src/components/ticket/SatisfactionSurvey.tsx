@@ -64,10 +64,11 @@ export const SatisfactionSurvey: React.FC<SatisfactionSurveyProps> = ({ ticketId
             <button
               key={s}
               type="button"
+              aria-label={`${s} de 5 estrelas`}
               onMouseEnter={() => setHoveredRating(s)}
               onMouseLeave={() => setHoveredRating(0)}
               onClick={() => setRating(s)}
-              className="transition-all duration-200 hover:scale-125 focus:outline-none"
+              className="p-1 rounded-lg transition-all duration-200 hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               <Star 
                 className={cn(

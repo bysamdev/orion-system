@@ -40,7 +40,8 @@ export const NotificationsPopover: React.FC = () => {
         <Button
           variant="ghost"
           size="icon"
-          className="hover:bg-primary/10 relative text-muted-foreground hover:text-primary transition-colors focus-visible:ring-0 focus-visible:ring-offset-0"
+          aria-label={unreadCount > 0 ? `Notificações (${unreadCount} não lidas)` : "Notificações"}
+          className="hover:bg-primary/10 relative text-muted-foreground hover:text-primary transition-colors focus-visible:ring-2 focus-visible:ring-primary"
         >
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (

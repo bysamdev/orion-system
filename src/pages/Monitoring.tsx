@@ -7,6 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import {
   Loader2,
   RefreshCw,
@@ -23,6 +26,7 @@ import {
   Trash2,
   Lock,
   LayoutGrid,
+  List,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Navigate } from 'react-router-dom';
@@ -176,18 +180,172 @@ function GroupSectionHeader({
   );
 }
 
+// ── Tabela Compacta de Máquinas (Visualização Densa) ─────
+function MachinesTableView({
+  machines,
+  onSelect,
+}: {
+  machines: MachineWithMetric[];
+  onSelect: (m: MachineWithMetric, initialTab?: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-border/50 bg-card overflow-hidden shadow-xs">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader className="bg-muted/30">
+            <TableRow>
+              <TableHead className="w-[110px] text-left font-bold text-xs">Status</TableHead>
+              <TableHead className="min-w-[180px] text-left font-bold text-xs">Dispositivo / Hostname</TableHead>
+              <TableHead className="min-w-[150px] text-left font-bold text-xs">IP & Usuário</TableHead>
+              <TableHead className="w-[120px] text-left font-bold text-xs">CPU</TableHead>
+              <TableHead className="w-[120px] text-left font-bold text-xs">Memória</TableHead>
+              <TableHead className="w-[120px] text-left font-bold text-xs">Disco</TableHead>
+              <TableHead className="w-[130px] text-right font-bold text-xs">Último Visto</TableHead>
+              <TableHead className="w-[80px] text-right pr-4 font-bold text-xs">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {machines.map((m) => {
+              const isOnline =
+                m.status === 'online' ||
+                m.status === 'alerta' ||
+                (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false);
+              const alerting = m.status === 'alerta' || hasDiskAlert(m);
+              const cpuPct = m.cpu_usage_percent ?? (m.latest_metric?.cpu_usage_percent != null ? Number(m.latest_metric.cpu_usage_percent) : null);
+              const ramPct = m.memory_usage_percent ?? (m.latest_metric?.memory_usage_percent != null ? Number(m.latest_metric.memory_usage_percent) : null);
+              const diskPct = m.disk_usage_percent ?? (m.latest_metric?.disk_usage_percent != null ? Number(m.latest_metric.disk_usage_percent) : null);
+
+              return (
+                <TableRow
+                  key={m.id}
+                  onClick={() => onSelect(m, 'overview')}
+                  className="cursor-pointer hover:bg-muted/40 transition-colors group"
+                >
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "w-2.5 h-2.5 rounded-full shrink-0",
+                        alerting ? "bg-amber-500 animate-pulse" : isOnline ? "bg-emerald-500" : "bg-muted-foreground/40"
+                      )} />
+                      <span className="text-xs font-semibold">
+                        {alerting ? 'Alerta' : isOnline ? 'Online' : 'Offline'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
+                        {m.hostname}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground font-mono">
+                        {m.os || 'Desconhecido'} {m.os_version ? `(${m.os_version})` : ''}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-mono text-xs font-semibold text-foreground/90">
+                        {m.ip_address || '—'}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        {m.current_user || 'Sem usuário'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {cpuPct != null ? (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs font-mono font-medium">
+                          <span>{Math.round(cpuPct)}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              cpuPct > 90 ? "bg-destructive" : cpuPct > 75 ? "bg-amber-500" : "bg-primary"
+                            )}
+                            style={{ width: `${Math.min(cpuPct, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : <span className="text-xs text-muted-foreground font-mono">—</span>}
+                  </TableCell>
+                  <TableCell>
+                    {ramPct != null ? (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs font-mono font-medium">
+                          <span>{Math.round(ramPct)}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              ramPct > 90 ? "bg-destructive" : ramPct > 80 ? "bg-amber-500" : "bg-primary"
+                            )}
+                            style={{ width: `${Math.min(ramPct, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : <span className="text-xs text-muted-foreground font-mono">—</span>}
+                  </TableCell>
+                  <TableCell>
+                    {diskPct != null ? (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs font-mono font-medium">
+                          <span>{Math.round(diskPct)}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              diskPct > 90 ? "bg-destructive" : diskPct > 80 ? "bg-amber-500" : "bg-primary"
+                            )}
+                            style={{ width: `${Math.min(diskPct, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : <span className="text-xs text-muted-foreground font-mono">—</span>}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-[11px] text-muted-foreground">
+                    {m.last_seen ? formatDistanceToNow(new Date(m.last_seen), { addSuffix: true, locale: ptBR }) : 'Nunca'}
+                  </TableCell>
+                  <TableCell className="text-right pr-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs font-bold hover:text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect(m, 'overview');
+                      }}
+                    >
+                      Ver
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
 // ── Grid Principal de Máquinas ──────────────────────────
 function MachinesGrid({
   groupId,
   groups,
   statusFilter,
   search,
+  viewMode = 'grid',
   onSelect,
 }: {
   groupId: string | null;
   groups?: MachineGroup[];
   statusFilter: StatusFilter;
   search: string;
+  viewMode?: 'grid' | 'table';
   onSelect: (m: MachineWithMetric, initialTab?: string) => void;
 }) {
   const isAllGroups = groupId === 'all' || !groupId;
@@ -209,7 +367,15 @@ function MachinesGrid({
     if (statusFilter === 'online' && !isOnline) return false;
     if (statusFilter === 'offline' && isOnline) return false;
     if (statusFilter === 'alert' && m.status !== 'alerta' && !hasDiskAlert(m)) return false;
-    if (search && !m.hostname.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const matchHostname = m.hostname?.toLowerCase().includes(q);
+      const matchIp = m.ip_address?.toLowerCase().includes(q);
+      const matchMac = m.mac_address?.toLowerCase().includes(q);
+      const matchUser = m.current_user?.toLowerCase().includes(q);
+      const matchOs = (m.os?.toLowerCase().includes(q)) || (m.os_version?.toLowerCase().includes(q));
+      if (!matchHostname && !matchIp && !matchMac && !matchUser && !matchOs) return false;
+    }
     return true;
   };
 
@@ -284,11 +450,15 @@ function MachinesGrid({
               />
 
               {groupFiltered.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
-                  {groupFiltered.map((m) => (
-                    <MachineCard key={m.id} machine={m} onSelect={onSelect} />
-                  ))}
-                </div>
+                viewMode === 'table' ? (
+                  <MachinesTableView machines={groupFiltered} onSelect={onSelect} />
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                    {groupFiltered.map((m) => (
+                      <MachineCard key={m.id} machine={m} onSelect={onSelect} />
+                    ))}
+                  </div>
+                )
               ) : (
                 <div className="p-6 rounded-lg border border-dashed border-border/50 bg-muted/20 text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5 py-8">
                   <Monitor className="w-5 h-5 text-muted-foreground/40" />
@@ -316,11 +486,15 @@ function MachinesGrid({
                 onlineCount={onlineUnassigned}
                 totalCount={unassignedMachines.length}
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
-                {filteredUnassigned.map((m) => (
-                  <MachineCard key={m.id} machine={m} onSelect={onSelect} />
-                ))}
-              </div>
+              {viewMode === 'table' ? (
+                <MachinesTableView machines={filteredUnassigned} onSelect={onSelect} />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                  {filteredUnassigned.map((m) => (
+                    <MachineCard key={m.id} machine={m} onSelect={onSelect} />
+                  ))}
+                </div>
+              )}
             </div>
           );
         })()}
@@ -368,11 +542,15 @@ function MachinesGrid({
           totalCount={selectedGroup.total_machines}
         />
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
-        {filtered.map((m) => (
-          <MachineCard key={m.id} machine={m} onSelect={onSelect} />
-        ))}
-      </div>
+      {viewMode === 'table' ? (
+        <MachinesTableView machines={filtered} onSelect={onSelect} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+          {filtered.map((m) => (
+            <MachineCard key={m.id} machine={m} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -387,6 +565,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
   const [selectedDrawerTab, setSelectedDrawerTab] = useState<string>('overview');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [refreshing, setRefreshing] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(true);
 
@@ -571,14 +750,38 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
                 autoComplete="off"
-                placeholder="Buscar por hostname..."
-                className="pl-10 w-full sm:w-[260px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
+                placeholder="Buscar por hostname, IP, usuário ou SO..."
+                className="pl-10 w-full sm:w-[300px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Alternador de Visualização Cards / Tabela */}
+              <div className="flex items-center bg-muted/40 border border-border/50 rounded-xl p-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Visualização em Cards"
+                  onClick={() => setViewMode('grid')}
+                  className={cn("h-7 px-2.5 rounded-lg text-xs font-bold gap-1 transition-all", viewMode === 'grid' ? "bg-background shadow-xs text-primary font-bold" : "text-muted-foreground")}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Cards</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Visualização em Tabela Densa"
+                  onClick={() => setViewMode('table')}
+                  className={cn("h-7 px-2.5 rounded-lg text-xs font-bold gap-1 transition-all", viewMode === 'table' ? "bg-background shadow-xs text-primary font-bold" : "text-muted-foreground")}
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Tabela</span>
+                </Button>
+              </div>
+
               {dashboard && (
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="gap-1.5 text-green-600 border-green-500/30 bg-green-500/10">
@@ -628,11 +831,35 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     autoComplete="off"
-                    placeholder="Buscar por hostname..."
-                    className="pl-10 w-full sm:w-[260px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
+                    placeholder="Buscar por hostname, IP, usuário ou SO..."
+                    className="pl-10 w-full sm:w-[300px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
+                </div>
+
+                {/* Alternador de Visualização Cards / Tabela */}
+                <div className="flex items-center bg-muted/40 border border-border/50 rounded-xl p-0.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Visualização em Cards"
+                    onClick={() => setViewMode('grid')}
+                    className={cn("h-7 px-2.5 rounded-lg text-xs font-bold gap-1 transition-all", viewMode === 'grid' ? "bg-background shadow-xs text-primary font-bold" : "text-muted-foreground")}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Cards</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Visualização em Tabela Densa"
+                    onClick={() => setViewMode('table')}
+                    className={cn("h-7 px-2.5 rounded-lg text-xs font-bold gap-1 transition-all", viewMode === 'table' ? "bg-background shadow-xs text-primary font-bold" : "text-muted-foreground")}
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Tabela</span>
+                  </Button>
                 </div>
 
                 {dashboard && (
@@ -877,6 +1104,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                 groups={groups}
                 statusFilter={statusFilter}
                 search={search}
+                viewMode={viewMode}
                 onSelect={handleSelectMachine}
               />
             )}

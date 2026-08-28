@@ -150,24 +150,28 @@ export const AppSidebar: React.FC = () => {
     <Sidebar collapsible="offcanvas">
       <SidebarHeader>
         <button
+          type="button"
           onClick={() => navigate('/')}
-          className="flex items-center px-3 pt-2 pb-3 cursor-pointer"
+          aria-label="Ir para o Início"
+          className="flex items-center px-3 pt-2 pb-3 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
           <img src={orionLogo} alt="Orion System" className="h-11 w-auto dark:hidden transition-all duration-200" />
           <img src={orionLogoLight} alt="Orion System" className="h-11 w-auto hidden dark:block transition-all duration-200" />
         </button>
 
-        <div
-          onClick={() => navigate('/')}
-          className="flex items-center gap-3 px-3 py-2 mx-1 mb-1 rounded-lg cursor-pointer group border-t border-sidebar-border/60 pt-3"
+        <button
+          type="button"
+          onClick={() => navigate('/ajustes')}
+          aria-label="Acessar Ajustes do Perfil"
+          className="flex items-center text-left gap-3 px-3 py-2 mx-1 mb-1 rounded-lg cursor-pointer group border-t border-sidebar-border/60 pt-3 hover:bg-sidebar-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
           <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-sm font-medium truncate">{profile?.full_name || 'Carregando...'}</span>
+            <span className="text-sm font-medium truncate group-hover:text-sidebar-foreground">{profile?.full_name || 'Carregando...'}</span>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wide truncate">
               {role ? roleLabel[role] : '...'}
             </span>
           </div>
-        </div>
+        </button>
       </SidebarHeader>
 
       <SidebarContent>
@@ -211,7 +215,7 @@ export const AppSidebar: React.FC = () => {
           <button
             type="button"
             onClick={() => { setLegalTab('terms'); setLegalOpen(true); }}
-            className="hover:text-foreground transition-colors"
+            className="hover:text-foreground transition-colors focus-visible:outline-none focus-visible:underline"
           >
             Termos
           </button>
@@ -219,7 +223,7 @@ export const AppSidebar: React.FC = () => {
           <button
             type="button"
             onClick={() => { setLegalTab('privacy'); setLegalOpen(true); }}
-            className="hover:text-foreground transition-colors"
+            className="hover:text-foreground transition-colors focus-visible:outline-none focus-visible:underline"
           >
             Privacidade
           </button>

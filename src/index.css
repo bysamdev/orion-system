@@ -53,13 +53,13 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 224 28% 12%;
 
     --border: 220 13% 86%;
     --input: 220 13% 86%;
     --ring: 260 43% 33%;
 
-    --radius: 0.375rem;
+    --radius: 0.5rem;
 
     --sidebar-background: 220 18% 97%;
     --sidebar-foreground: 224 20% 28%;
@@ -88,8 +88,8 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     --popover: 222 20% 15.5%;
     --popover-foreground: 220 15% 96%;
 
-    /* Roxo da marca como destaque primário pontual de alto contraste */
-    --primary: 260 62% 62%;
+    /* Roxo da marca calibrado para > 5.2:1 de contraste com texto branco */
+    --primary: 260 60% 56%;
     --primary-foreground: 0 0% 100%;
 
     /* Elementos secundários / suporte */
@@ -110,26 +110,37 @@ destructive) permanecem com seus matizes próprios — não devem ser "roxeadas"
     --success-foreground: 0 0% 100%;
 
     --warning: 38 90% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 222 24% 9.5%;
 
     /* Bordas e Dividers discretos e elegantes */
     --border: 220 16% 22%;
     --input: 220 16% 22%;
-    --ring: 260 62% 62%;
+    --ring: 260 60% 56%;
 
     /* Sidebar com profundidade consistente */
     --sidebar-background: 222 26% 8%;
     --sidebar-foreground: 220 14% 88%;
-    --sidebar-primary: 260 62% 62%;
+    --sidebar-primary: 260 60% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 222 20% 14%;
     --sidebar-accent-foreground: 220 20% 96%;
     --sidebar-border: 220 16% 18%;
-    --sidebar-ring: 260 62% 62%;
+    --sidebar-ring: 260 60% 56%;
   }
 }
 
 @layer base {
+  /* Reset Global de Acessibilidade: prefers-reduced-motion (WCAG 2.3.3) */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
   * {
     @apply border-border;
   }

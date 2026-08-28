@@ -56,46 +56,33 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant =
   };
 
   const glows = {
-    default: 'shadow-[0_0_20px_hsla(var(--primary),0.2)]',
-    warning: 'shadow-[0_0_20px_rgba(245,158,11,0.2)]',
-    success: 'shadow-[0_0_20px_rgba(16,185,129,0.2)]',
-    danger: 'shadow-[0_0_20px_rgba(244,63,94,0.3)]',
+    default: 'ring-2 ring-primary/80 bg-primary/5 border-primary/40 shadow-sm',
+    warning: 'ring-2 ring-amber-500/80 bg-amber-500/5 border-amber-500/40 shadow-sm',
+    success: 'ring-2 ring-emerald-500/80 bg-emerald-500/5 border-emerald-500/40 shadow-sm',
+    danger: 'ring-2 ring-rose-500/80 bg-rose-500/5 border-rose-500/40 shadow-sm',
   };
 
   return (
     <button 
       onClick={onClick}
       className={cn(
-        "relative group text-left p-6 rounded-3xl transition-all duration-300 overflow-hidden bg-card border border-border/40 hover:border-primary/40 shadow-sm hover:shadow-md h-full w-full",
+        "relative group text-left p-5 rounded-2xl transition-all duration-200 overflow-hidden bg-card border border-border/50 hover:border-primary/40 shadow-xs hover:shadow-md h-full w-full",
         active 
-          ? cn("ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02]", glows[variant])
-          : "hover:scale-[1.01]"
+          ? cn("scale-[1.01]", glows[variant])
+          : "hover:scale-[1.005]"
       )}
     >
-      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-125 duration-700" />
-      
-      <div className="relative flex items-start justify-between">
-        <div className="space-y-1">
-          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{title}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1 min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">{title}</p>
           <div className="flex items-baseline gap-2">
-            <h3 className="text-3xl font-black tracking-tighter">{value}</h3>
-            {active && <ArrowRight className="w-4 h-4 text-primary animate-pulse" />}
+            <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{value}</h3>
+            {active && <ArrowRight className="w-4 h-4 text-primary shrink-0" />}
           </div>
-          
-          <div className="overflow-hidden">
-            <div className="transition-all duration-300 transform group-hover:-translate-y-full">
-               {description && <p className="text-[10px] font-medium text-muted-foreground h-4">{description}</p>}
-               {!description && <div className="h-4" />}
-            </div>
-            <div className="transition-all duration-300 transform translate-y-0 group-hover:-translate-y-full">
-               <p className="text-[10px] font-bold text-primary h-4 flex items-center gap-1">
-                 <Info className="w-3 h-3" /> Ver tickets &rarr;
-               </p>
-            </div>
-          </div>
+          {description && <p className="text-xs font-medium text-muted-foreground truncate">{description}</p>}
         </div>
-        <div className={cn("p-3 rounded-2xl border transition-all group-hover:rotate-6", styles[variant])}>
-          <Icon className="w-6 h-6" />
+        <div className={cn("p-2.5 rounded-xl border shrink-0 transition-transform group-hover:scale-105", styles[variant])}>
+          <Icon className="w-5 h-5" />
         </div>
       </div>
     </button>
@@ -447,8 +434,8 @@ export const TechnicianDashboard: React.FC = () => {
 
       {/* Team Workload Widget (Only for Admins) */}
       {(role === 'admin' || role === 'developer') && teamWorkload && teamWorkload.length > 0 && (
-        <Card className="border-border/40 shadow-xl shadow-primary/5 rounded-3xl overflow-hidden bg-card/50 backdrop-blur-sm">
-          <CardHeader className="p-6 border-b border-border/40 bg-muted/10">
+        <Card className="border-border/50 shadow-xs rounded-2xl overflow-hidden bg-card/60 backdrop-blur-sm">
+          <CardHeader className="p-5 border-b border-border/40 bg-muted/10">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/10 rounded-xl">
                 <User className="w-5 h-5 text-primary" />
@@ -642,7 +629,7 @@ export const TechnicianDashboard: React.FC = () => {
             </div>
 
             <TabsContent value="unassigned" className="mt-0">
-              <Card className="border-border/40 shadow-sm rounded-3xl overflow-hidden bg-card">
+              <Card className="border-border/50 shadow-xs rounded-2xl overflow-hidden bg-card">
                 <CardContent className="p-0 overflow-x-auto">
                   <Table className="min-w-[750px]">
                     <TableHeader className="bg-muted/5">
@@ -710,7 +697,7 @@ export const TechnicianDashboard: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="my-tickets" className="mt-0">
-              <Card className="border-border/40 shadow-sm rounded-3xl overflow-hidden bg-card">
+              <Card className="border-border/50 shadow-xs rounded-2xl overflow-hidden bg-card">
                 <CardContent className="p-0 overflow-x-auto">
                   <Table className="min-w-[750px]">
                     <TableHeader className="bg-muted/5">
@@ -741,7 +728,7 @@ export const TechnicianDashboard: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="all-tickets" className="mt-0">
-              <Card className="border-border/40 shadow-sm rounded-3xl overflow-hidden bg-card">
+              <Card className="border-border/50 shadow-xs rounded-2xl overflow-hidden bg-card">
                 <CardContent className="p-0 overflow-x-auto">
                   <Table className="min-w-[750px]">
                     <TableHeader className="bg-muted/5">
@@ -776,7 +763,7 @@ export const TechnicianDashboard: React.FC = () => {
         {/* Sidebar Info Area */}
         <div className="xl:col-span-4 space-y-8 min-w-0">
           {/* Workload Section */}
-          <Card className="border-border/40 shadow-sm rounded-3xl bg-card overflow-hidden">
+          <Card className="border-border/50 shadow-xs rounded-2xl bg-card overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center justify-between">
                 Sua Carga de Trabalho

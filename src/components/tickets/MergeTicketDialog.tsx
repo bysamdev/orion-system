@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Merge } from 'lucide-react';
+import { Merge, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,39 +22,80 @@ export const MergeTicketDialog: React.FC<MergeTicketDialogProps> = ({
   companyId,
   onMergeComplete
 }) => {
-  const [duplicateIds, setDuplicateIds] = useState<string>('');
+  const [duplicateInput, setDuplicateInput] = useState<string>('');
   const [isPending, setIsPending] = useState(false);
   const { toast } = useToast();
 
   const handleMerge = async () => {
-    if (!duplicateIds.trim()) {
+    if (!duplicateInput.trim()) {
       toast({
         title: "Erro",
-        description: "Informe pelo menos um ID de ticket para mesclar.",
+        description: "Informe pelo menos um número ou ID de chamado para mesclar.",
         variant: "destructive"
       });
       return;
     }
 
-    const ids = duplicateIds.split(',').map(id => id.trim()).filter(Boolean);
-    
+    const rawTokens = duplicateInput.split(',').map(id => id.trim().replace(/^#/, '')).filter(Boolean);
+    if (rawTokens.length === 0) return;
+
     setIsPending(true);
     try {
+      // Separa UUIDs de Números sequenciais
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const targetUuids: string[] = [];
+      const ticketNumbers: number[] = [];
+
+      for (const token of rawTokens) {
+        if (uuidRegex.test(token)) {
+          targetUuids.push(token);
+        } else if (/^\d+$/.test(token)) {
+          ticketNumbers.push(parseInt(token, 10));
+        } else {
+          throw new Error(`Identificador inválido: "${token}". Use números (#1024) ou UUIDs.`);
+        }
+      }
+
+      // Se houver números sequenciais, busca os respectivos UUIDs no banco
+      if (ticketNumbers.length > 0) {
+        const { data: tickets, error: fetchErr } = await supabase
+          .from('tickets')
+          .select('id, ticket_number')
+          .in('ticket_number', ticketNumbers);
+
+        if (fetchErr) throw fetchErr;
+
+        if (!tickets || tickets.length !== ticketNumbers.length) {
+          const foundNumbers = (tickets || []).map(t => t.ticket_number);
+          const missing = ticketNumbers.filter(n => !foundNumbers.includes(n));
+          throw new Error(`Chamado(s) não encontrado(s): #${missing.join(', #')}`);
+        }
+
+        tickets.forEach(t => targetUuids.push(t.id));
+      }
+
+      // Garante IDs únicos e que o ticket primário não seja mesclado em si mesmo
+      const finalIds = Array.from(new Set(targetUuids)).filter(id => id !== primaryTicketId);
+
+      if (finalIds.length === 0) {
+        throw new Error("Nenhum ticket duplicado válido para mesclagem.");
+      }
+
       const { error } = await (supabase.rpc as any)('fn_merge_tickets', {
         primary_id: primaryTicketId,
-        duplicate_ids: ids
+        duplicate_ids: finalIds
       });
 
       if (error) throw error;
 
       toast({
         title: "Sucesso",
-        description: "Tickets mesclados com sucesso.",
+        description: `${finalIds.length} chamado(s) mesclado(s) com sucesso.`,
       });
       
       onMergeComplete();
       onOpenChange(false);
-      setDuplicateIds('');
+      setDuplicateInput('');
     } catch (err: any) {
       console.error(err);
       toast({
@@ -69,29 +110,32 @@ export const MergeTicketDialog: React.FC<MergeTicketDialogProps> = ({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-[400px]">
+      <AlertDialogContent className="sm:max-w-[420px]">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Merge className="w-5 h-5 text-primary" />
-            Mesclar Ticket
+            Mesclar Chamados
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Informe os IDs dos tickets duplicados (separados por vírgula). Eles serão encerrados e mesclados a este ticket.
+            Informe os números dos chamados (ex: <code>#1024, #1025</code>) que serão unificados e encerrados neste chamado principal.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 py-2">
           <div>
-            <Label htmlFor="duplicate-ids" className="text-sm font-medium">
-              IDs dos Tickets Duplicados
+            <Label htmlFor="duplicate-numbers" className="text-sm font-medium">
+              Números dos Chamados Duplicados
             </Label>
             <Input
-              id="duplicate-ids"
-              placeholder="Ex: 550e8400-e29b-41d4-a716-446655440000"
-              value={duplicateIds}
-              onChange={e => setDuplicateIds(e.target.value)}
-              className="mt-1.5"
+              id="duplicate-numbers"
+              placeholder="Ex: #1024, #1025 ou 1024"
+              value={duplicateInput}
+              onChange={e => setDuplicateInput(e.target.value)}
+              className="mt-1.5 font-mono"
             />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Separe múltiplos números por vírgula.
+            </p>
           </div>
         </div>
 
@@ -101,11 +145,11 @@ export const MergeTicketDialog: React.FC<MergeTicketDialogProps> = ({
           </AlertDialogCancel>
           <Button
             onClick={handleMerge}
-            disabled={!duplicateIds.trim() || isPending}
-            className="gap-2"
+            disabled={!duplicateInput.trim() || isPending}
+            className="gap-2 font-bold"
           >
-            <Merge className="w-4 h-4" />
-            Mesclar
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Merge className="w-4 h-4" />}
+            {isPending ? "Mesclando..." : "Confirmar Mesclagem"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

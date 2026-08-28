@@ -42,3 +42,5 @@ graphify-out/
 
 # Scratch scripts
 scratch/
+__pycache__/
+*.pyc

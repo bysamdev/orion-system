@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Loader2, GitBranch, Plus, Edit2, Trash2, RefreshCw, AlertTriangle, Zap, MessageSquare, Crown, ArrowRightLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -114,6 +115,8 @@ export const RulesTab: React.FC<Props> = ({ companyId }) => {
   const deleteMutation = useDeleteRule();
   const toggleMutation = useToggleRule();
 
+  const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
+
   const openNew = () => { setEditing(null); setDialogOpen(true); };
   const openEdit = (r: RoutingRule) => { setEditing(r); setDialogOpen(true); };
   const closeDialog = () => { setDialogOpen(false); setEditing(null); };
@@ -126,10 +129,7 @@ export const RulesTab: React.FC<Props> = ({ companyId }) => {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm('Excluir esta regra?')) return;
-    deleteMutation.mutate(id, {
-      onSuccess: () => toast({ title: 'Regra removida' }),
-    });
+    setRuleToDelete(id);
   };
 
   return (
@@ -225,6 +225,33 @@ export const RulesTab: React.FC<Props> = ({ companyId }) => {
           })}
         </div>
       )}
+
+      <AlertDialog open={!!ruleToDelete} onOpenChange={(open) => !open && setRuleToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Regra de Automação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta regra deixará de ser executada na criação dos próximos chamados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
+              onClick={() => {
+                if (ruleToDelete) {
+                  deleteMutation.mutate(ruleToDelete, {
+                    onSuccess: () => toast({ title: 'Regra removida com sucesso' }),
+                  });
+                  setRuleToDelete(null);
+                }
+              }}
+            >
+              Excluir Regra
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

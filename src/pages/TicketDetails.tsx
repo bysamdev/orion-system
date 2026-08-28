@@ -786,14 +786,29 @@ const TicketDetails: React.FC = () => {
                   </div>
                 </div>
                 
-                <div className="relative group">
+                <div className={cn(
+                  "relative group rounded-xl transition-all duration-200",
+                  isInternalNote 
+                    ? "p-2 bg-amber-500/5 dark:bg-amber-950/20 border-2 border-amber-500/40" 
+                    : ""
+                )}>
+                  {isInternalNote && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 mb-2 bg-amber-500/15 border border-amber-500/30 rounded-lg text-amber-800 dark:text-amber-200 text-xs font-bold uppercase tracking-wider animate-in fade-in duration-200">
+                      <Lock className="w-3.5 h-3.5 shrink-0" />
+                      <span>Modo Nota Interna Ativo — Visível exclusivamente para técnicos</span>
+                    </div>
+                  )}
+
                   <Textarea
                     ref={textareaRef}
-                    placeholder="Escreva sua resposta ou nota aqui..."
+                    placeholder={isInternalNote ? "Escreva sua nota técnica interna confidencial aqui..." : "Escreva sua resposta para o cliente aqui..."}
                     value={newUpdateText}
                     onChange={handleTextChange}
                     onKeyDown={handleKeyDown}
-                    className="min-h-[160px] bg-background border-border/50 focus-visible:ring-primary/20 resize-none p-4 text-base transition-all group-hover:border-primary/20"
+                    className={cn(
+                      "min-h-[160px] bg-background border-border/50 focus-visible:ring-primary/20 resize-none p-4 text-base transition-all group-hover:border-primary/20",
+                      isInternalNote && "border-amber-500/40 focus-visible:ring-amber-500/30"
+                    )}
                     maxLength={5000}
                   />
 

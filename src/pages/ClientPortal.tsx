@@ -154,7 +154,7 @@ export default function ClientPortal() {
         </div>
 
         {/* SEÇÃO DE DESTAQUE COMPACTA: Chamados em Andamento (Abaixo dos atalhos) */}
-        {openTickets.length > 0 && (
+        {openTickets.length > 0 ? (
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -219,26 +219,15 @@ export default function ClientPortal() {
                             <h3 className="text-sm sm:text-base font-bold text-foreground truncate group-hover:text-primary transition-colors">
                               {ticket.title}
                             </h3>
-                            <StatusBadge status={ticket.status} className="scale-90 origin-left py-0" />
-                            <PriorityBadge priority={ticket.priority} className="scale-90 origin-left py-0" />
                           </div>
                           
-                          <div className="flex items-center gap-2.5 text-xs text-muted-foreground flex-wrap">
-                            <span>
-                              {ticket.assigned_to
-                                ? `Técnico: ${resolveUserDisplayName(ticket.assigned_to, profilesMap, { fallback: 'Técnico' })}`
-                                : 'Aguardando atribuição'}
-                            </span>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                            <StatusBadge status={ticket.status as any} />
+                            <PriorityBadge priority={ticket.priority as any} />
+                            <span className="flex items-center gap-1 text-[11px]">
                               <Clock className="w-3 h-3" />
-                              {formatTimeAgo(ticket.created_at)}
+                              {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true, locale: ptBR })}
                             </span>
-                            {isAwaitingCustomer && (
-                              <span className="text-primary font-bold">
-                                • Aguardando sua resposta
-                              </span>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -289,6 +278,29 @@ export default function ClientPortal() {
               })}
             </div>
           </div>
+        ) : (
+          <Card className="border border-border/40 bg-card/60 backdrop-blur-sm rounded-2xl p-6 text-center shadow-xs">
+            <div className="flex flex-col items-center justify-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-foreground">Tudo em dia!</h3>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  Você não possui nenhum chamado em andamento no momento. Precisa de suporte ou reportar um problema?
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs font-bold rounded-xl gap-1.5 mt-2 hover:border-primary/40 hover:bg-primary/5"
+                onClick={() => navigate('/novo-ticket')}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Abrir Novo Chamado
+              </Button>
+            </div>
+          </Card>
         )}
 
         {/* Destaques da Central de Ajuda */}

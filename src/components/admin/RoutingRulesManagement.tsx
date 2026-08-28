@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Loader2, Plus, Edit2, Trash2, ArrowRightLeft, GitBranch } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,6 +36,7 @@ export const RoutingRulesManagement = () => {
   const [actionType, setActionType] = useState('assign_to_user');
   const [actionTarget, setActionTarget] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
 
   const { data: rules = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['routing-rules', profile?.company_id],
@@ -314,100 +316,127 @@ export const RoutingRulesManagement = () => {
         </Dialog>
       </CardHeader>
       <CardContent className="p-0">
-        <Table>
-          <TableHeader className="bg-muted/10">
-            <TableRow>
-              <TableHead className="w-[50px] text-center font-bold uppercase text-[10px] tracking-widest">#</TableHead>
-              <TableHead className="w-[200px] text-left font-bold uppercase text-[10px] tracking-widest">Nome da Regra</TableHead>
-              <TableHead className="text-left font-bold uppercase text-[10px] tracking-widest">Condição</TableHead>
-              <TableHead className="text-left font-bold uppercase text-[10px] tracking-widest">Ação</TableHead>
-              <TableHead className="w-[100px] text-center font-bold uppercase text-[10px] tracking-widest">Status</TableHead>
-              <TableHead className="w-[100px] text-right pr-6 font-bold uppercase text-[10px] tracking-widest">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && profile?.company_id ? (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/10">
               <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center">
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                    <span className="text-sm text-muted-foreground">Carregando regras de roteamento...</span>
-                  </div>
-                </TableCell>
+                <TableHead className="w-[50px] text-center font-bold uppercase text-[10px] tracking-widest">#</TableHead>
+                <TableHead className="w-[200px] text-left font-bold uppercase text-[10px] tracking-widest">Nome da Regra</TableHead>
+                <TableHead className="text-left font-bold uppercase text-[10px] tracking-widest">Condição</TableHead>
+                <TableHead className="text-left font-bold uppercase text-[10px] tracking-widest">Ação</TableHead>
+                <TableHead className="w-[100px] text-center font-bold uppercase text-[10px] tracking-widest">Status</TableHead>
+                <TableHead className="w-[100px] text-right pr-6 font-bold uppercase text-[10px] tracking-widest">Ações</TableHead>
               </TableRow>
-            ) : isError ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center">
-                  <div className="flex flex-col items-center justify-center space-y-2 text-destructive">
-                    <div className="text-sm font-bold">Erro ao carregar regras</div>
-                    <div className="text-xs opacity-80">{error instanceof Error ? error.message : 'Erro desconhecido'}</div>
-                    <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2 text-foreground">Tentar novamente</Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : !profile?.company_id ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                  <div className="flex flex-col items-center justify-center space-y-1">
-                    <span className="font-medium">Empresa não identificada</span>
-                    <span className="text-xs">Verifique suas permissões de acesso.</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : rules.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <GitBranch className="w-8 h-8 opacity-20" />
-                    <span className="font-medium">Nenhuma regra de roteamento configurada</span>
-                    <span className="text-xs">Crie regras para rotear chamados automaticamente.</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (rules as any[]).map((rule: { id: string; name: string; priority: number; description: string | null; conditions: Record<string, string> | null; actions: Record<string, string> | null; is_active: boolean }) => (
-                <TableRow key={rule.id}>
-                  <TableCell className="text-center font-bold text-muted-foreground">{rule.priority}</TableCell>
-                  <TableCell className="font-bold">{rule.name}</TableCell>
-                  <TableCell>
-                    <span className="text-xs bg-muted text-foreground px-2 py-1 rounded-md font-medium border border-border/50">
-                      [{rule.conditions?.field}] {rule.conditions?.operator} "
-                      {rule.conditions?.field === 'company_id'
-                        ? nomeDaEmpresa(rule.conditions?.value)
-                        : rule.conditions?.value}
-                      "
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                       <ArrowRightLeft className="w-3 h-3 text-muted-foreground" />
-                       <span className="text-xs font-bold text-primary truncate max-w-[150px]">
-                         {rule.actions?.type === 'assign_to_user' ? 'Atribuir a: ' : ''}
-                         {rule.actions?.type === 'assign_to_user'
-                           ? nomeDoTecnico(rule.actions?.target)
-                           : rule.actions?.target}
-                       </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {rule.is_active ? 
-                      <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-full">ATIVA</span> : 
-                      <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-1 rounded-full">INATIVA</span>
-                    }
-                  </TableCell>
-                  <TableCell className="text-right pr-6">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="icon" aria-label="Editar regra" onClick={() => handleEdit(rule)} className="h-8 w-8 hover:text-primary"><Edit2 className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" aria-label="Excluir regra" onClick={() => { if(window.confirm('Excluir esta regra?')) deleteMutation.mutate(rule.id) }} className="h-8 w-8 hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+            </TableHeader>
+            <TableBody>
+              {isLoading && profile?.company_id ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <span className="text-sm text-muted-foreground">Carregando regras de roteamento...</span>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : isError ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-2 text-destructive">
+                      <div className="text-sm font-bold">Erro ao carregar regras</div>
+                      <div className="text-xs opacity-80">{error instanceof Error ? error.message : 'Erro desconhecido'}</div>
+                      <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2 text-foreground">Tentar novamente</Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : !profile?.company_id ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center space-y-1">
+                      <span className="font-medium">Empresa não identificada</span>
+                      <span className="text-xs">Verifique suas permissões de acesso.</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : rules.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <GitBranch className="w-8 h-8 opacity-20" />
+                      <span className="font-medium">Nenhuma regra de roteamento configurada</span>
+                      <span className="text-xs">Crie regras para rotear chamados automaticamente.</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (rules as any[]).map((rule: { id: string; name: string; priority: number; description: string | null; conditions: Record<string, string> | null; actions: Record<string, string> | null; is_active: boolean }) => (
+                  <TableRow key={rule.id}>
+                    <TableCell className="text-center font-bold text-muted-foreground">{rule.priority}</TableCell>
+                    <TableCell className="font-bold">{rule.name}</TableCell>
+                    <TableCell>
+                      <span className="text-xs bg-muted text-foreground px-2 py-1 rounded-md font-medium border border-border/50">
+                        [{rule.conditions?.field}] {rule.conditions?.operator} "
+                        {rule.conditions?.field === 'company_id'
+                          ? nomeDaEmpresa(rule.conditions?.value)
+                          : rule.conditions?.value}
+                        "
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                         <ArrowRightLeft className="w-3 h-3 text-muted-foreground" />
+                         <span className="text-xs font-bold text-primary truncate max-w-[150px]">
+                           {rule.actions?.type === 'assign_to_user' ? 'Atribuir a: ' : ''}
+                           {rule.actions?.type === 'assign_to_user'
+                             ? nomeDoTecnico(rule.actions?.target)
+                             : rule.actions?.target}
+                         </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {rule.is_active ? 
+                        <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-full">ATIVA</span> : 
+                        <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-1 rounded-full">INATIVA</span>
+                      }
+                    </TableCell>
+                    <TableCell className="text-right pr-6">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" aria-label="Editar regra" onClick={() => handleEdit(rule)} className="h-8 w-8 hover:text-primary"><Edit2 className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" aria-label="Excluir regra" onClick={() => setRuleToDelete(rule.id)} className="h-8 w-8 hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
+
+      <AlertDialog open={!!ruleToDelete} onOpenChange={(open) => !open && setRuleToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Regra de Roteamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é permanente e os próximos chamados não serão mais roteados por esta regra.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
+              onClick={() => {
+                if (ruleToDelete) {
+                  deleteMutation.mutate(ruleToDelete);
+                  setRuleToDelete(null);
+                }
+              }}
+            >
+              Excluir Regra
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
