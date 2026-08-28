@@ -712,6 +712,70 @@ const TicketDetails: React.FC = () => {
           </div>
         )}
 
+        {/* Banner de Acesso Remoto em Destaque no Topo */}
+        {canManageTickets && (ticket.remote_id || ticket.remote_password) && (
+          <div className="mb-2 bg-gradient-to-r from-indigo-500/10 via-primary/5 to-transparent border border-indigo-500/30 dark:border-indigo-500/20 rounded-2xl p-4 sm:p-5 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-xs">
+                  <Monitor className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                      Acesso Remoto do Solicitante
+                    </span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
+                      Pronto para conectar
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Dados informados pelo cliente para conexão e suporte remoto.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+                {ticket.remote_id && (
+                  <div className="flex items-center justify-between gap-3 bg-background/90 dark:bg-background/60 backdrop-blur border border-border/60 hover:border-indigo-500/40 rounded-xl px-3.5 py-2 transition-all min-w-[160px]">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-wider">ID da Máquina</p>
+                      <p className="font-mono text-sm font-black text-foreground tracking-wider">{ticket.remote_id}</p>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      aria-label="Copiar ID da máquina" 
+                      className="h-7 w-7 rounded-lg hover:bg-muted shrink-0" 
+                      onClick={() => copyToClipboard(ticket.remote_id!, 'ID')}
+                    >
+                      <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                  </div>
+                )}
+
+                {ticket.remote_password && (
+                  <div className="flex items-center justify-between gap-3 bg-background/90 dark:bg-background/60 backdrop-blur border border-border/60 hover:border-indigo-500/40 rounded-xl px-3.5 py-2 transition-all min-w-[200px] max-w-[320px]">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-wider">Senha de Sessão</p>
+                      <p className="font-mono text-sm font-black text-foreground truncate">{ticket.remote_password}</p>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      aria-label="Copiar senha de sessão" 
+                      className="h-7 w-7 rounded-lg hover:bg-muted shrink-0" 
+                      onClick={() => copyToClipboard(ticket.remote_password!, 'Senha')}
+                    >
+                      <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Main Content (Left Column) */}
           <div className="xl:col-span-2 space-y-8">
@@ -1144,20 +1208,6 @@ const TicketDetails: React.FC = () => {
             {/* Context Bridge (Ativo Relacionado) */}
             {ticket.asset_id && (
               <TicketAssetContext assetId={ticket.asset_id} />
-            )}
-
-            {/* Acesso Remoto */}
-            {canManageTickets && (ticket.remote_id || ticket.remote_password) && (
-              <Card className="p-6 border-none shadow-sm bg-indigo-500/5 border border-indigo-500/20">
-                <div className="flex items-center gap-2 mb-4 text-indigo-600 dark:text-indigo-400">
-                  <Monitor className="w-4 h-4" />
-                  <h3 className="font-bold text-xs uppercase tracking-widest">Acesso Remoto</h3>
-                </div>
-                <div className="space-y-3">
-                  <RemoteField label="ID da Máquina" value={ticket.remote_id} onCopy={() => copyToClipboard(ticket.remote_id!, 'ID')} />
-                  <RemoteField label="Senha de Sessão" value={ticket.remote_password} onCopy={() => copyToClipboard(ticket.remote_password!, 'PASS')} />
-                </div>
-              </Card>
             )}
 
             {/* Anexos */}
