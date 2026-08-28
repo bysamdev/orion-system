@@ -71,8 +71,8 @@ const categories = [
     icon: HardDrive, 
     color: 'text-orange-500', 
     bg: 'bg-orange-500/10',
-    description: 'Problemas físicos no computador, máquina que não liga, lentidão extrema, solicitação de peças ou periféricos.',
-    examples: ['Computador ou notebook não liga', 'Troca de mouse, teclado ou monitor', 'Upgrade de memória RAM ou SSD', 'Superaquecimento ou barulho físico']
+    description: 'Diagnóstico de problemas físicos no computador, máquina que não liga, travamentos graves ou lentidão de hardware.',
+    examples: ['Computador ou notebook não liga / desliga sozinho', 'Lentidão severa ou congelamentos do sistema', 'Upgrade ou solicitação de memória RAM / SSD', 'Superaquecimento ou barulho anormal no equipamento']
   },
   { 
     id: 'software', 
