@@ -21,6 +21,12 @@ import {
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ArticleMarkdownRenderer } from '@/components/knowledge/ArticleMarkdownRenderer';
 import { FileUpload } from '@/components/ticket/FileUpload';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
@@ -41,12 +47,60 @@ const ticketSchema = ticketCreationSchema;
 type TicketFormValues = z.infer<typeof ticketSchema>;
 
 const categories = [
-  { id: 'erp', name: 'ERP', icon: Layout, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-  { id: 'email', name: 'E-mail', icon: Mail, color: 'text-primary', bg: 'bg-primary/10' },
-  { id: 'hardware', name: 'Hardware', icon: HardDrive, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-  { id: 'software', name: 'Software', icon: Cpu, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-  { id: 'rede', name: 'Rede', icon: Globe, color: 'text-sky-500', bg: 'bg-sky-500/10' },
-  { id: 'outros', name: 'Outros', icon: MoreHorizontal, color: 'text-muted-foreground', bg: 'bg-muted/40' },
+  { 
+    id: 'erp', 
+    name: 'ERP', 
+    icon: Layout, 
+    color: 'text-blue-500', 
+    bg: 'bg-blue-500/10',
+    description: 'Sistemas de gestão empresarial (Senior, Protheus, SAP, emissão de notas fiscais, faturamento e relatórios).',
+    examples: ['Senior (Sapiens, Ronda, Vetorh)', 'Protheus / SAP / Totvs', 'Emissão de NF-e / Danfe / Boletos', 'Rotinas de faturamento e relatórios']
+  },
+  { 
+    id: 'email', 
+    name: 'E-mail', 
+    icon: Mail, 
+    color: 'text-primary', 
+    bg: 'bg-primary/10',
+    description: 'Contas de correio eletrônico, problemas no Outlook ou Webmail, envio/recebimento e configuração de contas.',
+    examples: ['Outlook travando ou não abre', 'Não envia ou não recebe mensagens', 'Configuração de nova conta / senha', 'Caixa de entrada cheia']
+  },
+  { 
+    id: 'hardware', 
+    name: 'Hardware', 
+    icon: HardDrive, 
+    color: 'text-orange-500', 
+    bg: 'bg-orange-500/10',
+    description: 'Problemas físicos no computador, máquina que não liga, lentidão extrema, solicitação de peças ou periféricos.',
+    examples: ['Computador ou notebook não liga', 'Troca de mouse, teclado ou monitor', 'Upgrade de memória RAM ou SSD', 'Superaquecimento ou barulho físico']
+  },
+  { 
+    id: 'software', 
+    name: 'Software', 
+    icon: Cpu, 
+    color: 'text-emerald-500', 
+    bg: 'bg-emerald-500/10',
+    description: 'Instalação, atualização ou erros em programas, pacote Microsoft Office, Excel travando, Adobe e antivírus.',
+    examples: ['Instalação / Atualização de programas', 'Excel, Word ou PowerPoint com erro', 'Adobe Acrobat / Leitor de PDF', 'Navegadores e antivírus']
+  },
+  { 
+    id: 'rede', 
+    name: 'Rede', 
+    icon: Globe, 
+    color: 'text-sky-500', 
+    bg: 'bg-sky-500/10',
+    description: 'Sem conexão com a internet, Wi-Fi instável ou lento, falha ao acessar pastas na rede e impressoras conectadas.',
+    examples: ['Sem acesso à internet ou Wi-Fi instável', 'Pasta compartilhada do servidor não abre', 'Impressora de rede inacessível', 'Site ou sistema web fora do ar']
+  },
+  { 
+    id: 'outros', 
+    name: 'Outros', 
+    icon: MoreHorizontal, 
+    color: 'text-muted-foreground', 
+    bg: 'bg-muted/40',
+    description: 'Solicitações gerais, dúvidas de informática, liberação de novos acessos ou assuntos não listados nas outras opções.',
+    examples: ['Criação ou liberação de novos acessos', 'Dúvidas de uso em geral', 'Telefonia / Ramal', 'Outras solicitações de TI']
+  },
 ];
 
 const CATEGORY_PLACEHOLDERS: Record<string, string> = {
@@ -487,35 +541,87 @@ const NewTicket = () => {
                 {step === 1 && (
                   <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
                     <section className="space-y-4">
-                      <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">O que está acontecendo?</Label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
-                        {categories.map((cat) => (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => {
-                            form.setValue('category', cat.id, { shouldValidate: true });
-                            form.clearErrors('category');
-                          }}
-                            className={cn(
-                              "relative group p-4 md:p-6 rounded-lg border-2 transition-all flex flex-col items-center gap-3 md:gap-4 text-center h-32 md:h-40 justify-center overflow-hidden",
-                              currentCategory === cat.id 
-                                ? "border-primary bg-primary/5 shadow-xl shadow-primary/10" 
-                                : "border-border/40 bg-muted/20 hover:border-primary/20 hover:bg-muted/30"
-                            )}
-                          >
-                            <div className={cn("p-3 rounded-xl transition-all group-hover:scale-110", cat.bg, cat.color)}>
-                              <cat.icon className="w-6 h-6" />
-                            </div>
-                            <span className="font-bold text-sm tracking-tight">{cat.name}</span>
-                            {currentCategory === cat.id && (
-                              <div className="absolute top-2 right-2">
-                                <CheckCircle2 className="w-5 h-5 text-primary fill-background" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">O que está acontecendo?</Label>
+                        <span className="text-xs text-muted-foreground hidden sm:inline-block">Passe o mouse para ver detalhes</span>
                       </div>
+                      <TooltipProvider delayDuration={150}>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
+                          {categories.map((cat) => (
+                            <Tooltip key={cat.id}>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    form.setValue('category', cat.id, { shouldValidate: true });
+                                    form.clearErrors('category');
+                                  }}
+                                  aria-label={`${cat.name}: ${cat.description}`}
+                                  className={cn(
+                                    "relative group p-4 md:p-6 rounded-lg border-2 transition-all flex flex-col items-center gap-3 md:gap-4 text-center h-32 md:h-40 justify-center overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                                    currentCategory === cat.id 
+                                      ? "border-primary bg-primary/5 shadow-xl shadow-primary/10" 
+                                      : "border-border/40 bg-muted/20 hover:border-primary/20 hover:bg-muted/30"
+                                  )}
+                                >
+                                  <div className={cn("p-3 rounded-xl transition-all group-hover:scale-110", cat.bg, cat.color)}>
+                                    <cat.icon className="w-6 h-6" />
+                                  </div>
+                                  <span className="font-bold text-sm tracking-tight">{cat.name}</span>
+                                  {currentCategory === cat.id && (
+                                    <div className="absolute top-2 right-2">
+                                      <CheckCircle2 className="w-5 h-5 text-primary fill-background" />
+                                    </div>
+                                  )}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent 
+                                side="top" 
+                                sideOffset={8}
+                                className="max-w-xs p-3 space-y-2 bg-popover/95 backdrop-blur border border-border shadow-xl text-left"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className={cn("p-1 rounded-md", cat.bg, cat.color)}>
+                                    <cat.icon className="w-4 h-4" />
+                                  </div>
+                                  <span className="font-bold text-sm text-foreground">{cat.name}</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                  {cat.description}
+                                </p>
+                                <div className="pt-1.5 border-t border-border/50">
+                                  <span className="text-[11px] font-semibold text-foreground/80 block mb-1">Exemplos comuns:</span>
+                                  <ul className="text-[11px] text-muted-foreground space-y-0.5 list-disc list-inside">
+                                    {cat.examples.map((ex, idx) => (
+                                      <li key={idx} className="truncate">{ex}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          ))}
+                        </div>
+                      </TooltipProvider>
+
+                      {/* Helper explicativo da categoria selecionada */}
+                      {currentCategory && (
+                        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-primary/5 border border-primary/15 text-xs text-foreground/90 animate-in fade-in slide-in-from-top-1 duration-200">
+                          {(() => {
+                            const selected = categories.find(c => c.id === currentCategory);
+                            if (!selected) return null;
+                            const IconComponent = selected.icon;
+                            return (
+                              <>
+                                <IconComponent className={cn("w-4 h-4 shrink-0 mt-0.5", selected.color)} />
+                                <div className="space-y-0.5">
+                                  <span className="font-semibold text-foreground">{selected.name}: </span>
+                                  <span className="text-muted-foreground">{selected.description}</span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
 
                       {/* Smart: Auto Category Suggestion */}
                       {suggestedCategory && !isCategorySelected && (
