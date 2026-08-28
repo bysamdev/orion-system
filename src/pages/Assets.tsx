@@ -737,11 +737,11 @@ const Assets = () => {
                           </div>
                         </TableCell>
 
-                        {/* 3. Geral (Hostname, IP local, MAC, Logged user, OS) */}
+                        {/* 3. Geral (Hostname, IP local, MAC, Domínio, Usuário) */}
                         <TableCell className="py-3.5 align-middle">
-                          <div className="flex flex-col space-y-1.5">
-                            {/* Hostname link & Domain Badge */}
-                            <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex flex-col space-y-2">
+                            {/* Hostname link & Dedicated Hostname Badge & Domain */}
+                            <div className="flex items-center gap-2.5 flex-wrap">
                               <button
                                 onClick={() => {
                                   if (device.raw_machine) {
@@ -752,9 +752,21 @@ const Assets = () => {
                                 }}
                                 className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5 w-fit group/btn"
                               >
-                                <span>{device.hostname}</span>
+                                <span>{device.name || device.hostname}</span>
                                 <ExternalLink className="w-3 h-3 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
                               </button>
+
+                              {/* Espaço reservado para o Hostname */}
+                              {device.hostname && (
+                                <span 
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-muted/60 text-foreground/80 border border-border/50" 
+                                  title={`Hostname da máquina: ${device.hostname}`}
+                                >
+                                  <Laptop className="w-2.5 h-2.5 text-primary/80" />
+                                  <span>Hostname: {device.hostname}</span>
+                                </span>
+                              )}
+
                               {device.domain && device.domain !== 'WORKGROUP' && device.domain !== '.' && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/20">
                                   <Building2 className="w-2.5 h-2.5" />
@@ -763,36 +775,35 @@ const Assets = () => {
                               )}
                             </div>
 
-                            <div className="grid grid-cols-2 xl:grid-cols-5 gap-2 text-[11px] text-muted-foreground font-medium">
+                            {/* Metadados Técnicos: IP, MAC espaçado, Domínio e Usuário (Sem OS) */}
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs text-muted-foreground font-medium">
                               {/* IP Local */}
-                              <div className="flex items-center gap-1.5 min-w-0" title={`IP Local: ${device.ip_address || device.local_ip || '—'}`}>
-                                <Globe className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span className="font-mono truncate">{device.ip_address || device.local_ip || '—'}</span>
+                              <div className="flex items-center gap-1.5 shrink-0" title={`IP Local: ${device.ip_address || device.local_ip || '—'}`}>
+                                <Globe className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                                <span className="font-mono">{device.ip_address || device.local_ip || '—'}</span>
                               </div>
 
-                              {/* MAC Address */}
-                              <div className="flex items-center gap-1.5 min-w-0" title={`MAC Address: ${device.mac_address || '—'}`}>
-                                <Network className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span className="font-mono text-[10px] truncate">{device.mac_address || '—'}</span>
+                              {/* MAC Address (Espaçado, nítido e sem corte de reticências) */}
+                              <div className="flex items-center gap-1.5 shrink-0" title={`MAC Address: ${device.mac_address || '—'}`}>
+                                <Network className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                                <span className="font-mono text-[11px] whitespace-nowrap font-semibold text-foreground/90">
+                                  {device.mac_address || '—'}
+                                </span>
                               </div>
 
                               {/* Domínio / Grupo de Rede */}
-                              <div className="flex items-center gap-1.5 min-w-0" title={`Domínio / Grupo de Rede: ${device.domain || 'WORKGROUP'}`}>
-                                <Building2 className="w-3.5 h-3.5 text-primary/70 flex-shrink-0" />
-                                <span className="font-mono text-[10px] truncate">{device.domain || 'WORKGROUP'}</span>
+                              <div className="flex items-center gap-1.5 shrink-0" title={`Domínio / Grupo de Rede: ${device.domain || 'WORKGROUP'}`}>
+                                <Building2 className="w-3.5 h-3.5 text-primary/70 shrink-0" />
+                                <span className="font-mono text-[11px]">{device.domain || 'WORKGROUP'}</span>
                               </div>
 
-                              {/* Logged-in User */}
-                              <div className="flex items-center gap-1.5 min-w-0" title={`Usuário Logado: ${device.logged_user || device.logged_in_user || '—'}`}>
-                                <User className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span className="truncate">{device.logged_user || device.logged_in_user || '—'}</span>
-                              </div>
-
-                              {/* Operating System */}
-                              <div className="flex items-center gap-1.5 min-w-0" title={`Sistema Operacional: ${device.os || '—'}`}>
-                                <Cpu className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span className="truncate">{device.os || '—'}</span>
-                              </div>
+                              {/* Usuário Logado */}
+                              {(device.logged_user || device.logged_in_user) && (
+                                <div className="flex items-center gap-1.5 shrink-0" title={`Usuário Logado: ${device.logged_user || device.logged_in_user}`}>
+                                  <User className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                                  <span>{device.logged_user || device.logged_in_user}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </TableCell>

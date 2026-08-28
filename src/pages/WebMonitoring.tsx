@@ -380,10 +380,10 @@ export default function WebMonitoring() {
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              disabled={isRefreshing || loadingWeb || loadingNetwork}
+              disabled={isRefreshing || isLoadingEndpoints || isLoadingNetworkLinks}
               className="rounded-xl font-semibold gap-1.5"
             >
-              <RefreshCw className={cn('w-3.5 h-3.5', (isRefreshing || loadingWeb || loadingNetwork) && 'animate-spin')} />
+              <RefreshCw className={cn('w-3.5 h-3.5', (isRefreshing || isLoadingEndpoints || isLoadingNetworkLinks) && 'animate-spin')} />
               Atualizar
             </Button>
           </div>
