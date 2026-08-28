@@ -74,8 +74,9 @@ function extractLocalIp(machine: any, hardware: any): string {
   if (machine?.ip_address && machine.ip_address !== '127.0.0.1') return machine.ip_address;
   if (machine?.local_ip && machine.local_ip !== '127.0.0.1') return machine.local_ip;
   if (hardware?.local_ip && hardware.local_ip !== '127.0.0.1') return hardware.local_ip;
-  if (Array.isArray(hardware?.network_interfaces) && hardware.network_interfaces.length > 0) {
-    const ni = (hardware.network_interfaces || []).find((i: any) => (i?.ip || i?.address) && i?.ip !== '127.0.0.1' && i?.address !== '127.0.0.1');
+  const ifaces = hardware?.interfaces || hardware?.network_interfaces;
+  if (Array.isArray(ifaces) && ifaces.length > 0) {
+    const ni = ifaces.find((i: any) => (i?.ip || i?.address) && i?.ip !== '127.0.0.1' && i?.address !== '127.0.0.1');
     if (ni?.ip) return ni.ip;
     if (ni?.address) return ni.address;
   }
@@ -87,8 +88,9 @@ function extractMacAddress(machine: any, hardware: any): string {
   if (machine?.mac && machine.mac !== '00:00:00:00:00:00') return machine.mac;
   if (hardware?.mac_address && hardware.mac_address !== '00:00:00:00:00:00') return hardware.mac_address;
   if (hardware?.mac && hardware.mac !== '00:00:00:00:00:00') return hardware.mac;
-  if (Array.isArray(hardware?.network_interfaces) && hardware.network_interfaces.length > 0) {
-    const ni = (hardware.network_interfaces || []).find((i: any) => (i?.mac || i?.mac_address) && i?.mac !== '00:00:00:00:00:00' && i?.mac_address !== '00:00:00:00:00:00');
+  const ifaces = hardware?.interfaces || hardware?.network_interfaces;
+  if (Array.isArray(ifaces) && ifaces.length > 0) {
+    const ni = ifaces.find((i: any) => (i?.mac || i?.mac_address) && i?.mac !== '00:00:00:00:00:00' && i?.mac_address !== '00:00:00:00:00:00');
     if (ni?.mac) return ni.mac;
     if (ni?.mac_address) return ni.mac_address;
   }
@@ -122,10 +124,10 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
         ] = await Promise.all([
           supabase
             .from('machines' as any)
-            .select('id, name, hostname, company_id, domain, status, last_seen, metrics_collected_at, created_at, approval_status'),
+            .select('id, hostname, company_id, domain, status, last_seen, metrics_collected_at, created_at, approval_status, os, local_ip, mac_address, logged_in_user, current_user, device_type, ip_address'),
           supabase
             .from('machine_hardware' as any)
-            .select('machine_id, device_type, os, local_ip, mac_address, domain, logged_in_user, user, serial_number, brand, model'),
+            .select('id, machine_id, cpu_model, ram_slots, disks, gpu, interfaces, security_info, remote_software, battery_info, update_status'),
           supabase
             .from('companies')
             .select('id, name'),
@@ -183,11 +185,11 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           const hw = hardwareMap.get(m.id) || {};
           const compName = m.company_id ? companyMap.get(m.company_id) || 'Empresa Não Identificada' : 'Sem Empresa';
 
-          const osStr = m.os || hw.os || 'Windows 11 Pro';
+          const osStr = m.os || 'Windows 11 Pro';
           const localIp = extractLocalIp(m, hw);
           const macAddress = extractMacAddress(m, hw);
-          const loggedInUser = hw.logged_in_user || hw.user || m.logged_in_user || 'N/A';
-          const deviceType = resolveDeviceType(hw.device_type, m.hostname, osStr);
+          const loggedInUser = m.logged_in_user || m.current_user || 'N/A';
+          const deviceType = resolveDeviceType(m.device_type, m.hostname, osStr);
           const lastSeen = m.last_seen || m.metrics_collected_at || m.created_at || new Date().toISOString();
           const baseStatus = resolveStatus(m.status, lastSeen);
           const alertsCount = alertsCountMap.get(m.id) || 0;
@@ -196,9 +198,9 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
 
           const rawHost = m.hostname || `HOST-${m.id.slice(0, 6)}`;
           const cleanHostname = rawHost.includes(' - ') ? rawHost.split(' - ')[0].trim() : rawHost.trim();
-          const cleanName = m.name ? (m.name.includes(' - ') ? m.name.split(' - ')[0].trim() : m.name) : cleanHostname;
+          const cleanName = cleanHostname;
 
-          const domainRaw = m.domain || hw.domain || '';
+          const domainRaw = m.domain || '';
           const cleanDomain = (!domainRaw || domainRaw === '.') ? 'WORKGROUP' : domainRaw;
 
           return {
@@ -219,11 +221,12 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
             alerts_count: alertsCount,
             tickets_count: ticketsCount,
             last_seen: lastSeen,
-            serial_number: hw.serial_number || m.serial_number || '',
-            brand: hw.brand || m.brand || '',
-            model: hw.model || m.model || '',
-            raw_asset: m.raw_asset || null,
+            serial_number: '',
+            brand: '',
+            model: '',
+            raw_asset: null,
             raw_machine: m,
+            hardware: hw,
           };
         });
 
