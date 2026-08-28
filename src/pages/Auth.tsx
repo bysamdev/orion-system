@@ -212,8 +212,11 @@ const Auth = () => {
           console.warn('[Auth] Erro ao verificar AAL na inicialização:', err);
         }
 
-        // Sem MFA pendente -> segue para o dashboard
-        navigate('/', { replace: true });
+        // Sem MFA pendente -> segue para a rota original ou dashboard
+        const searchParams = new URLSearchParams(window.location.search);
+        const redirectParam = searchParams.get('redirect');
+        const target = redirectParam ? decodeURIComponent(redirectParam) : '/';
+        navigate(target, { replace: true });
       }
     };
 
@@ -297,7 +300,10 @@ const Auth = () => {
     if (machineToken) {
       localStorage.setItem('orion_machine_token', machineToken);
     }
-    navigate('/');
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectParam = searchParams.get('redirect');
+    const target = redirectParam ? decodeURIComponent(redirectParam) : '/';
+    navigate(target);
   };
 
   // Verificação do Código TOTP (6 dígitos)
@@ -323,7 +329,10 @@ const Auth = () => {
         localStorage.setItem('orion_machine_token', machineToken);
       }
       sessionStorage.removeItem('orion_mfa_backup_passed');
-      navigate('/', { replace: true });
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectParam = searchParams.get('redirect');
+      const target = redirectParam ? decodeURIComponent(redirectParam) : '/';
+      navigate(target, { replace: true });
     } catch (err: any) {
       toast({
         title: "Código 2FA Inválido",

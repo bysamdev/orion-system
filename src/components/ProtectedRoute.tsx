@@ -49,7 +49,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       try {
         const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         if (isMounted && aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel === 'aal1') {
-          setNeedsMfaElevation(true);
+          const { data: factors } = await supabase.auth.mfa.listFactors();
+          const hasVerifiedTotp = factors?.totp?.some((f) => f.status === 'verified');
+          if (isMounted && hasVerifiedTotp) {
+            setNeedsMfaElevation(true);
+          }
         }
       } catch (err) {
         console.warn('[ProtectedRoute] Erro ao verificar AAL:', err);
@@ -166,7 +170,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // 2.1. Sessão requer desafio 2FA (AAL2) pendente -> redireciona para tela de 2FA
   if (needsMfaElevation) {
-    return <Navigate to="/auth" replace />;
+    const returnUrl = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/auth?mfa=true&redirect=${returnUrl}`} replace />;
   }
 
   // 3. Falha ao consultar role do usuário (evita bloquear admins acidentalmente por erro temporário)
