@@ -106,13 +106,10 @@ function GroupItem({
         )}
       </div>
 
-      {/* Indicador de Status / Botões de Ação */}
-      <div className="flex items-center gap-1 shrink-0">
-        {/* Contador (visível por padrão; some no hover se o usuário puder gerenciar) */}
-        <div className={cn(
-          "flex items-center gap-1.5 transition-opacity",
-          canManage && "group-hover/item:hidden"
-        )}>
+      {/* Indicador de Status & Botões de Ação alinhados lado a lado */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Contador de Máquinas */}
+        <div className="flex items-center gap-1">
           <span className="flex items-center gap-1 text-[11px] font-semibold">
             <span className={cn(
               "h-1.5 w-1.5 rounded-full shrink-0",
@@ -127,14 +124,14 @@ function GroupItem({
           </span>
         </div>
 
-        {/* Botões de Ação (surgem no hover sem colisão) */}
+        {/* Botões de Ação (Aparecem suavemente no hover ao lado do contador, sem sobrepor) */}
         {canManage && (
-          <div className="hidden group-hover/item:flex items-center gap-0.5 animate-in fade-in duration-150">
+          <div className="flex items-center gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity duration-150 ml-1">
             <Button
               variant="ghost"
               size="icon"
               className={cn(
-                "h-6 w-6 rounded-md",
+                "h-6 w-6 rounded-md p-0",
                 selected
                   ? "hover:bg-white/20 text-primary-foreground"
                   : "hover:bg-primary/10 text-muted-foreground hover:text-primary"
@@ -151,7 +148,7 @@ function GroupItem({
               variant="ghost"
               size="icon"
               className={cn(
-                "h-6 w-6 rounded-md text-red-500",
+                "h-6 w-6 rounded-md p-0 text-red-500",
                 selected
                   ? "hover:bg-red-500/20 text-red-200"
                   : "hover:bg-red-500/10 hover:text-red-600"
