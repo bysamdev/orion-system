@@ -38,3 +38,4 @@ para entender estrutura (economiza ~10-50x tokens por consulta):
   de declarar algo "otimizado"
 - Commits pequenos e testáveis
 - Perguntar antes de tocar em arquivos fora do fluxo de chamados
+- Mensagens de commit no GitHub: sempre humanizadas, resumidas e 100% em português (ex: "Simplifica controles do chamado e melhora fluxo de escalação")
