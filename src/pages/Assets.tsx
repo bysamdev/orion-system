@@ -738,7 +738,7 @@ const Assets = () => {
                         {/* 3. Geral (Hostname, IP local, MAC, Domínio, Usuário) */}
                         <TableCell className="py-3.5 align-middle">
                           <div className="flex flex-col space-y-2">
-                            {/* Hostname link & Dedicated Hostname Badge & Domain */}
+                            {/* Hostname link & Domain */}
                             <div className="flex items-center gap-2.5 flex-wrap">
                               <button
                                 onClick={() => {
@@ -750,20 +750,9 @@ const Assets = () => {
                                 }}
                                 className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5 w-fit group/btn"
                               >
-                                <span>{device.name || device.hostname}</span>
+                                <span>{device.hostname || device.name}</span>
                                 <ExternalLink className="w-3 h-3 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
                               </button>
-
-                              {/* Espaço reservado para o Hostname */}
-                              {device.hostname && (
-                                <span 
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-muted/60 text-foreground/80 border border-border/50" 
-                                  title={`Hostname da máquina: ${device.hostname}`}
-                                >
-                                  <Laptop className="w-2.5 h-2.5 text-primary/80" />
-                                  <span>Hostname: {device.hostname}</span>
-                                </span>
-                              )}
 
                               {device.domain && device.domain !== 'WORKGROUP' && device.domain !== '.' && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/20">
