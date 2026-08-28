@@ -38,14 +38,15 @@ const PatchManagement: React.FC = () => {
   const qc = useQueryClient();
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: profile } = useUserProfile();
-  const companyId = profile?.company_id ?? '';
+  const isMasterOrDev = role === 'developer' || role === 'admin';
+  const effectiveCompanyId = isMasterOrDev ? undefined : (profile?.company_id || undefined);
 
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [deployingPkg, setDeployingPkg] = useState<SoftwarePackage | null>(null);
 
-  const { data: packages = [], isLoading: pkgsLoading } = useSoftwarePackages(companyId);
-  const { data: deployments = [], isLoading: deplLoading } = usePackageDeployments(companyId);
-  const deleteMutation = useDeletePackage(companyId);
+  const { data: packages = [], isLoading: pkgsLoading } = useSoftwarePackages(effectiveCompanyId);
+  const { data: deployments = [], isLoading: deplLoading } = usePackageDeployments(effectiveCompanyId);
+  const deleteMutation = useDeletePackage(effectiveCompanyId);
 
   const handleDelete = (id: string) => {
     deleteMutation.mutate(id, {
@@ -190,7 +191,7 @@ const PatchManagement: React.FC = () => {
 
       <NewPackageDialog
         open={newDialogOpen}
-        companyId={companyId}
+        companyId={effectiveCompanyId}
         userId={profile?.id}
         onClose={() => setNewDialogOpen(false)}
       />

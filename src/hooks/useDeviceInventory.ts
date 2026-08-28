@@ -225,26 +225,22 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           machineTicketCountsRes,
           alertsRes,
         ] = await Promise.all([
-          // approval_status='approved': máquinas pendentes (nunca vistas
-          // antes, ver migration add_machine_approval_gate) não devem
-          // aparecer no inventário até um admin/técnico revisar — mesmo
-          // filtro já aplicado no backend Go (lib.MachinesByGroupID,
-          // DashboardSummaryData), necessário aqui de novo porque esta
-          // query vai direto no PostgREST, não passa pelo handler Go.
-          supabase.from('machines' as any).select('*').eq('approval_status', 'approved'),
-          supabase.from('machine_hardware' as any).select('*'),
-          supabase.from('companies').select('id, name'),
-          // machine_ticket_counts(): RPC SECURITY DEFINER (migration
-          // create_machine_ticket_counts_function) — antes isso tentava
-          // casar t.asset_id || t.metadata.machine_id contra machines.id
-          // no cliente, mas nenhum chamado aberto pelo agente preenche
-          // esses campos, então sempre dava 0. A máquina sempre autentica
-          // "Abrir Chamado" pelo mesmo usuário-fantasma
-          // (machine-<token>@orion.internal); a função faz esse join no
-          // banco (só ela alcança auth.users, RLS não deixa o cliente ler
-          // isso direto).
-          supabase.rpc('machine_ticket_counts' as any),
-          supabase.from('machine_alerts' as any).select('*'),
+          supabase
+            .from('machines' as any)
+            .select('id, name, hostname, company_id, domain, status, last_seen, metrics_collected_at, created_at, approval_status')
+            .or('approval_status.eq.approved,approval_status.is.null'),
+          supabase
+            .from('machine_hardware' as any)
+            .select('machine_id, device_type, os, local_ip, mac_address, domain, logged_in_user, user, serial_number, brand, model'),
+          supabase
+            .from('companies')
+            .select('id, name'),
+          supabase
+            .rpc('machine_ticket_counts' as any),
+          supabase
+            .from('machine_alerts' as any)
+            .select('machine_id, resolved')
+            .eq('resolved', false),
         ]);
 
         const machines = (machinesRes.data as any[]) || [];

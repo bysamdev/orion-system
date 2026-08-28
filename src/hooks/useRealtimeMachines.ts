@@ -24,15 +24,22 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 type ChannelEntry = { channel: RealtimeChannel; subscribers: Set<QueryClient> };
 const channels = new Map<string, ChannelEntry>();
 
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 function notifySubscribers(entry: ChannelEntry) {
-  entry.subscribers.forEach((qc) => {
-    try {
-      qc.invalidateQueries({ queryKey: ['monitoring'] });
-      qc.invalidateQueries({ queryKey: ['device-inventory'] });
-    } catch (e) {
-      console.warn('[useRealtimeMachines] Erro ao invalidar queries:', e);
-    }
-  });
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+  }
+  debounceTimer = setTimeout(() => {
+    entry.subscribers.forEach((qc) => {
+      try {
+        qc.invalidateQueries({ queryKey: ['monitoring'] });
+        qc.invalidateQueries({ queryKey: ['device-inventory'] });
+      } catch (e) {
+        console.warn('[useRealtimeMachines] Erro ao invalidar queries:', e);
+      }
+    });
+  }, 2500);
 }
 
 export const useRealtimeMachines = (companyId?: string) => {

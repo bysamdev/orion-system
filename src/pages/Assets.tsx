@@ -295,23 +295,21 @@ const Assets = () => {
     setStatusFilter('all');
   };
 
-  if (roleLoading || devicesLoading) {
+  if ((roleLoading && !role) || (devicesLoading && devices.length === 0)) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <main className="flex-1 p-6 lg:p-10 max-w-[1600px] mx-auto w-full space-y-8 animate-in fade-in duration-500">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-3">
-              <Skeleton className="h-6 w-32" />
-              <Skeleton className="h-10 w-72" />
-              <Skeleton className="h-4 w-96" />
-            </div>
-            <Skeleton className="h-12 w-36 rounded-xl" />
+      <div className="w-full space-y-6 animate-in fade-in duration-300">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-3">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-10 w-72" />
+            <Skeleton className="h-4 w-96" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
-          </div>
-          <Skeleton className="h-96 w-full rounded-xl" />
-        </main>
+          <Skeleton className="h-10 w-36 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-96 w-full rounded-xl" />
       </div>
     );
   }
