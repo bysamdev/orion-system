@@ -27,6 +27,8 @@ import {
   Lock,
   LayoutGrid,
   List,
+  Download,
+  Building2,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Navigate } from 'react-router-dom';
@@ -323,11 +325,42 @@ function MachinesTableView({
 }
 
 // ── Grid Principal de Máquinas ──────────────────────────
+// machineMatchesFilters é a mesma predicado usada tanto pelo grid (onde
+// renderiza) quanto pela exportação (onde decide o que sai na planilha) —
+// extraída pra um lugar só, senão as duas listas divergiam silenciosamente
+// toda vez que um filtro fosse ajustado num lado e esquecido no outro.
+function machineMatchesFilters(
+  m: MachineWithMetric,
+  filters: { statusFilter: StatusFilter; search: string; companyFilter: string }
+): boolean {
+  const { statusFilter, search, companyFilter } = filters;
+  const isOnline =
+    m.status === 'online' ||
+    m.status === 'alerta' ||
+    (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false);
+
+  if (statusFilter === 'online' && !isOnline) return false;
+  if (statusFilter === 'offline' && isOnline) return false;
+  if (statusFilter === 'alert' && m.status !== 'alerta' && !hasDiskAlert(m)) return false;
+  if (companyFilter !== 'all' && m.company_id !== companyFilter) return false;
+  if (search) {
+    const q = search.toLowerCase();
+    const matchHostname = m.hostname?.toLowerCase().includes(q);
+    const matchIp = m.ip_address?.toLowerCase().includes(q);
+    const matchMac = m.mac_address?.toLowerCase().includes(q);
+    const matchUser = m.current_user?.toLowerCase().includes(q);
+    const matchOs = (m.os?.toLowerCase().includes(q)) || (m.os_version?.toLowerCase().includes(q));
+    if (!matchHostname && !matchIp && !matchMac && !matchUser && !matchOs) return false;
+  }
+  return true;
+}
+
 function MachinesGrid({
   groupId,
   groups,
   statusFilter,
   search,
+  companyFilter,
   viewMode = 'grid',
   onSelect,
 }: {
@@ -335,6 +368,7 @@ function MachinesGrid({
   groups?: MachineGroup[];
   statusFilter: StatusFilter;
   search: string;
+  companyFilter: string;
   viewMode?: 'grid' | 'table';
   onSelect: (m: MachineWithMetric, initialTab?: string) => void;
 }) {
@@ -348,26 +382,8 @@ function MachinesGrid({
   const machines = isAllGroups ? allMachines : groupMachines;
   const isLoading = isAllGroups ? allLoading : groupLoading;
 
-  const filterMachine = (m: MachineWithMetric) => {
-    const isOnline =
-      m.status === 'online' ||
-      m.status === 'alerta' ||
-      (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false);
-
-    if (statusFilter === 'online' && !isOnline) return false;
-    if (statusFilter === 'offline' && isOnline) return false;
-    if (statusFilter === 'alert' && m.status !== 'alerta' && !hasDiskAlert(m)) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      const matchHostname = m.hostname?.toLowerCase().includes(q);
-      const matchIp = m.ip_address?.toLowerCase().includes(q);
-      const matchMac = m.mac_address?.toLowerCase().includes(q);
-      const matchUser = m.current_user?.toLowerCase().includes(q);
-      const matchOs = (m.os?.toLowerCase().includes(q)) || (m.os_version?.toLowerCase().includes(q));
-      if (!matchHostname && !matchIp && !matchMac && !matchUser && !matchOs) return false;
-    }
-    return true;
-  };
+  const filterMachine = (m: MachineWithMetric) =>
+    machineMatchesFilters(m, { statusFilter, search, companyFilter });
 
   if (isLoading) {
     return (
@@ -555,8 +571,10 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
   const [selectedDrawerTab, setSelectedDrawerTab] = useState<string>('overview');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
+  const [companyFilter, setCompanyFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [refreshing, setRefreshing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(true);
 
   // Group Management State
@@ -577,6 +595,13 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
   const { data: dashboard } = useMonitoringDashboard();
   const { data: groups, isLoading: groupsLoading } = useMonitoringGroups();
   const { data: companies = [] } = useCompanies();
+
+  // Só pra exportação (ver handleExport) — MESMA queryKey que MachinesGrid
+  // usa internamente pra desenhar o grid, então o React Query serve do
+  // cache já populado em vez de duplicar a requisição de rede.
+  const isAllGroupsView = selectedGroupId === 'all' || !selectedGroupId;
+  const { data: allMachinesForExport } = useAllMachines();
+  const { data: groupMachinesForExport } = useGroupMachines(!isAllGroupsView ? selectedGroupId : null);
   
   const createGroup = useCreateGroup();
   const updateGroup = useUpdateGroup();
@@ -652,6 +677,40 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
     await queryClient.invalidateQueries({ queryKey: ['monitoring'] });
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     refreshTimerRef.current = setTimeout(() => setRefreshing(false), 800);
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      // Mesma fonte de dados que MachinesGrid usa pra decidir "todos os
+      // grupos" vs. um grupo específico — React Query dedupe pela mesma
+      // queryKey então isso não dispara um segundo fetch de rede, só lê o
+      // cache já populado pelo grid.
+      const fonte = isAllGroupsView ? allMachinesForExport : groupMachinesForExport;
+      const companyNameById = new Map(companies.map((c) => [c.id, c.name]));
+
+      const linhas = (fonte || [])
+        .filter((m) => machineMatchesFilters(m, { statusFilter, search, companyFilter }))
+        .map((m) => ({
+          ...m,
+          company_name: (m.company_id && companyNameById.get(m.company_id)) || 'Sem empresa',
+        }));
+
+      if (linhas.length === 0) {
+        toast.info('Nenhuma máquina pra exportar com os filtros atuais.');
+        return;
+      }
+
+      const { gerarMachinesXlsx, nomeArquivoMachines } = await import('@/lib/monitoring/exportMachinesXlsx');
+      const { baixarBlob } = await import('@/lib/reports/exportPdf');
+      const blob = await gerarMachinesXlsx(linhas);
+      baixarBlob(blob, nomeArquivoMachines());
+      toast.success(`${linhas.length} máquina(s) exportada(s)`);
+    } catch (error) {
+      toast.error('Erro ao exportar planilha', { description: (error as Error).message });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleOpenGroupDialog = (group?: MachineGroup) => {
@@ -827,6 +886,34 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
+
+                {/* Filtro por cliente/empresa */}
+                {companies.length > 1 && (
+                  <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                    <SelectTrigger className="w-full sm:w-[180px] h-9 text-xs sm:text-sm rounded-xl bg-muted/30 border-border/40">
+                      <Building2 className="w-3.5 h-3.5 mr-1.5 text-muted-foreground shrink-0" />
+                      <SelectValue placeholder="Cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os clientes</SelectItem>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {/* Exportar planilha — respeita os filtros ativos (status, busca, cliente) */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="gap-2 rounded-xl transition-all"
+                >
+                  {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  <span className="hidden sm:inline">Exportar</span>
+                </Button>
 
                 {/* Alternador de Visualização Cards / Tabela */}
                 <div className="flex items-center bg-muted/40 border border-border/50 rounded-xl p-0.5">
@@ -1094,6 +1181,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                 groups={groups}
                 statusFilter={statusFilter}
                 search={search}
+                companyFilter={companyFilter}
                 viewMode={viewMode}
                 onSelect={handleSelectMachine}
               />
