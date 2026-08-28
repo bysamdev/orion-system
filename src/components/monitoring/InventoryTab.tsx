@@ -24,7 +24,7 @@ function InfoRow({ label, value, icon: Icon }: { label: React.ReactNode; value: 
 interface HardwareDetail {
   cpu_model?: string | null;
   gpu?: string | null;
-  disks?: Array<{ mountpoint?: string; mount_point?: string; path?: string; name?: string; fs_type?: string; fstype?: string; file_system?: string; used?: number; total?: number; size?: number }>;
+  disks?: Array<{ mountpoint?: string; mount_point?: string; path?: string; name?: string; fs_type?: string; fstype?: string; file_system?: string; media_type?: string; used?: number; total?: number; size?: number }>;
   network_interfaces?: Array<{ name?: string; interface_name?: string; mac?: string; mac_address?: string; ips?: string[]; ip?: string; ip_address?: string }>;
   battery_info?: { has_battery: boolean; percent?: number; plugged_in?: boolean };
 }
@@ -81,7 +81,17 @@ export const InventoryTab: React.FC<Props> = ({ machine, hardware: hw, isOnline 
           {Array.isArray(rawDisks) && rawDisks.length > 0 ? (
             rawDisks.map((d: any, idx: number) => {
               const mount = d.mountpoint || d.mount_point || d.path || d.name || `Volume #${idx + 1}`;
-              const fs = d.fs_type || d.fstype || d.file_system || 'NTFS';
+              const fs = d.fs_type || d.fstype || d.file_system || '';
+              // media_type: "SSD" ou "HD", resolvido pelo agente via WMI
+              // MSFT_PhysicalDisk (ver orion-agent/collector/disk_media_windows.go)
+              // — tipo de MÍDIA (hardware), não confundir com fs (sistema
+              // de arquivos, NTFS/exFAT/etc). Mostrado no lugar do
+              // sistema de arquivos aqui a pedido explícito: mídia importa
+              // mais pro diagnóstico de desempenho do que o filesystem.
+              // Cai pro filesystem (ou "Desconhecido") só se o agente
+              // ainda não resolveu o tipo de mídia dessa unidade (rede
+              // mapeada, disco virtual, ou versão antiga do agente).
+              const midia = d.media_type || fs || 'Desconhecido';
               const used = d.used ?? 0;
               const total = d.total ?? d.size ?? 0;
               const diskPct = pct(used, total);
@@ -94,7 +104,7 @@ export const InventoryTab: React.FC<Props> = ({ machine, hardware: hw, isOnline 
                       </div>
                       <div>
                         <span className="text-xs font-bold text-foreground block">{mount}</span>
-                        <span className="text-[10px] text-muted-foreground font-mono">{fs}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{midia}</span>
                       </div>
                     </div>
                     <Badge
@@ -142,7 +152,7 @@ export const InventoryTab: React.FC<Props> = ({ machine, hardware: hw, isOnline 
                   </div>
                   <div>
                     <span className="text-xs font-bold text-foreground block">Volume Principal do Sistema (C:)</span>
-                    <span className="text-[10px] text-muted-foreground font-mono">NTFS / Partição Ativa</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">Partição Ativa</span>
                   </div>
                 </div>
                 <Badge

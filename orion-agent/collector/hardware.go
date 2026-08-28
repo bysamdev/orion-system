@@ -35,6 +35,13 @@ type DiskInfo struct {
 	FSType     string `json:"fs_type"`
 	Total      uint64 `json:"total"`
 	Used       uint64 `json:"used"`
+	// MediaType é "SSD", "HD" ou "" (desconhecido — unidade de rede, disco
+	// virtual, ou o WMI não conseguiu associar a letra a um disco físico).
+	// Resolvido via coletarTiposDeMidiaPorLetra (MSFT_PhysicalDisk, a mesma
+	// classe que o próprio Windows usa em Otimizar Unidades) — não é
+	// FSType: NTFS/exFAT/etc é o SISTEMA DE ARQUIVOS, tipo de mídia é o
+	// HARDWARE por baixo, os dois são independentes.
+	MediaType string `json:"media_type"`
 }
 
 // AntivirusInfo representa um software antivírus detectado no sistema.
@@ -87,27 +94,27 @@ type ActivationInfo struct {
 // Payload é o corpo principal do "Check-in" enviado ao servidor Orion.
 // Contém o estado atual completo da saúde do hardware.
 type Payload struct {
-	MachineToken string             `json:"machine_token"`
-	MachineUUID  string             `json:"machine_uuid"`
-	Hostname     string             `json:"hostname"`
-	IP           string             `json:"ip"`
-	OS           string             `json:"os"`
-	OSVersion    string             `json:"os_version"`
-	CPUUsage     float64            `json:"cpu_usage"`
-	RAMTotal     uint64             `json:"ram_total"`
-	RAMUsed      uint64             `json:"ram_used"`
-	DiskTotal    uint64             `json:"disk_total"`
-	DiskUsed     uint64             `json:"disk_used"`
-	Uptime       uint64             `json:"uptime"`
-	CPUModel     string             `json:"cpu_model"`
-	GPU          string             `json:"gpu"` // Campo reservado para expansão futura
-	Disks        []DiskInfo         `json:"disks"`
-	Interfaces   []NetworkInterface `json:"interfaces"`
-	Domain       string             `json:"domain"`
-	CurrentUser  string             `json:"current_user"`
-	CurrentUserSID string           `json:"current_user_sid"`
-	MACAddress   string             `json:"mac_address"`
-	DeviceType   string             `json:"device_type"`
+	MachineToken   string             `json:"machine_token"`
+	MachineUUID    string             `json:"machine_uuid"`
+	Hostname       string             `json:"hostname"`
+	IP             string             `json:"ip"`
+	OS             string             `json:"os"`
+	OSVersion      string             `json:"os_version"`
+	CPUUsage       float64            `json:"cpu_usage"`
+	RAMTotal       uint64             `json:"ram_total"`
+	RAMUsed        uint64             `json:"ram_used"`
+	DiskTotal      uint64             `json:"disk_total"`
+	DiskUsed       uint64             `json:"disk_used"`
+	Uptime         uint64             `json:"uptime"`
+	CPUModel       string             `json:"cpu_model"`
+	GPU            string             `json:"gpu"` // Campo reservado para expansão futura
+	Disks          []DiskInfo         `json:"disks"`
+	Interfaces     []NetworkInterface `json:"interfaces"`
+	Domain         string             `json:"domain"`
+	CurrentUser    string             `json:"current_user"`
+	CurrentUserSID string             `json:"current_user_sid"`
+	MACAddress     string             `json:"mac_address"`
+	DeviceType     string             `json:"device_type"`
 	// IdentityFallbackReason nunca é enviado ao backend (json:"-") — é
 	// diagnóstico puramente local para a camada de serviço logar quando
 	// resolverIdentidadeDoUsuario() não conseguiu consultar a sessão de
@@ -397,6 +404,11 @@ func Collect() (*Payload, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), tempoLimiteDisco)
 		defer cancel()
 
+		// Uma única consulta WMI pra todas as letras de unidade — não uma
+		// por partição dentro do loop abaixo, que rodaria em paralelo e
+		// multiplicaria round-trips ao WMI à toa pro mesmo resultado.
+		tiposDeMidia := coletarTiposDeMidiaPorLetra()
+
 		var (
 			wg sync.WaitGroup
 			mu sync.Mutex
@@ -413,6 +425,7 @@ func Collect() (*Payload, error) {
 						Device:     p.Device,
 						Mountpoint: p.Mountpoint,
 						FSType:     p.Fstype,
+						MediaType:  tiposDeMidia[p.Device],
 						Total:      d.Total,
 						Used:       d.Used,
 					})
@@ -508,32 +521,32 @@ func Collect() (*Payload, error) {
 
 	// Montamos o relatório final (Payload)
 	return &Payload{
-		MachineUUID: hi.HostID,
-		Hostname:   hostname,
-		IP:         ip,
-		OS:         osName,
-		OSVersion:  hi.PlatformVersion,
-		CPUUsage:   cpuUsage,
-		RAMTotal:   vm.Total,
-		RAMUsed:    vm.Used,
-		DiskTotal:  du.Total,
-		DiskUsed:   du.Used,
-		Uptime:     hi.Uptime,
-		CPUModel:   cpuModel,
-		GPU:        "",
-		Disks:      disks,
-		Interfaces: interfaces,
+		MachineUUID:            hi.HostID,
+		Hostname:               hostname,
+		IP:                     ip,
+		OS:                     osName,
+		OSVersion:              hi.PlatformVersion,
+		CPUUsage:               cpuUsage,
+		RAMTotal:               vm.Total,
+		RAMUsed:                vm.Used,
+		DiskTotal:              du.Total,
+		DiskUsed:               du.Used,
+		Uptime:                 hi.Uptime,
+		CPUModel:               cpuModel,
+		GPU:                    "",
+		Disks:                  disks,
+		Interfaces:             interfaces,
 		Domain:                 domain,
 		CurrentUser:            currentUser,
 		CurrentUserSID:         currentUserSID,
 		IdentityFallbackReason: fallbackReason,
 		MACAddress:             macAddress,
-		DeviceType:     tipoDoDispositivo(),
-		Security:       segurancaComCache(),
-		RemoteSoftware: softwareRemotoComCache(),
-		Battery:        bateriaComCache(),
-		UpdateStatus:   atualizacoesComCache(),
-		Activation:     ativacaoComCache(),
+		DeviceType:             tipoDoDispositivo(),
+		Security:               segurancaComCache(),
+		RemoteSoftware:         softwareRemotoComCache(),
+		Battery:                bateriaComCache(),
+		UpdateStatus:           atualizacoesComCache(),
+		Activation:             ativacaoComCache(),
 	}, nil
 }
 
