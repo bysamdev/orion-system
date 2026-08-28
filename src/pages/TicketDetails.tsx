@@ -16,8 +16,7 @@ import { TicketHeroHeader } from '@/components/ticket/TicketHeroHeader';
 import { UnifiedTimeline } from '@/components/ticket/UnifiedTimeline';
 import { ResolutionDialog } from '@/components/ticket/ResolutionDialog';
 import { EscalateDialog } from '@/components/ticket/EscalateDialog';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2, Sparkles, ExternalLink, FileText, HandHelping, UserCheck, ChevronDown } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2, Sparkles, ExternalLink, FileText, HandHelping, UserCheck, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
@@ -941,67 +940,15 @@ const TicketDetails: React.FC = () => {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Agente Responsável</label>
-                      {ticket.assigned_to_user_id !== user?.id && (
-                        <button
-                          type="button"
-                          onClick={handleAssumeTicket}
-                          disabled={assumeTicket.isPending}
-                          className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
-                        >
-                          <HandHelping className="w-3 h-3" />
-                          {assumeTicket.isPending ? 'Assumindo...' : 'Assumir chamado'}
-                        </button>
-                      )}
-                    </div>
-                    <Select 
-                      value={ticket.assigned_to || 'unassigned'} 
-                      onValueChange={handleAssignmentChange} 
-                      disabled={techniciansLoading}
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      className="w-full h-11 rounded-xl font-bold text-xs gap-2 border-border/60 hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-500/40 transition-all"
+                      onClick={() => setEscalateDialogOpen(true)}
                     >
-                      <SelectTrigger className="h-11 bg-background border-border/50 font-medium">
-                        <SelectValue placeholder={techniciansLoading ? "..." : "Selecione..."} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Fila Geral (Não atribuído)</SelectItem>
-                        {(technicians || []).map(tech => (
-                          <SelectItem key={tech.id} value={tech.full_name || ''}>{tech.full_name || 'Sem nome'}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Intensidade de Prioridade</label>
-                    <Select
-                      value={ticket.priority}
-                      onValueChange={async (val) => {
-                         if (!ticket) return;
-                         try {
-                           await updatePriority.mutateAsync({
-                             id: ticket.id,
-                             priority: val,
-                             last_updated_at: ticket.updated_at,
-                             previousPriority: ticket.priority,
-                             updateContent: `Prioridade alterada para: ${val}`,
-                           });
-                         } catch {
-                           // Error handled by mutation onError
-                         }
-                      }}
-                    >
-                      <SelectTrigger className="h-11 bg-background border-border/50 font-medium">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="urgent" className="text-red-600 font-bold">Urgente</SelectItem>
-                        <SelectItem value="high">Alta</SelectItem>
-                        <SelectItem value="medium">Média</SelectItem>
-                        <SelectItem value="low">Baixa</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <ArrowUpRight className="w-4 h-4 text-amber-500" />
+                      Escalar / Transferir Responsável
+                    </Button>
                   </div>
 
                   <Separator className="bg-border/30" />
