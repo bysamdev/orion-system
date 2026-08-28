@@ -1032,9 +1032,14 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For simplicity, once polled, we mark them as 'sent'
-	for _, c := range cmds {
-		_ = db.UpdateCommandStatus(ctx, c.ID, "sent", "")
+	// Once polled, mark them all as 'sent' numa única query em vez de uma
+	// por comando.
+	ids := make([]string, len(cmds))
+	for i, c := range cmds {
+		ids[i] = c.ID
+	}
+	if err := db.UpdateCommandsStatusBatch(ctx, ids, "sent"); err != nil {
+		log.Printf("[AVISO] falha ao marcar comandos como enviados (machine=%s): %v", machineID, err)
 	}
 
 	lib.WriteJSON(w, http.StatusOK, cmds)

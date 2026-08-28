@@ -387,7 +387,12 @@ export const useUpdateTicketAssignment = () => {
       updateContent
     }: UpdateAssignmentParams) => {
       const updateData: Database['public']['Tables']['tickets']['Update'] = { assigned_to };
-      if (assigned_to_user_id !== undefined) {
+      // Mesmo invariante do useEscalateTicket: desatribuir (assigned_to
+      // null) sempre limpa assigned_to_user_id junto, mesmo que o chamador
+      // não tenha passado o campo explicitamente.
+      if (assigned_to === null) {
+        updateData.assigned_to_user_id = null;
+      } else if (assigned_to_user_id !== undefined) {
         updateData.assigned_to_user_id = assigned_to_user_id;
       }
 
@@ -515,7 +520,15 @@ export const useAssumeTicket = () => {
           }]);
 
         if (timelineError) {
-          console.warn('[useAssumeTicket] Falha ao registrar timeline:', timelineError);
+          // A atribuição/status já foi gravada -- não desfazemos (o
+          // técnico já assumiu de fato). Mas sem essa linha em
+          // ticket_updates, create_notification_on_ticket_update() nunca
+          // dispara: o dono do chamado não é avisado, e não sobra registro
+          // na timeline/auditoria. Lançar aqui garante que o onError
+          // avise o técnico em vez do toast de sucesso mentir sobre o que
+          // aconteceu de fato.
+          console.error('[useAssumeTicket] Falha ao registrar timeline:', timelineError);
+          throw new Error('Chamado assumido, mas falhou ao registrar na timeline -- o dono do chamado pode não ser notificado. Adicione um comentário manualmente.');
         }
       }
 
@@ -769,7 +782,14 @@ export const useEscalateTicket = () => {
       if (priorityChanged) updateData.priority = newPriority;
       if (assignmentChanged) {
         updateData.assigned_to = targetAssignedTo;
-        if (technicianUserId !== undefined) {
+        // targetAssignedTo === null significa "voltar pra Fila Geral" --
+        // limpa assigned_to_user_id junto, sempre. Sem isso, escalar pra
+        // "unassigned" zera o nome textual mas deixa o UUID antigo órfão
+        // (technicianUserId vem undefined nesse caso, já que a busca por
+        // full_name não acha nada pra 'unassigned').
+        if (targetAssignedTo === null) {
+          updateData.assigned_to_user_id = null;
+        } else if (technicianUserId !== undefined) {
           updateData.assigned_to_user_id = technicianUserId;
         }
       }

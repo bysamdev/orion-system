@@ -739,9 +739,23 @@ ORDER BY created_at DESC LIMIT $2`, machineID, limit)
 
 func (d *DB) UpdateCommandStatus(ctx context.Context, id, status, output string) error {
 	_, err := d.pool.Exec(ctx, `
-UPDATE public.machine_commands 
+UPDATE public.machine_commands
 SET status = $2, output = $3, updated_at = now()
 WHERE id = $1`, id, status, output)
+	return err
+}
+
+// UpdateCommandsStatusBatch marca vários comandos com o mesmo status numa
+// única query, em vez de um UPDATE por comando (usado no polling do
+// agente, onde N comandos pendentes viravam N round-trips sequenciais).
+func (d *DB) UpdateCommandsStatusBatch(ctx context.Context, ids []string, status string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+UPDATE public.machine_commands
+SET status = $2, updated_at = now()
+WHERE id = ANY($1::uuid[])`, ids, status)
 	return err
 }
 

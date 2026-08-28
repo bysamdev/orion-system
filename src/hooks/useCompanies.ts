@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export interface CompanyOption {
+interface CompanyOption {
   id: string;
   name: string;
   is_vip: boolean;

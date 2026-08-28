@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-import React, { useState, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useMemo, useCallback, Suspense, lazy } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -164,6 +164,48 @@ const TicketRow: React.FC<{ ticket: Ticket }> = React.memo(({ ticket }) => {
 });
 TicketRow.displayName = 'TicketRow';
 
+const UnassignedTicketRow: React.FC<{ ticket: Ticket; onAssume: (id: string) => void }> = React.memo(({ ticket: t, onAssume }) => {
+  const navigate = useNavigate();
+  return (
+    <TableRow className="group relative border-b border-border/40 hover:bg-muted/30 transition-all cursor-pointer" onClick={() => navigate(`/ticket/${t.id}`)}>
+      <TableCell className="py-4 font-mono text-[11px] font-bold text-muted-foreground/60">
+        #{t.ticket_number}
+      </TableCell>
+      <TableCell className="py-4">
+        <div className="space-y-0.5">
+          <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
+            {t.title}
+          </p>
+          <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
+            <span className="text-primary/70">{t.requester_name}</span>
+            <span>·</span>
+            <span className="truncate max-w-[120px]">{t.company_name || 'N/A'}</span>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="py-4">
+        <PriorityBadge priority={t.priority} size="sm" />
+      </TableCell>
+      <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
+        <TimeAgoBadge date={t.created_at} />
+      </TableCell>
+      <TableCell className="py-4">
+        <SLABadge slaStatus={t.sla_status} slaDueDate={t.sla_due_date} createdAt={t.created_at} variant="compact" />
+      </TableCell>
+      <TableCell className="py-4 text-right pr-6">
+        <Button
+          size="sm"
+          onClick={(e) => { e.stopPropagation(); onAssume(t.id); }}
+          className="h-8 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider relative z-20 shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
+        >
+          <HandHelping className="w-3.5 h-3.5" /> Assumir
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+});
+UnassignedTicketRow.displayName = 'UnassignedTicketRow';
+
 export const TechnicianDashboard: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -291,7 +333,7 @@ export const TechnicianDashboard: React.FC = () => {
     return result;
   }, [allActiveTickets, searchTerm, kpiFilter, priorityFilter, categoryFilter, statusFilter, technicianFilter, companyFilter, slaFilter]);
 
-  const handleAssumeTicket = async (ticketId: string) => {
+  const handleAssumeTicket = useCallback(async (ticketId: string) => {
     const technicianName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'Técnico';
     const technicianId = user?.id;
 
@@ -313,7 +355,7 @@ export const TechnicianDashboard: React.FC = () => {
     } catch {
       // Error handled by mutation onError
     }
-  };
+  }, [profile, user, assumeTicket, toast]);
 
   if (statsLoading) return (
     <div className="flex flex-col items-center justify-center py-20 animate-pulse">
@@ -653,41 +695,7 @@ export const TechnicianDashboard: React.FC = () => {
                         </TableRow>
                       ) : (
                         filteredUnassignedTickets.map(t => (
-                          <TableRow key={t.id} className="group relative border-b border-border/40 hover:bg-muted/30 transition-all cursor-pointer" onClick={() => navigate(`/ticket/${t.id}`)}>
-                            <TableCell className="py-4 font-mono text-[11px] font-bold text-muted-foreground/60">
-                              #{t.ticket_number}
-                            </TableCell>
-                            <TableCell className="py-4">
-                              <div className="space-y-0.5">
-                                <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
-                                  {t.title}
-                                </p>
-                                <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
-                                  <span className="text-primary/70">{t.requester_name}</span>
-                                  <span>·</span>
-                                  <span className="truncate max-w-[120px]">{t.company_name || 'N/A'}</span>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-4">
-                              <PriorityBadge priority={t.priority} size="sm" />
-                            </TableCell>
-                            <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
-                              <TimeAgoBadge date={t.created_at} />
-                            </TableCell>
-                            <TableCell className="py-4">
-                              <SLABadge slaStatus={t.sla_status} slaDueDate={t.sla_due_date} createdAt={t.created_at} variant="compact" />
-                            </TableCell>
-                            <TableCell className="py-4 text-right pr-6">
-                              <Button 
-                                size="sm" 
-                                onClick={(e) => { e.stopPropagation(); handleAssumeTicket(t.id); }} 
-                                className="h-8 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider relative z-20 shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
-                              >
-                                <HandHelping className="w-3.5 h-3.5" /> Assumir
-                              </Button>
-                            </TableCell>
-                          </TableRow>
+                          <UnassignedTicketRow key={t.id} ticket={t} onAssume={handleAssumeTicket} />
                         ))
                       )}
                     </TableBody>

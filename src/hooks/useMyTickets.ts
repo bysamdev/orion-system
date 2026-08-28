@@ -11,6 +11,14 @@ import { MOCK_TICKETS, getMockTicketsByStatus } from '@/mocks/tickets';
 // cresçam sem limite conforme o volume de chamados simultâneos aumenta.
 const ACTIVE_QUEUE_SAFETY_LIMIT = 500;
 
+// Fallback de segurança pras filas abaixo, que já são invalidadas por
+// useRealtimeTickets a cada INSERT/UPDATE em tickets (ver
+// src/hooks/useRealtimeTickets.ts). Com refetchInterval de 30s (igual ao
+// antigo), Realtime + polling faziam o mesmo fetch duas vezes por evento
+// na prática -- mesmo ajuste já aplicado às queries de monitoramento em
+// useMonitoring.ts.
+const FALLBACK_REFETCH_TICKETS = 120_000;
+
 /**
  * Hook para buscar tickets atribuídos ao técnico logado (ativos)
  */
@@ -38,7 +46,7 @@ export const useMyActiveTickets = (userId: string | undefined) => {
       return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
     },
     enabled: !!userId,
-    refetchInterval: 30000,
+    refetchInterval: FALLBACK_REFETCH_TICKETS,
     staleTime: 15_000,
   });
 };
@@ -71,7 +79,7 @@ export const useSLAAtRiskTickets = () => {
         return status === 'warning' || status === 'attention' || status === 'breached';
       });
     },
-    refetchInterval: 30000,
+    refetchInterval: FALLBACK_REFETCH_TICKETS,
     staleTime: 15_000,
   });
 };
@@ -100,7 +108,7 @@ export const useUnassignedTicketsEnhanced = () => {
       if (error) throw error;
       return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
     },
-    refetchInterval: 30000,
+    refetchInterval: FALLBACK_REFETCH_TICKETS,
     staleTime: 15_000,
   });
 };
@@ -126,7 +134,7 @@ export const useAllActiveTickets = () => {
       if (error) throw error;
       return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
     },
-    refetchInterval: 30000,
+    refetchInterval: FALLBACK_REFETCH_TICKETS,
     staleTime: 15_000,
   });
 };
@@ -156,7 +164,7 @@ export const useMyRecentClosedTickets = (userId: string | undefined) => {
       return data || [];
     },
     enabled: !!userId,
-    refetchInterval: 60000,
+    refetchInterval: FALLBACK_REFETCH_TICKETS,
   });
 };
 

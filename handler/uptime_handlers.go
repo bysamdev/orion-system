@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -203,7 +203,11 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 					statusMap[fmt.Sprintf("%d", m.ID)] = m.Status
 				}
 
-				// Update endpoints list
+				// Update endpoints list, coletando as mudanças pra gravar
+				// num único UPDATE em lote (em vez de uma goroutine solta
+				// por endpoint, sem limite de concorrência e sem tratar
+				// erro).
+				var changedIDs, changedStatuses []string
 				for i, ep := range endpoints {
 					urID := ep["uptimerobot_monitor_id"].(string)
 					if s, ok := statusMap[urID]; ok {
@@ -218,15 +222,22 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 						case 8, 9:
 							statusStr = "offline" // Down
 						}
-						
-						// Only update DB if status changed
+
 						if ep["status"] != statusStr {
 							endpoints[i]["status"] = statusStr
-							// Fire-and-forget update to DB
-							go db.Pool().Exec(context.Background(), `
-								UPDATE public.monitored_endpoints SET status = $1, last_check = now() WHERE uptimerobot_monitor_id = $2
-							`, statusStr, urID)
+							changedIDs = append(changedIDs, urID)
+							changedStatuses = append(changedStatuses, statusStr)
 						}
+					}
+				}
+				if len(changedIDs) > 0 {
+					if _, err := db.Pool().Exec(r.Context(), `
+						UPDATE public.monitored_endpoints AS ep
+						SET status = u.new_status, last_check = now()
+						FROM unnest($1::text[], $2::text[]) AS u(monitor_id, new_status)
+						WHERE ep.uptimerobot_monitor_id = u.monitor_id
+					`, changedIDs, changedStatuses); err != nil {
+						log.Printf("[AVISO] falha ao atualizar status de endpoints via UptimeRobot: %v", err)
 					}
 				}
 			}

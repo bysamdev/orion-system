@@ -125,13 +125,18 @@ export function useCreateWebEndpoint() {
         const companyId = profile?.company_id;
         if (!companyId) throw new Error('Empresa do usuário não encontrada');
 
+        // Esse fallback só roda quando a API Go falha -- pula o registro
+        // real no UptimeRobot (uptimerobot_monitor_id fica vazio, nunca
+        // mais é atualizado pelo pipeline de monitoramento). Não marca
+        // 'online' sem nunca ter verificado; 'pending' reflete o estado
+        // real (mesmo default da coluna).
         const { data: inserted, error } = await (supabase as any)
           .from('monitored_endpoints')
           .insert({
             company_id: companyId,
             name: data.name,
             url_or_ip: data.url,
-            status: 'online',
+            status: 'pending',
           })
           .select('id')
           .single();

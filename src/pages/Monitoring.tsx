@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -649,10 +649,10 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
     }
   }, [externalMachineId, externalMachineDetail]);
 
-  const handleSelectMachine = (machine: MachineWithMetric, initialTab: string = 'overview') => {
+  const handleSelectMachine = useCallback((machine: MachineWithMetric, initialTab: string = 'overview') => {
     setSelectedMachine(machine);
     setSelectedDrawerTab(initialTab);
-  };
+  }, []);
 
   const handleCloseDrawer = () => {
     setSelectedMachine(null);

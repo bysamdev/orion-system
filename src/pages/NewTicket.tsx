@@ -83,6 +83,11 @@ const NewTicket = () => {
   
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Guarda síncrona contra double-submit -- o estado isSubmitting é
+  // assíncrono (commit de render), e um key-repeat do SO pode disparar
+  // onKeyDown duas vezes antes do primeiro re-render aplicar o disabled do
+  // botão. Um ref muda na hora, sem esperar o React.
+  const isSubmittingRef = useRef(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [remoteId, setRemoteId] = useState('');
   const [remotePassword, setRemotePassword] = useState('');
@@ -256,12 +261,22 @@ const NewTicket = () => {
 
   const onSubmit = async (data: TicketFormValues) => {
     if (!user || !profile) return;
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
-      // Check rate limit
+      // Check rate limit. Em falha de rede na checagem, invokeOrionFunction
+      // engole o erro e retorna data: null -- optamos por não bloquear a
+      // criação do chamado por um blip transitório (a aplicação de rate
+      // limit real fica no backend Go, com contador persistente), mas
+      // registramos pra não passar batido em silêncio.
       const { data: rateLimitData } = await invokeOrionFunction<{ allowed: boolean; message: string }>('check-rate-limit');
+      if (rateLimitData === null) {
+        console.warn('[NewTicket] Checagem de rate limit falhou (rede/edge function) -- prosseguindo sem bloquear.');
+      }
       if (rateLimitData && !rateLimitData.allowed) {
         toast({ title: 'Limite atingido', description: rateLimitData.message, variant: 'destructive' });
+        isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
       }
@@ -291,11 +306,16 @@ const NewTicket = () => {
 
       // Attachments logic
       if (pendingFiles.length > 0) {
+        const failedUploads: string[] = [];
         for (const file of pendingFiles) {
           const fileExt = file.name.split('.').pop();
           const fileName = `${ticket.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
           const { error: uploadError } = await supabase.storage.from('ticket-files').upload(fileName, file);
-          if (uploadError) continue;
+          if (uploadError) {
+            console.error('[NewTicket] Falha ao enviar anexo:', file.name, uploadError);
+            failedUploads.push(file.name);
+            continue;
+          }
 
           await supabase.from('ticket_attachments').insert({
             ticket_id: ticket.id,
@@ -303,6 +323,13 @@ const NewTicket = () => {
             file_url: fileName,
             file_type: file.type,
             uploaded_by: user.id
+          });
+        }
+        if (failedUploads.length > 0) {
+          toast({
+            title: failedUploads.length === 1 ? 'Um anexo não foi enviado' : `${failedUploads.length} anexos não foram enviados`,
+            description: `Chamado criado normalmente, mas ${failedUploads.join(', ')} falhou ao enviar. Anexe novamente pela tela do chamado.`,
+            variant: 'destructive',
           });
         }
       }
@@ -335,6 +362,7 @@ const NewTicket = () => {
         ),
       });
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };

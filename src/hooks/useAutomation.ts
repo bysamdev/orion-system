@@ -12,7 +12,7 @@ export interface RoutingRule {
   is_active: boolean;
 }
 
-export interface AutomationLog {
+interface AutomationLog {
   id: string;
   rule_id: string | null;
   ticket_id: string;

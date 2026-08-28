@@ -786,6 +786,7 @@ export default function WebMonitoring() {
                           className="h-8 w-8 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                           onClick={() => handleDeleteWebEndpoint(endpoint.id, endpoint.name)}
                           title="Excluir monitor"
+                          aria-label={`Excluir monitor ${endpoint.name}`}
                           disabled={deleteWebEndpointMutation.isPending}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1363,8 +1364,9 @@ export default function WebMonitoring() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl shrink-0" 
-                          onClick={() => handleDeleteNetworkLink(link.id, link.name)} 
+                          onClick={() => handleDeleteNetworkLink(link.id, link.name)}
                           title="Excluir"
+                          aria-label={`Excluir link ${link.name}`}
                           disabled={deleteNetworkLinkMutation.isPending}
                         >
                           <Trash2 className="w-4 h-4" />

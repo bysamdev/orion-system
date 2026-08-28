@@ -171,7 +171,7 @@ export const ResolutionChecklistManagement = () => {
                         value={item} 
                         onChange={(e) => updateItem(index, e.target.value)}
                       />
-                      <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => removeItem(index)}>
+                      <Button type="button" variant="ghost" size="icon" aria-label={`Remover item ${index + 1}`} className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => removeItem(index)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>

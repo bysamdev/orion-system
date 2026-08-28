@@ -2,7 +2,7 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import { Button, ButtonProps } from "@/components/ui/button";
 
-export interface ButtonPrimaryProps extends ButtonProps {
+interface ButtonPrimaryProps extends ButtonProps {
   icon?: React.ReactNode;
 }
 

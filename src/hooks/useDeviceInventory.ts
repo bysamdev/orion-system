@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export type DeviceType = 'desktop' | 'notebook' | 'server' | 'Computador' | 'Notebook' | 'Servidor';
-export type DeviceStatus = 'online' | 'offline' | 'alerta';
+type DeviceType = 'desktop' | 'notebook' | 'server' | 'Computador' | 'Notebook' | 'Servidor';
+type DeviceStatus = 'online' | 'offline' | 'alerta';
 
-export interface DeviceInventoryItem {
+interface DeviceInventoryItem {
   id: string;
   name?: string;
   hostname: string;
@@ -97,7 +97,7 @@ function extractMacAddress(machine: any, hardware: any): string {
   return machine?.mac_address || '—';
 }
 
-export interface UseDeviceInventoryOptions {
+interface UseDeviceInventoryOptions {
   companyId?: string;
   refetchInterval?: number | false;
 }
