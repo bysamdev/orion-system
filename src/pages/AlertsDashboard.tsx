@@ -636,7 +636,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
 
             <ScrollArea className="h-[calc(100vh-270px)]">
               <div className="space-y-8 pr-4 pb-12">
-                {/* 1. 🛡️ Segurança & Antivírus Crítico */}
+                {/* 1. Segurança & Antivírus Crítico */}
                 <AlertSection
                   title="Segurança & Antivírus Crítico (Zona Vermelha)"
                   icon={ShieldAlert}
@@ -645,7 +645,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
                   onOpenMachine={handleOpenMachine}
                 />
 
-              {/* 2. 🧱 Conformidade & Firewall */}
+              {/* 2. Conformidade & Firewall */}
               <AlertSection
                 title="Conformidade & Firewall Inativo"
                 icon={Shield}
@@ -654,7 +654,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
                 onOpenMachine={handleOpenMachine}
               />
 
-              {/* 4. 🔴 Dispositivos Inativos > 7 dias */}
+              {/* 4. Dispositivos Inativos > 7 dias */}
               <AlertSection
                 title="Dispositivos Inativos há mais de 7 Dias"
                 icon={WifiOff}
@@ -663,7 +663,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
                 onOpenMachine={handleOpenMachine}
               />
 
-              {/* 5. 💾 Disco Crítico (>90%) */}
+              {/* 5. Disco Crítico (>90%) */}
               <AlertSection
                 title="Disco Crítico (>90%)"
                 icon={HardDrive}
@@ -672,7 +672,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
                 onOpenMachine={handleOpenMachine}
               />
 
-              {/* 6. ⚡ CPU sob Pressão (>85%) */}
+              {/* 6. CPU sob Pressão (>85%) */}
               <AlertSection
                 title="CPU Sob Pressão (>85%)"
                 icon={Cpu}
@@ -681,7 +681,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
                 onOpenMachine={handleOpenMachine}
               />
 
-              {/* 7. ⚠️ Alertas Gerais do Sistema */}
+              {/* 7. Alertas Gerais do Sistema */}
               <AlertSection
                 title="Alertas Gerais do Sistema"
                 icon={AlertTriangle}

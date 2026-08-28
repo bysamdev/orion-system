@@ -157,7 +157,7 @@ export const TwoFactorAuthSettings = () => {
       setIsBackupModalOpen(true);
 
       toast({
-        title: "2FA Ativado com Sucesso! 🛡️",
+        title: "2FA Ativado com Sucesso!",
         description: "A autenticação em dois fatores agora protege sua conta.",
       });
 

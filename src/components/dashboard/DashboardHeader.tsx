@@ -29,7 +29,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         {dateString}
       </p>
       <h1 className="text-3xl md:text-4xl font-extrabold text-foreground tracking-tight">
-        {greeting}, <span className="text-primary">{userName}</span> 👋
+        {greeting}, <span className="text-primary">{userName}</span>
       </h1>
     </header>
   );

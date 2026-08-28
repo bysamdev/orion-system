@@ -315,7 +315,7 @@ const Auth = () => {
       if (error) throw error;
 
       toast({
-        title: "Autenticado com Sucesso! 🛡️",
+        title: "Autenticado com Sucesso!",
         description: "Autenticação em dois fatores verificada.",
       });
 
@@ -358,7 +358,7 @@ const Auth = () => {
       sessionStorage.setItem('orion_mfa_backup_passed', 'true');
 
       toast({
-        title: "Acesso Autorizado via Backup! 🔑",
+        title: "Acesso Autorizado via Backup!",
         description: "Código de recuperação validado e consumido. Lembre-se de gerar novos códigos em Configurações > Segurança.",
       });
 

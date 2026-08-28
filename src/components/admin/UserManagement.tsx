@@ -178,7 +178,7 @@ export const UserManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       toast({
         title: 'Sucesso',
-        description: `Função atualizada para ${roleLabel} ✓`,
+        description: `Função atualizada para ${roleLabel}`,
       });
     },
     onError: (error) => {
