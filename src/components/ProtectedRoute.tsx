@@ -38,34 +38,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   const [hasTimedOut, setHasTimedOut] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [needsMfaElevation, setNeedsMfaElevation] = useState(false);
-
-  // Verificação de garantia de autenticação 2FA (AAL)
-  useEffect(() => {
-    let isMounted = true;
-    if (!user) return;
-
-    const checkMfa = async () => {
-      try {
-        const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        if (isMounted && aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel === 'aal1') {
-          const { data: factors } = await supabase.auth.mfa.listFactors();
-          const hasVerifiedTotp = factors?.totp?.some((f) => f.status === 'verified');
-          if (isMounted && hasVerifiedTotp) {
-            setNeedsMfaElevation(true);
-          }
-        }
-      } catch (err) {
-        console.warn('[ProtectedRoute] Erro ao verificar AAL:', err);
-      }
-    };
-
-    checkMfa();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
 
   const isLoading = isAuthLoading || (!!user && isRoleLoading);
 
@@ -166,12 +138,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (!user) {
     const returnUrl = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/auth?redirect=${returnUrl}`} replace />;
-  }
-
-  // 2.1. Sessão requer desafio 2FA (AAL2) pendente -> redireciona para tela de 2FA
-  if (needsMfaElevation) {
-    const returnUrl = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/auth?mfa=true&redirect=${returnUrl}`} replace />;
   }
 
   // 3. Falha ao consultar role do usuário (evita bloquear admins acidentalmente por erro temporário)
