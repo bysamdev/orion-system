@@ -88,58 +88,85 @@ function GroupItem({
   canManage?: boolean;
 }) {
   return (
-    <div className="relative group/item flex items-center mb-2">
-      <button
-        onClick={onClick}
-        className={cn(
-          'flex-1 text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors group relative',
-          selected
-            ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
-            : 'hover:bg-muted/70 text-foreground border border-transparent'
+    <div
+      onClick={onClick}
+      className={cn(
+        'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-2 transition-all cursor-pointer mb-1.5 group/item relative select-none',
+        selected
+          ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+          : 'hover:bg-muted/70 text-foreground border border-transparent hover:border-border/40'
+      )}
+    >
+      <div className="min-w-0 flex-1 pr-2">
+        <p className="text-sm truncate leading-tight font-semibold">{group.name}</p>
+        {group.client_contact && (
+          <p className={cn('text-[10px] truncate mt-0.5 opacity-70')}>
+            {group.client_contact}
+          </p>
         )}
-      >
-        <div className="min-w-0 pr-4">
-          <p className="text-sm truncate leading-tight font-semibold">{group.name}</p>
-          {group.client_contact && (
-            <p className={cn('text-[10px] truncate mt-0.5 opacity-70')}>
-              {group.client_contact}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+      </div>
+
+      {/* Indicador de Status / Botões de Ação */}
+      <div className="flex items-center gap-1 shrink-0">
+        {/* Contador (visível por padrão; some no hover se o usuário puder gerenciar) */}
+        <div className={cn(
+          "flex items-center gap-1.5 transition-opacity",
+          canManage && "group-hover/item:hidden"
+        )}>
           <span className="flex items-center gap-1 text-[11px] font-semibold">
             <span className={cn(
               "h-1.5 w-1.5 rounded-full shrink-0",
               selected ? "bg-white" : "bg-emerald-500"
             )} />
-            <span className={selected ? 'text-primary-foreground' : 'text-emerald-600 dark:text-emerald-400'}>{group.online_machines}</span>
+            <span className={selected ? 'text-primary-foreground' : 'text-emerald-600 dark:text-emerald-400'}>
+              {group.online_machines}
+            </span>
           </span>
           <span className={cn('text-[10px] font-medium opacity-50')}>
             /{group.total_machines}
           </span>
         </div>
-      </button>
-      
-      {canManage && (
-        <div className="absolute right-2 opacity-0 group-hover/item:opacity-100 flex gap-1 transition-opacity">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className={cn("h-7 w-7 rounded-full", selected ? "hover:bg-white/20 text-white" : "hover:bg-primary/10 text-primary")}
-            onClick={(e) => { e.stopPropagation(); onEdit?.(); }}
-          >
-            <Edit2 className="w-3 h-3" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-7 w-7 rounded-full text-red-500 hover:bg-red-500/10"
-            onClick={(e) => { e.stopPropagation(); onDelete?.(); }}
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
-        </div>
-      )}
+
+        {/* Botões de Ação (surgem no hover sem colisão) */}
+        {canManage && (
+          <div className="hidden group-hover/item:flex items-center gap-0.5 animate-in fade-in duration-150">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-6 w-6 rounded-md",
+                selected
+                  ? "hover:bg-white/20 text-primary-foreground"
+                  : "hover:bg-primary/10 text-muted-foreground hover:text-primary"
+              )}
+              title="Editar Grupo"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit?.();
+              }}
+            >
+              <Edit2 className="w-3 h-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-6 w-6 rounded-md text-red-500",
+                selected
+                  ? "hover:bg-red-500/20 text-red-200"
+                  : "hover:bg-red-500/10 hover:text-red-600"
+              )}
+              title="Excluir Grupo"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete?.();
+              }}
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
