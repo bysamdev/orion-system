@@ -180,6 +180,30 @@ function GroupSectionHeader({
   );
 }
 
+function formatCompactLastSeen(dateStr?: string | null): string {
+  if (!dateStr) return 'Nunca';
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  if (isNaN(diffMs) || diffMs < 0) return 'Visto agora';
+  
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'Visto agora';
+  
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `Visto há ${diffMin}min`;
+  
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `Visto há ${diffHours}h`;
+  
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) return `Visto há ${diffDays}d`;
+  
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) return `Visto há ${diffMonths}m`;
+  
+  const diffYears = Math.floor(diffMonths / 12);
+  return `Visto há ${diffYears}a`;
+}
+
 // ── Tabela Compacta de Máquinas (Visualização Densa) ─────
 function MachinesTableView({
   machines,
@@ -200,7 +224,7 @@ function MachinesTableView({
               <TableHead className="w-[120px] text-left font-bold text-xs">CPU</TableHead>
               <TableHead className="w-[120px] text-left font-bold text-xs">Memória</TableHead>
               <TableHead className="w-[120px] text-left font-bold text-xs">Disco</TableHead>
-              <TableHead className="w-[130px] text-right font-bold text-xs">Último Visto</TableHead>
+              <TableHead className="w-[140px] text-center font-bold text-xs">Último Visto</TableHead>
               <TableHead className="w-[80px] text-right pr-4 font-bold text-xs">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -306,8 +330,10 @@ function MachinesTableView({
                       </div>
                     ) : <span className="text-xs text-muted-foreground font-mono">—</span>}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-[11px] text-muted-foreground">
-                    {m.last_seen ? formatDistanceToNow(new Date(m.last_seen), { addSuffix: true, locale: ptBR }) : 'Nunca'}
+                  <TableCell className="text-center whitespace-nowrap">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-muted/60 font-mono text-[11px] font-semibold text-muted-foreground">
+                      {formatCompactLastSeen(m.last_seen)}
+                    </span>
                   </TableCell>
                   <TableCell className="text-right pr-4">
                     <Button
