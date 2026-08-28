@@ -53,8 +53,8 @@ const categories = [
     icon: Layout, 
     color: 'text-blue-500', 
     bg: 'bg-blue-500/10',
-    description: 'Sistemas de gestão empresarial (Senior, Protheus, SAP, emissão de notas fiscais, faturamento e relatórios).',
-    examples: ['Senior (Sapiens, Ronda, Vetorh)', 'Protheus / SAP / Totvs', 'Emissão de NF-e / Danfe / Boletos', 'Rotinas de faturamento e relatórios']
+    description: 'Sistema Senior (Sapiens, Vetorh, Ronda, emissão de notas fiscais, faturamento, financeiro e relatórios).',
+    examples: ['Senior Sapiens (Gestão Empresarial)', 'Senior Vetorh / Ronda (RH e Acesso)', 'Emissão de NF-e / Danfe / Boletos', 'Rotinas de faturamento e relatórios']
   },
   { 
     id: 'email', 
