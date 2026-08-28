@@ -302,23 +302,31 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
     const list: CriticalAlertItem[] = [];
     const seenKeys = new Set<string>();
 
-    // Helper to evaluate if a machine is really offline (status is 'offline' or last_seen > 5 minutes ago)
-    const isMachineOffline = (status: string, lastSeen?: string | null) => {
-      if (status === 'offline') return true;
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+    // Helper to evaluate if a machine is online right now (last 5 min)
+    const isOnlineNow = (status: string, lastSeen?: string | null) => {
+      if (status === 'online' || status === 'alerta') return true;
       if (!lastSeen) return false;
-      const diffMs = new Date().getTime() - new Date(lastSeen).getTime();
-      return diffMs > 5 * 60 * 1000;
+      return Date.now() - new Date(lastSeen).getTime() < 5 * 60 * 1000;
+    };
+
+    // Helper to evaluate if a machine is inactive for MORE than 7 days
+    const isInactiveOver7Days = (status: string, lastSeen?: string | null) => {
+      if (!lastSeen) return status === 'offline';
+      const diffMs = Date.now() - new Date(lastSeen).getTime();
+      return diffMs > SEVEN_DAYS_MS;
     };
 
     // 1. Process API alerts
     for (const alert of apiAlerts) {
       const machine = machinesMap.get(alert.machine_id);
 
-      // Guard: If API returns an 'offline' alert, make sure the machine hasn't reconnected or is active in 'alerta' status
+      // Guard: Only show offline alert if inactive for > 7 days
       if (alert.alert_type === 'offline') {
         const currentStatus = machine?.status || alert.status;
         const currentLastSeen = machine?.last_seen || alert.last_seen;
-        if (!isMachineOffline(currentStatus, currentLastSeen)) {
+        if (!isInactiveOver7Days(currentStatus, currentLastSeen)) {
           continue;
         }
       }
@@ -337,7 +345,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
 
     // 2. Scan machines for compliance, security, and hardware alerts
     for (const m of allMachines) {
-      const offline = isMachineOffline(m.status, m.last_seen);
+      const isOnline = isOnlineNow(m.status, m.last_seen);
 
       // 🛡️ Antivirus: Alert ONLY if antivirus list is non-empty and NO active protection is detected
       if (m.security_info?.antivirus && m.security_info.antivirus.length > 0) {
@@ -384,9 +392,8 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
         }
       }
 
-      // 🔴 Máquinas Offline: APENAS se m.status === 'offline' OU se last_seen > 5 min.
-      // Máquinas com status 'alerta' que estão ativas NUNCA devem aparecer como offline.
-      if (offline) {
+      // 🔴 Máquinas Inativas > 7 dias: APENAS se sem comunicação por mais de 7 dias
+      if (isInactiveOver7Days(m.status, m.last_seen)) {
         const key = `${m.id}-offline`;
         if (!seenKeys.has(key)) {
           seenKeys.add(key);
@@ -400,8 +407,8 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
             status: m.status,
             last_seen: m.last_seen,
             alert_type: 'offline',
-            severity: 'critical',
-            message: 'Máquina offline / sem comunicação com o agente',
+            severity: 'warning',
+            message: 'Dispositivo inativo há mais de 7 dias sem comunicação',
           });
         }
       }
@@ -430,7 +437,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
       }
 
       // ⚡ CPU Alert (fallback if not in API list - only for online or alert active machines)
-      if (!offline && m.cpu_usage != null && m.cpu_usage > 85) {
+      if (isOnline && m.cpu_usage != null && m.cpu_usage > 85) {
         const key = `${m.id}-cpu`;
         if (!seenKeys.has(key)) {
           seenKeys.add(key);
@@ -455,48 +462,37 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
     return list;
   }, [apiAlerts, allMachines, machinesMap]);
 
-  // Grouped into the 6 designated Red Zone categories
-  const grouped = useMemo(
-    () => ({
+  // Group alerts by functional category
+  const grouped = useMemo(() => {
+    return {
       antivirus: mergedAlerts.filter((a) => a.alert_type === 'antivirus'),
       firewall: mergedAlerts.filter((a) => a.alert_type === 'firewall'),
       offline: mergedAlerts.filter((a) => a.alert_type === 'offline'),
       disk: mergedAlerts.filter((a) => a.alert_type === 'disk'),
       cpu: mergedAlerts.filter((a) => a.alert_type === 'cpu'),
-      alert: mergedAlerts.filter(
-        (a) => !['antivirus', 'firewall', 'offline', 'disk', 'cpu'].includes(a.alert_type)
-      ),
-    }),
-    [mergedAlerts]
-  );
+      alert: mergedAlerts.filter((a) => !['antivirus', 'firewall', 'offline', 'disk', 'cpu'].includes(a.alert_type)),
+    };
+  }, [mergedAlerts]);
 
   const selectedMachine = useMemo(
-    () => allMachines.find((m) => m.id === selectedMachineId) || null,
-    [allMachines, selectedMachineId]
+    () => (selectedMachineId ? machinesMap.get(selectedMachineId) || null : null),
+    [selectedMachineId, machinesMap]
   );
 
-  const handleOpenMachine = (machineId: string) => {
+  const handleOpenMachine = (mId: string) => {
     if (onAlertClick) {
-      onAlertClick(machineId);
+      onAlertClick(mId);
+    } else {
+      setSelectedMachineId(mId);
     }
-    setSelectedMachineId(machineId);
   };
-
-  const refreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  React.useEffect(() => {
-    return () => {
-      if (refreshTimerRef.current) {
-        clearTimeout(refreshTimerRef.current);
-      }
-    };
-  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['monitoring', 'alerts', 'critical'] }),
-      queryClient.invalidateQueries({ queryKey: ['monitoring'] }),
+      queryClient.invalidateQueries({ queryKey: ['critical-alerts'] }),
+      queryClient.invalidateQueries({ queryKey: ['monitoring-machines'] }),
+      queryClient.invalidateQueries({ queryKey: ['monitoring-dashboard'] }),
     ]);
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     refreshTimerRef.current = setTimeout(() => setRefreshing(false), 800);
@@ -627,7 +623,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
                 { label: 'Total Crítico', value: mergedAlerts.length, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10 border-red-500/25' },
                 { label: 'Sem Antivírus', value: grouped.antivirus.length, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-500/10 border-rose-500/25' },
                 { label: 'Firewall Off', value: grouped.firewall.length, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10 border-red-500/25' },
-                { label: 'Offline', value: grouped.offline.length, color: 'text-zinc-600 dark:text-zinc-400', bg: 'bg-zinc-500/10 border-zinc-500/25' },
+                { label: 'Inativo >7d', value: grouped.offline.length, color: 'text-zinc-600 dark:text-zinc-400', bg: 'bg-zinc-500/10 border-zinc-500/25' },
                 { label: 'Disco >90%', value: grouped.disk.length, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10 border-amber-500/25' },
                 { label: 'CPU >85%', value: grouped.cpu.length, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-500/10 border-orange-500/25' },
               ].map((kpi) => (
@@ -658,11 +654,11 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
                 onOpenMachine={handleOpenMachine}
               />
 
-              {/* 4. 🔴 Máquinas Offline */}
+              {/* 4. 🔴 Dispositivos Inativos > 7 dias */}
               <AlertSection
-                title="Máquinas Offline / Desconectadas"
+                title="Dispositivos Inativos há mais de 7 Dias"
                 icon={WifiOff}
-                colorClass="bg-red-600"
+                colorClass="bg-zinc-600"
                 alerts={grouped.offline}
                 onOpenMachine={handleOpenMachine}
               />
