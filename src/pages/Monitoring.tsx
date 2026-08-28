@@ -776,8 +776,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
                 autoComplete="off"
-                placeholder="Buscar por hostname, IP, usuário ou SO..."
-                className="pl-10 w-full sm:w-[300px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
+                placeholder="Buscar máquinas, IP, usuário ou SO..."
+                className="pl-9 w-full sm:w-[320px] md:w-[350px] text-xs sm:text-sm rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -857,8 +857,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     autoComplete="off"
-                    placeholder="Buscar por hostname, IP, usuário ou SO..."
-                    className="pl-10 w-full sm:w-[300px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
+                    placeholder="Buscar máquinas, IP, usuário ou SO..."
+                    className="pl-9 w-full sm:w-[320px] md:w-[350px] text-xs sm:text-sm rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
