@@ -38,4 +38,4 @@ para entender estrutura (economiza ~10-50x tokens por consulta):
   de declarar algo "otimizado"
 - Commits pequenos e testáveis
 - Perguntar antes de tocar em arquivos fora do fluxo de chamados
-- Mensagens de commit no GitHub: sempre humanizadas, resumidas e 100% em português (ex: "Simplifica controles do chamado e melhora fluxo de escalação")
+- Mensagens de commit no GitHub: sempre humanizadas, resumidas e 100% em português, descrevendo diretamente o que foi feito iniciando com verbos de ação (ex: "Colocado contador e botões lado a lado no menu lateral", "Feito ajuste na largura da barra de pesquisa", "Removido colunas de CPU e memória da tabela", "Adicionado botão de acesso remoto no topo")
