@@ -224,3 +224,41 @@ Itens do plano original **deliberadamente não fechados** nesta sessão, e por q
 UI para `platform-health` e para override manual de `device_type` (`PlatformHealthTab.tsx`,
 `MachineDrawer.tsx` — ver §1.4/§1.6), e injeção de `agent_version` no build (`version.Version` virou
 `var`, aceita `-ldflags -X orion-agent/version.Version=...` — ver §1.6 e `installer-msi/build.ps1`).
+
+## 5. Merge com o desenvolvimento paralelo em `main` (2026-08-29)
+
+Entre o início desta sessão e o merge, `origin/main` avançou ~100 commits de um fluxo de trabalho
+separado — incluindo, notavelmente, uma migração independente do histórico de métricas de
+`machine_metrics` para Prometheus/Grafana (commits `c6cbe2c`/`9612b7f`), que resolve o mesmo
+problema que `HeartbeatUpsert` desta sessão resolvia por outro caminho (retenção em Postgres).
+
+Reconciliação (decisão do usuário: **descartar a parte de métricas desta sessão, manter o resto**):
+
+- `HeartbeatUpsertInput`/`HeartbeatUpsert`, a tabela de histórico em `machine_metrics` e
+  `MetricsByMachineID` foram **descartados** — o `main` já resolve isso via `UpdateMachineSnapshot`
+  (snapshot nas colunas de `machines`) + `lib/grafana_metrics.go` (proxy pro Prometheus via Grafana).
+- `UpsertMachine` (do `main`) recebeu de volta a lógica que só existia nesta sessão: o CASE que
+  respeita `device_type_locked` num override manual, a coluna `device_type_reason`, e o registro em
+  `machine_device_type_history` — nada disso existia no `main`. A função passou a rodar em
+  transação e devolve `(id, deviceType, err)`.
+- Mantidos e reintegrados sobre a base do `main`: `SetDeviceTypeOverride`, `PlatformHealth`/
+  `monitoringPlatformHealth`, `collectionIntervalSeconds` (política de coleta por tipo de ativo),
+  rate limiting Postgres-backed (`AllowDB`/`agentRateLimitAllow`) em `commands/poll`,
+  `commands/respond` e `self-heal-event`, buffer de heartbeats represados do agente, jitter
+  contínuo (mesclado com o jitter de boot que o `main` já tinha), `PlatformHealthTab.tsx` (adaptada
+  ao `PageHeader` que o `main` introduziu), `loadsim`, e o versionamento do agente via `-ldflags`
+  (mantendo `"1.1.26"` do `main` como valor-default).
+- `MarkCommandsSent` (desta sessão) foi descartada em favor do `UpdateCommandsStatusBatch`
+  equivalente que já existia no `main`.
+
+Validado após a reconciliação: `go build`/`vet`/`test` (raiz e `orion-agent` — este último
+cross-compilado para `GOOS=windows`, sua plataforma real), `tsc --noEmit`, `vite build` e `vitest`
+(62/62) — sem regressões nos arquivos tocados pelo merge. O merge foi feito como fast-forward de
+`main-utu21b` para `main` (nenhum histórico reescrito) e já está em `origin/main`.
+
+**Pendência conhecida, não bloqueante:** a migration
+`20260829120000_metrics_history_and_retention.sql` já havia sido aplicada em produção nesta sessão
+(antes de se descobrir o trabalho paralelo do `main`) e recriou a tabela `machine_metrics` — hoje
+órfã, nada mais escreve nela. Não é urgente (não quebra nada, só ocupa espaço), mas vale um
+`DROP TABLE public.machine_metrics CASCADE` numa sessão futura para não confundir quem for mexer
+no schema depois.
