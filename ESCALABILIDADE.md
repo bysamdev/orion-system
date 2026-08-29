@@ -26,7 +26,7 @@ deliberadamente pendente e por quê.
 | 7 | Alertas | ✅ Divergência de limiar (85%/90%) corrigida |
 | 8 | Resiliência do agente | ✅ Buffer local, retry em poll/respond, jitter de ticker |
 | 9 | Segurança (rate limit) | ✅ Centralizado em Postgres, cobre os 5 endpoints de agente |
-| 10 | Observabilidade da própria plataforma | ✅ `GET /api/monitoring/platform-health` |
+| 10 | Observabilidade da própria plataforma | ✅ `GET /api/monitoring/platform-health` + aba "Plataforma" no dashboard |
 | 11 | Testes de carga | ✅ Ferramenta pronta (`orion-agent/cmd/loadsim`) — validada localmente, não rodada contra produção |
 | 12 | Rollout gradual | 🟡 Parcial — `company_id` e `agent_version` já dão a base; nenhum mecanismo de feature flag formal |
 | 13 | Documentação final | ✅ Este documento |
@@ -97,9 +97,12 @@ Retenção: `cleanup_monitoring_history()` (pg_cron, diário às 4h) apaga janel
   `(tipo, motivo)`. `tipo ∈ {desktop, notebook, server, unknown}` — `unknown` só quando NENHUM
   sinal (WMI no Windows; bateria/os-release no Linux) respondeu, nunca como default silencioso.
   macOS cai em `unknown` (sem `/sys/class/power_supply` nem `/etc/os-release`).
-- `machines.device_type_locked`: quando `true` (setado via `PATCH /api/monitoring/machines/{id}`
-  com `{"device_type": "..."}`, ver `lib.DB.SetDeviceTypeOverride`), o heartbeat do agente
-  **para de sobrescrever** a classificação dessa máquina.
+- `machines.device_type_locked`: quando `true` (setado via `POST
+  /api/monitoring/machines/{id}/update` com `{"device_type": "..."}`, ver
+  `lib.DB.SetDeviceTypeOverride`), o heartbeat do agente **para de sobrescrever** a classificação
+  dessa máquina. UI: painel "Configurações Administrativas" em `MachineDrawer.tsx` — separado do
+  botão "Salvar Alterações" de grupo/empresa de propósito (incluir `device_type` no corpo travaria
+  a classificação em toda edição administrativa, não só quando a intenção é corrigi-la).
 - `machine_device_type_history`: uma linha por transição real (`changed_by ∈ {agent, manual}`).
 - Política de coleta (`handler.collectionIntervalSeconds`): servidor = 60s, todo o resto
   (incluindo `unknown`, de propósito — "não assumir comportamento de servidor") = 180s. O agente
@@ -121,7 +124,10 @@ Retenção: `cleanup_monitoring_history()` (pg_cron, diário às 4h) apaga janel
   `monitoringPlatformHealth`) — visão agregada cross-tenant da frota: total/online/offline/alerta,
   contagem por `device_type`, alertas abertos, backlog de comandos RMM pendentes (com a idade do
   mais antigo), buckets de rate limit ativos. Restrito a `escopo.Global()` (master/developer) — é
-  operação da plataforma, não dado de um cliente específico. **Sem UI ainda** — só a API.
+  operação da plataforma, não dado de um cliente específico. UI: aba "Plataforma" em
+  `InfrastructureDashboard.tsx` (`PlatformHealthTab.tsx`) — mostra "Acesso restrito" para quem não
+  é master/developer, refletindo o 403 do backend em vez de duplicar a checagem `Global()` no
+  frontend.
 - **`orion-agent/cmd/loadsim`** — simulador de carga (Fase 11). Reproduz N agentes falsos
   reaproveitando `orion-agent/sender`/`config` de verdade (não uma reimplementação paralela do
   protocolo), distribuição de tipo de ativo 70% desktop / 20% notebook / 10% server (a frota real
@@ -184,6 +190,7 @@ Antes de considerar esta fase do trabalho "pronta para produção":
 | Política de coleta por tipo | Reverter commit `6510210`. Agente volta a usar só `cfg.IntervalSeconds` fixo — `next_interval_seconds` simplesmente para de ser enviado/lido. |
 | Buffer/retry/jitter do agente | Reverter commit `d045986`. Sem efeito no backend. |
 | `platform-health`/`loadsim` | Reverter commit `03e0b28`. Endpoint e ferramenta são aditivos — nada mais os depende. |
+| Injeção de versão + UI de platform-health/override | Reverter commit `9e48317`. `version.Version` volta a ser lido sem `-ldflags` (fallback "1.0.0" continua funcionando, só deixa de ser a versão real). UI removida não afeta a API por baixo dela. |
 
 Todas as mudanças de schema foram feitas via `ADD COLUMN IF NOT EXISTS`/`CREATE TABLE IF NOT
 EXISTS` — nenhuma é destrutiva por si só. Reverter o código sem reverter o schema é sempre seguro
@@ -198,18 +205,22 @@ Itens do plano original **deliberadamente não fechados** nesta sessão, e por q
 1. **Capacidade medida em 100/250/500/1000/2500 agentes** (Fase 1/11 do plano) — a ferramenta
    existe (`loadsim`) e foi validada localmente, mas rodá-la contra um ambiente real (mesmo que
    staging) e registrar os números é uma ação que precisa de escopo/autorização explícitos, não
-   algo a se decidir sozinho no meio da implementação.
-2. **UI para `platform-health` e para override manual de `device_type`** — as duas capacidades
-   existem só como API. Construir uma tela para elas é trabalho de frontend separado, com decisões
-   de design que não foram pedidas nesta rodada.
-3. **Versionamento formal de contrato/schema** (Fase 2) — hoje a compatibilidade é mantida "por
-   convenção" (campos novos são aditivos, nunca removidos) mais o teste de fixture (§1.6). Não há
-   um número de versão de payload nem um mecanismo de negociação de versão entre agente e backend.
-4. **Rollout gradual formal** (Fase 12) — `company_id` já permite testar uma mudança de política
-   numa empresa antes de outra, e `agent_version` já é reportado, mas não existe um mecanismo de
-   feature flag dedicado. Hoje, "rollout gradual" significaria mergear e observar por empresa
-   manualmente.
-5. **`agent_version` continua hardcoded** (`orion-agent/version/version.go`, `const Version =
-   "1.0.0"`) em vez de injetado no build (`-ldflags -X`) — não há Makefile/CI neste repositório que
-   faça esse tipo de injeção hoje. Todo binário compilado reporta a mesma versão até alguém editar
-   o arquivo manualmente.
+   algo a se decidir sozinho no meio da implementação. Além disso, o código desta sessão está em
+   `main-utu21b`, ainda não mergeado/implantado — rodar `loadsim` contra a produção atual hoje
+   testaria o código antigo, não o que foi construído aqui.
+2. **Versionamento formal de contrato/schema** (Fase 2) — hoje a compatibilidade é mantida "por
+   convenção" (campos novos são sempre aditivos, nunca removidos/renomeados) mais o teste de
+   fixture real agente↔backend (§1.6). Deliberadamente não construído: não há hoje uma mudança
+   quebradora de contrato pendente que precise de negociação de versão — adicionar esse mecanismo
+   sem um caso concreto seria infraestrutura especulativa, o oposto do que a auditoria original
+   pediu ("não aumentar complexidade sem benefício").
+3. **Rollout gradual formal** (Fase 12) — `company_id` já permite testar uma mudança de política
+   numa empresa antes de outra, e `agent_version` já é reportado (e agora injetável no build, ver
+   item fechado abaixo). Um mecanismo de feature flag dedicado não foi construído pela mesma razão
+   do item 2: não há hoje um rollout arriscado específico esperando por ele. Fica documentado como
+   o próximo passo natural quando (e se) essa necessidade aparecer, não implementado adiantado.
+
+**Itens que estavam aqui e foram fechados numa rodada seguinte desta mesma sessão:**
+UI para `platform-health` e para override manual de `device_type` (`PlatformHealthTab.tsx`,
+`MachineDrawer.tsx` — ver §1.4/§1.6), e injeção de `agent_version` no build (`version.Version` virou
+`var`, aceita `-ldflags -X orion-agent/version.Version=...` — ver §1.6 e `installer-msi/build.ps1`).
