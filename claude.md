@@ -28,7 +28,7 @@ para entender estrutura (economiza ~10-50x tokens por consulta):
 - `graphify query "<pergunta>"` — subgrafo focado (ex: "onde está a lógica de SLA?")
 - `graphify path "<A>" "<B>"` — caminho entre dois módulos/conceitos
 - `graphify explain "<conceito>"` — detalha um nó
-- Vault Obsidian: `Documents/Obsidian/Orion System/Graphify-Report.md` (espelho)
+- Vault Obsidian: `Projetos/Obsidian-vault/Orion System/Graphify-Report.md` (espelho)
 - Regenerar após mexer em código: `graphify . --update` (AST, sem custo de API)
 - O grafo NÃO deve subir pro GitHub (já está no .gitignore)
 
@@ -38,3 +38,4 @@ para entender estrutura (economiza ~10-50x tokens por consulta):
   de declarar algo "otimizado"
 - Commits pequenos e testáveis
 - Perguntar antes de tocar em arquivos fora do fluxo de chamados
+- Mensagens de commit no GitHub: sempre humanizadas, resumidas e 100% em português, descrevendo diretamente o que foi feito iniciando com verbos de ação (ex: "Colocado contador e botões lado a lado no menu lateral", "Feito ajuste na largura da barra de pesquisa", "Removido colunas de CPU e memória da tabela", "Adicionado botão de acesso remoto no topo")

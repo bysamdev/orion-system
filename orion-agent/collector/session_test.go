@@ -110,6 +110,33 @@ func TestFormatarUsuarioInterativo(t *testing.T) {
 	}
 }
 
+func TestEhDominioLocal(t *testing.T) {
+	tests := []struct {
+		name     string
+		dominio  string
+		hostname string
+		esperado bool
+	}{
+		{"vazio", "", "DESKTOP-01", true},
+		{"ponto — o que o WTS devolve pra conta local", ".", "DESKTOP-01", true},
+		{"ponto minusculo tambem", ".", "", true},
+		{"workgroup", "WORKGROUP", "DESKTOP-01", true},
+		{"workgroup case insensitive", "workgroup", "DESKTOP-01", true},
+		{"igual ao hostname", "DESKTOP-01", "DESKTOP-01", true},
+		{"nt authority", "NT AUTHORITY", "DESKTOP-01", true},
+		{"nt service", "NT SERVICE", "DESKTOP-01", true},
+		{"dominio AD real", "CORP", "DESKTOP-01", false},
+		{"dominio AD com FQDN", "corp.example.com", "DESKTOP-01", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ehDominioLocal(tt.dominio, tt.hostname); got != tt.esperado {
+				t.Errorf("ehDominioLocal(%q, %q) = %v, esperado %v", tt.dominio, tt.hostname, got, tt.esperado)
+			}
+		})
+	}
+}
+
 func TestObterDominioMaquinaNaoVazio(t *testing.T) {
 	dom := obterDominioMaquina()
 	if dom == "" {

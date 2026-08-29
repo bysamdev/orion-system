@@ -42,10 +42,11 @@ export const TicketSummaryDialog: React.FC<TicketSummaryDialogProps> = ({
         </DialogHeader>
 
         {summary ? (
-          <div className="grid gap-6 py-4">
-            <Card className="p-4 border-l-4 border-l-red-500 bg-red-500/5 shadow-none border-t-0 border-r-0 border-b-0 rounded-r-xl">
-              <div className="flex items-center gap-2 mb-2 text-red-600 font-bold">
-                <Search className="w-4 h-4" />
+          <div className="grid gap-4 py-4">
+            <Card className="p-4 border border-border/80 bg-card rounded-xl shadow-sm">
+              <div className="flex items-center gap-2 mb-2 text-foreground font-semibold">
+                <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                <Search className="w-4 h-4 text-red-500" />
                 <h4>Problema Central</h4>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
@@ -53,9 +54,10 @@ export const TicketSummaryDialog: React.FC<TicketSummaryDialogProps> = ({
               </p>
             </Card>
 
-            <Card className="p-4 border-l-4 border-l-amber-500 bg-amber-500/5 shadow-none border-t-0 border-r-0 border-b-0 rounded-r-xl">
-              <div className="flex items-center gap-2 mb-2 text-amber-600 font-bold">
-                <Activity className="w-4 h-4" />
+            <Card className="p-4 border border-border/80 bg-card rounded-xl shadow-sm">
+              <div className="flex items-center gap-2 mb-2 text-foreground font-semibold">
+                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                <Activity className="w-4 h-4 text-amber-500" />
                 <h4>Diagnóstico</h4>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
@@ -63,9 +65,10 @@ export const TicketSummaryDialog: React.FC<TicketSummaryDialogProps> = ({
               </p>
             </Card>
 
-            <Card className="p-4 border-l-4 border-l-green-500 bg-green-500/5 shadow-none border-t-0 border-r-0 border-b-0 rounded-r-xl">
-              <div className="flex items-center gap-2 mb-2 text-green-600 font-bold">
-                <ListTodo className="w-4 h-4" />
+            <Card className="p-4 border border-border/80 bg-card rounded-xl shadow-sm">
+              <div className="flex items-center gap-2 mb-2 text-foreground font-semibold">
+                <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                <ListTodo className="w-4 h-4 text-green-500" />
                 <h4>Próximos Passos</h4>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">

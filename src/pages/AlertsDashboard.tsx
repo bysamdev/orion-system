@@ -38,9 +38,11 @@ import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 export interface AlertsDashboardProps {
   onAlertClick?: (machineId: string) => void;
+  hideHeader?: boolean;
 }
 
 // ── Alert Card ──────────────────────────────────────────────
@@ -159,7 +161,7 @@ function AlertCard({
         </div>
 
         {/* Identification Grid (Domínio, Usuário, IP, Last Seen / Metric) */}
-        <div className="bg-background/60 dark:bg-background/40 rounded-lg p-2 border border-border/30 grid grid-cols-2 gap-x-2.5 gap-y-1.5 text-[11px]">
+        <div className="bg-background/60 dark:bg-background/40 rounded-xl p-2.5 border border-border/30 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
           {/* Domínio / Cliente */}
           <div className="flex items-center gap-1.5 min-w-0" title={`Domínio/Cliente: ${alert.domain || alert.group_name || 'WORKGROUP'}`}>
             <Network className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
@@ -212,7 +214,7 @@ function AlertCard({
           <Button
             size="sm"
             variant="outline"
-            className="h-7 px-2.5 text-xs font-semibold rounded-lg gap-1.5 bg-background/80 hover:bg-background shadow-sm group-hover:border-primary/40 transition-colors"
+            className="h-7 px-2.5 text-xs font-semibold rounded-lg gap-1.5 bg-background/80 hover:bg-background shadow-xs group-hover:border-primary/40 transition-colors"
             onClick={(e) => {
               e.stopPropagation();
               onOpenMachine(alert.machine_id);
@@ -264,7 +266,7 @@ function AlertSection({
           {alerts.length}
         </Badge>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
         {alerts.map((a, i) => (
           <AlertCard
             key={`${a.machine_id}-${a.alert_type}-${i}`}
@@ -278,7 +280,7 @@ function AlertSection({
 }
 
 // ── Main Page ───────────────────────────────────────────────
-const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
+const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHeader }) => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: apiAlerts = [], isLoading: alertsLoading } = useCriticalAlerts();
   const { data: allMachines = [], isLoading: machinesLoading } = useAllMachines();
@@ -300,23 +302,31 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
     const list: CriticalAlertItem[] = [];
     const seenKeys = new Set<string>();
 
-    // Helper to evaluate if a machine is really offline (status is 'offline' or last_seen > 5 minutes ago)
-    const isMachineOffline = (status: string, lastSeen?: string | null) => {
-      if (status === 'offline') return true;
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+    // Helper to evaluate if a machine is online right now (last 5 min)
+    const isOnlineNow = (status: string, lastSeen?: string | null) => {
+      if (status === 'online' || status === 'alerta') return true;
       if (!lastSeen) return false;
-      const diffMs = new Date().getTime() - new Date(lastSeen).getTime();
-      return diffMs > 5 * 60 * 1000;
+      return Date.now() - new Date(lastSeen).getTime() < 5 * 60 * 1000;
+    };
+
+    // Helper to evaluate if a machine is inactive for MORE than 7 days
+    const isInactiveOver7Days = (status: string, lastSeen?: string | null) => {
+      if (!lastSeen) return status === 'offline';
+      const diffMs = Date.now() - new Date(lastSeen).getTime();
+      return diffMs > SEVEN_DAYS_MS;
     };
 
     // 1. Process API alerts
     for (const alert of apiAlerts) {
       const machine = machinesMap.get(alert.machine_id);
 
-      // Guard: If API returns an 'offline' alert, make sure the machine hasn't reconnected or is active in 'alerta' status
+      // Guard: Only show offline alert if inactive for > 7 days
       if (alert.alert_type === 'offline') {
         const currentStatus = machine?.status || alert.status;
         const currentLastSeen = machine?.last_seen || alert.last_seen;
-        if (!isMachineOffline(currentStatus, currentLastSeen)) {
+        if (!isInactiveOver7Days(currentStatus, currentLastSeen)) {
           continue;
         }
       }
@@ -335,7 +345,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
 
     // 2. Scan machines for compliance, security, and hardware alerts
     for (const m of allMachines) {
-      const offline = isMachineOffline(m.status, m.last_seen);
+      const isOnline = isOnlineNow(m.status, m.last_seen);
 
       // 🛡️ Antivirus: Alert ONLY if antivirus list is non-empty and NO active protection is detected
       if (m.security_info?.antivirus && m.security_info.antivirus.length > 0) {
@@ -382,9 +392,8 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
         }
       }
 
-      // 🔴 Máquinas Offline: APENAS se m.status === 'offline' OU se last_seen > 5 min.
-      // Máquinas com status 'alerta' que estão ativas NUNCA devem aparecer como offline.
-      if (offline) {
+      // 🔴 Máquinas Inativas > 7 dias: APENAS se sem comunicação por mais de 7 dias
+      if (isInactiveOver7Days(m.status, m.last_seen)) {
         const key = `${m.id}-offline`;
         if (!seenKeys.has(key)) {
           seenKeys.add(key);
@@ -398,8 +407,8 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
             status: m.status,
             last_seen: m.last_seen,
             alert_type: 'offline',
-            severity: 'critical',
-            message: 'Máquina offline / sem comunicação com o agente',
+            severity: 'warning',
+            message: 'Dispositivo inativo há mais de 7 dias sem comunicação',
           });
         }
       }
@@ -428,7 +437,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
       }
 
       // ⚡ CPU Alert (fallback if not in API list - only for online or alert active machines)
-      if (!offline && m.cpu_usage != null && m.cpu_usage > 85) {
+      if (isOnline && m.cpu_usage != null && m.cpu_usage > 85) {
         const key = `${m.id}-cpu`;
         if (!seenKeys.has(key)) {
           seenKeys.add(key);
@@ -453,40 +462,40 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
     return list;
   }, [apiAlerts, allMachines, machinesMap]);
 
-  // Grouped into the 6 designated Red Zone categories
-  const grouped = useMemo(
-    () => ({
+  // Group alerts by functional category
+  const grouped = useMemo(() => {
+    return {
       antivirus: mergedAlerts.filter((a) => a.alert_type === 'antivirus'),
       firewall: mergedAlerts.filter((a) => a.alert_type === 'firewall'),
       offline: mergedAlerts.filter((a) => a.alert_type === 'offline'),
       disk: mergedAlerts.filter((a) => a.alert_type === 'disk'),
       cpu: mergedAlerts.filter((a) => a.alert_type === 'cpu'),
-      alert: mergedAlerts.filter(
-        (a) => !['antivirus', 'firewall', 'offline', 'disk', 'cpu'].includes(a.alert_type)
-      ),
-    }),
-    [mergedAlerts]
-  );
+      alert: mergedAlerts.filter((a) => !['antivirus', 'firewall', 'offline', 'disk', 'cpu'].includes(a.alert_type)),
+    };
+  }, [mergedAlerts]);
 
   const selectedMachine = useMemo(
-    () => allMachines.find((m) => m.id === selectedMachineId) || null,
-    [allMachines, selectedMachineId]
+    () => (selectedMachineId ? machinesMap.get(selectedMachineId) || null : null),
+    [selectedMachineId, machinesMap]
   );
 
-  const handleOpenMachine = (machineId: string) => {
+  const handleOpenMachine = (mId: string) => {
     if (onAlertClick) {
-      onAlertClick(machineId);
+      onAlertClick(mId);
+    } else {
+      setSelectedMachineId(mId);
     }
-    setSelectedMachineId(machineId);
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['monitoring', 'alerts', 'critical'] }),
-      queryClient.invalidateQueries({ queryKey: ['monitoring'] }),
+      queryClient.invalidateQueries({ queryKey: ['critical-alerts'] }),
+      queryClient.invalidateQueries({ queryKey: ['monitoring-machines'] }),
+      queryClient.invalidateQueries({ queryKey: ['monitoring-dashboard'] }),
     ]);
-    setTimeout(() => setRefreshing(false), 800);
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => setRefreshing(false), 800);
   };
 
   const isLoading = alertsLoading && machinesLoading;
@@ -519,55 +528,68 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
 
   return (
     <div className="w-full space-y-6">
-      <div className="w-full space-y-6">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="p-3 rounded-2xl bg-red-600 text-white shadow-lg shadow-red-600/30">
-                <AlertTriangle className="w-7 h-7" />
-              </div>
-              {mergedAlerts.length > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full animate-ping" />
+        {hideHeader ? (
+          <div className="flex items-center justify-between gap-4 pb-4 mb-4 border-b border-border/40">
+            <Badge
+              variant="outline"
+              className={cn(
+                'gap-1.5 font-bold px-3 py-1.5 rounded-xl',
+                mergedAlerts.length > 0
+                  ? 'text-red-600 border-red-500/30 bg-red-500/10'
+                  : 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10'
               )}
-            </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-foreground">
-                Central de Alertas
-              </h1>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                Zona Vermelha — Atenção Imediata &amp; Conformidade
-              </p>
-            </div>
-          </div>
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {mergedAlerts.length} alerta{mergedAlerts.length !== 1 ? 's' : ''} ativo{mergedAlerts.length !== 1 ? 's' : ''}
+            </Badge>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className={cn(
-                  'gap-1.5 font-bold',
-                  mergedAlerts.length > 0
-                    ? 'text-red-600 border-red-500/30 bg-red-500/10'
-                    : 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10'
-                )}
-              >
-                <AlertTriangle className="w-3 h-3" />
-                {mergedAlerts.length} alerta{mergedAlerts.length !== 1 ? 's' : ''} ativo{mergedAlerts.length !== 1 ? 's' : ''}
-              </Badge>
-            </div>
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              className="gap-2 rounded-xl font-bold"
+              className="gap-2 rounded-xl font-bold h-10 px-4"
               disabled={refreshing}
             >
               <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
               Atualizar
             </Button>
           </div>
-        </div>
+        ) : (
+          <PageHeader
+            icon={AlertTriangle}
+            badge="ZONA VERMELHA & CONFORMIDADE"
+            title="Central de Alertas"
+            description="Supervisão de riscos imediatos, falhas de segurança e conformidade da frota."
+            actions={
+              <>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'gap-1.5 font-bold px-3 py-1.5 rounded-xl',
+                    mergedAlerts.length > 0
+                      ? 'text-red-600 border-red-500/30 bg-red-500/10'
+                      : 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10'
+                  )}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  {mergedAlerts.length} alerta{mergedAlerts.length !== 1 ? 's' : ''} ativo{mergedAlerts.length !== 1 ? 's' : ''}
+                </Badge>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  className="gap-2 rounded-xl font-bold h-10 px-4"
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
+                  Atualizar
+                </Button>
+              </>
+            }
+          />
+        )}
 
         {/* Content */}
         {isLoading ? (
@@ -594,18 +616,36 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
             </div>
           </div>
         ) : (
-          <ScrollArea className="h-[calc(100vh-210px)]">
-            <div className="space-y-8 pr-4 pb-12">
-              {/* 1. 🛡️ Segurança & Antivírus Crítico */}
-              <AlertSection
-                title="Segurança & Antivírus Crítico (Zona Vermelha)"
-                icon={ShieldAlert}
-                colorClass="bg-rose-600"
-                alerts={grouped.antivirus}
-                onOpenMachine={handleOpenMachine}
-              />
+          <div className="space-y-6">
+            {/* 6-Column KPI Summary Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+              {[
+                { label: 'Total Crítico', value: mergedAlerts.length, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10 border-red-500/25' },
+                { label: 'Sem Antivírus', value: grouped.antivirus.length, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-500/10 border-rose-500/25' },
+                { label: 'Firewall Off', value: grouped.firewall.length, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10 border-red-500/25' },
+                { label: 'Inativo >7d', value: grouped.offline.length, color: 'text-zinc-600 dark:text-zinc-400', bg: 'bg-zinc-500/10 border-zinc-500/25' },
+                { label: 'Disco >90%', value: grouped.disk.length, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10 border-amber-500/25' },
+                { label: 'CPU >85%', value: grouped.cpu.length, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-500/10 border-orange-500/25' },
+              ].map((kpi) => (
+                <div key={kpi.label} className={cn('p-3 rounded-xl border flex flex-col justify-between shadow-xs', kpi.bg)}>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground truncate">{kpi.label}</span>
+                  <span className={cn('text-xl font-black font-mono mt-1', kpi.color)}>{kpi.value}</span>
+                </div>
+              ))}
+            </div>
 
-              {/* 2. 🧱 Conformidade & Firewall */}
+            <ScrollArea className="h-[calc(100vh-270px)]">
+              <div className="space-y-8 pr-4 pb-12">
+                {/* 1. Segurança & Antivírus Crítico */}
+                <AlertSection
+                  title="Segurança & Antivírus Crítico (Zona Vermelha)"
+                  icon={ShieldAlert}
+                  colorClass="bg-rose-600"
+                  alerts={grouped.antivirus}
+                  onOpenMachine={handleOpenMachine}
+                />
+
+              {/* 2. Conformidade & Firewall */}
               <AlertSection
                 title="Conformidade & Firewall Inativo"
                 icon={Shield}
@@ -614,16 +654,16 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
                 onOpenMachine={handleOpenMachine}
               />
 
-              {/* 4. 🔴 Máquinas Offline */}
+              {/* 4. Dispositivos Inativos > 7 dias */}
               <AlertSection
-                title="Máquinas Offline / Desconectadas"
+                title="Dispositivos Inativos há mais de 7 Dias"
                 icon={WifiOff}
-                colorClass="bg-red-600"
+                colorClass="bg-zinc-600"
                 alerts={grouped.offline}
                 onOpenMachine={handleOpenMachine}
               />
 
-              {/* 5. 💾 Disco Crítico (>90%) */}
+              {/* 5. Disco Crítico (>90%) */}
               <AlertSection
                 title="Disco Crítico (>90%)"
                 icon={HardDrive}
@@ -632,7 +672,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
                 onOpenMachine={handleOpenMachine}
               />
 
-              {/* 6. ⚡ CPU sob Pressão (>85%) */}
+              {/* 6. CPU sob Pressão (>85%) */}
               <AlertSection
                 title="CPU Sob Pressão (>85%)"
                 icon={Cpu}
@@ -641,7 +681,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
                 onOpenMachine={handleOpenMachine}
               />
 
-              {/* 7. ⚠️ Alertas Gerais do Sistema */}
+              {/* 7. Alertas Gerais do Sistema */}
               <AlertSection
                 title="Alertas Gerais do Sistema"
                 icon={AlertTriangle}
@@ -651,8 +691,8 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick }) => {
               />
             </div>
           </ScrollArea>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Machine Details Drawer */}
       <MachineDrawer

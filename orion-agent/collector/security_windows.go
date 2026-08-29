@@ -6,6 +6,7 @@ import (
 	"context"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/yusufpapurcu/wmi"
@@ -185,6 +186,10 @@ func coletarBitLocker() []BitLockerInfo {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "manage-bde", "-status", "C:")
+	// Sem isso, essa coleta periódica de segurança abre e fecha uma janela
+	// de console visível a cada ciclo — mesmo motivo do fix em
+	// service/windows.go (executeCommand/runInstaller).
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	if out, err := cmd.CombinedOutput(); err == nil {
 		outStr := string(out)
 		active := strings.Contains(outStr, "Protection On") ||

@@ -32,8 +32,9 @@ export const ThemeToggle: React.FC = () => {
         <Button
           variant="ghost"
           size="icon"
+          aria-label={isDark ? "Alternar para modo claro" : "Alternar para modo escuro"}
           onClick={() => setTheme(isDark ? 'light' : 'dark')}
-          className="hover:bg-primary/10"
+          className="hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary"
         >
           {isDark ? (
             <Sun className="w-5 h-5 text-warning" />

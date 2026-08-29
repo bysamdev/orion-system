@@ -195,13 +195,8 @@ func TestPortalETicketCompartilhamMesmoEndpointETokens(t *testing.T) {
 	}
 }
 
-// BUG (baixo/médio): GetPortalURL concatena APIURL com "/api/..." sem normalizar a
-// barra final, ao contrário de sender.Send, que faz strings.TrimSuffix(url, "/").
-// Com api_url terminando em "/" no agent.yaml, a URL sai com barra dupla.
+// BUG (baixo/médio) CORRIGIDO: GetPortalURL normaliza a barra final de cfg.APIURL.
 func TestGetPortalURLNaoDeveDuplicarBarraQuandoAPIURLTerminaComBarra(t *testing.T) {
-	pularSeBugConhecido(t, "GetPortalURL/GetTicketURL nao normalizam a barra final de cfg.APIURL "+
-		"(sender.Send normaliza), gerando '//api/auth/machine-login' quando api_url termina em '/'")
-
 	s := novoSvcDeTeste("https://orion.exemplo.test/")
 	s.machineToken = "abc123token"
 
@@ -214,16 +209,10 @@ func TestGetPortalURLNaoDeveDuplicarBarraQuandoAPIURLTerminaComBarra(t *testing.
 	}
 }
 
-// BUG (médio): token.LoadToken devolve o conteúdo do arquivo sem TrimSpace e
-// GetPortalURL não escapa o token. Um machine.token gravado/editado com quebra
-// de linha (bloco de notas, GPO, cópia manual) produz uma URL com caractere de
-// controle — inválida para url.Parse e para o navegador.
+// BUG (médio) CORRIGIDO: token é sanitizado e escapado em GetPortalURL.
 func TestGetPortalURLDeveGerarURLValidaComTokenComQuebraDeLinha(t *testing.T) {
-	pularSeBugConhecido(t, "token nao e sanitizado/escapado; token.LoadToken nao faz TrimSpace "+
-		"e GetPortalURL usa fmt.Sprintf sem url.QueryEscape, gerando URL invalida")
-
 	s := novoSvcDeTeste("https://orion.exemplo.test")
-	s.machineToken = "abc123token\r\n" // exatamente o que LoadToken devolveria
+	s.machineToken = "abc123token\r\n"
 
 	bruta := s.GetPortalURL()
 	if _, err := url.Parse(bruta); err != nil {
@@ -465,11 +454,20 @@ func TestCorridaMachineTokenNaoDerrubaGetPortalURLComPanic(t *testing.T) {
 					}
 				}()
 				u := s.GetPortalURL()
-				// Contrato: ou a URL é vazia, ou carrega o token íntegro.
-				if u != "" && !strings.HasSuffix(u, tokenValido) {
-					mu.Lock()
-					corrompid++
-					mu.Unlock()
+				// Contrato: ou a URL é vazia, ou carrega o token íntegro no
+				// parâmetro "token". Não é mais HasSuffix(u, token): desde
+				// que GetPortalURL passou a anexar requester_user (usuário
+				// Windows/AD resolvido na hora do clique), o token deixou
+				// de ser necessariamente o último trecho da URL — mas
+				// continua sendo o valor exato do parâmetro "token",
+				// checado via url.Parse em vez de posição na string.
+				if u != "" {
+					parsed, err := url.Parse(u)
+					if err != nil || parsed.Query().Get("token") != tokenValido {
+						mu.Lock()
+						corrompid++
+						mu.Unlock()
+					}
 				}
 			}()
 		}
@@ -809,6 +807,44 @@ func TestHealthEndpointRetorna200OK(t *testing.T) {
 	}
 }
 
+// TestMetricsEndpointServeSnapshotDoLastPayload é o teste de regressão
+// direto da otimização de leveza: antes, /metrics chamava collector.Collect()
+// do zero a cada scrape, dobrando (ou mais) a frequência real de coleta em
+// relação ao heartbeat. Agora deve servir s.lastPayload (preenchido por
+// tick()) sem recoletar — provamos isso plantando um Hostname sintético que
+// nenhuma coleta real desta máquina produziria.
+func TestMetricsEndpointServeSnapshotDoLastPayload(t *testing.T) {
+	s := novoSvcDeTeste("https://backend.invalido")
+	s.setLastPayload(&collector.Payload{
+		Hostname:  "HOSTNAME-SINTETICO-DO-CACHE",
+		CPUUsage:  42.5,
+		RAMTotal:  1000,
+		RAMUsed:   500,
+		DiskTotal: 2000,
+		DiskUsed:  1000,
+	})
+
+	handler := NewMetricsHandler(s)
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/metrics")
+	if err != nil {
+		t.Fatalf("falha ao requisitar /metrics: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	corpoStr := string(body)
+
+	if !strings.Contains(corpoStr, `hostname="HOSTNAME-SINTETICO-DO-CACHE"`) {
+		t.Errorf("/metrics não refletiu o lastPayload plantado — provável recoleta indevida.\nCorpo:\n%s", corpoStr)
+	}
+	if !strings.Contains(corpoStr, "orion_cpu_usage_percent") || !strings.Contains(corpoStr, "42.50") {
+		t.Errorf("/metrics não contém o valor de CPU do lastPayload plantado (42.50)")
+	}
+}
+
 func TestMetricsServerDesabilitadoNaoSobe(t *testing.T) {
 	desabilitado := false
 	cfg := &config.Config{
@@ -826,6 +862,7 @@ func TestMetricsServerDesabilitadoNaoSobe(t *testing.T) {
 	// Deve retornar sem erro e sem travar
 	s.startMetricsServer(ctx)
 }
+
 
 // ─────────────────────────────────────────────────────────────
 // (H) Buffer de heartbeats represados (Fase 8 do plano de escalabilidade)
@@ -936,5 +973,100 @@ func TestIntervaloValido_AplicaLimitesDeSeguranca(t *testing.T) {
 				t.Errorf("intervaloValido(%d) = %d, esperado %d", c.entrada, got, c.esperado)
 			}
 		})
+	}
+}
+
+// TestExtensaoDaURLIgnoraQueryString cobre o bug que derrubava 100% das
+// auto-atualizações: downloadFileToTemp montava o nome do arquivo temporário
+// com filepath.Base(url) na URL crua, então a signed URL do Supabase Storage
+// (".../<hash>.exe?token=eyJ...") virava um nome de arquivo com "?" — inválido
+// no Windows. Todo os.Create falhava e o comando orion-install voltava
+// "Erro no download: open ...exe?token=eyJ...".
+func TestExtensaoDaURLIgnoraQueryString(t *testing.T) {
+	casos := []struct {
+		nome     string
+		url      string
+		esperado string
+	}{
+		{
+			nome:     "signed URL do Supabase (caso real que quebrou)",
+			url:      "https://kcxwealimsfxqstoprdg.supabase.co/storage/v1/object/sign/agent-installers/abc/cfa3ba03ba3413ec.exe?token=eyJraWQiOiJzdG9yYWdl",
+			esperado: ".exe",
+		},
+		{nome: "msi com query", url: "https://exemplo.com/generic/x.msi?token=abc&outro=1", esperado: ".msi"},
+		{nome: "sem query", url: "https://exemplo.com/pacote.exe", esperado: ".exe"},
+		{nome: "com fragmento", url: "https://exemplo.com/script.ps1#secao", esperado: ".ps1"},
+		{nome: "extensao maiuscula normaliza", url: "https://exemplo.com/PACOTE.EXE?t=1", esperado: ".exe"},
+		{nome: "sem extensao no caminho", url: "https://exemplo.com/download?file=x", esperado: ""},
+	}
+
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			got := extensaoDaURL(c.url)
+			if got != c.esperado {
+				t.Errorf("extensaoDaURL(%q) = %q, esperado %q", c.url, got, c.esperado)
+			}
+			// Garantia extra: a extensão nunca pode conter caractere que o
+			// Windows recusa em nome de arquivo.
+			if strings.ContainsAny(got, `?*<>|":\/`) {
+				t.Errorf("extensão %q contém caractere inválido para nome de arquivo no Windows", got)
+			}
+		})
+	}
+}
+
+// Testes de anexarUsuarioAtualVia — a correção que resolve o usuário
+// Windows/AD na hora do clique em "Abrir Chamado" (não o current_user
+// gravado no último heartbeat, que pode ter até um ciclo inteiro de
+// defasagem) e o embute na URL de login por máquina como requester_user,
+// consumido em nomeRequisitante/sanitizarRequesterUser (handler/auth_handlers.go).
+func TestAnexarUsuarioAtualVia_AnexaQuandoResolvido(t *testing.T) {
+	base := "https://orion.exemplo.test/api/auth/machine-login?token=abc"
+	resolver := func() string { return `CONTOSO\joao.silva` }
+
+	got := anexarUsuarioAtualVia(base, resolver)
+	esperado := base + "&requester_user=CONTOSO%5Cjoao.silva"
+
+	if got != esperado {
+		t.Errorf("anexarUsuarioAtualVia() = %q, esperado %q", got, esperado)
+	}
+}
+
+func TestAnexarUsuarioAtualVia_NaoAnexaQuandoResolverFalha(t *testing.T) {
+	base := "https://orion.exemplo.test/api/auth/machine-login?token=abc"
+	resolver := func() string { return "" }
+
+	got := anexarUsuarioAtualVia(base, resolver)
+
+	if got != base {
+		t.Errorf("anexarUsuarioAtualVia() = %q, esperado a URL sem alteração (%q) quando o resolver não resolve ninguém", got, base)
+	}
+}
+
+func TestAnexarUsuarioAtualVia_AparaEspacosDoResolver(t *testing.T) {
+	base := "https://orion.exemplo.test/api/auth/machine-login?token=abc"
+	resolver := func() string { return "  maria.souza  " }
+
+	got := anexarUsuarioAtualVia(base, resolver)
+	esperado := base + "&requester_user=maria.souza"
+
+	if got != esperado {
+		t.Errorf("anexarUsuarioAtualVia() = %q, esperado %q", got, esperado)
+	}
+}
+
+// TestGetTicketURLEGetPortalURL_SemTokenNaoChamaResolver garante que, sem
+// machine_token ainda persistido (agente recém-instalado, primeiro
+// heartbeat ainda não concluído), as duas funções continuam devolvendo ""
+// — comportamento pré-existente, não pode regredir com a adição do
+// requester_user.
+func TestGetTicketURLEGetPortalURL_SemTokenNaoChamaResolver(t *testing.T) {
+	s := &Svc{cfg: &config.Config{APIURL: "https://orion.exemplo.test"}}
+
+	if got := s.GetPortalURL(); got != "" {
+		t.Errorf("GetPortalURL() sem token = %q, esperado vazio", got)
+	}
+	if got := s.GetTicketURL(); got != "" {
+		t.Errorf("GetTicketURL() sem token = %q, esperado vazio", got)
 	}
 }

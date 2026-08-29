@@ -9,29 +9,37 @@ import { Loader2, Plus, Hash, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useCreatePackage, SHA256_REGEX, type PackageType } from '@/hooks/usePatchManagement';
+import { useCompanies } from '@/hooks/useCompanies';
 
 interface Props {
   open: boolean;
-  companyId: string;
+  companyId?: string;
   userId?: string;
   onClose: () => void;
 }
 
 export const NewPackageDialog: React.FC<Props> = ({ open, companyId, userId, onClose }) => {
   const { toast } = useToast();
+  const { data: companies } = useCompanies();
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<PackageType>('powershell');
   const [hash, setHash] = useState('');
   const [filePath, setFilePath] = useState('');
 
-  const createMutation = useCreatePackage(companyId);
+  const targetCompany = companyId || selectedCompanyId || (companies && companies[0]?.id) || '';
+  const createMutation = useCreatePackage(targetCompany);
 
-  const reset = () => { setName(''); setDescription(''); setType('powershell'); setHash(''); setFilePath(''); };
+  const reset = () => { setName(''); setDescription(''); setType('powershell'); setHash(''); setFilePath(''); setSelectedCompanyId(''); };
 
   const handleSave = () => {
     if (!name.trim() || !hash.trim()) {
       toast({ title: 'Preencha nome e hash SHA-256', variant: 'destructive' });
+      return;
+    }
+    if (!targetCompany) {
+      toast({ title: 'Selecione uma empresa', variant: 'destructive' });
       return;
     }
     if (!SHA256_REGEX.test(hash.trim())) {
@@ -39,7 +47,7 @@ export const NewPackageDialog: React.FC<Props> = ({ open, companyId, userId, onC
       return;
     }
     createMutation.mutate(
-      { name: name.trim(), description: description.trim(), type, file_path: filePath.trim(), sha256_hash: hash.trim(), created_by: userId },
+      { name: name.trim(), description: description.trim(), type, file_path: filePath.trim(), sha256_hash: hash.trim(), created_by: userId, company_id: targetCompany },
       {
         onSuccess: () => { toast({ title: 'Pacote cadastrado!' }); reset(); onClose(); },
         onError: (err: any) => toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' }),

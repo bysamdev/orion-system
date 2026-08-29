@@ -17,6 +17,7 @@ export const useTicketPresence = (ticketId: string | undefined) => {
   useEffect(() => {
     if (!ticketId || !user) return;
 
+    let isMounted = true;
     const channelName = `ticket-presence:${ticketId}`;
     const channel = supabase.channel(channelName, {
       config: { presence: { key: user.id } },
@@ -24,6 +25,7 @@ export const useTicketPresence = (ticketId: string | undefined) => {
 
     channel
       .on('presence', { event: 'sync' }, () => {
+        if (!isMounted) return;
         const state = channel.presenceState();
         const activeViewers: Viewer[] = [];
 
@@ -36,21 +38,32 @@ export const useTicketPresence = (ticketId: string | undefined) => {
         // Deduplicate viewers by user_id
         const uniqueViewers = Array.from(new Map(activeViewers.map(v => [v.user_id, v])).values());
         
-        setViewers(uniqueViewers);
+        if (isMounted) {
+          setViewers(uniqueViewers);
+        }
       })
       .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
+        if (status === 'SUBSCRIBED' && isMounted) {
           const userName = profile?.full_name || user.email || 'Usuário Desconhecido';
-          await channel.track({
-            user_id: user.id,
-            name: userName,
-            entered_at: new Date().toISOString(),
-          });
+          try {
+            await channel.track({
+              user_id: user.id,
+              name: userName,
+              entered_at: new Date().toISOString(),
+            });
+          } catch (e) {
+            console.warn('[useTicketPresence] Erro ao rastrear presença:', e);
+          }
         }
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      isMounted = false;
+      try {
+        supabase.removeChannel(channel);
+      } catch (err) {
+        console.warn('[useTicketPresence] Erro ao remover canal realtime:', err);
+      }
     };
   }, [ticketId, user, profile?.full_name]);
 

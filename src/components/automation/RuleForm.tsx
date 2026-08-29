@@ -116,10 +116,30 @@ export const RuleForm: React.FC<Props> = ({
                 <Select value={condVal} onValueChange={setCondVal}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Prioridade..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="urgent">🔴 Urgente</SelectItem>
-                    <SelectItem value="high">🟠 Alta</SelectItem>
-                    <SelectItem value="medium">🟡 Média</SelectItem>
-                    <SelectItem value="low">🟢 Baixa</SelectItem>
+                    <SelectItem value="urgent">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                        <span>Urgente</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="high">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
+                        <span>Alta</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="medium">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                        <span>Média</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="low">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        <span>Baixa</span>
+                      </span>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               ) : (
@@ -155,10 +175,30 @@ export const RuleForm: React.FC<Props> = ({
             <Select value={actTarget} onValueChange={setActTarget}>
               <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Nova prioridade..." /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="urgent">🔴 Urgente</SelectItem>
-                <SelectItem value="high">🟠 Alta</SelectItem>
-                <SelectItem value="medium">🟡 Média</SelectItem>
-                <SelectItem value="low">🟢 Baixa</SelectItem>
+                <SelectItem value="urgent">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                    <span>Urgente</span>
+                  </span>
+                </SelectItem>
+                <SelectItem value="high">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
+                    <span>Alta</span>
+                  </span>
+                </SelectItem>
+                <SelectItem value="medium">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                    <span>Média</span>
+                  </span>
+                </SelectItem>
+                <SelectItem value="low">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                    <span>Baixa</span>
+                  </span>
+                </SelectItem>
               </SelectContent>
             </Select>
           ) : actType === 'auto_response' ? (

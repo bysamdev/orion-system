@@ -21,13 +21,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 }) => {
   useTimerGuard();
 
+  React.useEffect(() => {
+    // Garante que o cookie de estado da sidebar seja redefinido para sempre aberto
+    document.cookie = 'sidebar_state=true; path=/; max-age=31536000';
+  }, []);
+
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={true}>
       <AppSidebar />
-      <SidebarInset>
-        {/* TopBar sticky */}
-        <header className="flex sticky top-0 bg-background/80 backdrop-blur-sm h-16 shrink-0 items-center gap-2 border-b border-border/30 px-4 md:px-8 z-30">
-          <SidebarTrigger className="-ml-1 md:hidden" />
+      <SidebarInset className="min-w-0 flex-1 overflow-x-hidden">
+        {/* TopBar sticky com botão de menu mobile */}
+        <header className="flex sticky top-0 bg-background/80 backdrop-blur-sm h-16 shrink-0 items-center gap-2 sm:gap-3 border-b border-border/30 px-3 sm:px-6 lg:px-8 z-30">
+          <SidebarTrigger className="shrink-0 -ml-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary" />
           <div className="flex-1 min-w-0">
             <TopBar />
           </div>
@@ -35,7 +40,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
         {/* Conteúdo da rota */}
         <main
-          className="flex-1 px-4 py-4 md:px-8 md:py-6 lg:px-12 lg:py-8 w-full mx-auto"
+          className="flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-6 w-full mx-auto min-w-0"
           style={{ maxWidth }}
         >
           {children}

@@ -59,10 +59,17 @@ export interface RemoteSoftwareInfo {
   is_running?: boolean;
 }
 
+// Campos espelham exatamente o JSON que o agente envia (collector/hardware.go
+// BatteryInfo) — o backend repassa isso puro via json.RawMessage, sem
+// re-tipar nada, então os nomes aqui têm que bater com os do agente
+// byte-a-byte. Já teve divergência real aqui (percentage/is_plugged vs.
+// percent/plugged_in), e como os campos são opcionais, TypeScript não
+// acusa erro nenhum — só o valor cai sempre no fallback (0%/false).
 export interface BatteryInfo {
   has_battery: boolean;
-  percentage?: number;
-  is_plugged?: boolean;
+  percent?: number;
+  plugged_in?: boolean;
+  status?: string;
 }
 
 export interface UpdateStatusInfo {
@@ -79,6 +86,20 @@ export interface MachineGroup {
   company_id: string | null;
   total_machines: number;
   online_machines: number;
+}
+
+// Máquina que mandou heartbeat mas ainda não foi aprovada por um
+// admin/técnico (ver migration add_machine_approval_gate). Não carrega
+// métricas/hardware — só o suficiente pra decidir aprovar ou rejeitar.
+export interface PendingMachine {
+  id: string;
+  hostname: string;
+  ip_address: string | null;
+  os: string | null;
+  domain: string | null;
+  current_user: string | null;
+  agent_version: string | null;
+  created_at: string;
 }
 
 export interface MachineWithMetric {
@@ -174,14 +195,24 @@ export interface DashboardSummary {
   online: number;
   offline: number;
   active_alerts: number;
+  latest_agent_version?: string;
 }
+
+// Fallback de segurança pras queries de monitoramento que já são
+// invalidadas por useRealtimeMachines a cada heartbeat (INSERT/UPDATE em
+// machines dispara invalidateQueries(['monitoring']) — ver
+// src/hooks/useRealtimeMachines.ts). Com refetchInterval igual ao dos
+// heartbeats (30s), Realtime + polling faziam o mesmo fetch duas vezes por
+// ciclo. Mantido em 2min só pra cobrir o caso do canal Realtime cair
+// silenciosamente (CHANNEL_ERROR) — não é mais o mecanismo primário.
+const FALLBACK_REFETCH_MONITORING = 120_000;
 
 // ─── Hooks ───────────────────────────────────────────────
 export function useMonitoringDashboard() {
   return useQuery<DashboardSummary>({
     queryKey: ['monitoring', 'dashboard'],
     queryFn: () => apiGet('/api/monitoring/dashboard'),
-    refetchInterval: 30_000,
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
   });
 }
 
@@ -189,7 +220,37 @@ export function useMonitoringGroups() {
   return useQuery<MachineGroup[]>({
     queryKey: ['monitoring', 'groups'],
     queryFn: () => apiGet('/api/monitoring/groups'),
-    refetchInterval: 30_000,
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
+  });
+}
+
+export function usePendingMachines() {
+  return useQuery<PendingMachine[]>({
+    queryKey: ['monitoring', 'pending-machines'],
+    queryFn: () => apiGet('/api/monitoring/machines/pending'),
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
+  });
+}
+
+export function useApproveMachine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (machineId: string) =>
+      apiPost<{ success: boolean }>(`/api/monitoring/machines/${machineId}/approve`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring'] });
+    },
+  });
+}
+
+export function useRejectMachine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (machineId: string) =>
+      apiPost<{ success: boolean }>(`/api/monitoring/machines/${machineId}/reject`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'pending-machines'] });
+    },
   });
 }
 
@@ -198,29 +259,18 @@ export function useGroupMachines(groupId: string | null) {
     queryKey: ['monitoring', 'group-machines', groupId],
     queryFn: () => apiGet(`/api/monitoring/groups/${groupId}/machines`),
     enabled: !!groupId,
-    refetchInterval: 30_000,
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
   });
 }
 
+// Antes fazia 1 request HTTP por grupo (Promise.all(groups.map(...))) — N
+// requests em paralelo pra montar uma lista que /api/monitoring/machines
+// já devolve pronta num único round-trip.
 export function useAllMachines() {
-  const { data: groups = [] } = useMonitoringGroups();
   return useQuery<MachineWithMetric[]>({
-    queryKey: ['monitoring', 'all-machines', groups.map(g => g.id).join(',')],
-    queryFn: async () => {
-      if (groups.length === 0) return [];
-      const results = await Promise.all(
-        groups.map(g =>
-          apiGet<MachineWithMetric[]>(`/api/monitoring/groups/${g.id}/machines`).catch(() => [])
-        )
-      );
-      const map = new Map<string, MachineWithMetric>();
-      results.flat().forEach(m => {
-        if (m && m.id) map.set(m.id, m);
-      });
-      return Array.from(map.values());
-    },
-    enabled: groups.length > 0,
-    refetchInterval: 30_000,
+    queryKey: ['monitoring', 'all-machines'],
+    queryFn: () => apiGet<MachineWithMetric[]>('/api/monitoring/machines'),
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
   });
 }
 
@@ -229,19 +279,11 @@ export function useMachineDetail(machineId: string | null) {
     queryKey: ['monitoring', 'machine-detail', machineId],
     queryFn: () => apiGet(`/api/monitoring/machines/${machineId}`),
     enabled: !!machineId,
-    refetchInterval: 30_000,
+    refetchInterval: FALLBACK_REFETCH_MONITORING,
   });
 }
 
 export type MetricPeriod = '1h' | '6h' | '24h' | '7d';
-
-// Agent sends heartbeat every ~5min → 1h≈12 pts, 6h≈72, 24h≈288, 7d≈2016
-export const PERIOD_LIMIT: Record<MetricPeriod, number> = {
-  '1h': 12,
-  '6h': 72,
-  '24h': 288,
-  '7d': 2016,
-};
 
 export function useMachineMetrics(machineId: string | null, limit = 100) {
   return useQuery<MetricRow[]>({
@@ -249,16 +291,19 @@ export function useMachineMetrics(machineId: string | null, limit = 100) {
     queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/metrics?limit=${limit}`),
     enabled: !!machineId,
     refetchInterval: 60_000,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000, // Coleta de lixo ativa (5 min) para não reter payloads de telemetria
   });
 }
 
 export function useMachineMetricsByPeriod(machineId: string | null, period: MetricPeriod) {
-  const limit = PERIOD_LIMIT[period];
   return useQuery<MetricRow[]>({
     queryKey: ['monitoring', 'metrics', machineId, 'period', period],
-    queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/metrics?limit=${limit}`),
+    queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/metrics?period=${period}`),
     enabled: !!machineId,
     refetchInterval: 60_000,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
   });
 }
 
@@ -268,6 +313,34 @@ export function useMachineAlerts(machineId: string | null) {
     queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/alerts`),
     enabled: !!machineId,
     refetchInterval: 30_000,
+    gcTime: 5 * 60_000,
+  });
+}
+
+// Histórico de chamados abertos por esta máquina — na prática, todo
+// chamado aberto por qualquer pessoa que usou essa máquina, já que
+// "Abrir Chamado" sempre autentica pelo mesmo usuário-fantasma dela
+// (ver lib.MachineGhostEmail no backend). Não é "meus chamados", é
+// "chamados desta máquina".
+export interface MachineTicket {
+  id: string;
+  ticket_number: number;
+  title: string;
+  status: string;
+  priority: string;
+  category: string | null;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+}
+
+export function useMachineTickets(machineId: string | null) {
+  return useQuery<MachineTicket[]>({
+    queryKey: ['monitoring', 'machine-tickets', machineId],
+    queryFn: () => apiGet(`/api/monitoring/machines/${machineId}/tickets`),
+    enabled: !!machineId,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
   });
 }
 
@@ -303,6 +376,7 @@ export function useMachineCommands(machine_id: string | null) {
       return apiGet<CommandRow[]>(`/api/monitoring/machines/${machine_id}/commands`);
     },
     enabled: !!machine_id,
+    gcTime: 5 * 60_000,
     refetchInterval: (query) => {
       const commands = query.state.data;
       if (commands?.some(c => c.status === 'pending' || c.status === 'sent')) {
@@ -319,6 +393,46 @@ export function useUpdateMachine() {
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<MachineWithMetric> }) => {
       return apiPost(`/api/monitoring/machines/${id}/update`, updates);
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring'] });
+    },
+  });
+}
+
+// Força o enfileiramento de uma atualização pra UMA máquina, sem esperar o
+// próximo heartbeat detectar a divergência de versão sozinho — útil quando
+// o admin sabe que o binário em disco está desatualizado mesmo que o
+// último heartbeat reportado não reflita isso (ex: bandeja presa numa
+// versão antiga até um restart manual).
+export function useForceUpdateMachine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (machineId: string) =>
+      apiPost<{ success: boolean; enqueued: boolean; message?: string }>(
+        `/api/monitoring/machines/${machineId}/force-update`, {}
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring'] });
+    },
+  });
+}
+
+export interface ForceUpdateOutdatedResult {
+  success: boolean;
+  enqueued: number;
+  already_pending: number;
+  already_updated: number;
+  errors: string[];
+}
+
+// Força atualização em TODAS as máquinas desatualizadas do escopo do
+// chamador de uma vez — o botão "Atualizar todas" pro caso comum de várias
+// máquinas terem ficado pra trás.
+export function useForceUpdateOutdated() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiPost<ForceUpdateOutdatedResult>('/api/monitoring/machines/force-update-outdated', {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['monitoring'] });
     },
@@ -349,7 +463,6 @@ export function useDeleteMachine() {
       }
 
       // 2. Direct Supabase client cascade delete
-      await supabase.from('machine_metrics' as any).delete().eq('machine_id', id);
       await supabase.from('machine_hardware' as any).delete().eq('machine_id', id);
       await supabase.from('machine_alerts' as any).delete().eq('machine_id', id);
       await supabase.from('machine_commands' as any).delete().eq('machine_id', id);

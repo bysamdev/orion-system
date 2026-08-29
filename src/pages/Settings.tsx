@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,9 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff, Settings2, Settings as SettingsIcon, FileText } from "lucide-react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
+import { TwoFactorAuthSettings } from "@/components/settings/TwoFactorAuthSettings";
+import { InstitutionalLegalDialog } from "@/components/shared/InstitutionalLegalDialog";
 import { useUserProfile, useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +20,7 @@ import { profileUpdateSchema } from "@/lib/validation";
 import { useErrorHandler } from "@/lib/useErrorHandler";
 import { invokeOrionFunction } from "@/lib/orion-functions";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -25,10 +28,12 @@ export default function Settings() {
   const { handleError, handleValidationError } = useErrorHandler();
   const { data: profile, isLoading: profileLoading } = useUserProfile();
   const { data: role } = useUserRole();
-  const isDeveloper = role === 'developer' || profile?.email === 'samterres42@gmail.com';
+  const isDeveloper = role === 'developer';
   
   const [fullName, setFullName] = useState('');
   const [department, setDepartment] = useState('');
+  const [legalOpen, setLegalOpen] = useState(false);
+  const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
 
   // Estados para alterar senha
   const [currentPassword, setCurrentPassword] = useState('');
@@ -189,16 +194,17 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-        
-        <div className="mt-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Configurações</h1>
-          <p className="text-muted-foreground mb-8">Gerencie suas preferências e configurações da conta</p>
+    <div className="w-full space-y-6">
+      <PageHeader
+        icon={SettingsIcon}
+        badge="PREFERÊNCIAS & CONTA"
+        title="Ajustes do Perfil"
+        description="Gerencie suas preferências pessoais, perfil e segurança da conta."
+      />
           
-          <Tabs 
-            defaultValue="profile" 
-            className="space-y-6"
+      <Tabs 
+        defaultValue="profile" 
+        className="space-y-6"
             onValueChange={(value) => {
               window.dispatchEvent(new CustomEvent('clear-global-search'));
               document.getElementById('global-search-ticket')?.blur();
@@ -320,14 +326,18 @@ export default function Settings() {
             </TabsContent>
 
             {/* Aba Segurança */}
-            <TabsContent value="security">
+            <TabsContent value="security" className="space-y-6">
+              {/* Gerenciamento de Autenticação em Dois Fatores (2FA) */}
+              <TwoFactorAuthSettings />
+
+              {/* Alteração de Senha */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Shield className="w-5 h-5" />
-                    Segurança
+                    Alterar Senha
                   </CardTitle>
-                  <CardDescription>Gerencie suas configurações de segurança</CardDescription>
+                  <CardDescription>Atualize sua senha de acesso à conta</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -488,8 +498,51 @@ export default function Settings() {
               </TabsContent>
             )}
           </Tabs>
-        </div>
-      </main>
+
+          {/* Seção Institucional e Conformidade */}
+          <Card className="border-border/70 bg-card shadow-sm mt-6">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-bold text-foreground">Conformidade e Transparência</CardTitle>
+                  <CardDescription className="text-xs">
+                    Diretrizes de privacidade, segurança de dados e condições de uso da plataforma Orion System.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-xs font-semibold h-9"
+                  onClick={() => { setLegalTab('terms'); setLegalOpen(true); }}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Ver Termos de Uso
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-xs font-semibold h-9"
+                  onClick={() => { setLegalTab('privacy'); setLegalOpen(true); }}
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  Ver Política de Privacidade
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <InstitutionalLegalDialog
+            open={legalOpen}
+            onOpenChange={setLegalOpen}
+            defaultTab={legalTab}
+          />
     </div>
   );
 }

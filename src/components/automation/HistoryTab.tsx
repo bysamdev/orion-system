@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ACTION_TYPES, useAutomationLogs } from '@/hooks/useAutomation';
+import { useProfilesMap, replaceUserUuidsInText } from '@/hooks/useUserDisplayName';
 
 const ACTION_ICONS: Record<string, React.ElementType> = {
   assign_tech: ArrowRightLeft,
@@ -20,6 +21,7 @@ const ACTION_ICONS: Record<string, React.ElementType> = {
 
 export const HistoryTab: React.FC = () => {
   const { data: logs = [], isLoading, refetch, isFetching } = useAutomationLogs();
+  const { profilesMap } = useProfilesMap();
 
   const renderActionIcon = (type: string) => {
     const Icon = ACTION_ICONS[type] || Zap;
@@ -77,7 +79,9 @@ export const HistoryTab: React.FC = () => {
                         {renderActionIcon(log.action_type)} {ACTION_TYPES.find(a => a.value === log.action_type)?.label ?? log.action_type}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{log.action_result}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {replaceUserUuidsInText(log.action_result, profilesMap)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

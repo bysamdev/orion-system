@@ -1,0 +1,45 @@
+apiVersion: 1
+contactPoints:
+  # Canal existente: Webhook do Orion System
+  - orgId: 1
+    name: orion-webhook
+    receivers:
+        - uid: orion-webhook-receiver
+          type: webhook
+          settings:
+            url: https://orion.bysam.dev/api/monitoring/alerts/webhook/grafana
+            httpMethod: POST
+            authorization_scheme: Bearer
+            authorization_credentials: f02a338564149e1fbaecc2e8feb7680a3ec500c5f58bf7b055bffa2b6ed532ab
+          secureSettings:
+            authorization_credentials: f02a338564149e1fbaecc2e8feb7680a3ec500c5f58bf7b055bffa2b6ed532ab
+  # Canal preparado: Telegram
+  # Para ativar:
+  #   1. Crie um bot no @BotFather -> copie o TOKEN
+  #   2. Obtenha o chat_id em https://api.telegram.org/bot<TOKEN>/getUpdates
+  #   3. Descomente as linhas abaixo e substitua os valores
+  # - orgId: 1
+  #   name: telegram-alerts
+  #   receivers:
+  #     - uid: telegram-receiver
+  #       type: telegram
+  #       settings:
+  #         bottoken: TELEGRAM_BOT_TOKEN
+  #         chatid: TELEGRAM_CHAT_ID
+  #         message: |
+  #           *[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}*
+  #           Severidade: {{ .CommonLabels.severity }}
+  #           {{ range .Alerts }}* {{ .Annotations.summary }}{{ end }}
+  #           Ver dashboard: https://monitor-orion.bysam.dev
+  # Canal preparado: WhatsApp / Webhook Generico (Evolution API, Waha, Twilio)
+  # - orgId: 1
+  #   name: whatsapp-alerts
+  #   receivers:
+  #     - uid: whatsapp-receiver
+  #       type: webhook
+  #       settings:
+  #         url: https://SEU_SERVIDOR_WHATSAPP/send-message
+  #         httpMethod: POST
+  #         authorization_scheme: Bearer
+  #       secureSettings:
+  #         authorization_credentials: SEU_WHATSAPP_API_TOKEN

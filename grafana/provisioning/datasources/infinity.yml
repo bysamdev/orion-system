@@ -1,0 +1,19 @@
+apiVersion: 1
+
+datasources:
+  - name: Orion Supabase
+    type: yesoreyeram-infinity-datasource
+    uid: orion-supabase
+    access: proxy
+    isDefault: false
+    editable: false
+    jsonData:
+      auth_method: apiKey
+      apiKeyType: header
+      apiKeyKey: apikey
+      customHeaders:
+        - headerName: apikey
+          headerValue: $__env{SUPABASE_ANON_KEY}
+        - headerName: Authorization
+          headerValue: Bearer $__env{SUPABASE_ANON_KEY}
+    version: 1

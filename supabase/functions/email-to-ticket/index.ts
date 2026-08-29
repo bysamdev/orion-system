@@ -49,7 +49,8 @@ serve(async (req) => {
     )
 
     const payload = await req.json()
-    console.log('Received Email Payload:', payload)
+    const maskedFrom = payload?.from ? String(payload.from).replace(/(.{2})(.*)(@.*)/, '$1***$3') : '[unknown]'
+    console.log('Received Email Webhook for processing from:', maskedFrom)
 
     // Parsing logic for common providers (SendGrid, Mailgun, etc.)
     // Expecting: subject, from, text/html
@@ -63,7 +64,7 @@ serve(async (req) => {
       .single()
 
     if (!profile) {
-      console.log('User not found for email:', from)
+      console.log('User not found for email:', maskedFrom)
       // Optional: Auto-create user or send "Account Not Found" email
       return new Response(JSON.stringify({ error: 'User not found' }), { status: 404 })
     }

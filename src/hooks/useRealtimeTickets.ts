@@ -1,21 +1,45 @@
 import { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 /**
  * Hook para escutar mudanças em tempo real nos tickets
- * Atualiza automaticamente as queries quando há mudanças no banco
+ * Atualiza automaticamente as queries quando há mudanças no banco.
+ * Utiliza Set de subscribers para teardown seguro de canal compartilhado.
  */
-import { RealtimeChannel } from '@supabase/supabase-js';
-
+const subscribers = new Set<QueryClient>();
 let globalChannel: RealtimeChannel | null = null;
-let subscriptionCount = 0;
+
+function notifyTicketSubscribers(payload: any) {
+  subscribers.forEach((qc) => {
+    try {
+      qc.invalidateQueries({ queryKey: ['tickets'] });
+      qc.invalidateQueries({ queryKey: ['all-active-tickets'] });
+      qc.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
+      qc.invalidateQueries({ queryKey: ['sla-at-risk-tickets'] });
+      qc.invalidateQueries({ queryKey: ['my-active-tickets'] });
+      qc.invalidateQueries({ queryKey: ['my-recent-closed'] });
+      qc.invalidateQueries({ queryKey: ['technician-stats'] });
+      qc.invalidateQueries({ queryKey: ['technician-workload'] });
+      qc.invalidateQueries({ queryKey: ['team-workload'] });
+      qc.invalidateQueries({ queryKey: ['meus-tickets'] });
+      qc.invalidateQueries({ queryKey: ['portal-open-tickets'] });
+
+      if (payload?.new && 'id' in payload.new) {
+        qc.invalidateQueries({ queryKey: ['ticket', payload.new.id] });
+      }
+    } catch (err) {
+      console.warn('[useRealtimeTickets] Erro ao invalidar queries:', err);
+    }
+  });
+}
 
 export const useRealtimeTickets = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    subscriptionCount++;
+    subscribers.add(queryClient);
 
     if (!globalChannel) {
       globalChannel = supabase
@@ -25,39 +49,29 @@ export const useRealtimeTickets = () => {
           {
             event: '*',
             schema: 'public',
-            table: 'tickets'
+            table: 'tickets',
           },
           (payload) => {
-            console.log('Ticket atualizado em tempo real:', payload);
-            
-            // Invalidar todas as queries de tickets relacionadas ao dashboard do técnico
-            queryClient.invalidateQueries({ queryKey: ['tickets'] });
-            queryClient.invalidateQueries({ queryKey: ['all-active-tickets'] });
-            queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });
-            queryClient.invalidateQueries({ queryKey: ['sla-at-risk-tickets'] });
-            queryClient.invalidateQueries({ queryKey: ['my-active-tickets'] });
-            queryClient.invalidateQueries({ queryKey: ['my-recent-closed'] });
-            queryClient.invalidateQueries({ queryKey: ['technician-stats'] });
-            queryClient.invalidateQueries({ queryKey: ['technician-workload'] });
-            queryClient.invalidateQueries({ queryKey: ['team-workload'] });
-            queryClient.invalidateQueries({ queryKey: ['meus-tickets'] });
-            queryClient.invalidateQueries({ queryKey: ['portal-open-tickets'] });
-            
-            // Se houver um ID específico, invalidar também
-            if (payload.new && 'id' in payload.new) {
-              queryClient.invalidateQueries({ queryKey: ['ticket', payload.new.id] });
-            }
+            notifyTicketSubscribers(payload);
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR') {
+            console.warn('[useRealtimeTickets] Erro no canal realtime tickets');
+          }
+        });
     }
 
     return () => {
-      subscriptionCount--;
-      if (subscriptionCount <= 0 && globalChannel) {
-        supabase.removeChannel(globalChannel);
+      subscribers.delete(queryClient);
+      if (subscribers.size === 0 && globalChannel) {
+        const channelToTeardown = globalChannel;
         globalChannel = null;
-        subscriptionCount = 0;
+        try {
+          supabase.removeChannel(channelToTeardown);
+        } catch (err) {
+          console.warn('[useRealtimeTickets] Erro ao remover canal realtime:', err);
+        }
       }
     };
   }, [queryClient]);
@@ -66,13 +80,13 @@ export const useRealtimeTickets = () => {
 /**
  * Hook para escutar mudanças em tempo real em um ticket específico
  */
-export const useRealtimeTicket = (ticketId: string) => {
+export const useRealtimeTicket = (ticketId: string | undefined | null) => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!ticketId) return;
 
-    const channelName = `ticket-${ticketId}-realtime`;
+    const channelName = `ticket-${ticketId}-realtime-${Math.random().toString(36).slice(2, 7)}`;
     const channel = supabase
       .channel(channelName)
       .on(
@@ -81,20 +95,29 @@ export const useRealtimeTicket = (ticketId: string) => {
           event: '*',
           schema: 'public',
           table: 'tickets',
-          filter: `id=eq.${ticketId}`
+          filter: `id=eq.${ticketId}`,
         },
-        (payload) => {
-          console.log('Ticket específico atualizado:', payload);
-          
-          // Invalidar queries relacionadas a este ticket
-          queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
-          queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        () => {
+          try {
+            queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
+            queryClient.invalidateQueries({ queryKey: ['tickets'] });
+          } catch (e) {
+            console.warn('[useRealtimeTicket] Erro ao invalidar ticket:', e);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn(`[useRealtimeTicket] Erro no canal realtime do ticket ${ticketId}`);
+        }
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (err) {
+        console.warn('[useRealtimeTicket] Erro ao remover canal realtime:', err);
+      }
     };
   }, [ticketId, queryClient]);
 };

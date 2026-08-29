@@ -44,7 +44,7 @@ export const DeployDialog: React.FC<Props> = ({ pkg, deployedBy, onClose }) => {
       },
       {
         onSuccess: () => {
-          toast({ title: '✅ Implantação disparada!', description: `O pacote "${pkg.name}" foi enviado para a máquina selecionada.` });
+          toast({ title: 'Implantação disparada com sucesso', description: `O pacote "${pkg.name}" foi enviado para a máquina selecionada.` });
           setSelectedGroupId('');
           setSelectedMachineId('');
           onClose();

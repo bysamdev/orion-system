@@ -53,6 +53,23 @@ var (
 	limiterCommandsPoll  = lib.NewRateLimiter(1*time.Minute, 300)
 	limiterCommandsResp  = lib.NewRateLimiter(1*time.Minute, 300)
 	limiterSelfHealEvent = lib.NewRateLimiter(1*time.Minute, 300)
+
+	// limiterResetPassword: 5 tentativas por minuto por IP para proteção contra brute-force
+	limiterResetPassword = lib.NewRateLimiter(1*time.Minute, 5)
+
+	// grafanaWebhook: autenticado por segredo compartilhado (não por IP nem
+	// login), mas ainda assim limitado — o Grafana pode reenviar em lote
+	// (re-notify) se o Orion ficar fora do ar por um tempo; o limite é
+	// generoso o bastante pra absorver isso sem abrir a porta pra um
+	// segredo vazado inundar a tabela de alertas.
+	limiterGrafanaWebhook = lib.NewRateLimiter(1*time.Minute, 120)
+
+	// metricsHistory: cada requisição dispara 5 consultas de range ao
+	// Prometheus via proxy do Grafana — bem mais caro que uma leitura comum
+	// no Supabase. O frontend só refaz essa chamada a cada 60s por padrão;
+	// 30/min por IP dá folga confortável sem deixar a rota aberta a
+	// abuso por uma sessão JWT válida.
+	limiterMetricsHistory = lib.NewRateLimiter(1*time.Minute, 30)
 )
 
 // agentRateLimitAllow aplica o limite centralizado em Postgres
@@ -133,6 +150,7 @@ func buildRouter() http.Handler {
 	r.Use(middleware.ClientIPFromXFFTrustedProxies(proxiesConfiaveis()))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeadersMiddleware)
 	r.Use(maxBodySizeMiddleware)
 	r.Use(corsMiddleware)
 
@@ -157,6 +175,11 @@ func buildRouter() http.Handler {
 	r.Post("/api/monitoring/commands/respond", monitoringCommandResponse)
 	r.Post("/api/monitoring/self-heal-event", monitoringSelfHealEvent)
 
+	// Autenticado por segredo compartilhado (X-Webhook-Secret), não por
+	// login nem X-Agent-Key — é o Grafana chamando, não um usuário nem um
+	// agente. Ver monitoringGrafanaAlertWebhook.
+	r.Post("/api/monitoring/alerts/webhook/grafana", monitoringGrafanaAlertWebhook)
+
 	r.Get("/api/monitoring/cron/mark-offline", cronMarkOffline)
 	r.Get("/api/monitoring/cron/probe-network-links", cronProbeNetworkLinks)
 
@@ -175,6 +198,7 @@ func buildRouter() http.Handler {
 		// /functions/*
 		r.Post("/api/functions/admin-update-user", adminUpdateUser)
 		r.Post("/api/functions/delete-user-admin", deleteUserAdmin)
+		r.Post("/api/functions/merge-users", mergeUsers)
 		r.Post("/api/functions/create-user-credentials", createUserCredentials)
 		r.Post("/api/functions/check-rate-limit", checkRateLimit)
 		r.Post("/api/functions/send-password-changed-alert", sendPasswordChangedAlert)
@@ -187,8 +211,13 @@ func buildRouter() http.Handler {
 		r.Get("/api/monitoring/platform-health", monitoringPlatformHealth)
 		r.Get("/api/monitoring/groups", monitoringListGroups)
 		r.Get("/api/monitoring/groups/{id}/machines", monitoringGroupMachines)
+		r.Get("/api/monitoring/machines", monitoringAllMachines)
+		r.Get("/api/monitoring/machines/pending", monitoringPendingMachines)
+		r.Post("/api/monitoring/machines/{id}/approve", monitoringApproveMachine)
+		r.Post("/api/monitoring/machines/{id}/reject", monitoringRejectMachine)
 		r.Get("/api/monitoring/machines/{id}", monitoringMachineDetail)
 		r.Get("/api/monitoring/machines/{id}/metrics", monitoringMachineMetrics)
+		r.Get("/api/monitoring/machines/{id}/tickets", monitoringMachineTickets)
 		r.Get("/api/monitoring/machines/{id}/alerts", monitoringMachineAlerts)
 		r.Post("/api/monitoring/machines/{id}/commands", monitoringCreateCommand)
 		r.Get("/api/monitoring/machines/{id}/commands", monitoringGetMachineCommands)
@@ -209,9 +238,16 @@ func buildRouter() http.Handler {
 
 		// Management
 		r.Post("/api/monitoring/machines/{id}/update", monitoringUpdateMachine)
+		r.Post("/api/monitoring/machines/{id}/force-update", monitoringForceUpdateMachine)
+		r.Post("/api/monitoring/machines/force-update-outdated", monitoringForceUpdateOutdated)
 		r.Post("/api/monitoring/groups", monitoringCreateGroup)
 		r.Post("/api/monitoring/groups/{id}/update", monitoringUpdateGroup)
 		r.Delete("/api/monitoring/groups/{id}", monitoringDeleteGroup)
+
+		r.Get("/api/monitoring/companies/{id}/installer", monitoringGenerateInstaller)
+		r.Get("/api/monitoring/companies/{id}/installer-msi", monitoringGenerateInstallerMsi)
+		r.Post("/api/monitoring/companies/{id}/grafana-sync", monitoringGrafanaSync)
+		r.Delete("/api/monitoring/companies/{id}/grafana-sync", monitoringGrafanaSyncDelete)
 	})
 
 	return r
@@ -402,6 +438,17 @@ func maxBodySizeMiddleware(next http.Handler) http.Handler {
 		if r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// securityHeadersMiddleware adds standard protective HTTP security headers.
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 		next.ServeHTTP(w, r)
 	})
 }

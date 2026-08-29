@@ -226,7 +226,7 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
   return (
     <div className={cn('space-y-6', className)}>
       {/* ── Top Bar Controls & Period Selectors ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-card border border-border/40 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-lg bg-card border border-border/40 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
             <Activity className="w-5 h-5 animate-pulse" />
@@ -242,17 +242,17 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap self-stretch sm:self-auto justify-end">
-          {/* Filter badges */}
-          <div className="flex items-center bg-muted/40 p-1 rounded-xl border border-border/40">
+          {/* Period Selector */}
+          <div className="inline-flex h-11 items-center bg-muted/60 p-1 rounded-lg border border-border/40">
             {(['1h', '6h', '24h', '7d'] as TelemetryPeriod[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={cn(
-                  'px-2.5 py-1 text-xs font-bold rounded-lg transition-all',
+                  'h-full px-3.5 text-xs font-semibold rounded-xl transition-all',
                   period === p
-                    ? 'bg-primary text-primary-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {p}
@@ -358,24 +358,24 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
               <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                 Latência de Links (RTT)
               </span>
-              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary">
                 <Radio className="w-4 h-4" />
               </div>
             </div>
 
             <div>
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-2xl sm:text-3xl font-black tracking-tight text-purple-600 dark:text-purple-400">
+                <span className="text-2xl sm:text-3xl font-black tracking-tight text-primary">
                   {networkSummary.avgLatency !== null ? `${networkSummary.avgLatency} ms` : '–'}
                 </span>
-                <Badge variant="outline" className="text-[10px] font-bold text-purple-600 bg-purple-500/10 border-purple-500/30">
+                <Badge variant="outline" className="text-[10px] font-bold text-primary bg-primary/10 border-primary/30">
                   <Zap className="w-2.5 h-2.5" />
                   ICMP Ping
                 </Badge>
               </div>
               <Progress
                 value={networkSummary.avgLatency ? Math.min(100, Math.max(10, (networkSummary.avgLatency / 150) * 100)) : 0}
-                className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-purple-500"
+                className="h-1.5 mt-2 bg-muted/60 [&>div]:bg-primary"
               />
             </div>
 
@@ -420,51 +420,39 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
       </div>
 
       {/* ── Category View Selector Bar ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded-2xl bg-muted/30 border border-border/40">
-        <div className="flex items-center gap-2 pl-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 rounded-lg bg-muted/60 border border-border/40">
+        <div className="flex items-center gap-2 pl-3">
           <Layers className="w-4 h-4 text-primary" />
           <span className="text-xs font-bold uppercase tracking-wider text-foreground">
             Filtro de Telemetria
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Button
-            variant={categoryFilter === 'all' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setCategoryFilter('all')}
-            className="h-8 text-xs rounded-xl font-semibold gap-1.5"
-          >
-            <Activity className="w-3.5 h-3.5" />
-            Visão Geral Completa
-          </Button>
-          <Button
-            variant={categoryFilter === 'web' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setCategoryFilter('web')}
-            className="h-8 text-xs rounded-xl font-semibold gap-1.5"
-          >
-            <Globe className="w-3.5 h-3.5" />
-            Endpoints Web ({webSummary.total})
-          </Button>
-          <Button
-            variant={categoryFilter === 'network' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setCategoryFilter('network')}
-            className="h-8 text-xs rounded-xl font-semibold gap-1.5"
-          >
-            <Radio className="w-3.5 h-3.5" />
-            Links Starlink &amp; Redes ({networkSummary.total})
-          </Button>
-          <Button
-            variant={categoryFilter === 'ssl' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setCategoryFilter('ssl')}
-            className="h-8 text-xs rounded-xl font-semibold gap-1.5"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Segurança SSL / TLS
-          </Button>
+        <div className="flex items-center gap-1 flex-wrap">
+          {[
+            { id: 'all', label: 'Visão Geral Completa', icon: Activity },
+            { id: 'web', label: `Endpoints Web (${webSummary.total})`, icon: Globe },
+            { id: 'network', label: `Links Starlink & Redes (${networkSummary.total})`, icon: Radio },
+            { id: 'ssl', label: 'Segurança SSL / TLS', icon: ShieldCheck },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isSelected = categoryFilter === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setCategoryFilter(item.id as TelemetryCategoryFilter)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all',
+                  isSelected
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -492,8 +480,8 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
                 <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorStarlink" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="#906090" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#906090" stopOpacity={0.0} />
                     </linearGradient>
                     <linearGradient id="colorDedicated" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
@@ -528,7 +516,7 @@ export const WebTelemetryTab: React.FC<WebTelemetryTabProps> = ({
                     type="monotone"
                     dataKey="Starlink"
                     name="Starlink (RTT)"
-                    stroke="#a855f7"
+                    stroke="#906090"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorStarlink)"

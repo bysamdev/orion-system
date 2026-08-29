@@ -36,6 +36,11 @@ graphify-out/
 
 # Binários compilados (agente Windows e função Go) — não versionar
 *.exe
+*.msi
+*.wixobj
+*.wixpdb
 
 # Scratch scripts
 scratch/
+__pycache__/
+*.pyc

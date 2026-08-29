@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -39,9 +42,46 @@ func NewDB(databaseURL string) (*DB, error) {
 		return dialer.DialContext(ctx, "tcp4", addr)
 	}
 	
-	cfg.MaxConns = 10
-	cfg.MaxConnIdleTime = 5 * time.Minute
-	cfg.HealthCheckPeriod = 30 * time.Second
+	// Dimensionamento dinâmico de conexões com suporte a PgBouncer
+	maxConns := int32(25)
+	if v := os.Getenv("DB_MAX_CONNS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			maxConns = int32(parsed)
+		}
+	}
+	cfg.MaxConns = maxConns
+
+	minConns := int32(2)
+	if v := os.Getenv("DB_MIN_CONNS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
+			minConns = int32(parsed)
+		}
+	}
+	cfg.MinConns = minConns
+
+	idleTime := 5 * time.Minute
+	if v := os.Getenv("DB_MAX_CONN_IDLE_TIME"); v != "" {
+		if parsed, err := time.ParseDuration(v); err == nil {
+			idleTime = parsed
+		}
+	}
+	cfg.MaxConnIdleTime = idleTime
+
+	lifetime := 30 * time.Minute
+	if v := os.Getenv("DB_MAX_CONN_LIFETIME"); v != "" {
+		if parsed, err := time.ParseDuration(v); err == nil {
+			lifetime = parsed
+		}
+	}
+	cfg.MaxConnLifetime = lifetime
+
+	healthCheck := 30 * time.Second
+	if v := os.Getenv("DB_HEALTH_CHECK_PERIOD"); v != "" {
+		if parsed, err := time.ParseDuration(v); err == nil {
+			healthCheck = parsed
+		}
+	}
+	cfg.HealthCheckPeriod = healthCheck
 
 	// PgBouncer em modo 'Transaction' não suporta Prepared Statements (protocolo estendido).
 	// Forçamos o 'Simple Protocol' para evitar o erro "prepared statement already exists".
@@ -86,14 +126,19 @@ func (d *DB) CompanyByUserID(ctx context.Context, userID string) (*string, error
 type UserScope struct {
 	CompanyID *string // empresa do usuário; nil quando o perfil não tem empresa
 	Role      string  // customer | technician | admin | developer
-	Master    bool    // pertence à empresa master (Orion System)
 }
 
-// Global informa se o usuário enxerga todas as empresas. Espelha exatamente a
-// condição usada nas policies de RLS em 20260614000001_enable_rls_machines.sql:
-// is_master_company_user(uid) OR has_role(uid, 'developer').
+// Global informa se o usuário enxerga todas as empresas.
+//
+// Por decisão de produto (por enquanto), technician/admin/developer têm visão
+// MSP-wide independente da empresa a que pertencem — só o papel customer é
+// restrito à própria empresa (ele só precisa ver seus próprios chamados).
+// Antes disso era decidido por ILIKE no nome da empresa ("Orion System",
+// "iBReady", "bysamdev") — qualquer papel, inclusive technician, virava
+// global só por estar numa dessas empresas; achado real de auditoria E2E
+// (técnico via máquinas de outro tenant). Trocado por checagem de papel.
 func (s UserScope) Global() bool {
-	return s.Master || s.Role == "developer"
+	return s.Role != "customer"
 }
 
 // FiltroEmpresa devolve o valor a passar como parâmetro de company_id nas
@@ -118,20 +163,18 @@ func (s UserScope) PodeVerEmpresa(companyID *string) bool {
 	return *companyID == *s.CompanyID
 }
 
-// UserScopeByID resolve empresa, papel e pertencimento à empresa master numa
-// única ida ao banco. LEFT JOIN em user_roles porque 'customer' é implícito:
-// createUserCredentials só grava a linha quando o papel não é customer.
+// UserScopeByID resolve empresa e papel do usuário numa única ida ao banco.
+// LEFT JOIN em user_roles porque 'customer' é implícito: createUserCredentials
+// só grava a linha quando o papel não é customer.
 func (d *DB) UserScopeByID(ctx context.Context, userID string) (UserScope, error) {
 	var s UserScope
 	err := d.pool.QueryRow(ctx, `
 SELECT p.company_id::text,
-       COALESCE(ur.role::text, 'customer'),
-       COALESCE(c.name ILIKE '%iBReady%' OR c.name ILIKE '%Orion System%' OR c.name ILIKE '%bysamdev%', false)
+       COALESCE(ur.role::text, 'customer')
 FROM public.profiles p
 LEFT JOIN public.user_roles ur ON ur.user_id = p.id
-LEFT JOIN public.companies  c  ON c.id = p.company_id
 WHERE p.id = $1
-LIMIT 1`, userID).Scan(&s.CompanyID, &s.Role, &s.Master)
+LIMIT 1`, userID).Scan(&s.CompanyID, &s.Role)
 	return s, err
 }
 
@@ -158,6 +201,17 @@ where id = $1
 
 func (d *DB) UpdateUserRole(ctx context.Context, userID, role string) error {
 	_, err := d.pool.Exec(ctx, `update public.user_roles set role = $2 where user_id = $1`, userID, role)
+	return err
+}
+
+// MergeUserData reatribui todos os dados de sourceID pra targetID (função
+// SQL merge_user_data — revogada de anon/authenticated por design, só
+// alcançável por quem conecta direto no Postgres com a connection string do
+// backend, ver migration 20260820220000). Não apaga sourceID de auth.users
+// nem profiles — isso é responsabilidade do chamador, via
+// sb.AdminDeleteUserByID, depois que este UPDATE em massa terminar.
+func (d *DB) MergeUserData(ctx context.Context, sourceID, targetID string) error {
+	_, err := d.pool.Exec(ctx, `select merge_user_data($1::uuid, $2::uuid)`, sourceID, targetID)
 	return err
 }
 
@@ -220,10 +274,95 @@ order by created_at desc
 	return out, rows.Err()
 }
 
+// MachineTicketRow é o subconjunto de colunas que o histórico de chamados
+// por máquina (ver monitoringMachineTickets, handler/mon_handlers.go)
+// mostra — nada sensível, só o suficiente pra listar/identificar o
+// chamado.
+type MachineTicketRow struct {
+	ID        string     `json:"id"`
+	Number    int        `json:"ticket_number"`
+	Title     string     `json:"title"`
+	Status    string     `json:"status"`
+	Priority  string     `json:"priority"`
+	Category  *string    `json:"category"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	ClosedAt  *time.Time `json:"closed_at"`
+}
+
+// TicketsByUserID lista os chamados abertos por um usuário específico —
+// usado pelo histórico de chamados por MÁQUINA: como toda máquina sempre
+// autentica pelo mesmo usuário-fantasma (ver MachineGhostEmail em
+// lib/monitoring.go), userID aqui é o ID desse usuário-fantasma, e a
+// listagem resultante é, na prática, "todo chamado aberto por qualquer
+// pessoa que usou essa máquina" — sem precisar de nenhuma coluna nova
+// ligando machines a tickets.
+func (d *DB) TicketsByUserID(ctx context.Context, userID string, limit int) ([]MachineTicketRow, error) {
+	rows, err := d.pool.Query(ctx, `
+SELECT id::text, ticket_number, title, status, priority, category, created_at, updated_at, resolved_at
+FROM public.tickets
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $2`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MachineTicketRow
+	for rows.Next() {
+		var r MachineTicketRow
+		if err := rows.Scan(&r.ID, &r.Number, &r.Title, &r.Status, &r.Priority, &r.Category, &r.CreatedAt, &r.UpdatedAt, &r.ClosedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) TicketUUIDByNumber(ctx context.Context, number int) (string, error) {
 	var id string
 	err := d.pool.QueryRow(ctx, `select id::text from public.tickets where ticket_number = $1 limit 1`, number).Scan(&id)
 	return id, err
+}
+
+func (d *DB) TicketUUIDByNumberScoped(ctx context.Context, number int, companyFilter *string) (string, error) {
+	var id string
+	var err error
+	if companyFilter != nil && *companyFilter != "" {
+		err = d.pool.QueryRow(ctx, `select id::text from public.tickets where ticket_number = $1 and company_id = $2::uuid limit 1`, number, *companyFilter).Scan(&id)
+	} else {
+		err = d.pool.QueryRow(ctx, `select id::text from public.tickets where ticket_number = $1 limit 1`, number).Scan(&id)
+	}
+	return id, err
+}
+
+// TicketUUIDByIDScoped confirma que o ticket UUID existe e, se companyFilter
+// não for nil/vazio, que pertence a essa empresa -- espelha
+// TicketUUIDByNumberScoped pra fechar o mesmo caminho quando o ID informado
+// já vem como UUID em vez de número.
+func (d *DB) TicketUUIDByIDScoped(ctx context.Context, id string, companyFilter *string) (string, error) {
+	var got string
+	var err error
+	if companyFilter != nil && *companyFilter != "" {
+		err = d.pool.QueryRow(ctx, `select id::text from public.tickets where id = $1::uuid and company_id = $2::uuid limit 1`, id, *companyFilter).Scan(&got)
+	} else {
+		err = d.pool.QueryRow(ctx, `select id::text from public.tickets where id = $1::uuid limit 1`, id).Scan(&got)
+	}
+	return got, err
+}
+
+// CheckRateLimit incrementa o contador persistente (janela fixa) pra
+// bucket_key e retorna se essa chamada ainda está dentro do limite.
+// Complementa o limitador em memória (lib/ratelimit.go): esse aqui é
+// compartilhado entre todas as instâncias serverless, o outro protege só a
+// instância local sem round-trip ao banco.
+func (d *DB) CheckRateLimit(ctx context.Context, key string, windowSeconds, limit int) (allowed bool, err error) {
+	var count int
+	err = d.pool.QueryRow(ctx, `select public.check_rate_limit($1, $2, $3)`, key, windowSeconds, limit).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count <= limit, nil
 }
 
 func (d *DB) EnsureProfileRowExists(ctx context.Context, userID string) error {
@@ -255,14 +394,27 @@ func (d *DB) CompanyByDomain(ctx context.Context, domain string) (string, error)
 	return id, err
 }
 
+// SyncCompanyDomainIfEmpty updates a company's domain from the agent's reported domain if currently empty.
+func (d *DB) SyncCompanyDomainIfEmpty(ctx context.Context, companyID, domain string) error {
+	clean := strings.TrimSpace(domain)
+	if clean == "" || clean == "." || companyID == "" {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+		UPDATE public.companies 
+		SET domain = $1, updated_at = now() 
+		WHERE id = $2 AND (domain IS NULL OR domain = '' OR domain = 'WORKGROUP')`, clean, companyID)
+	return err
+}
+
 // MachineByToken retrieves machine details by its unique token.
 func (d *DB) MachineByToken(ctx context.Context, token string) (*MachineRow, string, error) {
 	var m MachineRow
 	var companyID string
 	err := d.pool.QueryRow(ctx, `
-		SELECT id::text, group_id::text, hostname, ip_address, os, os_version, status, last_seen, agent_version, created_at, company_id::text
+		SELECT id::text, group_id::text, hostname, ip_address, os, os_version, status, last_seen, agent_version, created_at, company_id::text, "current_user"
 		FROM public.machines WHERE machine_token = $1 LIMIT 1`, token).Scan(
-		&m.ID, &m.GroupID, &m.Hostname, &m.IPAddress, &m.OS, &m.OSVersion, &m.Status, &m.LastSeen, &m.AgentVersion, &m.CreatedAt, &companyID,
+		&m.ID, &m.GroupID, &m.Hostname, &m.IPAddress, &m.OS, &m.OSVersion, &m.Status, &m.LastSeen, &m.AgentVersion, &m.CreatedAt, &companyID, &m.CurrentUser,
 	)
 	if err != nil {
 		return nil, "", err

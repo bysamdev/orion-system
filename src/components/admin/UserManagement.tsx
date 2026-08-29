@@ -11,8 +11,9 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Loader2, Plus, Trash2, Pencil, AlertTriangle, Merge, RefreshCw } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, Pencil, AlertTriangle } from 'lucide-react';
 import type { UserRole } from '@/hooks/useUserRole';
 import { userRoleSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
@@ -51,6 +52,11 @@ interface UserData {
   status: string;
 }
 
+// Conta-fantasma criada pelo agente no primeiro chamado aberto pela bandeja
+// (ver handler/auth_handlers.go, machineLogin) — nunca tem senha/login real.
+// Regra do usuário: ao mesclar, o destino deve ser sempre a conta com login.
+const isGhostAccount = (email: string) => /^machine-[^@]+@orion\.internal$/i.test(email);
+
 export const UserManagement = () => {
   const { toast } = useToast();
   const { session, user } = useAuth();
@@ -61,6 +67,9 @@ export const UserManagement = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [isLimitReached, setIsLimitReached] = useState(false);
+  const [mergingSourceUser, setMergingSourceUser] = useState<UserData | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<string>('');
+  const [isMerging, setIsMerging] = useState(false);
   const [formData, setFormData] = useState<NewUserForm>({
     full_name: '',
     email: '',
@@ -111,37 +120,58 @@ export const UserManagement = () => {
     enabled: !!currentUserProfile?.company_id,
   });
 
-  const { data: users, isLoading } = useQuery({
+  const { data: users, isLoading, isError, error: usersError, refetch: refetchUsers } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
-      const { data: profiles, error: profilesError} = await supabase
-        .from('profiles')
-        .select('id, full_name, email, department, company_id')
-        .order('full_name');
+      const [profilesRes, companiesRes, rolesRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, full_name, email, department, company_id')
+          .order('full_name'),
+        supabase
+          .from('companies')
+          .select('id, name'),
+        supabase
+          .from('user_roles')
+          .select('user_id, role'),
+      ]);
 
-      if (profilesError) throw profilesError;
+      if (profilesRes.error) {
+        console.error('[UserManagement] Erro ao carregar perfis:', profilesRes.error);
+        throw profilesRes.error;
+      }
 
-      const companyIds = [...new Set(profiles.map(p => p.company_id))];
-      const { data: companies } = await supabase
-        .from('companies')
-        .select('id, name')
-        .in('id', companyIds);
+      const profiles = profilesRes.data || [];
+      const companies = companiesRes.data || [];
+      const roles = rolesRes.data || [];
+
+      const companyMap = new Map((companies || []).map(c => [c.id, c.name]));
       
-      const companyMap = new Map(companies?.map(c => [c.id, c.name]) || []);
+      const roleMap = new Map<string, string>();
+      const roleHierarchy: Record<string, number> = {
+        developer: 4,
+        admin: 3,
+        technician: 2,
+        customer: 1,
+      };
 
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-
-      if (rolesError) throw rolesError;
+      (roles || []).forEach(r => {
+        if (!r.user_id) return;
+        const currentRank = roleHierarchy[roleMap.get(r.user_id) || ''] || 0;
+        const newRank = roleHierarchy[r.role] || 0;
+        if (newRank >= currentRank) {
+          roleMap.set(r.user_id, r.role);
+        }
+      });
 
       return profiles.map(profile => ({
         ...profile,
         status: 'active',
-        role: roles.find(r => r.user_id === profile.id)?.role || 'customer',
-        company_name: companyMap.get(profile.company_id) || 'Sem empresa'
+        role: roleMap.get(profile.id) || 'customer',
+        company_name: profile.company_id ? (companyMap.get(profile.company_id) || 'Sem empresa') : 'Sem empresa'
       })) as UserData[];
-    }
+    },
+    staleTime: 10_000,
   });
 
   const updateRoleMutation = useMutation({
@@ -170,7 +200,7 @@ export const UserManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       toast({
         title: 'Sucesso',
-        description: `Função atualizada para ${roleLabel} ✓`,
+        description: `Função atualizada para ${roleLabel}`,
       });
     },
     onError: (error) => {
@@ -221,6 +251,65 @@ export const UserManagement = () => {
     setDeletingUserId(userId);
     deleteUserMutation.mutate(userId);
   }, [deleteUserMutation]);
+
+  // Mescla dados de um usuário-fantasma (criado pelo agente na primeira vez
+  // que alguém abriu chamado pela bandeja) num usuário real de login — o
+  // source (quem abriu o dialog) desaparece, o target escolhido recebe tudo.
+  const mergeUsersMutation = useMutation({
+    mutationFn: async ({ sourceUserId, targetUserId }: { sourceUserId: string; targetUserId: string }) => {
+      const { data, error } = await invokeOrionFunction('merge-users', {
+        source_user_id: sourceUserId,
+        target_user_id: targetUserId,
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Erro ao mesclar usuários');
+      }
+      const result = data as { error?: string; warning?: string };
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+      return result;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      if (result?.warning) {
+        toast({
+          title: 'Dados mesclados',
+          description: 'O usuário de origem não pôde ser removido automaticamente — remova-o manualmente.',
+        });
+      } else {
+        toast({
+          title: 'Sucesso',
+          description: 'Usuários mesclados — os dados foram unificados.',
+        });
+      }
+      setMergingSourceUser(null);
+      setMergeTargetId('');
+    },
+    onError: (error: Error) => {
+      logError('mergeUsersMutation', error);
+      toast({
+        title: 'Erro ao mesclar',
+        description: error.message || 'Não foi possível mesclar os usuários',
+        variant: 'destructive',
+      });
+    },
+    onSettled: () => {
+      setIsMerging(false);
+    },
+  });
+
+  const handleOpenMergeDialog = useCallback((userItem: UserData) => {
+    setMergingSourceUser(userItem);
+    setMergeTargetId('');
+  }, []);
+
+  const handleConfirmMerge = useCallback(() => {
+    if (!mergingSourceUser || !mergeTargetId) return;
+    setIsMerging(true);
+    mergeUsersMutation.mutate({ sourceUserId: mergingSourceUser.id, targetUserId: mergeTargetId });
+  }, [mergingSourceUser, mergeTargetId, mergeUsersMutation]);
 
   const handleUpdateUserRole = useCallback((userId: string, newRole: UserRole) => {
     updateRoleMutation.mutate({ userId, newRole });
@@ -378,9 +467,48 @@ export const UserManagement = () => {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-4">
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-9 w-36 rounded-md" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 pt-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center justify-between p-3.5 border-b last:border-0">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-3 w-56" />
+                  </div>
+                  <Skeleton className="h-7 w-24 rounded-md" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card className="border-destructive/40 bg-destructive/5">
+        <CardContent className="flex flex-col items-center justify-center py-8 text-center gap-3">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+          <p className="text-sm font-semibold text-foreground">
+            Erro ao carregar usuários
+          </p>
+          <p className="text-xs text-muted-foreground max-w-sm">
+            {usersError instanceof Error ? usersError.message : 'Não foi possível carregar a lista de usuários.'}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => refetchUsers()} className="gap-2 mt-2">
+            <RefreshCw className="h-3.5 w-3.5" />
+            Tentar Novamente
+          </Button>
         </CardContent>
       </Card>
     );
@@ -522,6 +650,7 @@ export const UserManagement = () => {
                 onUpdateRole={handleUpdateUserRole}
                 onEdit={handleOpenEditDialog}
                 onDelete={handleDeleteUser}
+                onMerge={handleOpenMergeDialog}
                 isDeleting={deletingUserId === userItem.id}
                 isCurrentUser={userItem.id === user?.id}
                 isUpdating={isUpdating}
@@ -673,6 +802,77 @@ export const UserManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Mesclagem — junta o usuário-fantasma criado pelo agente
+          (machine-login) com um usuário real de login. */}
+      <Dialog open={!!mergingSourceUser} onOpenChange={(open) => { if (!open) { setMergingSourceUser(null); setMergeTargetId(''); } }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Merge className="h-4 w-4" />
+              Mesclar Usuário
+            </DialogTitle>
+            <DialogDescription>
+              Os dados de <strong>{mergingSourceUser?.full_name || mergingSourceUser?.email}</strong> ({mergingSourceUser?.email}) serão movidos
+              para o usuário escolhido abaixo, e esta conta será removida. Use quando o agente criou uma
+              conta separada da conta de login do mesmo usuário.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="merge_target">Mesclar em (usuário que permanece) *</Label>
+              <Select value={mergeTargetId || undefined} onValueChange={setMergeTargetId}>
+                <SelectTrigger id="merge_target">
+                  <SelectValue placeholder="Selecione o usuário de destino" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users
+                    ?.filter((candidate) => candidate.id !== mergingSourceUser?.id)
+                    .slice()
+                    .sort((a, b) => Number(isGhostAccount(a.email)) - Number(isGhostAccount(b.email)))
+                    .map((candidate) => (
+                      <SelectItem key={candidate.id} value={candidate.id}>
+                        {candidate.full_name || 'Sem nome'} ({candidate.email})
+                        {isGhostAccount(candidate.email) ? ' — conta do agente' : ' — login'}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Prioridade: escolha sempre a conta com login (técnico, gestor ou cliente cadastrado) como destino —
+                ela fica no topo da lista.
+              </p>
+            </div>
+            {mergeTargetId && isGhostAccount(users?.find((u) => u.id === mergeTargetId)?.email || '') && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Atenção:</strong> o destino escolhido é uma conta criada pelo agente (sem login).
+                  O usuário com login deveria ser sempre o destino.
+                </AlertDescription>
+              </Alert>
+            )}
+            {mergeTargetId && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Atenção:</strong> esta ação não pode ser desfeita. A conta de origem será excluída
+                  depois que os dados forem movidos.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setMergingSourceUser(null); setMergeTargetId(''); }}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmMerge} disabled={!mergeTargetId || isMerging} variant="destructive">
+              {isMerging && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Mesclar e Excluir Origem
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </Card>
     </div>
   );
@@ -683,6 +883,7 @@ interface UserRowProps {
   onUpdateRole: (userId: string, newRole: UserRole) => void;
   onEdit: (userItem: UserData) => void;
   onDelete: (userId: string) => void;
+  onMerge: (userItem: UserData) => void;
   isDeleting: boolean;
   isCurrentUser: boolean;
   isUpdating: boolean;
@@ -693,6 +894,7 @@ const UserRow = React.memo(({
   onUpdateRole,
   onEdit,
   onDelete,
+  onMerge,
   isDeleting,
   isCurrentUser,
   isUpdating,
@@ -706,7 +908,21 @@ const UserRow = React.memo(({
         <span className="truncate block">{userItem.full_name || 'Sem nome'}</span>
       </TableCell>
       <TableCell className="max-w-[200px]">
-        <span className="truncate block">{userItem.email}</span>
+        <span className="truncate flex items-center gap-1.5">
+          {userItem.email}
+          {isGhostAccount(userItem.email) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  agente
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Conta criada automaticamente pelo agente, sem login próprio</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </span>
       </TableCell>
       <TableCell className="max-w-[150px]">
         <span className="truncate block">{userItem.company_name}</span>
@@ -740,6 +956,23 @@ const UserRow = React.memo(({
           >
             <Pencil className="h-4 w-4" />
           </Button>
+          {!isCurrentUser && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => onMerge(userItem)}
+                >
+                  <Merge className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Mesclar com outro usuário</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           {!isCurrentUser && (
             <AlertDialog>
               <AlertDialogTrigger asChild>

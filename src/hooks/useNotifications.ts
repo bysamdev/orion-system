@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/hooks/use-toast';
 
 export interface Notification {
   id: string;
@@ -49,6 +50,10 @@ export const useNotifications = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
+    onError: (error) => {
+      console.error('[useNotifications] Falha ao marcar notificação como lida:', error);
+      toast({ title: 'Não foi possível marcar como lida', description: 'Tente novamente em instantes.', variant: 'destructive' });
+    },
   });
 
   // Mark all notifications as read
@@ -66,6 +71,10 @@ export const useNotifications = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: (error) => {
+      console.error('[useNotifications] Falha ao marcar todas como lidas:', error);
+      toast({ title: 'Não foi possível marcar todas como lidas', description: 'Tente novamente em instantes.', variant: 'destructive' });
     },
   });
 

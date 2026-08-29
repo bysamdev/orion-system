@@ -13,6 +13,7 @@ import { Plus, Loader2, Trash2, Pencil, Building2, Zap, CheckCircle2, Timer } fr
 import { Switch } from '@/components/ui/switch';
 import { companyNameSchema } from '@/lib/validation';
 import { mapDatabaseError, logError } from '@/lib/error-handling';
+import { sincronizarEmpresaComGrafana, removerEmpresaDoGrafana } from '@/hooks/useGrafanaSync';
 import { formatDate, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -45,15 +46,51 @@ export const CompanyManagement = () => {
   const [deleteCompanyId, setDeleteCompanyId] = useState<string | null>(null);
   const [tokenCompanyId, setTokenCompanyId] = useState<string | null>(null);
 
-  const { data: companies, isLoading } = useQuery({
+  const { data: companies, isLoading, refetch } = useQuery({
     queryKey: ['companies'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('*')
-        .order('name');
-      if (error) throw error;
-      return data;
+      const [compRes, machRes] = await Promise.all([
+        (supabase.from('companies') as any).select('*').order('name'),
+        (supabase.from('machines' as any) as any).select('company_id, domain')
+      ]);
+      if (compRes.error) throw compRes.error;
+
+      const companyMachineDomains = new Map<string, { domain: string; isAgentDetected: boolean }>();
+      ((machRes.data || []) as any[]).forEach((m) => {
+        const rawDomain = (m.domain || '').trim();
+        if (m.company_id && rawDomain && rawDomain !== '.' && rawDomain !== 'local') {
+          const existing = companyMachineDomains.get(m.company_id);
+          if (!existing || (existing.domain === 'WORKGROUP' && rawDomain !== 'WORKGROUP')) {
+            companyMachineDomains.set(m.company_id, { domain: rawDomain, isAgentDetected: true });
+          }
+        }
+      });
+
+      return ((compRes.data ?? []) as any[]).map((company) => {
+        const detected = companyMachineDomains.get(company.id);
+        const resolvedDomain = company.domain || detected?.domain || null;
+        const isAutoDetected = !company.domain && !!detected?.domain;
+
+        return {
+          ...company,
+          domain: resolvedDomain,
+          isAutoDetected,
+        };
+      }) as Array<{
+        id: string;
+        name: string;
+        cnpj: string | null;
+        phone: string | null;
+        address: string | null;
+        domain?: string | null;
+        isAutoDetected?: boolean;
+        has_contract?: boolean | null;
+        created_at: string;
+        updated_at?: string;
+        current_plan_id?: string | null;
+        logo_url?: string | null;
+        settings?: any;
+      }>;
     }
   });
 
@@ -76,8 +113,9 @@ export const CompanyManagement = () => {
     mutationFn: async (companyId: string) => {
       const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let result = 'orion_';
+      const randomBytes = window.crypto.getRandomValues(new Uint8Array(32));
       for (let i = 0; i < 32; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        result += chars.charAt(randomBytes[i] % chars.length);
       }
 
       const { data: userData } = await supabase.auth.getUser();
@@ -113,7 +151,7 @@ export const CompanyManagement = () => {
 
   const toggleContractMutation = useMutation({
     mutationFn: async ({ id, has_contract }: { id: string; has_contract: boolean }) => {
-      const { error } = await supabase.from('companies').update({ has_contract }).eq('id', id);
+      const { error } = await (supabase.from('companies') as any).update({ has_contract }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
@@ -148,14 +186,16 @@ export const CompanyManagement = () => {
       };
 
       if (data.id) {
-        const { error } = await supabase.from('companies').update(payload).eq('id', data.id);
+        const { error } = await (supabase.from('companies') as any).update(payload).eq('id', data.id);
         if (error) throw error;
+        return { id: data.id };
       } else {
-        const { error } = await supabase.from('companies').insert(payload);
+        const { data: inserted, error } = await (supabase.from('companies') as any).insert(payload).select('id').single();
         if (error) throw error;
+        return { id: inserted.id as string };
       }
     },
-    onSuccess: () => {
+    onSuccess: ({ id }, variables) => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
       queryClient.invalidateQueries({ queryKey: ['company-options'] });
       queryClient.invalidateQueries({ queryKey: ['ticket-company-data'] });
@@ -164,6 +204,18 @@ export const CompanyManagement = () => {
       setFormData(emptyForm);
       setEditingId(null);
       toast({ title: 'Sucesso', description: editingId ? 'Empresa atualizada.' : 'Empresa criada.' });
+
+      // Espelha a empresa no Grafana (pasta + dashboard) — best-effort: o
+      // Grafana é só um espelho de navegação, uma falha aqui não deve
+      // incomodar quem só quer cadastrar a empresa. Ver useGrafanaSync.ts.
+      sincronizarEmpresaComGrafana(id, variables.name.trim()).catch((err) => {
+        logError('sincronizarEmpresaComGrafana', err);
+        toast({
+          title: 'Empresa salva, mas o Grafana não sincronizou',
+          description: err instanceof Error ? err.message : 'Tente novamente mais tarde.',
+          variant: 'destructive',
+        });
+      });
     },
     onError: (error) => {
       logError('saveMutation', error);
@@ -176,10 +228,19 @@ export const CompanyManagement = () => {
       const { error } = await supabase.from('companies').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
       setDeleteCompanyId(null);
       toast({ title: 'Sucesso', description: 'Empresa removida.' });
+
+      removerEmpresaDoGrafana(id).catch((err) => {
+        logError('removerEmpresaDoGrafana', err);
+        toast({
+          title: 'Empresa removida, mas a pasta no Grafana continua lá',
+          description: err instanceof Error ? err.message : 'Remova manualmente se necessário.',
+          variant: 'destructive',
+        });
+      });
     },
     onError: (error) => {
       logError('deleteCompanyMutation', error);
@@ -271,8 +332,25 @@ export const CompanyManagement = () => {
                       )}
                     </button>
                   </TableCell>
-                  <TableCell className="text-primary font-mono text-xs">
-                    {company.domain || '—'}
+                  <TableCell className="font-mono text-xs">
+                    {company.domain ? (
+                      <div className="flex items-center gap-1.5" title={company.isAutoDetected ? 'Domínio importado automaticamente do agente' : 'Domínio configurado'}>
+                        <span className={cn(
+                          "px-2 py-0.5 rounded font-mono text-xs inline-flex items-center gap-1 border",
+                          company.isAutoDetected 
+                            ? "bg-primary/10 text-primary border-primary/20 font-bold" 
+                            : "bg-muted text-foreground border-border/50"
+                        )}>
+                          {company.isAutoDetected && <Zap className="w-3 h-3 text-primary animate-pulse" />}
+                          {company.domain}
+                        </span>
+                        {company.isAutoDetected && (
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">(Agente)</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {company.cnpj || '—'}

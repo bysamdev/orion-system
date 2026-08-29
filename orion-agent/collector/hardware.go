@@ -35,6 +35,13 @@ type DiskInfo struct {
 	FSType     string `json:"fs_type"`
 	Total      uint64 `json:"total"`
 	Used       uint64 `json:"used"`
+	// MediaType é "SSD", "HD" ou "" (desconhecido — unidade de rede, disco
+	// virtual, ou o WMI não conseguiu associar a letra a um disco físico).
+	// Resolvido via coletarTiposDeMidiaPorLetra (MSFT_PhysicalDisk, a mesma
+	// classe que o próprio Windows usa em Otimizar Unidades) — não é
+	// FSType: NTFS/exFAT/etc é o SISTEMA DE ARQUIVOS, tipo de mídia é o
+	// HARDWARE por baixo, os dois são independentes.
+	MediaType string `json:"media_type"`
 }
 
 // AntivirusInfo representa um software antivírus detectado no sistema.
@@ -78,6 +85,12 @@ type UpdateStatus struct {
 	RebootRequired bool `json:"reboot_required"`
 }
 
+// ActivationInfo informa se a licença do Windows está ativada e em que estado.
+type ActivationInfo struct {
+	Activated bool   `json:"activated"`
+	Status    string `json:"status"`
+}
+
 // Payload é o corpo principal do "Check-in" enviado ao servidor Orion.
 // Contém o estado atual completo da saúde do hardware.
 type Payload struct {
@@ -105,6 +118,13 @@ type Payload struct {
 	// DeviceTypeReason documenta qual sinal decidiu DeviceType (Fase 3 do
 	// plano de escalabilidade) — ver tipoEMotivoDoDispositivo().
 	DeviceTypeReason string `json:"device_type_reason"`
+	// IdentityFallbackReason nunca é enviado ao backend (json:"-") — é
+	// diagnóstico puramente local para a camada de serviço logar quando
+	// resolverIdentidadeDoUsuario() não conseguiu consultar a sessão de
+	// console ativa via WTS e caiu para variáveis de ambiente do processo
+	// (o que, rodando como serviço, reporta a conta de serviço em vez de
+	// quem está de fato logado na tela — ver session.go).
+	IdentityFallbackReason string `json:"-"`
 	// AgentVersion não é preenchida aqui: Collect() só lê o estado do
 	// sistema, e a versão do binário é responsabilidade da camada de
 	// serviço (mesmo motivo de MachineToken ficar de fora — ver
@@ -116,6 +136,7 @@ type Payload struct {
 	RemoteSoftware []RemoteSoftwareInfo `json:"remote_software"`
 	Battery        BatteryInfo          `json:"battery"`
 	UpdateStatus   UpdateStatus         `json:"update_status"`
+	Activation     ActivationInfo       `json:"activation"`
 }
 
 // HardwarePayload é um alias semântico para Payload.
@@ -158,14 +179,66 @@ func primeiroIPv4NaoLoopback(ifaces []net.Interface) string {
 	return ip
 }
 
+// isVirtualInterface verifica se a interface é um adaptador virtual conhecido (Hyper-V, WSL, VirtualBox, VMware, Docker, VPN, etc.)
+func isVirtualInterface(name string) bool {
+	low := strings.ToLower(name)
+	virtualKeywords := []string{
+		"vethernet", "hyper-v", "wsl", "virtual", "vbox", "vmware",
+		"docker", "tailscale", "zerotier", "tap", "wintun", "tunnel",
+		"bluetooth", "pseudo", "loopback", "npcap", "teredo", "isatap",
+	}
+	for _, kw := range virtualKeywords {
+		if strings.Contains(low, kw) {
+			return true
+		}
+	}
+	return false
+}
+
 // primeiroIPv4EMacNaoLoopback varre um snapshot de interfaces e devolve, de
 // uma vez só, o primeiro IPv4 não-loopback ativo E o endereço MAC da
-// interface física que o carrega — evita uma segunda varredura de
-// net.Interfaces() só para descobrir o MAC "principal" (mesma preocupação
-// de custo documentada acima para o IP, ver primaryIP).
+// interface física que o carrega.
+// Prioriza a rota de saída real (UDP dial) e adaptadores físicos sobre virtuais.
 func primeiroIPv4EMacNaoLoopback(ifaces []net.Interface) (ip, mac string) {
+	if len(ifaces) == 0 {
+		return "", ""
+	}
+
+	// 1. Tenta descobrir o IP de saída principal via UDP dial (sem tráfego na rede)
+	conn, err := net.DialTimeout("udp", "8.8.8.8:80", 200*time.Millisecond)
+	if err == nil {
+		if localAddr, ok := conn.LocalAddr().(*net.UDPAddr); ok && localAddr.IP != nil && !localAddr.IP.IsLoopback() {
+			outboundIP := localAddr.IP.To4()
+			if outboundIP != nil {
+				ipStr := outboundIP.String()
+				// Procura a interface exata que possui esse IP para pegar o MAC correspondente
+				for _, iface := range ifaces {
+					if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+						continue
+					}
+					addrs, _ := iface.Addrs()
+					for _, addr := range addrs {
+						var addrIP net.IP
+						switch v := addr.(type) {
+						case *net.IPNet:
+							addrIP = v.IP
+						case *net.IPAddr:
+							addrIP = v.IP
+						}
+						if addrIP != nil && addrIP.Equal(outboundIP) {
+							conn.Close()
+							return ipStr, iface.HardwareAddr.String()
+						}
+					}
+				}
+			}
+		}
+		conn.Close()
+	}
+
+	// 2. Passo 1: Busca apenas interfaces FÍSICAS (ignora adaptadores virtuais como vEthernet, WSL, etc.)
 	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 || isVirtualInterface(iface.Name) {
 			continue
 		}
 		addrs, _ := iface.Addrs()
@@ -181,14 +254,51 @@ func primeiroIPv4EMacNaoLoopback(ifaces []net.Interface) (ip, mac string) {
 				continue
 			}
 			if ip4 := addrIP.To4(); ip4 != nil {
-				ip = ip4.String()
-				mac = iface.HardwareAddr.String()
-				if mac != "" {
-					return ip, mac
+				candidateIP := ip4.String()
+				candidateMac := iface.HardwareAddr.String()
+				if candidateMac != "" {
+					return candidateIP, candidateMac
+				}
+				if ip == "" {
+					ip = candidateIP
 				}
 			}
 		}
 	}
+
+	// 3. Passo 2 (Fallback): Se só existirem interfaces virtuais ativas
+	if ip == "" || mac == "" {
+		for _, iface := range ifaces {
+			if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+				continue
+			}
+			addrs, _ := iface.Addrs()
+			for _, addr := range addrs {
+				var addrIP net.IP
+				switch v := addr.(type) {
+				case *net.IPNet:
+					addrIP = v.IP
+				case *net.IPAddr:
+					addrIP = v.IP
+				}
+				if addrIP == nil || addrIP.IsLoopback() {
+					continue
+				}
+				if ip4 := addrIP.To4(); ip4 != nil {
+					if ip == "" {
+						ip = ip4.String()
+					}
+					if mac == "" {
+						mac = iface.HardwareAddr.String()
+					}
+					if ip != "" && mac != "" {
+						return ip, mac
+					}
+				}
+			}
+		}
+	}
+
 	if mac == "" {
 		for _, iface := range ifaces {
 			if iface.Flags&net.FlagLoopback == 0 && len(iface.HardwareAddr) > 0 {
@@ -297,6 +407,11 @@ func Collect() (*Payload, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), tempoLimiteDisco)
 		defer cancel()
 
+		// Uma única consulta WMI pra todas as letras de unidade — não uma
+		// por partição dentro do loop abaixo, que rodaria em paralelo e
+		// multiplicaria round-trips ao WMI à toa pro mesmo resultado.
+		tiposDeMidia := coletarTiposDeMidiaPorLetra()
+
 		var (
 			wg sync.WaitGroup
 			mu sync.Mutex
@@ -313,6 +428,7 @@ func Collect() (*Payload, error) {
 						Device:     p.Device,
 						Mountpoint: p.Mountpoint,
 						FSType:     p.Fstype,
+						MediaType:  tiposDeMidia[p.Device],
 						Total:      d.Total,
 						Used:       d.Used,
 					})
@@ -400,36 +516,42 @@ func Collect() (*Payload, error) {
 	// tela — resolverIdentidadeDoUsuario cai para elas apenas quando não há
 	// sessão de console ativa para consultar (ex.: tela de logon, ou
 	// plataforma não-Windows).
-	domain, currentUser, currentUserSID := resolverIdentidadeDoUsuario()
+	domain, currentUser, currentUserSID, identidadeFallbackMotivo := resolverIdentidadeDoUsuario()
+	fallbackReason := ""
+	if identidadeFallbackMotivo != nil {
+		fallbackReason = identidadeFallbackMotivo.Error()
+	}
 	deviceType, deviceTypeReason := tipoEMotivoDoDispositivo()
 
 	// Montamos o relatório final (Payload)
 	return &Payload{
-		MachineUUID:      hi.HostID,
-		Hostname:         hostname,
-		IP:               ip,
-		OS:               osName,
-		OSVersion:        hi.PlatformVersion,
-		CPUUsage:         cpuUsage,
-		RAMTotal:         vm.Total,
-		RAMUsed:          vm.Used,
-		DiskTotal:        du.Total,
-		DiskUsed:         du.Used,
-		Uptime:           hi.Uptime,
-		CPUModel:         cpuModel,
-		GPU:              "",
-		Disks:            disks,
-		Interfaces:       interfaces,
-		Domain:           domain,
-		CurrentUser:      currentUser,
-		CurrentUserSID:   currentUserSID,
-		MACAddress:       macAddress,
-		DeviceType:       deviceType,
-		DeviceTypeReason: deviceTypeReason,
-		Security:         coletarSeguranca(),
-		RemoteSoftware:   coletarSoftwaresRemotos(),
-		Battery:          coletarBateria(),
-		UpdateStatus:     coletarStatusAtualizacoes(),
+		MachineUUID:            hi.HostID,
+		Hostname:               hostname,
+		IP:                     ip,
+		OS:                     osName,
+		OSVersion:              hi.PlatformVersion,
+		CPUUsage:               cpuUsage,
+		RAMTotal:               vm.Total,
+		RAMUsed:                vm.Used,
+		DiskTotal:              du.Total,
+		DiskUsed:               du.Used,
+		Uptime:                 hi.Uptime,
+		CPUModel:               cpuModel,
+		GPU:                    "",
+		Disks:                  disks,
+		Interfaces:             interfaces,
+		Domain:                 domain,
+		CurrentUser:            currentUser,
+		CurrentUserSID:         currentUserSID,
+		IdentityFallbackReason: fallbackReason,
+		MACAddress:             macAddress,
+		DeviceType:             deviceType,
+		DeviceTypeReason:       deviceTypeReason,
+		Security:               segurancaComCache(),
+		RemoteSoftware:         softwareRemotoComCache(),
+		Battery:                bateriaComCache(),
+		UpdateStatus:           atualizacoesComCache(),
+		Activation:             ativacaoComCache(),
 	}, nil
 }
 

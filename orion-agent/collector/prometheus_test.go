@@ -71,6 +71,10 @@ func TestGeneratePrometheusMetrics(t *testing.T) {
 		UpdateStatus: UpdateStatus{
 			RebootRequired: true,
 		},
+		Activation: ActivationInfo{
+			Activated: true,
+			Status:    "Licensed",
+		},
 	}
 
 	output := GeneratePrometheusMetrics(mockPayload)
@@ -144,6 +148,10 @@ func TestGeneratePrometheusMetrics(t *testing.T) {
 		"# HELP orion_windows_reboot_required Status de reinicialização pendente após atualizações (1 para pendente, 0 para não)",
 		"# TYPE orion_windows_reboot_required gauge",
 		`orion_windows_reboot_required{hostname="orion-server-01"} 1`,
+
+		"# HELP orion_windows_activation_status Status de ativação da licença do Windows (1 para ativado, 0 para não ativado)",
+		"# TYPE orion_windows_activation_status gauge",
+		`orion_windows_activation_status{hostname="orion-server-01",status="Licensed"} 1`,
 
 		"# HELP orion_agent_info Metadados informativos da máquina e versão do agente Orion",
 		"# TYPE orion_agent_info gauge",

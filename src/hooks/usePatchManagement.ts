@@ -58,43 +58,52 @@ export const SHA256_REGEX = /^[a-f0-9]{64}$/i;
 
 // ── Hooks ─────────────────────────────────────────────────────
 
-export const useSoftwarePackages = (companyId: string) =>
+export const useSoftwarePackages = (companyId?: string) =>
   useQuery<SoftwarePackage[]>({
-    queryKey: ['packages', companyId],
+    queryKey: ['packages', companyId || 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = (supabase as any)
         .from('software_packages')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
+        .select('*');
+      if (companyId && companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) {
+        console.warn('[useSoftwarePackages] Erro:', error);
+        return [];
+      }
       return (data as any[]) || [];
     },
-    enabled: !!companyId,
   });
 
-export const usePackageDeployments = (companyId: string) =>
+export const usePackageDeployments = (companyId?: string) =>
   useQuery<PackageDeployment[]>({
-    queryKey: ['package-deployments', companyId],
+    queryKey: ['package-deployments', companyId || 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = (supabase as any)
         .from('package_deployments')
-        .select('*, software_packages(name)')
-        .order('dispatched_at', { ascending: false })
-        .limit(50);
-      if (error) throw error;
+        .select('*, software_packages(name)');
+      if (companyId && companyId !== 'all') {
+        query = query.eq('company_id', companyId);
+      }
+      const { data, error } = await query.order('dispatched_at', { ascending: false }).limit(50);
+      if (error) {
+        console.warn('[usePackageDeployments] Erro:', error);
+        return [];
+      }
       return (data as any[]) || [];
     },
-    enabled: !!companyId,
     refetchInterval: 15_000,
   });
 
-export const useCreatePackage = (companyId: string) => {
+export const useCreatePackage = (companyId?: string) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: CreatePackageInput) => {
-      const { error } = await supabase.from('software_packages').insert([{
-        company_id: companyId,
+    mutationFn: async (input: CreatePackageInput & { company_id?: string }) => {
+      const targetCompany = input.company_id || companyId;
+      const { error } = await (supabase as any).from('software_packages').insert([{
+        company_id: targetCompany,
         name: input.name,
         description: input.description || null,
         type: input.type,
@@ -104,18 +113,18 @@ export const useCreatePackage = (companyId: string) => {
       }]);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['packages', companyId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
   });
 };
 
-export const useDeletePackage = (companyId: string) => {
+export const useDeletePackage = (companyId?: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('software_packages').delete().eq('id', id);
+      const { error } = await (supabase as any).from('software_packages').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['packages', companyId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
   });
 };
 
@@ -124,7 +133,7 @@ export const useDeployPackage = () => {
   return useMutation({
     mutationFn: async (input: DeployPackageInput) => {
       // 1. Insert deployment record
-      const { error: depErr } = await supabase
+      const { error: depErr } = await (supabase as any)
         .from('package_deployments')
         .insert([{
           package_id: input.package_id,
@@ -135,12 +144,11 @@ export const useDeployPackage = () => {
       if (depErr) throw depErr;
 
       // 2. Queue command for the agent
-      // Format: orion-install <sha256> "<file_path>" "<type>"
-      const { error: cmdErr } = await supabase
+      const { error: cmdErr } = await (supabase as any)
         .from('machine_commands')
         .insert([{
           machine_id: input.machine_id,
-          command: `orion-install ${input.sha256_hash} "${input.file_path}" "${input.type}"`,
+          command: `orion-install --url="${input.file_path}" --hash="${input.sha256_hash}"`,
           executed_by_user_id: input.executed_by_user_id,
           executed_by_name: input.executed_by_name,
         }]);

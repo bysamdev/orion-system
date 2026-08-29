@@ -16,8 +16,18 @@ import {
   ArrowLeft, Send, Loader2, Paperclip, CheckCircle2, Sparkles,
   Cpu, Mail, HardDrive, Globe, MoreHorizontal, Layout,
   ChevronRight, ChevronLeft, ShieldCheck, AlertCircle, BookOpen, ExternalLink,
-  X, Clipboard, Image as ImageIcon
+  X, Clipboard, Image as ImageIcon, Crown
 } from 'lucide-react';
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
+} from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { ArticleMarkdownRenderer } from '@/components/knowledge/ArticleMarkdownRenderer';
 import { FileUpload } from '@/components/ticket/FileUpload';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { useToast } from '@/hooks/use-toast';
@@ -37,12 +47,60 @@ const ticketSchema = ticketCreationSchema;
 type TicketFormValues = z.infer<typeof ticketSchema>;
 
 const categories = [
-  { id: 'erp', name: 'ERP', icon: Layout, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-  { id: 'email', name: 'E-mail', icon: Mail, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-  { id: 'hardware', name: 'Hardware', icon: HardDrive, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-  { id: 'software', name: 'Software', icon: Cpu, color: 'text-green-500', bg: 'bg-green-500/10' },
-  { id: 'rede', name: 'Rede', icon: Globe, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
-  { id: 'outros', name: 'Outros', icon: MoreHorizontal, color: 'text-slate-500', bg: 'bg-slate-500/10' },
+  { 
+    id: 'erp', 
+    name: 'ERP', 
+    icon: Layout, 
+    color: 'text-blue-500', 
+    bg: 'bg-blue-500/10',
+    description: 'Sistema Senior (Sapiens, Vetorh, Ronda, emissão de notas fiscais, faturamento, financeiro e relatórios).',
+    examples: ['Senior Sapiens (Gestão Empresarial)', 'Senior Vetorh / Ronda (RH e Acesso)', 'Emissão de NF-e / Danfe / Boletos', 'Rotinas de faturamento e relatórios']
+  },
+  { 
+    id: 'email', 
+    name: 'E-mail', 
+    icon: Mail, 
+    color: 'text-primary', 
+    bg: 'bg-primary/10',
+    description: 'Contas de correio eletrônico, problemas no Outlook ou Webmail, envio/recebimento e configuração de contas.',
+    examples: ['Outlook travando ou não abre', 'Não envia ou não recebe mensagens', 'Configuração de nova conta / senha', 'Caixa de entrada cheia']
+  },
+  { 
+    id: 'hardware', 
+    name: 'Hardware', 
+    icon: HardDrive, 
+    color: 'text-orange-500', 
+    bg: 'bg-orange-500/10',
+    description: 'Diagnóstico de problemas físicos no computador, máquina que não liga, travamentos graves ou lentidão de hardware.',
+    examples: ['Computador ou notebook não liga / desliga sozinho', 'Lentidão severa ou congelamentos do sistema', 'Upgrade ou solicitação de memória RAM / SSD', 'Superaquecimento ou barulho anormal no equipamento']
+  },
+  { 
+    id: 'software', 
+    name: 'Software', 
+    icon: Cpu, 
+    color: 'text-emerald-500', 
+    bg: 'bg-emerald-500/10',
+    description: 'Instalação, atualização ou erros em programas, pacote Microsoft Office, Excel travando, Adobe e antivírus.',
+    examples: ['Instalação / Atualização de programas', 'Excel, Word ou PowerPoint com erro', 'Adobe Acrobat / Leitor de PDF', 'Navegadores e antivírus']
+  },
+  { 
+    id: 'rede', 
+    name: 'Rede', 
+    icon: Globe, 
+    color: 'text-sky-500', 
+    bg: 'bg-sky-500/10',
+    description: 'Sem conexão com a internet, Wi-Fi instável ou lento, falha ao acessar pastas na rede e impressoras conectadas.',
+    examples: ['Sem acesso à internet ou Wi-Fi instável', 'Pasta compartilhada do servidor não abre', 'Impressora de rede inacessível', 'Site ou sistema web fora do ar']
+  },
+  { 
+    id: 'outros', 
+    name: 'Outros', 
+    icon: MoreHorizontal, 
+    color: 'text-muted-foreground', 
+    bg: 'bg-muted/40',
+    description: 'Solicitações gerais, dúvidas de informática, liberação de novos acessos ou assuntos não listados nas outras opções.',
+    examples: ['Criação ou liberação de novos acessos', 'Dúvidas de uso em geral', 'Telefonia / Ramal', 'Outras solicitações de TI']
+  },
 ];
 
 const CATEGORY_PLACEHOLDERS: Record<string, string> = {
@@ -79,6 +137,11 @@ const NewTicket = () => {
   
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Guarda síncrona contra double-submit -- o estado isSubmitting é
+  // assíncrono (commit de render), e um key-repeat do SO pode disparar
+  // onKeyDown duas vezes antes do primeiro re-render aplicar o disabled do
+  // botão. Um ref muda na hora, sem esperar o React.
+  const isSubmittingRef = useRef(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [remoteId, setRemoteId] = useState('');
   const [remotePassword, setRemotePassword] = useState('');
@@ -86,6 +149,7 @@ const NewTicket = () => {
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [anyDropdownOpen, setAnyDropdownOpen] = useState(false);
   const [createdTicket, setCreatedTicket] = useState<{ id: string; number: number; priority: string } | null>(null);
+  const [previewArticle, setPreviewArticle] = useState<any | null>(null);
 
   // ── Smart: VIP Client detection ─────────────────
   const { data: companyInfo } = useQuery({
@@ -200,8 +264,8 @@ const NewTicket = () => {
             return allowed > 0 ? [...prev, ...pastedFiles.slice(0, allowed)] : prev;
           }
           toast({
-            title: "Imagem anexada! 📋",
-            description: `${pastedFiles.length} imagem(ns) colada(s) da área de transferência.`,
+            title: "Imagem anexada da área de transferência",
+            description: `${pastedFiles.length} imagem(ns) adicionada(s).`,
           });
           return [...prev, ...pastedFiles];
         });
@@ -231,6 +295,7 @@ const NewTicket = () => {
   }, [profile?.department, form]);
 
   const currentCategory = form.watch('category');
+  const isCategorySelected = Boolean(currentCategory);
   const watchedTitle = form.watch('title');
   const watchedDescription = form.watch('description');
 
@@ -250,12 +315,22 @@ const NewTicket = () => {
 
   const onSubmit = async (data: TicketFormValues) => {
     if (!user || !profile) return;
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
-      // Check rate limit
+      // Check rate limit. Em falha de rede na checagem, invokeOrionFunction
+      // engole o erro e retorna data: null -- optamos por não bloquear a
+      // criação do chamado por um blip transitório (a aplicação de rate
+      // limit real fica no backend Go, com contador persistente), mas
+      // registramos pra não passar batido em silêncio.
       const { data: rateLimitData } = await invokeOrionFunction<{ allowed: boolean; message: string }>('check-rate-limit');
+      if (rateLimitData === null) {
+        console.warn('[NewTicket] Checagem de rate limit falhou (rede/edge function) -- prosseguindo sem bloquear.');
+      }
       if (rateLimitData && !rateLimitData.allowed) {
         toast({ title: 'Limite atingido', description: rateLimitData.message, variant: 'destructive' });
+        isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
       }
@@ -274,7 +349,7 @@ const NewTicket = () => {
         remote_password: remotePassword.trim() || null,
         contract_id: selectedContractId || null,
         asset_id: selectedAssetId || null,
-        custom_fields: {},
+        metadata: {},
       }).select().single();
 
       if (ticketError) {
@@ -285,11 +360,16 @@ const NewTicket = () => {
 
       // Attachments logic
       if (pendingFiles.length > 0) {
+        const failedUploads: string[] = [];
         for (const file of pendingFiles) {
           const fileExt = file.name.split('.').pop();
           const fileName = `${ticket.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
           const { error: uploadError } = await supabase.storage.from('ticket-files').upload(fileName, file);
-          if (uploadError) continue;
+          if (uploadError) {
+            console.error('[NewTicket] Falha ao enviar anexo:', file.name, uploadError);
+            failedUploads.push(file.name);
+            continue;
+          }
 
           await supabase.from('ticket_attachments').insert({
             ticket_id: ticket.id,
@@ -297,6 +377,13 @@ const NewTicket = () => {
             file_url: fileName,
             file_type: file.type,
             uploaded_by: user.id
+          });
+        }
+        if (failedUploads.length > 0) {
+          toast({
+            title: failedUploads.length === 1 ? 'Um anexo não foi enviado' : `${failedUploads.length} anexos não foram enviados`,
+            description: `Chamado criado normalmente, mas ${failedUploads.join(', ')} falhou ao enviar. Anexe novamente pela tela do chamado.`,
+            variant: 'destructive',
           });
         }
       }
@@ -329,6 +416,7 @@ const NewTicket = () => {
         ),
       });
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -412,7 +500,7 @@ const NewTicket = () => {
 
         <div className="space-y-1">
           <h1 ref={stepHeadingRef} tabIndex={-1} className="text-3xl font-black tracking-tighter text-foreground outline-none">Abrir Novo Chamado</h1>
-          <p className="text-muted-foreground font-medium" aria-live="polite">Passo {step} de 3 — {
+          <p className="text-muted-foreground font-medium" aria-live="polite">Passo {step} de 3: {
             step === 1 ? "Identificação do problema" :
             step === 2 ? "Detalhes e priorização" :
             "Anexos e finalização"
@@ -429,7 +517,7 @@ const NewTicket = () => {
             "space-y-6",
             (suggestions.length > 0 || isSuggestionsLoading) ? "lg:col-span-2" : "w-full"
           )}>
-            <Card className="border-border/40 shadow-2xl shadow-primary/5 overflow-hidden bg-card/50 backdrop-blur-sm">
+            <Card className="border-border/70 shadow-sm overflow-hidden bg-card">
               <CardContent className="p-4 md:p-8">
             <Form {...form}>
               <form 
@@ -453,45 +541,97 @@ const NewTicket = () => {
                 {step === 1 && (
                   <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
                     <section className="space-y-4">
-                      <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">O que está acontecendo?</Label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
-                        {categories.map((cat) => (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => {
-                            form.setValue('category', cat.id, { shouldValidate: true });
-                            form.clearErrors('category');
-                          }}
-                            className={cn(
-                              "relative group p-4 md:p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 md:gap-4 text-center h-32 md:h-40 justify-center overflow-hidden",
-                              currentCategory === cat.id 
-                                ? "border-primary bg-primary/5 shadow-xl shadow-primary/10" 
-                                : "border-border/40 bg-muted/20 hover:border-primary/20 hover:bg-muted/30"
-                            )}
-                          >
-                            <div className={cn("p-3 rounded-xl transition-all group-hover:scale-110", cat.bg, cat.color)}>
-                              <cat.icon className="w-6 h-6" />
-                            </div>
-                            <span className="font-bold text-sm tracking-tight">{cat.name}</span>
-                            {currentCategory === cat.id && (
-                              <div className="absolute top-2 right-2">
-                                <CheckCircle2 className="w-5 h-5 text-primary fill-background" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">O que está acontecendo?</Label>
+                        <span className="text-xs text-muted-foreground hidden sm:inline-block">Passe o mouse para ver detalhes</span>
                       </div>
+                      <TooltipProvider delayDuration={150}>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
+                          {categories.map((cat) => (
+                            <Tooltip key={cat.id}>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    form.setValue('category', cat.id, { shouldValidate: true });
+                                    form.clearErrors('category');
+                                  }}
+                                  aria-label={`${cat.name}: ${cat.description}`}
+                                  className={cn(
+                                    "relative group p-4 md:p-6 rounded-lg border-2 transition-all flex flex-col items-center gap-3 md:gap-4 text-center h-32 md:h-40 justify-center overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                                    currentCategory === cat.id 
+                                      ? "border-primary bg-primary/5 shadow-xl shadow-primary/10" 
+                                      : "border-border/40 bg-muted/20 hover:border-primary/20 hover:bg-muted/30"
+                                  )}
+                                >
+                                  <div className={cn("p-3 rounded-xl transition-all group-hover:scale-110", cat.bg, cat.color)}>
+                                    <cat.icon className="w-6 h-6" />
+                                  </div>
+                                  <span className="font-bold text-sm tracking-tight">{cat.name}</span>
+                                  {currentCategory === cat.id && (
+                                    <div className="absolute top-2 right-2">
+                                      <CheckCircle2 className="w-5 h-5 text-primary fill-background" />
+                                    </div>
+                                  )}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent 
+                                side="top" 
+                                sideOffset={8}
+                                className="max-w-xs p-3 space-y-2 bg-popover/95 backdrop-blur border border-border shadow-xl text-left"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className={cn("p-1 rounded-md", cat.bg, cat.color)}>
+                                    <cat.icon className="w-4 h-4" />
+                                  </div>
+                                  <span className="font-bold text-sm text-foreground">{cat.name}</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                  {cat.description}
+                                </p>
+                                <div className="pt-1.5 border-t border-border/50">
+                                  <span className="text-[11px] font-semibold text-foreground/80 block mb-1">Exemplos comuns:</span>
+                                  <ul className="text-[11px] text-muted-foreground space-y-0.5 list-disc list-inside">
+                                    {cat.examples.map((ex, idx) => (
+                                      <li key={idx} className="truncate">{ex}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          ))}
+                        </div>
+                      </TooltipProvider>
 
-                      {/* Smart: Category Suggestion */}
-                      {suggestedCategory && suggestedCategory !== currentCategory && (
+                      {/* Helper explicativo da categoria selecionada */}
+                      {currentCategory && (
+                        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-primary/5 border border-primary/15 text-xs text-foreground/90 animate-in fade-in slide-in-from-top-1 duration-200">
+                          {(() => {
+                            const selected = categories.find(c => c.id === currentCategory);
+                            if (!selected) return null;
+                            const IconComponent = selected.icon;
+                            return (
+                              <>
+                                <IconComponent className={cn("w-4 h-4 shrink-0 mt-0.5", selected.color)} />
+                                <div className="space-y-0.5">
+                                  <span className="font-semibold text-foreground">{selected.name}: </span>
+                                  <span className="text-muted-foreground">{selected.description}</span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {/* Smart: Auto Category Suggestion */}
+                      {suggestedCategory && !isCategorySelected && (
                         <button
                           type="button"
                           onClick={() => form.setValue('category', suggestedCategory)}
                           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all text-sm font-bold animate-in fade-in slide-in-from-top-2 duration-300"
                         >
                           <Sparkles className="w-4 h-4" />
-                          💡 Sugestão: <span className="underline">{CATEGORY_LABELS[suggestedCategory] || suggestedCategory}</span>
+                          Sugestão: <span className="underline">{CATEGORY_LABELS[suggestedCategory] || suggestedCategory}</span>
                           <span className="text-xs opacity-70 ml-1">— clique para aplicar</span>
                         </button>
                       )}
@@ -499,8 +639,8 @@ const NewTicket = () => {
                       {/* Smart: VIP Badge */}
                       {isVIP && (
                         <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-sm font-bold animate-in fade-in duration-500">
-                          <ShieldCheck className="w-4 h-4" />
-                          👑 Cliente VIP — prioridade automática: <span className="uppercase">Alta</span>
+                          <Crown className="w-4 h-4 text-amber-500 shrink-0" />
+                          Cliente VIP — prioridade automática: <span className="uppercase">Alta</span>
                         </div>
                       )}
 
@@ -585,10 +725,30 @@ const NewTicket = () => {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="urgent">🔴 Urgente {isSLALoading || !activeSla ? '(SLA: 4h)' : `(SLA: ${activeSla.urgent_hours}h)`}</SelectItem>
-                                <SelectItem value="high">🟠 Alta {isSLALoading || !activeSla ? '(SLA: 12h)' : `(SLA: ${activeSla.high_hours}h)`}</SelectItem>
-                                <SelectItem value="medium">🟡 Média {isSLALoading || !activeSla ? '(SLA: 24h)' : `(SLA: ${activeSla.medium_hours}h)`}</SelectItem>
-                                <SelectItem value="low">🟢 Baixa {isSLALoading || !activeSla ? '(SLA: 48h)' : `(SLA: ${activeSla.low_hours}h)`}</SelectItem>
+                                <SelectItem value="urgent">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                                    <span>Urgente {isSLALoading || !activeSla ? '(SLA: 4h)' : `(SLA: ${activeSla.urgent_hours}h)`}</span>
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="high">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
+                                    <span>Alta {isSLALoading || !activeSla ? '(SLA: 12h)' : `(SLA: ${activeSla.high_hours}h)`}</span>
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="medium">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                                    <span>Média {isSLALoading || !activeSla ? '(SLA: 24h)' : `(SLA: ${activeSla.medium_hours}h)`}</span>
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="low">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                    <span>Baixa {isSLALoading || !activeSla ? '(SLA: 48h)' : `(SLA: ${activeSla.low_hours}h)`}</span>
+                                  </span>
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -620,7 +780,7 @@ const NewTicket = () => {
                       />
                     </div>
 
-                    <section className="p-6 bg-muted/10 border border-border/40 rounded-2xl space-y-4">
+                    <section className="p-6 bg-muted/10 border border-border/40 rounded-lg space-y-4">
                       <div className="flex items-center gap-2">
                         <ShieldCheck className="w-5 h-5 text-primary" />
                         <h4 className="text-sm font-bold">Acesso Remoto (Opcional)</h4>
@@ -632,7 +792,7 @@ const NewTicket = () => {
                     </section>
 
                     {/* Dica de Cola Rápida (Ctrl + V) */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-muted/20 border border-border/40 rounded-2xl text-xs text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-muted/20 border border-border/40 rounded-lg text-xs text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <Clipboard className="w-4 h-4 text-primary shrink-0" />
                         <span>Você pode colar capturas de tela (<kbd className="px-1.5 py-0.5 bg-background font-mono rounded border text-[11px] font-bold text-foreground">Ctrl + V</kbd>) diretamente para anexar.</span>
@@ -650,7 +810,7 @@ const NewTicket = () => {
                   <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                     <section className="space-y-4">
                       <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Anexar evidências</Label>
-                      <div className="bg-muted/10 border-2 border-dashed border-border/60 rounded-2xl p-6 transition-all hover:bg-muted/20 hover:border-primary/20">
+                      <div className="bg-muted/10 border-2 border-dashed border-border/60 rounded-lg p-6 transition-all hover:bg-muted/20 hover:border-primary/20">
                         <FileUpload
                           onFilesSelected={(files) => setPendingFiles(prev => [...prev, ...files])}
                           isUploading={isSubmitting}
@@ -713,7 +873,7 @@ const NewTicket = () => {
                     )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 flex flex-col gap-4">
+                      <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 flex flex-col gap-4">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-primary/10 rounded-full">
                             <AlertCircle className="w-4 h-4 text-primary" />
@@ -742,7 +902,7 @@ const NewTicket = () => {
                         </div>
                       </div>
 
-                      <div className="bg-muted/10 border border-border/40 rounded-2xl p-6 flex items-start gap-4">
+                      <div className="bg-muted/10 border border-border/40 rounded-lg p-6 flex items-start gap-4">
                         <div className="p-2 bg-muted/20 rounded-full">
                           <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
                         </div>
@@ -824,8 +984,8 @@ const NewTicket = () => {
                     <h4 className="font-bold text-sm leading-tight text-foreground">{article.title}</h4>
                     <p className="text-xs text-muted-foreground line-clamp-3">{article.content}</p>
                     <div className="flex items-center justify-between pt-2">
-                      <Button variant="ghost" size="sm" className="h-8 text-xs font-bold text-primary px-2" onClick={() => window.open(`/kb/${article.id}`, '_blank')}>
-                        Ler <ExternalLink className="w-3 h-3 ml-1" />
+                      <Button variant="ghost" size="sm" className="h-8 text-xs font-bold text-primary px-2" onClick={() => setPreviewArticle(article)}>
+                        Ler Artigo <ExternalLink className="w-3 h-3 ml-1" />
                       </Button>
                       <Button variant="secondary" size="sm" className="h-8 text-xs font-bold bg-green-500/10 text-green-600 hover:bg-green-500/20" onClick={() => {
                         toast({ title: 'Que ótimo!', description: 'Ficamos felizes que o artigo resolveu seu problema.' });
@@ -863,6 +1023,47 @@ const NewTicket = () => {
             }</span>
           </div>
         </div>
+
+        {/* Modal de Prévia do Artigo da Base de Conhecimento */}
+        <Dialog open={!!previewArticle} onOpenChange={(open) => !open && setPreviewArticle(null)}>
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
+            <DialogHeader className="p-6 pb-2 border-b border-border/40">
+              <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-primary shrink-0" />
+                <span>{previewArticle?.title}</span>
+              </DialogTitle>
+              <DialogDescription>
+                Artigo de autoatendimento da Base de Conhecimento
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="p-6 overflow-y-auto flex-1 text-sm leading-relaxed">
+              {previewArticle?.content ? (
+                <ArticleMarkdownRenderer content={previewArticle.content} />
+              ) : (
+                <p className="text-muted-foreground italic">Sem conteúdo disponível.</p>
+              )}
+            </div>
+
+            <DialogFooter className="p-4 bg-muted/20 border-t border-border/40 flex flex-row items-center justify-between sm:justify-between gap-3">
+              <Button variant="outline" onClick={() => setPreviewArticle(null)}>
+                Continuar abrindo chamado
+              </Button>
+              <Button 
+                variant="default" 
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={() => {
+                  setPreviewArticle(null);
+                  toast({ title: 'Excelente!', description: 'Ficamos felizes que a solução ajudou você!' });
+                  navigate('/');
+                }}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                Isso resolveu meu problema!
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>
   );
 };

@@ -5,14 +5,65 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
+
+// isBlockedIP recusa endereços privados/reservados (RFC 1918, loopback,
+// link-local -- inclui 169.254.169.254, metadados de nuvem) como alvo de
+// probe. Usado tanto na validação de DNS resolvido quanto no Control do
+// dialer, pra fechar a janela de DNS rebinding entre resolver e conectar.
+func isBlockedIP(ip net.IP) bool {
+	if ip == nil {
+		return true
+	}
+	return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+		ip.IsUnspecified() || ip.IsPrivate() || ip.IsMulticast()
+}
+
+// safeDialControl roda depois da resolução de DNS e antes do connect() de
+// verdade -- valida o IP que efetivamente vai receber a conexão, não o
+// hostname original, fechando a janela de DNS rebinding.
+func safeDialControl(network, address string, c syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		host = address
+	}
+	if ip := net.ParseIP(host); ip != nil && isBlockedIP(ip) {
+		return fmt.Errorf("conexão bloqueada: endereço privado/reservado %s", ip)
+	}
+	return nil
+}
+
+// hostHasBlockedIP resolve host (se já não for um IP) e recusa se qualquer
+// endereço resolvido for privado/reservado. Usado antes de chamar o comando
+// OS ping, que não passa pelo Control do net.Dialer.
+func hostHasBlockedIP(host string) bool {
+	if ip := net.ParseIP(host); ip != nil {
+		return isBlockedIP(ip)
+	}
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return true // falha ao resolver: bloqueia por padrão
+	}
+	for _, ip := range ips {
+		if isBlockedIP(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func newSafeDialer(timeout time.Duration) *net.Dialer {
+	return &net.Dialer{Timeout: timeout, Control: safeDialControl}
+}
 
 // NetworkLinkRow represents a row in public.network_links.
 type NetworkLinkRow struct {
@@ -131,6 +182,18 @@ func (d *DB) CreateNetworkLink(ctx context.Context, in CreateNetworkLinkInput) (
 		return nil, fmt.Errorf("ip_or_hostname é obrigatório")
 	}
 
+	cleanHost := host
+	if idx := strings.Index(cleanHost, "://"); idx != -1 {
+		cleanHost = cleanHost[idx+3:]
+	}
+	if h, _, err := net.SplitHostPort(cleanHost); err == nil {
+		cleanHost = h
+	}
+	validHostRegex := regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9\-\.]{0,253}[a-zA-Z0-9])?$`)
+	if !validHostRegex.MatchString(cleanHost) && net.ParseIP(cleanHost) == nil {
+		return nil, fmt.Errorf("ip_or_hostname possui formato inválido")
+	}
+
 	checkInterval := 300
 	if in.CheckIntervalSeconds != nil && *in.CheckIntervalSeconds > 0 {
 		checkInterval = *in.CheckIntervalSeconds
@@ -202,6 +265,30 @@ WHERE id = $1
 	return err
 }
 
+// UpdateNetworkLinksStatusBatch grava o resultado do probe de vários links
+// numa única query (em vez de uma goroutine + UPDATE por link) e só
+// sobrescreve uma linha se ninguém gravou um resultado mais novo desde que
+// este ciclo de probe começou -- fecha a corrida entre o worker in-process
+// e o cron do Vercel rodando ao mesmo tempo.
+func (d *DB) UpdateNetworkLinksStatusBatch(ctx context.Context, ids []string, statuses []string, pingMsVals []*int, cycleStartedAt time.Time) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+UPDATE public.network_links AS nl
+SET status = u.new_status,
+    last_ping_ms = u.new_ping_ms,
+    latency_ms = u.new_ping_ms,
+    last_checked_at = now(),
+    last_check = now(),
+    updated_at = now()
+FROM unnest($1::uuid[], $2::text[], $3::int[]) AS u(id, new_status, new_ping_ms)
+WHERE nl.id = u.id
+  AND (nl.last_checked_at IS NULL OR nl.last_checked_at < $4)
+`, ids, statuses, pingMsVals, cycleStartedAt)
+	return err
+}
+
 // ProbeNetworkTarget probes a network link target (IP, hostname, or URL).
 func ProbeNetworkTarget(target string) (status string, pingMs int, err error) {
 	target = strings.TrimSpace(target)
@@ -211,23 +298,34 @@ func ProbeNetworkTarget(target string) (status string, pingMs int, err error) {
 
 	start := time.Now()
 
-	// 1. If target starts with http:// or https://, run HTTP probe
+	// 1. If target starts with http:// or https://, run HTTP probe first.
+	// Em caso de falha, NÃO desiste ainda -- cai pros mesmos fallbacks de
+	// ping/TCP usados por alvos IP/hostname puro (passos 2-4 abaixo), em
+	// vez de marcar "offline" num hiccup transitório de TLS/handshake que
+	// um ping simples resolveria.
+	host := target
+	port := ""
 	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
-		client := &http.Client{Timeout: 5 * time.Second}
+		client := &http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				DialContext: newSafeDialer(5 * time.Second).DialContext,
+			},
+		}
 		resp, err := client.Get(target)
 		if err == nil {
 			resp.Body.Close()
 			return "online", int(time.Since(start).Milliseconds()), nil
 		}
-		return "offline", 0, err
-	}
-
-	// 2. Extract host if target contains port or path
-	host := target
-	port := ""
-	if strings.Contains(target, ":") {
-		h, p, err := net.SplitHostPort(target)
-		if err == nil {
+		if u, parseErr := url.Parse(target); parseErr == nil && u.Hostname() != "" {
+			host = u.Hostname()
+			port = u.Port()
+		} else {
+			return "offline", 0, err
+		}
+	} else if strings.Contains(target, ":") {
+		// 2. Extract host if target contains port or path
+		if h, p, err := net.SplitHostPort(target); err == nil {
 			host = h
 			port = p
 		}
@@ -235,14 +333,19 @@ func ProbeNetworkTarget(target string) (status string, pingMs int, err error) {
 
 	// If explicit port was supplied, try TCP connection first
 	if port != "" {
-		conn, err := net.DialTimeout("tcp", target, 4*time.Second)
+		conn, err := newSafeDialer(4 * time.Second).Dial("tcp", target)
 		if err == nil {
 			conn.Close()
 			return "online", int(time.Since(start).Milliseconds()), nil
 		}
 	}
 
-	// 3. Try OS ping command (reliable without raw socket privileges)
+	// 3. Try OS ping command (reliable without raw socket privileges).
+	// exec.Command não passa pelo Control do net.Dialer -- valida o host
+	// resolvido antes de disparar o ping.
+	if hostHasBlockedIP(host) {
+		return "offline", 0, fmt.Errorf("destino bloqueado: endereço privado/reservado")
+	}
 	pingStatus, pingTime, pingErr := osPing(host)
 	if pingErr == nil && pingStatus == "online" {
 		return "online", pingTime, nil
@@ -254,7 +357,7 @@ func ProbeNetworkTarget(target string) (status string, pingMs int, err error) {
 		tcpPorts = append([]string{port}, tcpPorts...)
 	}
 	for _, p := range tcpPorts {
-		conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, p), 2*time.Second)
+		conn, err := newSafeDialer(2 * time.Second).Dial("tcp", net.JoinHostPort(host, p))
 		if err == nil {
 			conn.Close()
 			return "online", int(time.Since(start).Milliseconds()), nil
@@ -303,6 +406,11 @@ func osPing(host string) (status string, pingMs int, err error) {
 
 // ProbeAllNetworkLinks probes all stored network link targets and updates DB.
 func (d *DB) ProbeAllNetworkLinks(ctx context.Context) (ProbeSummary, error) {
+	// Marca o início do ciclo -- usado depois pra recusar sobrescrever um
+	// resultado já gravado por um ciclo mais recente (worker in-process e
+	// cron do Vercel podem rodar concorrentemente e se sobrepor).
+	cycleStartedAt := time.Now()
+
 	links, err := d.ListNetworkLinks(ctx, "")
 	if err != nil {
 		return ProbeSummary{}, err
@@ -344,26 +452,29 @@ func (d *DB) ProbeAllNetworkLinks(ctx context.Context) (ProbeSummary, error) {
 	wg.Wait()
 	close(resChan)
 
-	var updateWg sync.WaitGroup
-	var mu sync.Mutex
+	ids := make([]string, 0, len(links))
+	statuses := make([]string, 0, len(links))
+	pingMsVals := make([]*int, 0, len(links))
 
 	for res := range resChan {
-		mu.Lock()
 		if res.status == "online" {
 			summary.Online++
 		} else {
 			summary.Offline++
 		}
-		mu.Unlock()
-
-		updateWg.Add(1)
-		go func(r result) {
-			defer updateWg.Done()
-			_ = d.UpdateNetworkLinkStatus(ctx, r.id, r.status, r.pingMs)
-		}(res)
+		ids = append(ids, res.id)
+		statuses = append(statuses, res.status)
+		if res.status == "online" && res.pingMs >= 0 {
+			p := res.pingMs
+			pingMsVals = append(pingMsVals, &p)
+		} else {
+			pingMsVals = append(pingMsVals, nil)
+		}
 	}
 
-	updateWg.Wait()
+	if err := d.UpdateNetworkLinksStatusBatch(ctx, ids, statuses, pingMsVals, cycleStartedAt); err != nil {
+		fmt.Printf("[NetworkLinksWorker] falha ao gravar status em lote: %v\n", err)
+	}
 
 	fmt.Printf("[NetworkLinksWorker] Probed %d links: %d online, %d offline\n", summary.Total, summary.Online, summary.Offline)
 	return summary, nil

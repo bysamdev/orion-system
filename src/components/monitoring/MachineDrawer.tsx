@@ -72,6 +72,8 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { PerformanceChart } from './PerformanceChart';
 import { InventoryTab } from './InventoryTab';
+import { MachineTicketsTab } from './MachineTicketsTab';
+import { OsIcon, parseOsInfo } from './MachineCard';
 
 const RemoteTerminal = React.lazy(() =>
   import('./RemoteTerminal').then((m) => ({ default: m.RemoteTerminal }))
@@ -109,8 +111,7 @@ export function EndpointSecurityCard({
 
   const isCompliant =
     (securityInfo ? (hasAv && isAvActive) : true) &&
-    isFirewallActive !== false &&
-    isBitlockerActive !== false;
+    isFirewallActive !== false;
 
   return (
     <Card className="p-4 bg-muted/10 border-border/40 space-y-4">
@@ -244,7 +245,7 @@ export function EndpointSecurityCard({
             {isBitlockerActive ? (
               <Lock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
             ) : (
-              <Unlock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+              <Unlock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
             )}
             <span className="text-xs text-muted-foreground">Criptografia C: (BitLocker):</span>
           </div>
@@ -257,15 +258,15 @@ export function EndpointSecurityCard({
                 className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
               >
                 <Lock className="w-2.5 h-2.5 text-emerald-500" />
-                Criptografia Ativa
+                Ativo
               </Badge>
             ) : (
               <Badge
                 variant="outline"
-                className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 gap-1"
+                className="text-[10px] font-medium text-muted-foreground border-border/40 bg-muted/20 gap-1"
               >
-                <Unlock className="w-2.5 h-2.5 text-amber-500" />
-                Desprotegido
+                <Unlock className="w-2.5 h-2.5 text-muted-foreground" />
+                Desativado
               </Badge>
             )}
           </div>
@@ -372,12 +373,16 @@ export function BatteryMobilityCard({
 }: {
   batteryInfo?: BatteryInfo;
 }) {
-  if (!batteryInfo?.has_battery && batteryInfo?.percentage == null) {
+  // O agente sempre envia "percent" (é um int no Go, sem omitempty — vira 0,
+  // nunca ausente), então checar "percent == null" aqui nunca detectava nada
+  // de verdade; has_battery é o único sinal confiável de que a máquina tem
+  // bateria de fato (ver collector/hardware.go).
+  if (!batteryInfo?.has_battery) {
     return null;
   }
 
-  const pctValue = batteryInfo.percentage ?? 0;
-  const isPlugged = batteryInfo.is_plugged ?? false;
+  const pctValue = batteryInfo.percent ?? 0;
+  const isPlugged = batteryInfo.plugged_in ?? false;
   const isLow = pctValue <= 20 && !isPlugged;
 
   return (
@@ -525,9 +530,11 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
     if (!machineId) return;
     setIsSaving(true);
     try {
+      const matchedGroup = groups.find((g) => g.id === selectedGroupId);
+      const targetCompanyId = matchedGroup?.company_id || selectedCompanyId || '';
       await updateMachine.mutateAsync({
         id: machineId,
-        updates: { group_id: selectedGroupId || '', company_id: selectedCompanyId || '' },
+        updates: { group_id: selectedGroupId || '', company_id: targetCompanyId },
       });
       toast.success('Alterações salvas com sucesso!');
     } catch (err: any) {
@@ -574,7 +581,11 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
   const diskUsagePct = pct(machine?.disk_used, machine?.disk_total);
   const cpuModel = detail?.hardware?.cpu_model;
 
-  const domainName = machine?.domain || detail?.machine?.domain || 'WORKGROUP';
+  const rawDomain = machine?.domain || detail?.machine?.domain;
+  const domainName =
+    rawDomain && rawDomain !== 'WORKGROUP' && rawDomain !== 'NT SERVICE'
+      ? rawDomain
+      : 'iBReady';
   const currentUser = machine?.current_user || detail?.machine?.current_user || '–';
   const ipAddress = machine?.ip_address || detail?.machine?.ip_address || '–';
   const macAddress =
@@ -588,9 +599,9 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
   return (
     <>
       <Sheet open={open} onOpenChange={v => !v && onClose()}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-3xl p-0 flex flex-col border-l border-border/40 shadow-2xl">
+        <SheetContent side="right" className="w-full sm:max-w-3xl lg:max-w-4xl xl:max-w-5xl p-0 flex flex-col h-full overflow-hidden border-l border-border/40 shadow-2xl">
           {/* Header */}
-          <SheetHeader className="px-6 py-5 border-b border-border/40 bg-muted/10 space-y-3">
+          <SheetHeader className="px-6 py-4 border-b border-border/40 bg-muted/10 space-y-3 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3.5">
                 <div className="relative">
@@ -598,19 +609,27 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                   {isOnline && <div className={cn('absolute inset-0 rounded-full animate-ping opacity-30', ledColor)} />}
                 </div>
                 <div>
-                  <SheetTitle className="text-xl font-bold tracking-tight">
-                    {machine?.hostname ?? 'Máquina Desconhecida'}
+                  <SheetTitle className="text-xl font-bold tracking-tight flex items-center gap-2">
+                    <OsIcon os={machine?.os} osVersion={machine?.os_version} />
+                    <span>{machine?.hostname ?? 'Máquina Desconhecida'}</span>
                   </SheetTitle>
                   <SheetDescription className="text-xs font-medium flex items-center gap-2 mt-0.5">
-                    <span className="text-foreground font-semibold">{machine?.os} {machine?.os_version}</span>
+                    <span className="text-foreground font-semibold">
+                      {parseOsInfo(machine?.os, machine?.os_version).name}
+                    </span>
+                    {machine?.os_version && (
+                      <span className="text-muted-foreground font-mono text-[10.5px]">
+                        ({machine.os_version})
+                      </span>
+                    )}
                   </SheetDescription>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {isOnline && machine?.uptime ? (
-                  <Badge variant="secondary" className="text-[10px] font-mono px-2 py-0.5 bg-muted/80 text-muted-foreground gap-1 flex items-center">
-                    <Clock className="w-2.5 h-2.5 text-muted-foreground/70" />
-                    ⏱️ {formatUptime(machine.uptime)}
+                  <Badge variant="secondary" className="text-[10px] font-mono px-2 py-0.5 bg-muted/80 text-muted-foreground gap-1.5 flex items-center">
+                    <Clock className="w-3 h-3 text-muted-foreground/70" />
+                    <span>{formatUptime(machine.uptime)}</span>
                   </Badge>
                 ) : null}
                 <Badge variant="outline" className={cn(
@@ -672,20 +691,20 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
           </SheetHeader>
 
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <div className="px-6 border-b border-border/40 bg-muted/5">
-              <TabsList className="h-12 w-full justify-start bg-transparent p-0 gap-6">
-                {['overview', 'telemetry', 'security', 'inventory', 'actions'].map(tab => (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="px-6 border-b border-border/40 bg-muted/5 shrink-0">
+              <TabsList className="h-12 w-full justify-start bg-transparent p-0 gap-4 sm:gap-6 overflow-x-auto">
+                {['overview', 'telemetry', 'inventory', 'tickets', 'actions'].map(tab => (
                   <TabsTrigger
                     key={tab}
                     value={tab}
-                    className="h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-2 text-xs font-bold uppercase tracking-wider"
+                    className="h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-2 text-xs font-bold uppercase tracking-wider whitespace-nowrap"
                   >
                     {{
                       overview: 'Resumo',
                       telemetry: 'Telemetria',
-                      security: 'Segurança',
                       inventory: 'Inventário',
+                      tickets: 'Chamados',
                       actions: 'Terminal',
                     }[tab]}
                   </TabsTrigger>
@@ -693,8 +712,8 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
               </TabsList>
             </div>
 
-            <ScrollArea className="flex-1">
-              <div className="p-6">
+            <ScrollArea className="flex-1 h-full min-h-0 w-full overflow-y-auto">
+              <div className="p-4 sm:p-6 space-y-6">
 
                 {/* ── Overview tab ── */}
                 <TabsContent value="overview" className="mt-0 space-y-6">
@@ -760,31 +779,6 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                     </div>
                   </section>
 
-                  {/* 4 Módulos: Endpoint Security, Remote Software & Battery */}
-                  <section className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                      <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                        🛡️ Endpoint &amp; Conformidade
-                      </h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-[10px] text-primary px-2"
-                        onClick={() => setActiveTab('security')}
-                      >
-                        Ver Detalhes &rarr;
-                      </Button>
-                    </div>
-
-                    <div className="space-y-3">
-                      <EndpointSecurityCard securityInfo={securityInfo} />
-                      <RemoteSoftwareCard remoteSoftware={remoteSoftware} />
-                      {batteryInfo?.has_battery && (
-                        <BatteryMobilityCard batteryInfo={batteryInfo} />
-                      )}
-                    </div>
-                  </section>
-
                   {/* Performance chart */}
                   <PerformanceChart machineId={machineId} machine={machine} period={period} onPeriodChange={setPeriod} />
 
@@ -822,21 +816,34 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                       <Separator className="border-border/20" />
                       <h3 className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest px-1">Configurações Administrativas</h3>
                       <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-4 space-y-4">
-                        {[
-                          { label: 'Grupo / Cliente', value: selectedGroupId, onChange: setSelectedGroupId, options: groups },
-                          { label: 'Empresa',         value: selectedCompanyId, onChange: setSelectedCompanyId, options: companies },
-                        ].map(({ label, value, onChange, options }) => (
-                          <div key={label} className="space-y-2">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">{label}</label>
-                            <Select value={value || 'none'} onValueChange={v => onChange(v === 'none' ? '' : v)}>
-                              <SelectTrigger className="bg-background border-indigo-500/20 rounded-xl"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Nenhum</SelectItem>
-                                {options.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        ))}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Cliente / Empresa</label>
+                          <Select
+                            value={selectedGroupId || 'none'}
+                            onValueChange={(v) => {
+                              const newGroupId = v === 'none' ? '' : v;
+                              setSelectedGroupId(newGroupId);
+                              const grp = groups.find((g) => g.id === newGroupId);
+                              if (grp && grp.company_id) {
+                                setSelectedCompanyId(grp.company_id);
+                              } else if (newGroupId === '') {
+                                setSelectedCompanyId('');
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="bg-background border-indigo-500/20 rounded-xl">
+                              <SelectValue placeholder="Selecione o Cliente / Empresa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhum (Sem vínculo)</SelectItem>
+                              {groups.map((o) => (
+                                <SelectItem key={o.id} value={o.id}>
+                                  {o.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <Button className="w-full font-bold gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/20" onClick={handleSaveChanges} disabled={isSaving}>
                           <RefreshCw className={cn('w-4 h-4', isSaving && 'animate-spin')} />
                           Salvar Alterações
@@ -908,25 +915,26 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                         <Activity className="w-4 h-4 text-primary" />
                         Indicadores em Tempo Real
                       </h3>
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        {isOnline ? '🟢 Live Telemetry Ativo' : '🔴 Dispositivo Offline'}
-                      </span>
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
+                        <span className={cn('inline-block w-1.5 h-1.5 rounded-full', isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400')} />
+                        <span>{isOnline ? 'Live Telemetry Ativo' : 'Dispositivo Offline'}</span>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
                       {/* Card 1: CPU */}
                       <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
-                        <div className="flex items-center justify-between gap-1 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <Cpu className="w-4 h-4 text-indigo-500" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              CPU / Processamento
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Cpu className="w-4 h-4 text-indigo-500 shrink-0" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                              CPU
                             </span>
                           </div>
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[9px] font-bold uppercase px-1.5 py-0",
+                              "text-[9px] font-bold uppercase px-1.5 py-0 shrink-0",
                               cpuUsage != null
                                 ? cpuUsage > 85
                                 ? "text-red-600 border-red-500/30 bg-red-500/10"
@@ -938,10 +946,10 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           >
                             {cpuUsage != null
                               ? cpuUsage > 85
-                                ? "Carga Crítica"
+                                ? "Crítico"
                                 : cpuUsage > 70
                                 ? "Carga Alta"
-                                : "Carga Normal"
+                                : "Normal"
                               : "Sem Dados"}
                           </Badge>
                         </div>
@@ -949,7 +957,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           <div className="flex items-baseline justify-between gap-2">
                             <span
                               className={cn(
-                                "text-3xl font-black font-mono tracking-tight",
+                                "text-2xl sm:text-3xl font-black font-mono tracking-tight",
                                 cpuUsage != null
                                   ? cpuUsage > 85
                                     ? "text-red-500"
@@ -961,9 +969,10 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             >
                               {cpuUsage != null ? `${cpuUsage}%` : '–'}
                             </span>
-                            <span className="text-[10px] text-muted-foreground font-medium">
-                              {isOnline ? '🟢 Ao Vivo' : '⚪ Estático'}
-                            </span>
+                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium shrink-0">
+                              <span className={cn('inline-block w-1.5 h-1.5 rounded-full', isOnline ? 'bg-emerald-500' : 'bg-zinc-400')} />
+                              <span>{isOnline ? 'Ao Vivo' : 'Estático'}</span>
+                            </div>
                           </div>
                           <p className="text-[10px] text-foreground font-medium truncate mt-1" title={cpuModel || 'Processador do Host'}>
                             {cpuModel || (isOnline ? 'Processador Ativo' : 'Offline')}
@@ -983,24 +992,24 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           />
                           <div className="flex justify-between items-center text-[9px] text-muted-foreground">
                             <span>Uso: <strong className="text-foreground">{cpuUsage ?? 0}%</strong></span>
-                            <span>Status: <strong className="text-foreground">{isOnline ? (isAlertState ? 'Alerta Ativo' : 'Operação Estável') : 'Offline'}</strong></span>
+                            <span>Status: <strong className="text-foreground">{isOnline ? (isAlertState ? 'Alerta' : 'Estável') : 'Offline'}</strong></span>
                           </div>
                         </div>
                       </Card>
 
                       {/* Card 2: RAM */}
                       <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
-                        <div className="flex items-center justify-between gap-1 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <Layers className="w-4 h-4 text-emerald-500" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Layers className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
                               Memória RAM
                             </span>
                           </div>
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[9px] font-bold uppercase px-1.5 py-0",
+                              "text-[9px] font-bold uppercase px-1.5 py-0 shrink-0",
                               ramUsagePct > 85
                                 ? "text-red-600 border-red-500/30 bg-red-500/10"
                                 : ramUsagePct > 70
@@ -1015,7 +1024,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           <div className="flex items-baseline justify-between gap-2">
                             <span
                               className={cn(
-                                "text-3xl font-black font-mono tracking-tight",
+                                "text-2xl sm:text-3xl font-black font-mono tracking-tight",
                                 ramUsagePct > 85
                                   ? "text-red-500"
                                   : ramUsagePct > 70
@@ -1025,12 +1034,12 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             >
                               {ramUsagePct}%
                             </span>
-                            <span className="text-[10px] text-muted-foreground font-mono">
+                            <span className="text-[10px] text-muted-foreground font-mono shrink-0">
                               {formatBytes(machine?.ram_used)}
                             </span>
                           </div>
                           <p className="text-[10px] text-foreground font-medium truncate mt-1">
-                            {formatBytes(machine?.ram_used)} usado de {formatBytes(machine?.ram_total)}
+                            {formatBytes(machine?.ram_used)} de {formatBytes(machine?.ram_total)}
                           </p>
                         </div>
                         <div className="mt-3 space-y-1.5 pt-2 border-t border-border/20">
@@ -1054,17 +1063,17 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
 
                       {/* Card 3: Storage */}
                       <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
-                        <div className="flex items-center justify-between gap-1 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <HardDrive className="w-4 h-4 text-amber-500" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              Armazenamento (C:)
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <HardDrive className="w-4 h-4 text-amber-500 shrink-0" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                              Armazenamento
                             </span>
                           </div>
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[9px] font-bold uppercase px-1.5 py-0",
+                              "text-[9px] font-bold uppercase px-1.5 py-0 shrink-0",
                               diskUsagePct > 90
                                 ? "text-red-600 border-red-500/30 bg-red-500/10"
                                 : diskUsagePct > 75
@@ -1079,7 +1088,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           <div className="flex items-baseline justify-between gap-2">
                             <span
                               className={cn(
-                                "text-3xl font-black font-mono tracking-tight",
+                                "text-2xl sm:text-3xl font-black font-mono tracking-tight",
                                 diskUsagePct > 90
                                   ? "text-red-500"
                                   : diskUsagePct > 75
@@ -1089,12 +1098,12 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             >
                               {diskUsagePct}%
                             </span>
-                            <span className="text-[10px] text-muted-foreground font-mono">
+                            <span className="text-[10px] text-muted-foreground font-mono shrink-0">
                               {formatBytes(machine?.disk_used)}
                             </span>
                           </div>
                           <p className="text-[10px] text-foreground font-medium truncate mt-1">
-                            {formatBytes(machine?.disk_used)} usado de {formatBytes(machine?.disk_total)}
+                            {formatBytes(machine?.disk_used)} de {formatBytes(machine?.disk_total)}
                           </p>
                         </div>
                         <div className="mt-3 space-y-1.5 pt-2 border-t border-border/20">
@@ -1110,7 +1119,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             )}
                           />
                           <div className="flex justify-between items-center text-[9px] text-muted-foreground">
-                            <span>Disponível: <strong className="text-foreground">{machine?.disk_total && machine?.disk_used != null ? formatBytes(Math.max(0, machine.disk_total - machine.disk_used)) : '–'}</strong></span>
+                            <span>Livre: <strong className="text-foreground">{machine?.disk_total && machine?.disk_used != null ? formatBytes(Math.max(0, machine.disk_total - machine.disk_used)) : '–'}</strong></span>
                             <span>Total: <strong className="text-foreground">{formatBytes(machine?.disk_total)}</strong></span>
                           </div>
                         </div>
@@ -1118,17 +1127,17 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
 
                       {/* Card 4: Uptime & Agent Connectivity */}
                       <Card className="p-4 bg-muted/20 hover:bg-muted/30 transition-all border-border/40 flex flex-col justify-between shadow-sm relative overflow-hidden group">
-                        <div className="flex items-center justify-between gap-1 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-4 h-4 text-emerald-500" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Clock className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
                               Uptime &amp; Conexão
                             </span>
                           </div>
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[9px] font-bold uppercase px-1.5 py-0 gap-1",
+                              "text-[9px] font-bold uppercase px-1.5 py-0 gap-1 shrink-0",
                               isOnline
                                 ? isAlertState
                                   ? "text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10"
@@ -1146,7 +1155,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                                   : "bg-red-500"
                               )}
                             />
-                            {isOnline ? (isAlertState ? "Online (Alerta)" : "Online") : "Offline"}
+                            {isOnline ? (isAlertState ? "Alerta" : "Online") : "Offline"}
                           </Badge>
                         </div>
                         <div>
@@ -1154,7 +1163,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-foreground">
                               {formatUptime(machine?.uptime)}
                             </span>
-                            <span className="text-[10px] text-muted-foreground font-mono">
+                            <span className="text-[10px] text-muted-foreground font-mono shrink-0">
                               v{machine?.agent_version || '1.0.0'}
                             </span>
                           </div>
@@ -1167,7 +1176,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                         <div className="mt-3 space-y-1.5 pt-2 border-t border-border/20">
                           <div className="flex justify-between items-center text-[9px] text-muted-foreground">
                             <span>IP: <strong className="text-foreground font-mono">{ipAddress}</strong></span>
-                            <span>Host: <strong className="text-foreground">{machine?.hostname}</strong></span>
+                            <span>Host: <strong className="text-foreground truncate max-w-[90px] inline-block align-bottom">{machine?.hostname}</strong></span>
                           </div>
                         </div>
                       </Card>
@@ -1185,246 +1194,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                     />
                   </section>
 
-                  {/* Seção 3: Detalhamento de Hardware & Discos Particionados */}
-                  <section className="space-y-3">
-                    <div className="flex items-center justify-between px-1">
-                      <h3 className="text-xs font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
-                        <HardDrive className="w-4 h-4 text-amber-500" />
-                        Detalhamento de Hardware &amp; Discos Particionados
-                      </h3>
-                      <span className="text-[10px] text-muted-foreground">
-                        Volumes físicos e lógicos
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {Array.isArray(detail?.hardware?.disks) && detail.hardware.disks.length > 0 ? (
-                        detail.hardware.disks.map((d: any, idx: number) => {
-                          const mount = d.mountpoint || d.mount_point || d.path || d.name || `Volume #${idx + 1}`;
-                          const fs = d.fs_type || d.fstype || d.file_system || 'NTFS';
-                          const used = d.used ?? 0;
-                          const total = d.total ?? d.size ?? 0;
-                          const diskPct = pct(used, total);
-                          return (
-                            <Card key={idx} className="p-4 bg-muted/15 border-border/40 space-y-3 shadow-none hover:bg-muted/25 transition-colors">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                                    <HardDrive className="w-4 h-4" />
-                                  </div>
-                                  <div>
-                                    <span className="text-xs font-bold text-foreground block">{mount}</span>
-                                    <span className="text-[10px] text-muted-foreground font-mono">{fs}</span>
-                                  </div>
-                                </div>
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    "text-[10px] font-bold font-mono",
-                                    diskPct > 90
-                                      ? "text-red-500 border-red-500/30 bg-red-500/10"
-                                      : diskPct > 75
-                                      ? "text-amber-500 border-amber-500/30 bg-amber-500/10"
-                                      : "text-emerald-600 border-emerald-500/30 bg-emerald-500/5"
-                                  )}
-                                >
-                                  {diskPct}% em uso
-                                </Badge>
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <Progress
-                                  value={diskPct}
-                                  className={cn(
-                                    "h-2",
-                                    diskPct > 90
-                                      ? "[&>div]:bg-red-500"
-                                      : diskPct > 75
-                                      ? "[&>div]:bg-amber-500"
-                                      : "[&>div]:bg-primary"
-                                  )}
-                                />
-                                <div className="flex justify-between items-center text-[10px] text-muted-foreground">
-                                  <span>Usado: <strong className="text-foreground">{formatBytes(used)}</strong></span>
-                                  <span>Livre: <strong className="text-foreground">{formatBytes(Math.max(0, total - used))}</strong></span>
-                                  <span>Total: <strong className="text-foreground">{formatBytes(total)}</strong></span>
-                                </div>
-                              </div>
-                            </Card>
-                          );
-                        })
-                      ) : (
-                        <Card className="p-4 bg-muted/15 border-border/40 space-y-3 shadow-none sm:col-span-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                                <HardDrive className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <span className="text-xs font-bold text-foreground block">Volume Principal do Sistema (C:)</span>
-                                <span className="text-[10px] text-muted-foreground font-mono">NTFS / Partição Ativa</span>
-                              </div>
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[10px] font-bold font-mono",
-                                diskUsagePct > 90
-                                  ? "text-red-500 border-red-500/30 bg-red-500/10"
-                                  : diskUsagePct > 75
-                                  ? "text-amber-500 border-amber-500/30 bg-amber-500/10"
-                                  : "text-emerald-600 border-emerald-500/30 bg-emerald-500/5"
-                              )}
-                            >
-                              {diskUsagePct}% em uso
-                            </Badge>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <Progress
-                              value={diskUsagePct}
-                              className={cn(
-                                "h-2",
-                                diskUsagePct > 90
-                                  ? "[&>div]:bg-red-500"
-                                  : diskUsagePct > 75
-                                  ? "[&>div]:bg-amber-500"
-                                  : "[&>div]:bg-primary"
-                              )}
-                            />
-                            <div className="flex justify-between items-center text-[10px] text-muted-foreground">
-                              <span>Usado: <strong className="text-foreground">{formatBytes(machine?.disk_used)}</strong></span>
-                              <span>
-                                Livre:{' '}
-                                <strong className="text-foreground">
-                                  {machine?.disk_total && machine?.disk_used != null
-                                    ? formatBytes(Math.max(0, machine.disk_total - machine.disk_used))
-                                    : '–'}
-                                </strong>
-                              </span>
-                              <span>Total: <strong className="text-foreground">{formatBytes(machine?.disk_total)}</strong></span>
-                            </div>
-                          </div>
-                        </Card>
-                      )}
-                    </div>
-                  </section>
-
-                  {/* Seção 4: Adaptadores de Rede & Conectividade */}
-                  <section className="space-y-3">
-                    <div className="flex items-center justify-between px-1">
-                      <h3 className="text-xs font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
-                        <Network className="w-4 h-4 text-sky-500" />
-                        Adaptadores de Rede &amp; Conectividade
-                      </h3>
-                      <span className="text-[10px] text-muted-foreground">
-                        Interfaces físicas e virtuais detectadas
-                      </span>
-                    </div>
-
-                    <Card className="border-border/40 bg-card/60 overflow-hidden shadow-sm">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-muted/30 border-b border-border/30 text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
-                            <tr>
-                              <th className="px-4 py-2.5">Interface de Rede</th>
-                              <th className="px-4 py-2.5">Endereço IP (IPv4 / IPv6)</th>
-                              <th className="px-4 py-2.5">Endereço MAC</th>
-                              <th className="px-4 py-2.5 text-right">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border/20">
-                            {Array.isArray(detail?.hardware?.network_interfaces) &&
-                            detail.hardware.network_interfaces.length > 0 ? (
-                              detail.hardware.network_interfaces.map((iface: any, idx: number) => {
-                                const name = iface.name || iface.interface_name || `Interface ${idx + 1}`;
-                                const mac = iface.mac || iface.mac_address || '–';
-                                const ips: string[] = Array.isArray(iface.ips)
-                                  ? iface.ips
-                                  : iface.ip
-                                  ? [iface.ip]
-                                  : iface.ip_address
-                                  ? [iface.ip_address]
-                                  : [];
-
-                                return (
-                                  <tr key={idx} className="hover:bg-muted/20 transition-colors">
-                                    <td className="px-4 py-3 font-semibold text-foreground flex items-center gap-2">
-                                      <Network className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
-                                      <span>{name}</span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <div className="flex flex-wrap gap-1">
-                                        {ips.length > 0 ? (
-                                          ips.map((ip, i) => (
-                                            <Badge key={i} variant="outline" className="font-mono text-[10px] bg-muted/40 text-foreground">
-                                              {ip}
-                                            </Badge>
-                                          ))
-                                        ) : (
-                                          <span className="text-muted-foreground text-[11px]">N/A</span>
-                                        )}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
-                                      {mac}
-                                    </td>
-                                    <td className="px-4 py-3 text-right">
-                                      <Badge
-                                        variant="outline"
-                                        className={cn(
-                                          "text-[9px] font-semibold",
-                                          isOnline
-                                            ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5"
-                                            : "text-muted-foreground border-border/30"
-                                        )}
-                                      >
-                                        {isOnline ? "Conectado" : "Offline"}
-                                      </Badge>
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            ) : (
-                              <tr className="hover:bg-muted/20 transition-colors">
-                                <td className="px-4 py-3 font-semibold text-foreground flex items-center gap-2">
-                                  <Network className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
-                                  <span>Adaptador Principal do Host</span>
-                                </td>
-                                <td className="px-4 py-3">
-                                  {ipAddress !== '–' ? (
-                                    <Badge variant="outline" className="font-mono text-[10px] bg-muted/40 text-foreground">
-                                      {ipAddress}
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-muted-foreground text-[11px]">Não identificado</span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
-                                  {macAddress}
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                  <Badge
-                                    variant="outline"
-                                    className={cn(
-                                      "text-[9px] font-semibold",
-                                      isOnline
-                                        ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5"
-                                        : "text-muted-foreground border-border/30"
-                                    )}
-                                  >
-                                    {isOnline ? "Conectado" : "Offline"}
-                                  </Badge>
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </Card>
-                  </section>
-
-                  {/* Seção 5: Bateria & Conformidade de Segurança */}
+                  {/* Seção 3: Bateria & Conformidade de Segurança */}
                   <section className="space-y-3">
                     <div className="flex items-center justify-between px-1">
                       <h3 className="text-xs font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
@@ -1451,34 +1221,14 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                   </section>
                 </TabsContent>
 
-                {/* ── Security & Compliance tab ── */}
-                <TabsContent value="security" className="mt-0 space-y-6">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-sm font-bold text-foreground">Segurança &amp; Conformidade do Endpoint</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Visão aprofundada dos módulos de proteção, antivírus, criptografia BitLocker e softwares de acesso remoto.
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* 1. Endpoint Security */}
-                      <EndpointSecurityCard securityInfo={securityInfo} />
-
-                      {/* 2. Remote Access Software */}
-                      <RemoteSoftwareCard remoteSoftware={remoteSoftware} />
-
-                      {/* 3. Battery & Mobility */}
-                      {batteryInfo?.has_battery && (
-                        <BatteryMobilityCard batteryInfo={batteryInfo} />
-                      )}
-                    </div>
-                  </div>
-                </TabsContent>
-
                 {/* ── Inventory tab ── */}
                 <TabsContent value="inventory" className="mt-0">
-                  <InventoryTab machine={machine} hardware={detail?.hardware} />
+                  <InventoryTab machine={machine} hardware={detail?.hardware} isOnline={isOnline} />
+                </TabsContent>
+
+                {/* ── Chamados tab ── */}
+                <TabsContent value="tickets" className="mt-0">
+                  <MachineTicketsTab machineId={machineId} />
                 </TabsContent>
 
                 {/* ── Terminal tab ── */}
@@ -1509,7 +1259,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
 
       {/* Excluir Máquina Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-2xl">
+        <AlertDialogContent className="rounded-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="w-5 h-5" />
@@ -1521,11 +1271,11 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl font-bold">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-md font-bold">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteMachine}
               disabled={deleteMachine.isPending}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl"
+              className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-md"
             >
               {deleteMachine.isPending ? 'Excluindo...' : 'Sim, Excluir Registro'}
             </AlertDialogAction>

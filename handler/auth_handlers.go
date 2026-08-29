@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +12,52 @@ import (
 
 	"orion-api/lib"
 )
+
+// nomeRequisitante decide o nome exibido no chamado/perfil-fantasma da
+// máquina. Reflete quem está logado no Windows AGORA (currentUser, gravado
+// em machines.current_user a cada heartbeat — 60s), não fica travado no
+// primeiro usuário que já usou a máquina: ela pode trocar de setor/pessoa e
+// o requester do chamado precisa acompanhar quem realmente abriu, não quem
+// usava a máquina há meses. O e-mail-fantasma que autentica a sessão segue
+// fixo por máquina (não muda, ver machineEmail em machineLogin) — só o nome
+// exibido muda.
+func nomeRequisitante(hostname string, currentUser *string) string {
+	if currentUser != nil && *currentUser != "" {
+		return fmt.Sprintf("%s (%s)", *currentUser, hostname)
+	}
+	return fmt.Sprintf("Suporte (%s)", hostname)
+}
+
+// requesterUserMaxLen é generoso o bastante pra "DOMINIO\usuario" em
+// qualquer AD real, mas finito — nunca confiar num valor de query string
+// pra crescer sem limite dentro de profiles.full_name.
+const requesterUserMaxLen = 128
+
+// sanitizarRequesterUser limpa o parâmetro requester_user (ver
+// orion-agent/service/windows.go anexarUsuarioAtual) antes de usá-lo como
+// nome de exibição: remove caracteres de controle (newline incluso — evita
+// que um valor malicioso quebre visualmente o full_name ou linhas de log
+// que o imprimam) e corta num tamanho razoável. Só afeta o TEXTO exibido
+// pro requisitante do chamado — nunca é usado como chave de identidade,
+// autenticação ou autorização (essas continuam vindo do machine_token).
+func sanitizarRequesterUser(bruto string) string {
+	bruto = strings.TrimSpace(bruto)
+	if bruto == "" {
+		return ""
+	}
+	var sb strings.Builder
+	for _, r := range bruto {
+		if r < 0x20 || r == 0x7f {
+			continue
+		}
+		sb.WriteRune(r)
+	}
+	limpo := strings.TrimSpace(sb.String())
+	if len(limpo) > requesterUserMaxLen {
+		limpo = limpo[:requesterUserMaxLen]
+	}
+	return limpo
+}
 
 // machineLogin lida com o acesso simplificado (passwordless) para máquinas que possuem o Orion Agent.
 // Este endpoint é chamado quando o usuário clica em "Abrir Portal" no menu da bandeja do Windows.
@@ -28,6 +75,20 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 			"error": "muitas tentativas — aguarde um minuto e tente novamente",
 		})
 		return
+	}
+	if db != nil {
+		rlCtx, rlCancel := context.WithTimeout(r.Context(), 2*time.Second)
+		allowed, rlErr := db.CheckRateLimit(rlCtx, "machine-login:"+ip, 60, 20)
+		rlCancel()
+		if rlErr != nil {
+			log.Printf("[aviso] machine-login: falha ao checar rate limit persistente para IP %s: %v", ip, rlErr)
+		} else if !allowed {
+			log.Printf("[ALERTA] machine-login: limite de taxa (persistente, cross-instância) excedido para IP %s", ip)
+			lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{
+				"error": "muitas tentativas — aguarde um minuto e tente novamente",
+			})
+			return
+		}
 	}
 
 	// 1. Extraímos o token que identifica essa instalação específica do agente.
@@ -64,12 +125,22 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Montamos a identidade digital desta máquina no sistema.
 	// Criamos um e-mail técnico interno para que o Supabase Auth possa gerenciar a sessão.
-	tokenPrefix := token
-	if len(token) > 12 {
-		tokenPrefix = token[:12]
+	machineEmail := lib.MachineGhostEmail(token)
+
+	// requester_user: usuário Windows/AD resolvido pelo agente NA HORA DO
+	// CLIQUE (ver anexarUsuarioAtual em orion-agent/service/windows.go),
+	// não o m.CurrentUser gravado no último heartbeat — que pode ter até um
+	// ciclo inteiro (30-60s) de defasagem se a máquina tiver trocado de
+	// usuário nesse meio-tempo. Prioridade sobre m.CurrentUser quando
+	// presente; cai de volta pro valor do heartbeat se o agente não
+	// conseguiu resolver a sessão ativa (ex: sem console interativo) ou se
+	// quem gerou o link foi um agente antigo que ainda não manda esse
+	// parâmetro.
+	currentUser := m.CurrentUser
+	if requesterUser := sanitizarRequesterUser(r.URL.Query().Get("requester_user")); requesterUser != "" {
+		currentUser = &requesterUser
 	}
-	machineEmail := strings.ToLower(fmt.Sprintf("machine-%s@orion.internal", tokenPrefix))
-	machineName := fmt.Sprintf("Suporte (%s)", m.Hostname)
+	machineName := nomeRequisitante(m.Hostname, currentUser)
 
 	// 4. Verificamos se esta máquina já tem um "usuário-fantasma" registrado.
 	var profileUpdate lib.ProfileUpdate

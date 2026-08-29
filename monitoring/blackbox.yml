@@ -1,0 +1,43 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [200, 204, 301, 302]
+      follow_redirects: true
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      preferred_ip_protocol: ip4
+
+  # Tolerante a 403 -- alguns sites de clientes ficam atras de um WAF
+  # (Cloudflare Bot Fight Mode e afins) que bloqueia o probe do blackbox
+  # com 403 mesmo o site estando no ar de verdade. Nao temos como
+  # desativar isso no Cloudflare do CLIENTE (diferente do que fizemos
+  # pro proprio orion.bysam.dev), entao aceitar 403 como "site no ar"
+  # e o unico jeito de parar o falso alarme sem abrir mao do monitoramento.
+  http_tolerant:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [200, 204, 301, 302, 403]
+      follow_redirects: true
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      preferred_ip_protocol: ip4
+
+  http_post_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      method: POST
+      preferred_ip_protocol: ip4
+
+  icmp:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: ip4
+
+  tcp_connect:
+    prober: tcp
+    timeout: 5s

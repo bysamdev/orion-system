@@ -16,7 +16,7 @@ interface AssetTopologyGraphProps {
 type Camada = 'borda' | 'rede' | 'estacoes';
 
 const CAMADAS: Array<{ id: Camada; titulo: string; descricao: string; icone: React.ElementType }> = [
-  { id: 'borda', titulo: 'Borda e Servidores', descricao: 'Gateways, firewalls e servidores', icone: Server },
+  { id: 'borda', titulo: 'Servidores', descricao: 'Servidores e controladores centrais', icone: Server },
   { id: 'rede', titulo: 'Rede', descricao: 'Switches e concentradores', icone: Router },
   { id: 'estacoes', titulo: 'Estações de Trabalho', descricao: 'Computadores e notebooks', icone: Laptop },
 ];
@@ -142,42 +142,70 @@ export const AssetTopologyGraph: React.FC<AssetTopologyGraphProps> = ({
             </div>
           </CardHeader>
 
-          <CardContent className="p-5 space-y-6">
-            {grupo.camadas.map((camada, i) => (
-              <div key={camada.id}>
-                <div className="flex items-baseline gap-2 mb-3">
-                  <camada.icone className="w-4 h-4 text-muted-foreground shrink-0 self-center" />
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
-                    {camada.titulo}
-                  </h3>
-                  <span className="text-xs text-muted-foreground">· {camada.descricao}</span>
-                  <span className="ml-auto text-xs font-medium tabular-nums text-muted-foreground">
-                    {camada.itens.length}
-                  </span>
-                </div>
+          <CardContent className="p-5">
+            {/* Espinha vertical: as três camadas de rede (borda → rede →
+                estações) formam um fluxo de cima pra baixo, não blocos soltos.
+                Uma linha contínua atravessa os ícones de camada; cada camada
+                puxa um traço curto até a grade de dispositivos à direita.
+                Não liga individualmente a cada dispositivo (a grade cresce
+                até dezenas de itens e não escala como árvore 1:1), mas deixa
+                a hierarquia da rede legível de imediato. */}
+            <div className="relative">
+              <div
+                aria-hidden
+                className="absolute left-[15px] top-5 bottom-5 w-px bg-border"
+              />
+              <div className="space-y-8">
+                {grupo.camadas.map((camada) => (
+                  <div key={camada.id} className="relative flex gap-4">
+                    <div className="relative z-10 flex-shrink-0 pt-0.5">
+                      <div
+                        className={cn(
+                          'flex items-center justify-center w-8 h-8 rounded-full border-2 bg-card',
+                          camada.itens.length > 0
+                            ? 'border-primary/50 text-primary'
+                            : 'border-border text-muted-foreground/50',
+                        )}
+                      >
+                        <camada.icone className="w-4 h-4" />
+                      </div>
+                    </div>
 
-                {camada.itens.length > 0 ? (
-                  // Grade de largura fixa: o flex-wrap centralizado deixava a
-                  // última linha desalinhada das anteriores.
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3">
-                    {camada.itens.map((d) => (
-                      <TopologyNode
-                        key={d.id}
-                        device={d}
-                        ativo={selecionado?.id === d.id}
-                        onClick={() => setSelecionado((atual) => (atual?.id === d.id ? null : d))}
-                      />
-                    ))}
+                    <div className="flex-1 min-w-0 pt-1.5">
+                      <div className="flex items-baseline gap-2 mb-3">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                          {camada.titulo}
+                        </h3>
+                        <span className="text-xs text-muted-foreground">· {camada.descricao}</span>
+                        <span className="ml-auto text-xs font-medium tabular-nums text-muted-foreground">
+                          {camada.itens.length}
+                        </span>
+                      </div>
+
+                      {camada.itens.length > 0 ? (
+                        // Grade de largura fixa: o flex-wrap centralizado deixava a
+                        // última linha desalinhada das anteriores.
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3">
+                          {camada.itens.map((d) => (
+                            <TopologyNode
+                              key={d.id}
+                              device={d}
+                              icone={camada.icone}
+                              ativo={selecionado?.id === d.id}
+                              onClick={() => setSelecionado((atual) => (atual?.id === d.id ? null : d))}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground py-3 px-3 rounded-lg bg-muted/30 border border-border/40">
+                          Nenhum item nesta camada.
+                        </p>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground py-3 px-3 rounded-lg bg-muted/30 border border-border/40">
-                    Nenhum item nesta camada.
-                  </p>
-                )}
-
-                {i < grupo.camadas.length - 1 && <div className="mt-6 border-t border-dashed border-border/60" />}
+                ))}
               </div>
-            ))}
+            </div>
           </CardContent>
         </Card>
       ))}
@@ -223,10 +251,12 @@ export const AssetTopologyGraph: React.FC<AssetTopologyGraphProps> = ({
 
 const TopologyNode = ({
   device,
+  icone: Icone,
   onClick,
   ativo,
 }: {
   device: DeviceItem;
+  icone: React.ElementType;
   onClick: () => void;
   ativo: boolean;
 }) => {
@@ -255,7 +285,11 @@ const TopologyNode = ({
           online ? 'bg-emerald-500' : alerta ? 'bg-amber-500' : 'bg-rose-500',
         )}
       />
-      <Network className="w-5 h-5 text-muted-foreground" />
+      {/* Ícone da própria camada (servidor/roteador/notebook), não um
+          símbolo genérico igual pra tudo — reforça visualmente em qual
+          nível da rede aquele dispositivo está, mesmo fora do contexto da
+          seção. */}
+      <Icone className="w-5 h-5 text-muted-foreground" />
       <span className="text-xs font-semibold text-foreground truncate w-full" title={nome}>
         {nome}
       </span>

@@ -2,6 +2,8 @@ module orion-agent
 
 go 1.23.0
 
+toolchain go1.26.6
+
 require (
 	github.com/getlantern/systray v1.2.2
 	github.com/kardianos/service v1.2.2

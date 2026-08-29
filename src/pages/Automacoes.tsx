@@ -8,26 +8,20 @@ import { HistoryTab } from '@/components/automation/HistoryTab';
 import { TemplatesTab } from '@/components/automation/TemplatesTab';
 import { SLATab } from '@/components/automation/SLATab';
 import { Clock } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 const Automacoes: React.FC = () => {
   const { data: profile } = useUserProfile();
   const companyId = profile?.company_id ?? '';
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-
-        <div className="flex items-center gap-4 mb-8">
-          <div className="p-3 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
-            <GitBranch className="w-7 h-7" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight">Motor de Automação</h1>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
-              Regras · Gatilhos · Workflows
-            </p>
-          </div>
-        </div>
+    <div className="w-full space-y-6">
+      <PageHeader
+        icon={GitBranch}
+        badge="TRIAGEM & WORKFLOWS"
+        title="Automações"
+        description="Regras inteligentes de triagem, roteamento de chamados e execução de rotinas."
+      />
 
         {!companyId ? (
           <Card className="border-dashed">
@@ -37,17 +31,17 @@ const Automacoes: React.FC = () => {
           </Card>
         ) : (
           <Tabs defaultValue="rules" className="space-y-6">
-            <TabsList className="bg-muted/40 border border-border/50 h-11 p-1">
-              <TabsTrigger value="rules" className="gap-2 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <TabsList>
+              <TabsTrigger value="rules" className="gap-2">
                 <GitBranch className="w-4 h-4" /> Regras
               </TabsTrigger>
-              <TabsTrigger value="history" className="gap-2 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsTrigger value="history" className="gap-2">
                 <History className="w-4 h-4" /> Histórico
               </TabsTrigger>
-              <TabsTrigger value="sla" className="gap-2 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsTrigger value="sla" className="gap-2">
                 <Clock className="w-4 h-4" /> SLA & Contratos
               </TabsTrigger>
-              <TabsTrigger value="templates" className="gap-2 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsTrigger value="templates" className="gap-2">
                 <Zap className="w-4 h-4" /> Templates
               </TabsTrigger>
             </TabsList>
@@ -58,7 +52,6 @@ const Automacoes: React.FC = () => {
             <TabsContent value="templates"><TemplatesTab companyId={companyId} /></TabsContent>
           </Tabs>
         )}
-      </main>
     </div>
   );
 };

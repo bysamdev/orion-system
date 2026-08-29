@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
 )
 
 var (
@@ -115,6 +116,40 @@ func usuarioDaSessaoAtiva() (dominio, usuario, sid string, err error) {
 		return dominio, usuario, "", nil
 	}
 	return dominio, usuario, sidResolvido.String(), nil
+}
+
+// ultimoUsuarioLogado lê HKLM\...\Authentication\LogonUI\LastLoggedOnUser —
+// o Windows grava esse valor a cada logon interativo bem-sucedido,
+// independente de quem está perguntando. Diferente de usuarioDaSessaoAtiva
+// (que exige consultar a sessão de OUTRO processo via WTS, permissão que a
+// conta de serviço NT SERVICE\OrionAgent não tem — ver A.4), isto é uma
+// leitura de registro comum, sem checagem cross-session.
+//
+// Fallback de dois estágios, não substituto: não reflete quem está logado
+// agora neste segundo (pode estar desatualizado se um usuário diferente
+// logou por RDP e saiu, por exemplo), mas é muito melhor que reportar a
+// própria conta de serviço — o problema que motivou essa função.
+func ultimoUsuarioLogado() (dominio, usuario string) {
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI`, registry.QUERY_VALUE)
+	if err != nil {
+		return "", ""
+	}
+	defer k.Close()
+
+	val, _, err := k.GetStringValue("LastLoggedOnUser")
+	if err != nil {
+		return "", ""
+	}
+	val = strings.TrimSpace(val)
+	if val == "" {
+		return "", ""
+	}
+
+	partes := strings.SplitN(val, `\`, 2)
+	if len(partes) == 2 {
+		return strings.TrimSpace(partes[0]), strings.TrimSpace(partes[1])
+	}
+	return "", val
 }
 
 func consultarSessao(sessionID uint32, infoClass wtsInfoClass) (string, error) {

@@ -6,6 +6,7 @@ import { ticketStatusSchema, ticketPrioritySchema, ticketUpdateSchema } from '@/
 import { mapDatabaseError, logError } from '@/lib/error-handling';
 import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpers';
 import { MOCK_TICKETS, getMockTicketsByStatus } from '@/mocks/tickets';
+import { construirFiltroPeriodoRelatorio } from '@/lib/reports/aggregations';
 
 export interface Ticket {
   id: string;
@@ -49,14 +50,26 @@ export interface TicketUpdate {
   is_internal: boolean;
 }
 
-export const useTickets = (status?: string) => {
+interface DateRangeArgs {
+  dateFrom: string;
+  dateTo: string;
+}
+
+// Teto de segurança, não paginação de UI: esta query não tem controles de
+// página (diferente de useMeusTickets em useMyTickets.ts, que já pagina de
+// verdade via .range()). Sem isso, uma chamada sem status nem dateRange
+// buscaria a tabela tickets inteira. order('created_at', desc) garante que
+// o corte mantém os mais recentes.
+const TICKET_LIST_SAFETY_LIMIT = 1000;
+
+export const useTickets = (status?: string, dateRange?: DateRangeArgs) => {
   return useQuery({
-    queryKey: ['tickets', status],
+    queryKey: ['tickets', status, dateRange],
     queryFn: async () => {
       if (import.meta.env.DEV) {
         return getMockTicketsByStatus(status) as unknown as Promise<Ticket[]>;
       }
-      
+
       // Use read client for queries
       let query = supabase
         .from('tickets')
@@ -73,6 +86,15 @@ export const useTickets = (status?: string) => {
           query = query.eq('status', status);
         }
       }
+
+      if (dateRange) {
+        // Sem isso, Reports.tsx buscava a tabela de tickets inteira da
+        // empresa a cada carregamento e só filtrava depois no cliente — não
+        // escala conforme o histórico cresce.
+        query = query.or(construirFiltroPeriodoRelatorio(dateRange));
+      }
+
+      query = query.limit(TICKET_LIST_SAFETY_LIMIT);
 
       const { data: tickets, error } = await query;
 
@@ -365,7 +387,12 @@ export const useUpdateTicketAssignment = () => {
       updateContent
     }: UpdateAssignmentParams) => {
       const updateData: Database['public']['Tables']['tickets']['Update'] = { assigned_to };
-      if (assigned_to_user_id !== undefined) {
+      // Mesmo invariante do useEscalateTicket: desatribuir (assigned_to
+      // null) sempre limpa assigned_to_user_id junto, mesmo que o chamador
+      // não tenha passado o campo explicitamente.
+      if (assigned_to === null) {
+        updateData.assigned_to_user_id = null;
+      } else if (assigned_to_user_id !== undefined) {
         updateData.assigned_to_user_id = assigned_to_user_id;
       }
 
@@ -493,7 +520,15 @@ export const useAssumeTicket = () => {
           }]);
 
         if (timelineError) {
-          console.warn('[useAssumeTicket] Falha ao registrar timeline:', timelineError);
+          // A atribuição/status já foi gravada -- não desfazemos (o
+          // técnico já assumiu de fato). Mas sem essa linha em
+          // ticket_updates, create_notification_on_ticket_update() nunca
+          // dispara: o dono do chamado não é avisado, e não sobra registro
+          // na timeline/auditoria. Lançar aqui garante que o onError
+          // avise o técnico em vez do toast de sucesso mentir sobre o que
+          // aconteceu de fato.
+          console.error('[useAssumeTicket] Falha ao registrar timeline:', timelineError);
+          throw new Error('Chamado assumido, mas falhou ao registrar na timeline -- o dono do chamado pode não ser notificado. Adicione um comentário manualmente.');
         }
       }
 
@@ -721,6 +756,7 @@ export interface EscalateTicketParams {
   last_updated_at?: string | null;
   currentPriority?: string;
   currentAssignedTo?: string | null;
+  currentAssignedToUserId?: string | null;
 }
 
 export const useEscalateTicket = () => {
@@ -736,6 +772,7 @@ export const useEscalateTicket = () => {
       last_updated_at,
       currentPriority,
       currentAssignedTo,
+      currentAssignedToUserId,
     }: EscalateTicketParams) => {
       const targetAssignedTo = technicianName === 'unassigned' ? null : technicianName;
       const priorityChanged = newPriority !== currentPriority;
@@ -745,7 +782,14 @@ export const useEscalateTicket = () => {
       if (priorityChanged) updateData.priority = newPriority;
       if (assignmentChanged) {
         updateData.assigned_to = targetAssignedTo;
-        if (technicianUserId !== undefined) {
+        // targetAssignedTo === null significa "voltar pra Fila Geral" --
+        // limpa assigned_to_user_id junto, sempre. Sem isso, escalar pra
+        // "unassigned" zera o nome textual mas deixa o UUID antigo órfão
+        // (technicianUserId vem undefined nesse caso, já que a busca por
+        // full_name não acha nada pra 'unassigned').
+        if (targetAssignedTo === null) {
+          updateData.assigned_to_user_id = null;
+        } else if (technicianUserId !== undefined) {
           updateData.assigned_to_user_id = technicianUserId;
         }
       }
@@ -819,7 +863,12 @@ export const useEscalateTicket = () => {
           try {
             const revertData: Database['public']['Tables']['tickets']['Update'] = {};
             if (priorityChanged && currentPriority) revertData.priority = currentPriority;
-            if (assignmentChanged) revertData.assigned_to = currentAssignedTo;
+            if (assignmentChanged) {
+              revertData.assigned_to = currentAssignedTo;
+              if (currentAssignedToUserId !== undefined) {
+                revertData.assigned_to_user_id = currentAssignedToUserId;
+              }
+            }
             await supabase.from('tickets').update(revertData).eq('id', id);
           } catch (revertErr) {
             console.error('[useEscalateTicket] Falha ao reverter escalação:', revertErr);

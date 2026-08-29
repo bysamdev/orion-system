@@ -203,6 +203,15 @@ func GeneratePrometheusMetrics(p *Payload) string {
 	sb.WriteString("# TYPE orion_windows_reboot_required gauge\n")
 	sb.WriteString(fmt.Sprintf("orion_windows_reboot_required{hostname=\"%s\"} %d\n", escapedHost, rebootReq))
 
+	// 15b. Windows Activation Status
+	activationStatus := 0
+	if p.Activation.Activated {
+		activationStatus = 1
+	}
+	sb.WriteString("\n# HELP orion_windows_activation_status Status de ativação da licença do Windows (1 para ativado, 0 para não ativado)\n")
+	sb.WriteString("# TYPE orion_windows_activation_status gauge\n")
+	sb.WriteString(fmt.Sprintf("orion_windows_activation_status{hostname=\"%s\",status=\"%s\"} %d\n", escapedHost, escapeLabelValue(p.Activation.Status), activationStatus))
+
 	// 16. Orion Agent Info (Metadata)
 	if p.AgentVersion != "" || p.OS != "" || p.DeviceType != "" {
 		sb.WriteString("\n# HELP orion_agent_info Metadados informativos da máquina e versão do agente Orion\n")

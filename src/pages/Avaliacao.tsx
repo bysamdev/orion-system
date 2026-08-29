@@ -71,7 +71,7 @@ export default function Avaliacao() {
         
         {/* Logo / Header */}
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4 border border-primary/20">
             <TicketIcon className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-foreground">Avaliação de Atendimento</h1>
@@ -121,10 +121,11 @@ export default function Avaliacao() {
                     key={s}
                     type="button"
                     disabled={!user}
+                    aria-label={`${s} de 5 estrelas`}
                     onMouseEnter={() => setHoveredRating(s)}
                     onMouseLeave={() => setHoveredRating(0)}
                     onClick={() => setRating(s)}
-                    className="transition-all duration-200 hover:scale-125 focus:outline-none disabled:opacity-50 disabled:hover:scale-100"
+                    className="p-1 rounded-lg transition-all duration-200 hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
                   >
                     <Star 
                       className={cn(

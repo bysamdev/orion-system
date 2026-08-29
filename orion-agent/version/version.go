@@ -6,20 +6,15 @@
 // depender de main.
 package version
 
-// Version é reportada em cada heartbeat (campo agent_version) para o
-// backend identificar agentes desatualizados na tela de Inventário de
-// Dispositivos. Antes desta introdução o campo nunca era preenchido pelo
-// agente — heartbeatReq.AgentVersion sempre chegava vazio no backend.
+// Version é reportada em cada heartbeat (campo agent_version). O backend
+// compara isto com lib.LatestAgentVersion (orion-api, módulo separado —
+// bump os dois juntos) pra decidir se enfileira uma auto-atualização pra
+// essa máquina (ver monitoringHeartbeat/enfileirarAutoUpdateSeNecessario).
 //
-// var, não const (Fase 2 do plano de escalabilidade — "agente deve reportar
-// versão", de forma que o número realmente mude a cada release): sem
-// Makefile/CI neste repositório para automatizar a injeção, o valor abaixo
-// é o fallback para quem compilar sem passar -ldflags — mas o build oficial
-// (installer-msi/build.ps1) deve injetar a versão real do release via:
+// var, não const: permite override em build via
 //
 //	go build -ldflags "-X orion-agent/version.Version=1.2.3" -o orion-agent.exe .
 //
-// Sem isso, todo binário compilado continua reportando o mesmo valor até
-// alguém editar este arquivo manualmente — o problema que esta correção
-// resolve é permitir a injeção, não obrigar seu uso.
-var Version = "1.0.0"
+// (ver installer-msi/build.ps1). Sem -ldflags, o binário reporta o valor
+// abaixo — mantenha-o em sincronia com o release real ao dar bump.
+var Version = "1.1.26"

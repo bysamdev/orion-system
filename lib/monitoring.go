@@ -31,6 +31,7 @@ type MachineRow struct {
 	Status           string           `json:"status"`
 	LastSeen         *time.Time       `json:"last_seen"`
 	AgentVersion     *string          `json:"agent_version"`
+	ApprovalStatus   *string          `json:"approval_status,omitempty"`
 	CreatedAt        time.Time        `json:"created_at"`
 	MachineToken     *string          `json:"machine_token"`
 	MachineUUID      *string          `json:"machine_uuid"`
@@ -70,12 +71,18 @@ type MetricRow struct {
 }
 
 type HardwareRow struct {
-	ID                string           `json:"id"`
-	MachineID         string           `json:"machine_id"`
-	CPUModel          *string          `json:"cpu_model"`
-	RAMSlots          []byte           `json:"ram_slots"`
-	Disks             []byte           `json:"disks"`
-	NetworkInterfaces []byte           `json:"network_interfaces"`
+	ID        string  `json:"id"`
+	MachineID string  `json:"machine_id"`
+	CPUModel  *string `json:"cpu_model"`
+	// RAMSlots/Disks/NetworkInterfaces precisam ser json.RawMessage, não
+	// []byte puro: encoding/json serializa []byte como string base64 (padrão
+	// da stdlib), então essas colunas jsonb chegavam ilegíveis no front-end
+	// (Array.isArray(hw.disks) sempre falso, "Armazenamento & Partições" e
+	// "Interfaces de Rede" sempre vazios mesmo com dado presente no banco —
+	// ver TestHardwareRowSerializaDisksComoArrayJSON).
+	RAMSlots          json.RawMessage  `json:"ram_slots"`
+	Disks             json.RawMessage  `json:"disks"`
+	NetworkInterfaces json.RawMessage  `json:"network_interfaces"`
 	GPU               *string          `json:"gpu"`
 	SecurityInfo      *json.RawMessage `json:"security_info,omitempty"`
 	RemoteSoftware    *json.RawMessage `json:"remote_software,omitempty"`
@@ -159,18 +166,78 @@ GROUP BY mg.name ORDER BY mg.name`, companyID)
 
 // MachinesByGroupID lista as máquinas de um grupo. companyID nil = sem filtro.
 func (d *DB) MachinesByGroupID(ctx context.Context, groupID string, companyID *string) ([]MachineWithMetric, error) {
+	// O snapshot de CPU/RAM/disco vem direto das colunas de machines (ver
+	// UpdateMachineSnapshot), não mais de um LEFT JOIN LATERAL em
+	// machine_metrics — essa tabela parou de crescer a cada heartbeat; o
+	// histórico de série temporal agora vive no Prometheus/Grafana (ver
+	// lib/grafana_metrics.go).
 	rows, err := d.pool.Query(ctx, `
 SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_version,
        m.status, m.last_seen, m.agent_version, m.created_at,
-       m.domain, m.mac_address, m.current_user,
-       hw.security_info, hw.remote_software, hw.battery_info, hw.update_status,
+       CASE
+         WHEN m.domain IS NOT NULL AND m.domain <> 'WORKGROUP' AND m.domain <> 'NT SERVICE' AND m.domain <> 'local' AND m.domain <> m.hostname THEN m.domain
+         WHEN mg.name IS NOT NULL THEN mg.name
+         ELSE 'Geral'
+       END AS domain,
+       m.mac_address, m.current_user,
+       hw.security_info,
        m.cpu_usage, m.ram_total, m.ram_used, m.disk_total, m.disk_used, m.uptime, m.metrics_collected_at
 FROM public.machines m
 JOIN public.machine_groups mg ON mg.id = m.group_id
 LEFT JOIN public.machine_hardware hw ON hw.machine_id = m.id
 WHERE mg.name = (SELECT name FROM public.machine_groups WHERE id = $1)
+  AND m.approval_status = 'approved'
   AND ($2::uuid IS NULL OR m.company_id = $2::uuid)
 ORDER BY m.hostname`, groupID, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MachineWithMetric
+	for rows.Next() {
+		var r MachineWithMetric
+		// remote_software/battery_info/update_status ficam de fora desta
+		// listagem (Correção A.15, PERFORMANCE.md §4.2): nenhuma tela que
+		// renderiza a listagem de máquinas (MachineCard.tsx) lê esses três
+		// campos — só o drawer de detalhe lê, e já busca o próprio hardware
+		// completo via monitoringMachineDetail/MachineHardwareByMachineID.
+		// security_info continua aqui porque MachineCard usa direto pro
+		// badge "Sem Antivírus" na grade. Isso tira 3 blobs JSONB do
+		// payload de um polling que roda a cada ciclo pra N máquinas.
+		if err := rows.Scan(&r.ID, &r.GroupID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
+			&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt,
+			&r.Domain, &r.MACAddress, &r.CurrentUser,
+			&r.SecurityInfo,
+			&r.CPUUsage, &r.RAMTotal, &r.RAMUsed, &r.DiskTotal, &r.DiskUsed, &r.Uptime, &r.CollectedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// AllMachines lista todas as máquinas aprovadas (de todos os grupos) numa
+// única query — substitui o padrão anterior do front-end de 1 request por
+// grupo (useAllMachines em useMonitoring.ts fazia Promise.all sobre
+// MachinesByGroupID por grupo). companyID nil = todas as empresas.
+func (d *DB) AllMachines(ctx context.Context, companyID *string) ([]MachineWithMetric, error) {
+	rows, err := d.pool.Query(ctx, `
+SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_version,
+       m.status, m.last_seen, m.agent_version, m.created_at,
+       CASE
+         WHEN m.domain IS NOT NULL AND m.domain <> 'WORKGROUP' AND m.domain <> 'NT SERVICE' AND m.domain <> 'local' AND m.domain <> m.hostname THEN m.domain
+         WHEN mg.name IS NOT NULL THEN mg.name
+         ELSE 'Geral'
+       END AS domain,
+       m.mac_address, m.current_user,
+       hw.security_info,
+       m.cpu_usage, m.ram_total, m.ram_used, m.disk_total, m.disk_used, m.uptime, m.metrics_collected_at
+FROM public.machines m
+LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
+LEFT JOIN public.machine_hardware hw ON hw.machine_id = m.id
+WHERE m.approval_status = 'approved'
+  AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
+ORDER BY m.hostname`, companyID)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +248,7 @@ ORDER BY m.hostname`, groupID, companyID)
 		if err := rows.Scan(&r.ID, &r.GroupID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
 			&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt,
 			&r.Domain, &r.MACAddress, &r.CurrentUser,
-			&r.SecurityInfo, &r.RemoteSoftware, &r.BatteryInfo, &r.UpdateStatus,
+			&r.SecurityInfo,
 			&r.CPUUsage, &r.RAMTotal, &r.RAMUsed, &r.DiskTotal, &r.DiskUsed, &r.Uptime, &r.CollectedAt); err != nil {
 			return nil, err
 		}
@@ -190,15 +257,49 @@ ORDER BY m.hostname`, groupID, companyID)
 	return out, rows.Err()
 }
 
+// MachineGhostEmail deriva o e-mail-fantasma que identifica a sessão do
+// usuário-fantasma de uma máquina (ver machineLogin, handler/auth_handlers.go)
+// a partir do machine_token — mesma lógica usada ali, extraída pra cá pra
+// não duplicar quando outro ponto do backend precisa resolver "qual
+// usuário-fantasma pertence a esta máquina" (ver
+// monitoringMachineTickets: histórico de chamados por máquina, que
+// reaproveita esse e-mail pra achar o user_id sem precisar de nenhuma
+// coluna nova ligando machines a profiles).
+func MachineGhostEmail(token string) string {
+	prefix := token
+	if len(token) > 12 {
+		prefix = token[:12]
+	}
+	return strings.ToLower(fmt.Sprintf("machine-%s@orion.internal", prefix))
+}
+
+// MachineTokenAndCompanyByID busca só o machine_token e a company_id de uma
+// máquina — nunca exposto em nenhuma resposta JSON pro front-end (ao
+// contrário de MachineByID/MachineRow, que o painel lê direto); existe só
+// pro uso interno do backend precisar recalcular MachineGhostEmail sem
+// arriscar esse token vazar pra fora por engano.
+func (d *DB) MachineTokenAndCompanyByID(ctx context.Context, id string) (token string, companyID *string, err error) {
+	err = d.pool.QueryRow(ctx, `SELECT machine_token, company_id::text FROM public.machines WHERE id = $1`, id).Scan(&token, &companyID)
+	return token, companyID, err
+}
+
 func (d *DB) MachineByID(ctx context.Context, id string) (*MachineRow, error) {
 	var r MachineRow
 	err := d.pool.QueryRow(ctx, `
-SELECT id::text, group_id::text, company_id::text, hostname, ip_address, os, os_version,
-       status, last_seen, agent_version, created_at, domain, mac_address, "current_user",
-       device_type, device_type_reason, device_type_locked
-FROM public.machines WHERE id = $1`, id).Scan(
+SELECT m.id::text, m.group_id::text, m.company_id::text, m.hostname, m.ip_address, m.os, m.os_version,
+       m.status, m.last_seen, m.agent_version, m.approval_status, m.created_at,
+       CASE
+         WHEN m.domain IS NOT NULL AND m.domain <> 'WORKGROUP' AND m.domain <> 'NT SERVICE' AND m.domain <> 'local' AND m.domain <> m.hostname THEN m.domain
+         WHEN mg.name IS NOT NULL THEN mg.name
+         ELSE 'Geral'
+       END AS domain,
+       m.mac_address, m."current_user",
+       m.device_type, m.device_type_reason, m.device_type_locked
+FROM public.machines m
+LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
+WHERE m.id = $1`, id).Scan(
 		&r.ID, &r.GroupID, &r.CompanyID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
-		&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt, &r.Domain, &r.MACAddress, &r.CurrentUser,
+		&r.Status, &r.LastSeen, &r.AgentVersion, &r.ApprovalStatus, &r.CreatedAt, &r.Domain, &r.MACAddress, &r.CurrentUser,
 		&r.DeviceType, &r.DeviceTypeReason, &r.DeviceTypeLocked)
 	if err != nil {
 		return nil, err
@@ -220,28 +321,6 @@ FROM public.machine_hardware WHERE machine_id = $1`, machineID).
 	return &r, nil
 }
 
-func (d *DB) MetricsByMachineID(ctx context.Context, machineID string, limit int) ([]MetricRow, error) {
-	if limit <= 0 || limit > 1000 {
-		limit = 100
-	}
-	rows, err := d.pool.Query(ctx, `
-SELECT id::text, machine_id::text, cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, collected_at
-FROM public.machine_metrics WHERE machine_id = $1 ORDER BY collected_at DESC LIMIT $2`, machineID, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []MetricRow
-	for rows.Next() {
-		var r MetricRow
-		if err := rows.Scan(&r.ID, &r.MachineID, &r.CPUUsage, &r.RAMTotal, &r.RAMUsed, &r.DiskTotal, &r.DiskUsed, &r.Uptime, &r.CollectedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, r)
-	}
-	return out, rows.Err()
-}
-
 func (d *DB) AlertsByMachineID(ctx context.Context, machineID string) ([]AlertRow, error) {
 	rows, err := d.pool.Query(ctx, `
 SELECT id::text, machine_id::text, type, severity, message, resolved, created_at
@@ -261,22 +340,52 @@ FROM public.machine_alerts WHERE machine_id = $1 AND resolved = false ORDER BY c
 	return out, rows.Err()
 }
 
-// GetOrCreateMachineGroup returns the group ID for the given domain and company.
-// If the group doesn't exist, it creates it.
+// GetOrCreateMachineGroup returns the group ID for the given company/domain.
+// If generic domain or WORKGROUP is provided, it assigns to the Company group.
 func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, companyID string) (string, error) {
-	var id string
-	// Tenta buscar primeiro restringindo por empresa caso exista
-	var query string
-	var args []any
-	if companyID != "" {
-		query = `SELECT id::text FROM public.machine_groups WHERE name = $1 AND company_id = $2`
-		args = []any{domainName, companyID}
-	} else {
-		query = `SELECT id::text FROM public.machine_groups WHERE name = $1 AND company_id IS NULL`
-		args = []any{domainName}
+	groupName := strings.TrimSpace(domainName)
+	// "." é o que WTSQuerySessionInformation(WTSDomainName) devolve pra uma
+	// sessão de conta local no Windows (sem domínio AD de verdade) — sem
+	// tratar aqui, virava nome de grupo literal "." (bug real observado em
+	// produção). O agente já foi corrigido pra nunca mais enviar isso, mas
+	// esta checagem no backend protege também os agentes já instalados que
+	// ainda não foram atualizados.
+	isGenericDomain := groupName == "" || strings.EqualFold(groupName, "WORKGROUP") || strings.EqualFold(groupName, "NT SERVICE") || strings.EqualFold(groupName, "local") || groupName == "."
+
+	if isGenericDomain && companyID != "" {
+		var companyName string
+		_ = d.pool.QueryRow(ctx, `SELECT name FROM public.companies WHERE id = $1`, companyID).Scan(&companyName)
+		if companyName != "" {
+			groupName = companyName
+		} else {
+			groupName = "Geral"
+		}
 	}
 
-	err := d.pool.QueryRow(ctx, query, args...).Scan(&id)
+	if groupName == "" {
+		groupName = "Geral"
+	}
+
+	var id string
+	if companyID != "" {
+		// Procura grupo com esse nome para a empresa, ou grupo principal da empresa
+		err := d.pool.QueryRow(ctx, `
+			SELECT id::text FROM public.machine_groups 
+			WHERE (LOWER(name) = LOWER($1) OR LOWER(name) = LOWER((SELECT name FROM public.companies WHERE id = $2))) 
+			  AND company_id = $2 
+			ORDER BY created_at ASC LIMIT 1`, groupName, companyID).Scan(&id)
+		if err == nil {
+			return id, nil
+		}
+
+		err = d.pool.QueryRow(ctx, `
+			INSERT INTO public.machine_groups (name, company_id, description)
+			VALUES ($1, $2, 'Grupo da empresa sincronizado via token')
+			RETURNING id::text`, groupName, companyID).Scan(&id)
+		return id, err
+	}
+
+	err := d.pool.QueryRow(ctx, `SELECT id::text FROM public.machine_groups WHERE LOWER(name) = LOWER($1) AND company_id IS NULL LIMIT 1`, groupName).Scan(&id)
 	if err == nil {
 		return id, nil
 	}
@@ -297,54 +406,88 @@ func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, com
 	return id, err
 }
 
-// HeartbeatUpsertInput agrupa tudo que um heartbeat de agente grava: o
-// snapshot de identidade/estado atual da máquina (machines), a leitura de
-// métricas (snapshot em machines + uma linha de histórico em
-// machine_metrics, com retenção de 7 dias — ver migration
-// 20260829120000_metrics_history_and_retention.sql). Rodam numa única
-// transação porque as duas sempre foram tratadas como fatais para o
-// heartbeat (antes: 2 round-trips sequenciais e não-atômicos, com o
-// agravante de que InsertMetric sozinho bastava para falhar o heartbeat
-// mesmo já tendo o UpsertMachine sido efetivado). O upsert de hardware
-// (machine_hardware) fica de fora de propósito e continua sendo uma
-// chamada best-effort separada — um blob de hardware malformado nunca
-// deve derrubar a atualização de identidade/status/métricas da máquina,
-// que é o que sempre foi tratado como obrigatório aqui.
-type HeartbeatUpsertInput struct {
-	// Identidade/estado (machines)
-	GroupID        string
-	Hostname       string
-	IP             string
-	OS             string
-	OSVersion      string
-	AgentVersion   string
-	MachineToken   string
-	MachineUUID    string
-	CurrentUser    string
-	CurrentUserSID string
-	CompanyID      string
-	DeviceType     string
-	MACAddress     string
-	Domain         string
-
-	// Métricas (snapshot em machines + histórico em machine_metrics)
-	CPUUsage  float64
-	RAMTotal  int64
-	RAMUsed   int64
-	DiskTotal int64
-	DiskUsed  int64
-	Uptime    int64
-
-	// DeviceTypeReason documenta o sinal que decidiu DeviceType (Fase 3) —
-	// ver orion-agent/collector/device_type.go.
-	DeviceTypeReason string
+// PendingMachineRow é o subconjunto de colunas que o admin precisa pra
+// decidir aprovar ou rejeitar uma máquina nunca vista antes — sem métricas
+// nem hardware, que não fazem sentido pra uma máquina ainda não confiável.
+type PendingMachineRow struct {
+	ID           string    `json:"id"`
+	Hostname     string    `json:"hostname"`
+	IPAddress    *string   `json:"ip_address"`
+	OS           *string   `json:"os"`
+	Domain       *string   `json:"domain"`
+	CurrentUser  *string   `json:"current_user"`
+	AgentVersion *string   `json:"agent_version"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
-// HeartbeatUpsert devolve, além do id da máquina, o device_type
-// efetivamente gravado (já considerando um eventual override travado —
-// ver device_type_locked) — o chamador usa isso para decidir a política de
-// coleta por tipo de ativo (Fase 4), sem precisar de uma segunda consulta.
-func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (machineID, deviceType string, err error) {
+// PendingMachines lista máquinas aguardando aprovação manual (ver migration
+// add_machine_approval_gate). companyID nil = todas as empresas.
+func (d *DB) PendingMachines(ctx context.Context, companyID *string) ([]PendingMachineRow, error) {
+	rows, err := d.pool.Query(ctx, `
+SELECT id::text, hostname, ip_address, os, domain, "current_user", agent_version, created_at
+FROM public.machines
+WHERE approval_status = 'pending' AND ($1::uuid IS NULL OR company_id = $1::uuid)
+ORDER BY created_at DESC`, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PendingMachineRow
+	for rows.Next() {
+		var r PendingMachineRow
+		if err := rows.Scan(&r.ID, &r.Hostname, &r.IPAddress, &r.OS, &r.Domain, &r.CurrentUser, &r.AgentVersion, &r.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ApproveMachine libera uma máquina pendente pra aparecer no painel e nos
+// contadores de dashboard. companyID nil = sem checagem de tenant (chamador
+// já validado como escopo global); caso contrário restringe à empresa do
+// chamador (SEC-02).
+func (d *DB) ApproveMachine(ctx context.Context, machineID string, companyID *string) error {
+	cmd, err := d.pool.Exec(ctx, `
+UPDATE public.machines SET approval_status = 'approved'
+WHERE id = $1 AND approval_status = 'pending' AND ($2::uuid IS NULL OR company_id = $2::uuid)`,
+		machineID, companyID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("máquina não encontrada ou já não está pendente")
+	}
+	return nil
+}
+
+// RejectMachine remove definitivamente uma máquina pendente (não é um
+// "status rejected" que fica visível em lugar nenhum do painel — é o mesmo
+// fim de uma máquina fantasma de sandbox: sai do banco, CASCADE cuida do
+// resto). companyID nil = sem checagem de tenant.
+func (d *DB) RejectMachine(ctx context.Context, machineID string, companyID *string) error {
+	cmd, err := d.pool.Exec(ctx, `
+DELETE FROM public.machines
+WHERE id = $1 AND approval_status = 'pending' AND ($2::uuid IS NULL OR company_id = $2::uuid)`,
+		machineID, companyID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("máquina não encontrada ou já não está pendente")
+	}
+	return nil
+}
+
+// UpsertMachine grava/atualiza o estado de identidade da máquina a partir de
+// um heartbeat, numa transação: além do id, devolve o device_type
+// efetivamente gravado (já considerando um eventual override travado — ver
+// device_type_locked), para o chamador decidir a política de coleta por
+// tipo de ativo (Fase 4) sem uma segunda consulta. As métricas (cpu/ram/
+// disco) NÃO entram aqui — ficam em UpdateMachineSnapshot, chamada à parte
+// pelo heartbeat, e o histórico de série temporal vive no Prometheus/
+// Grafana (ver lib/grafana_metrics.go), não numa tabela machine_metrics.
+func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, currentUserSID, companyID, deviceType, macAddress, domain, deviceTypeReason string) (id, resolvedDeviceType string, err error) {
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return "", "", err
@@ -352,7 +495,7 @@ func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (mach
 	defer tx.Rollback(ctx)
 
 	// Salva apenas o Hostname puro da máquina (sem IP ou usuário concatenados)
-	cleanHostname := strings.TrimSpace(in.Hostname)
+	cleanHostname := strings.TrimSpace(hostname)
 	if idx := strings.Index(cleanHostname, " - "); idx != -1 {
 		cleanHostname = strings.TrimSpace(cleanHostname[:idx])
 	}
@@ -362,9 +505,8 @@ func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (mach
 	// mesmo default já usado pela coluna (migration 20260811000005) para
 	// não perder classificação em heartbeats de agentes antigos ou quando a
 	// detecção falha.
-	deviceTypeAgente := in.DeviceType
-	if deviceTypeAgente == "" {
-		deviceTypeAgente = "desktop"
+	if deviceType == "" {
+		deviceType = "desktop"
 	}
 
 	// local_ip e logged_in_user duplicam, nas colunas dedicadas de
@@ -379,9 +521,8 @@ func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (mach
 	// sessão de console ativa, ou versão do agente anterior a esta
 	// correção), em vez de string vazia.
 	//
-	// cpu_usage/ram_*/disk_*/uptime/metrics_collected_at: snapshot do
-	// último heartbeat, lido diretamente por MachinesByGroupID e
-	// CriticalAlerts (current-state, sem depender de machine_metrics).
+	// company_id=COALESCE(...): preserva a empresa já atribuída em vez de
+	// deixar um heartbeat subsequente sobrescrevê-la.
 	//
 	// device_type/device_type_reason: se a máquina já existe e está com
 	// device_type_locked=true (override manual, Fase 3), o CASE abaixo
@@ -395,17 +536,16 @@ func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (mach
 WITH machine_antes AS (
   SELECT device_type FROM public.machines WHERE machine_token = $7
 )
-INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type, device_type_reason, domain, cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, metrics_collected_at)
-VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $21, $14, $15, $16, $17, $18, $19, $20, now())
+INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type, device_type_reason, domain)
+VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $15, $14)
 ON CONFLICT (machine_token) DO UPDATE
-  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=$11, local_ip=$3, logged_in_user=$9, mac_address=$12,
+  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=COALESCE(public.machines.company_id, $11), local_ip=$3, logged_in_user=$9, mac_address=$12,
       device_type = CASE WHEN machines.device_type_locked THEN machines.device_type ELSE EXCLUDED.device_type END,
       device_type_reason = CASE WHEN machines.device_type_locked THEN machines.device_type_reason ELSE EXCLUDED.device_type_reason END,
-      domain=$14, cpu_usage=$15, ram_total=$16, ram_used=$17, disk_total=$18, disk_used=$19, uptime=$20, metrics_collected_at=now()
+      domain=$14
 RETURNING id::text, (SELECT device_type FROM machine_antes), device_type`,
-		in.GroupID, cleanHostname, in.IP, in.OS, in.OSVersion, in.AgentVersion, in.MachineToken, NilIfEmpty(in.MachineUUID), in.CurrentUser, NilIfEmpty(in.CurrentUserSID), NilIfEmpty(in.CompanyID), NilIfEmpty(in.MACAddress), deviceTypeAgente, NilIfEmpty(in.Domain),
-		in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime, NilIfEmpty(in.DeviceTypeReason),
-	).Scan(&machineID, &deviceTypeAntes, &deviceType)
+		groupID, cleanHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID), NilIfEmpty(macAddress), deviceType, NilIfEmpty(domain), NilIfEmpty(deviceTypeReason),
+	).Scan(&id, &deviceTypeAntes, &resolvedDeviceType)
 	if err != nil {
 		return "", "", err
 	}
@@ -415,35 +555,27 @@ RETURNING id::text, (SELECT device_type FROM machine_antes), device_type`,
 	// primeira classificação de uma máquina nova (deviceTypeAntes == nil)
 	// quanto uma reclassificação real; uma máquina travada que continua
 	// recebendo um tipo diferente do agente NÃO gera entrada aqui, porque
-	// deviceType (o retorno da query, pós-CASE) preserva o valor antigo
-	// nesse caso.
-	if deviceTypeAntes == nil || *deviceTypeAntes != deviceType {
+	// resolvedDeviceType (o retorno da query, pós-CASE) preserva o valor
+	// antigo nesse caso.
+	if deviceTypeAntes == nil || *deviceTypeAntes != resolvedDeviceType {
 		if _, err = tx.Exec(ctx, `
 INSERT INTO public.machine_device_type_history (machine_id, old_type, new_type, reason, changed_by)
 VALUES ($1, $2, $3, $4, 'agent')`,
-			machineID, deviceTypeAntes, deviceType, NilIfEmpty(in.DeviceTypeReason)); err != nil {
+			id, deviceTypeAntes, resolvedDeviceType, NilIfEmpty(deviceTypeReason)); err != nil {
 			return "", "", err
 		}
-	}
-
-	if _, err = tx.Exec(ctx, `
-INSERT INTO public.machine_metrics
-  (machine_id, cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, collected_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
-		machineID, in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime); err != nil {
-		return "", "", err
 	}
 
 	if err = tx.Commit(ctx); err != nil {
 		return "", "", err
 	}
-	return machineID, deviceType, nil
+	return id, resolvedDeviceType, nil
 }
 
 // SetDeviceTypeOverride aplica uma correção manual de classificação de
 // dispositivo (Fase 3 do plano de escalabilidade — "permitir override
 // manual pelo Orion"): trava device_type_locked=true, para que o heartbeat
-// do agente pare de sobrescrever esta máquina (ver HeartbeatUpsert), e
+// do agente pare de sobrescrever esta máquina (ver UpsertMachine), e
 // registra a mudança em machine_device_type_history com changed_by='manual'
 // — só quando o tipo realmente muda, para não logar um "override" que
 // repete o valor já vigente.
@@ -472,6 +604,30 @@ VALUES ($1, $2, $3, 'override manual', 'manual')`, machineID, oldType, newType);
 	}
 
 	return tx.Commit(ctx)
+}
+
+type InsertMetricInput struct {
+	MachineID string
+	CPUUsage  float64
+	RAMTotal  int64
+	RAMUsed   int64
+	DiskTotal int64
+	DiskUsed  int64
+	Uptime    int64
+}
+
+// UpdateMachineSnapshot grava o valor mais recente de CPU/RAM/disco direto na
+// linha de machines (UPDATE, não INSERT) — substitui InsertMetric no caminho
+// do heartbeat. O histórico de série temporal passou a viver no Prometheus/
+// Grafana (ver lib/grafana_metrics.go); aqui fica só o "agora" que os cards
+// de listagem precisam, sem crescer uma linha por heartbeat.
+func (d *DB) UpdateMachineSnapshot(ctx context.Context, in InsertMetricInput) error {
+	_, err := d.pool.Exec(ctx, `
+UPDATE public.machines
+SET cpu_usage = $2, ram_total = $3, ram_used = $4, disk_total = $5, disk_used = $6, uptime = $7, metrics_collected_at = now()
+WHERE id = $1`,
+		in.MachineID, in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime)
+	return err
 }
 
 type UpsertHardwareInput struct {
@@ -576,23 +732,76 @@ WHERE id = $1`, machineID, status)
 }
 
 type InsertCommandInput struct {
-	MachineID string
-	Command   string
+	MachineID        string
+	Command          string
+	ExecutedByUserID *string
+	ExecutedByName   *string
 }
 
 func (d *DB) CreateCommand(ctx context.Context, in InsertCommandInput) (string, error) {
 	var id string
 	err := d.pool.QueryRow(ctx, `
-INSERT INTO public.machine_commands (machine_id, command, status)
-VALUES ($1, $2, 'pending') RETURNING id::text`, in.MachineID, in.Command).Scan(&id)
+INSERT INTO public.machine_commands (machine_id, command, status, executed_by_user_id, executed_by_name)
+VALUES ($1, $2, 'pending', $3, $4) RETURNING id::text`, in.MachineID, in.Command, NilIfEmpty(pointerToString(in.ExecutedByUserID)), NilIfEmpty(pointerToString(in.ExecutedByName))).Scan(&id)
 	return id, err
 }
 
+func pointerToString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// CommandCompanyID returns the company_id associated with the machine that owns the command.
+func (d *DB) CommandCompanyID(ctx context.Context, commandID string) (*string, error) {
+	var companyID *string
+	err := d.pool.QueryRow(ctx, `
+SELECT m.company_id::text
+FROM public.machine_commands c
+JOIN public.machines m ON m.id = c.machine_id
+WHERE c.id = $1`, commandID).Scan(&companyID)
+	return companyID, err
+}
+
+// marcadorAutoUpdate identifica, dentro do texto do comando, um comando de
+// auto-atualização gerado pelo próprio backend (ver monitoringHeartbeat) —
+// não um "orion-install" comum disparado manualmente em Instaladores &
+// Updates. Só serve pra HasPendingUpdateCommand não confundir os dois ao
+// decidir se já existe uma atualização enfileirada.
+const marcadorAutoUpdate = `--auto-update="true"`
+
+// HasPendingUpdateCommand verifica se já existe um comando de
+// auto-atualização enfileirado (pending ou dispatched, ou seja, ainda sem
+// resposta) pra essa máquina — evita empilhar um novo comando a cada
+// heartbeat (a cada IntervalSeconds, tipicamente 60s) enquanto o anterior
+// ainda está em trânsito.
+func (d *DB) HasPendingUpdateCommand(ctx context.Context, machineID string) (bool, error) {
+	var existe bool
+	err := d.pool.QueryRow(ctx, `
+SELECT EXISTS(
+  SELECT 1 FROM public.machine_commands
+  WHERE machine_id = $1 AND status IN ('pending', 'dispatched')
+    AND command LIKE '%' || $2 || '%'
+)`, machineID, marcadorAutoUpdate).Scan(&existe)
+	return existe, err
+}
+
+// GetPendingCommands busca os comandos pendentes de uma máquina e já os
+// marca como 'dispatched' na mesma query (UPDATE...RETURNING, atômico) —
+// antes era um SELECT puro deixando status='pending', então dois polls
+// (a cada 30s — ver commandTicker no agente) que caíssem antes do
+// primeiro comando terminar de executar buscavam e RODAVAM o mesmo
+// comando duas vezes em paralelo. Pra a maioria dos comandos isso já era
+// arriscado; pra auto-atualização do próprio agente (que pode passar de
+// 30s: download + parar serviço + trocar exe + subir de novo) virava dois
+// instaladores mexendo no mesmo serviço/arquivo ao mesmo tempo.
 func (d *DB) GetPendingCommands(ctx context.Context, machineID string) ([]CommandRow, error) {
 	rows, err := d.pool.Query(ctx, `
-SELECT id::text, machine_id::text, command, status, output, created_at, updated_at
-FROM public.machine_commands WHERE machine_id = $1 AND status = 'pending'
-ORDER BY created_at ASC`, machineID)
+UPDATE public.machine_commands
+SET status = 'dispatched', updated_at = now()
+WHERE machine_id = $1 AND status = 'pending'
+RETURNING id::text, machine_id::text, command, status, output, created_at, updated_at`, machineID)
 	if err != nil {
 		return nil, err
 	}
@@ -639,17 +848,17 @@ WHERE id = $1`, id, status, output)
 	return err
 }
 
-// MarkCommandsSent marca vários comandos como 'sent' numa única query, em
-// vez de um UPDATE por comando — usado por monitoringPollCommands, que antes
-// fazia N round-trips sequenciais (um por comando pendente) a cada poll.
-func (d *DB) MarkCommandsSent(ctx context.Context, ids []string) error {
+// UpdateCommandsStatusBatch marca vários comandos com o mesmo status numa
+// única query, em vez de um UPDATE por comando (usado no polling do
+// agente, onde N comandos pendentes viravam N round-trips sequenciais).
+func (d *DB) UpdateCommandsStatusBatch(ctx context.Context, ids []string, status string) error {
 	if len(ids) == 0 {
 		return nil
 	}
 	_, err := d.pool.Exec(ctx, `
 UPDATE public.machine_commands
-SET status = 'sent', updated_at = now()
-WHERE id = ANY($1::uuid[])`, ids)
+SET status = $2, updated_at = now()
+WHERE id = ANY($1::uuid[])`, ids, status)
 	return err
 }
 
@@ -660,14 +869,14 @@ func (d *DB) DashboardSummaryData(ctx context.Context, companyID *string) (Dashb
 	err := d.pool.QueryRow(ctx, `
 SELECT
   (SELECT COUNT(*) FROM public.machines
-    WHERE $1::uuid IS NULL OR company_id = $1::uuid) AS total,
+    WHERE approval_status = 'approved' AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS total,
   (SELECT COUNT(*) FROM public.machines
-    WHERE (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS online,
+    WHERE approval_status = 'approved' AND (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS online,
   (SELECT COUNT(*) FROM public.machines
-    WHERE NOT (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS offline,
+    WHERE approval_status = 'approved' AND NOT (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS offline,
   (SELECT COUNT(*) FROM public.machine_alerts a
     JOIN public.machines m ON m.id = a.machine_id
-    WHERE a.resolved = false AND ($1::uuid IS NULL OR m.company_id = $1::uuid)) AS active_alerts
+    WHERE a.resolved = false AND m.approval_status = 'approved' AND ($1::uuid IS NULL OR m.company_id = $1::uuid)) AS active_alerts
 `, companyID).Scan(&s.Total, &s.Online, &s.Offline, &s.ActiveAlerts)
 	return s, err
 }
@@ -740,12 +949,12 @@ SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE m.status = 'offline' AND m.last_seen < now() - INTERVAL '1 hour'
+  AND m.approval_status = 'approved'
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL
 
--- Disco acima de 90% (snapshot do último heartbeat em machines — ver
--- HeartbeatUpsert; machine_metrics guarda só o histórico, não o estado atual)
+-- Disco acima de 90% (snapshot em machines, ver UpdateMachineSnapshot)
 SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
        'disk'::text, 'critical'::text,
        'Uso de disco acima de 90%',
@@ -753,11 +962,12 @@ SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE m.disk_total > 0 AND (m.disk_used::float8 / m.disk_total) > 0.90
+  AND m.approval_status = 'approved'
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL
 
--- CPU acima de 85%
+-- CPU acima de 85% (snapshot em machines, ver UpdateMachineSnapshot)
 SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
        'cpu'::text, 'warning'::text,
        'Uso de CPU acima de 85%',
@@ -765,6 +975,7 @@ SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE m.cpu_usage > 85
+  AND m.approval_status = 'approved'
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL
@@ -776,6 +987,7 @@ FROM public.machine_alerts a
 JOIN public.machines m ON m.id = a.machine_id
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE a.resolved = false AND a.type <> 'updates'
+  AND m.approval_status = 'approved'
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 ORDER BY severity DESC, alert_type
 `, companyID)
@@ -811,6 +1023,14 @@ func (d *DB) MachineCount(ctx context.Context) (int, error) {
 	return count, err
 }
 
+// updatableMachineColumns é a allow-list de colunas que UpdateMachine aceita
+// escrever. Os chamadores atuais (handler/mon_handlers.go) já filtram as
+// chaves antes de chegar aqui, mas a checagem também vive nesta função —
+// como defesa em profundidade — porque a chave do map vai direto pra string
+// SQL (fmt.Sprintf("%s = $%d", k, i)); sem allow-list aqui, um futuro
+// chamador que esqueça de filtrar reabriria SQL injection via nome de coluna.
+var updatableMachineColumns = map[string]bool{"group_id": true, "company_id": true, "hostname": true, "status": true}
+
 func (d *DB) UpdateMachine(ctx context.Context, id string, updates map[string]any) error {
 	if len(updates) == 0 {
 		return nil
@@ -819,6 +1039,9 @@ func (d *DB) UpdateMachine(ctx context.Context, id string, updates map[string]an
 	var args []any
 	i := 1
 	for k, v := range updates {
+		if !updatableMachineColumns[k] {
+			return fmt.Errorf("coluna não permitida em UpdateMachine: %q", k)
+		}
 		if i > 1 {
 			query += ", "
 		}
@@ -829,6 +1052,18 @@ func (d *DB) UpdateMachine(ctx context.Context, id string, updates map[string]an
 	query += fmt.Sprintf(" WHERE id = $%d", i)
 	args = append(args, id)
 	_, err := d.pool.Exec(ctx, query, args...)
+	return err
+}
+
+// RegistrarSessaoTerminalRemoto grava a trilha de auditoria de uma sessão de
+// shell remoto (quem, quando, em qual máquina/empresa) em
+// remote_terminal_sessions. Chamada dentro de autorizarTerminalBrowser antes
+// do upgrade pra WebSocket — falha aqui impede a sessão de abrir (fail-closed,
+// não é best-effort).
+func (d *DB) RegistrarSessaoTerminalRemoto(ctx context.Context, machineID string, companyID *string, userID string) error {
+	_, err := d.pool.Exec(ctx, `
+INSERT INTO public.remote_terminal_sessions (machine_id, company_id, opened_by)
+VALUES ($1, $2, $3)`, machineID, companyID, userID)
 	return err
 }
 
@@ -872,6 +1107,10 @@ func (d *DB) CreateMachineGroup(ctx context.Context, name, description, contact,
 	return id, err
 }
 
+// updatableMachineGroupColumns — mesma lógica de defesa em profundidade de
+// updatableMachineColumns, ver comentário acima.
+var updatableMachineGroupColumns = map[string]bool{"name": true, "description": true, "client_contact": true, "company_id": true}
+
 func (d *DB) UpdateMachineGroup(ctx context.Context, id string, updates map[string]any) error {
 	if len(updates) == 0 {
 		return nil
@@ -880,6 +1119,9 @@ func (d *DB) UpdateMachineGroup(ctx context.Context, id string, updates map[stri
 	var args []any
 	i := 1
 	for k, v := range updates {
+		if !updatableMachineGroupColumns[k] {
+			return fmt.Errorf("coluna não permitida em UpdateMachineGroup: %q", k)
+		}
 		if i > 1 {
 			query += ", "
 		}

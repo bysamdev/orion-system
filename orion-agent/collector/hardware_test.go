@@ -69,6 +69,8 @@ func TestCollect_SecurityInspection(t *testing.T) {
 	p := coletaOuFalha(t)
 	data, _ := json.MarshalIndent(map[string]any{
 		"hostname":        p.Hostname,
+		"ip":              p.IP,
+		"mac_address":     p.MACAddress,
 		"domain":          p.Domain,
 		"user":            p.CurrentUser,
 		"security":        p.Security,

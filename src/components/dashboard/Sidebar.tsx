@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Home,
   Ticket,
@@ -25,6 +25,7 @@ import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNotifications } from '@/hooks/useNotifications';
+import { InstitutionalLegalDialog } from '@/components/shared/InstitutionalLegalDialog';
 import {
   Sidebar,
   SidebarContent,
@@ -70,7 +71,7 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: Activity,      label: 'Sistemas e Alertas', path: '/sistemas', roles: ['admin', 'developer', 'technician'] },
       { icon: Layers,        label: 'Instaladores & Updates', path: '/instaladores',   roles: ['admin', 'developer', 'technician'] },
-      { icon: Cpu,           label: 'Ativos (CMDB)',    path: '/ativos',     roles: ['admin', 'technician', 'developer'] },
+      { icon: Cpu,           label: 'Inventário',      path: '/ativos',     roles: ['admin', 'technician', 'developer'] },
       { icon: Globe,         label: 'Monitoramento Web', path: '/monitoramento-web', roles: ['admin', 'technician', 'developer'] },
     ],
   },
@@ -97,6 +98,8 @@ export const AppSidebar: React.FC = () => {
   const { data: profile } = useUserProfile();
   const { toast } = useToast();
   const { setOpenMobile, isMobile } = useSidebar();
+  const [legalOpen, setLegalOpen] = useState(false);
+  const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
   // const { unreadCount } = useNotifications();
 
   const roleLabel: Record<string, string> = {
@@ -144,27 +147,31 @@ export const AppSidebar: React.FC = () => {
   };
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="offcanvas">
       <SidebarHeader>
         <button
+          type="button"
           onClick={() => navigate('/')}
-          className="flex items-center px-3 pt-2 pb-3 cursor-pointer"
+          aria-label="Ir para o Início"
+          className="flex items-center px-3 pt-2 pb-3 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
           <img src={orionLogo} alt="Orion System" className="h-11 w-auto dark:hidden transition-all duration-200" />
           <img src={orionLogoLight} alt="Orion System" className="h-11 w-auto hidden dark:block transition-all duration-200" />
         </button>
 
-        <div
-          onClick={() => navigate('/')}
-          className="flex items-center gap-3 px-3 py-2 mx-1 mb-1 rounded-lg cursor-pointer group border-t border-sidebar-border/60 pt-3"
+        <button
+          type="button"
+          onClick={() => navigate('/ajustes')}
+          aria-label="Acessar Ajustes do Perfil"
+          className="flex items-center text-left gap-3 px-3 py-2 mx-1 mb-1 rounded-lg cursor-pointer group border-t border-sidebar-border/60 pt-3 hover:bg-sidebar-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">{profile?.full_name || 'Carregando...'}</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+          <div className="flex flex-col min-w-0 flex-1">
+            <span className="text-sm font-medium truncate group-hover:text-sidebar-foreground">{profile?.full_name || 'Carregando...'}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide truncate">
               {role ? roleLabel[role] : '...'}
             </span>
           </div>
-        </div>
+        </button>
       </SidebarHeader>
 
       <SidebarContent>
@@ -203,6 +210,32 @@ export const AppSidebar: React.FC = () => {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+
+        <div className="pt-2 px-3 pb-1 border-t border-sidebar-border/60 flex items-center justify-between text-[11px] text-muted-foreground/70">
+          <button
+            type="button"
+            onClick={() => { setLegalTab('terms'); setLegalOpen(true); }}
+            className="hover:text-foreground transition-colors focus-visible:outline-none focus-visible:underline"
+          >
+            Termos
+          </button>
+          <span>•</span>
+          <button
+            type="button"
+            onClick={() => { setLegalTab('privacy'); setLegalOpen(true); }}
+            className="hover:text-foreground transition-colors focus-visible:outline-none focus-visible:underline"
+          >
+            Privacidade
+          </button>
+          <span>•</span>
+          <span>v1.0</span>
+        </div>
+
+        <InstitutionalLegalDialog
+          open={legalOpen}
+          onOpenChange={setLegalOpen}
+          defaultTab={legalTab}
+        />
       </SidebarFooter>
     </Sidebar>
   );

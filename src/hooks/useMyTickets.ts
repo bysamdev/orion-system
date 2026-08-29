@@ -4,6 +4,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { Ticket } from './useTickets';
 import { MOCK_TICKETS, getMockTicketsByStatus } from '@/mocks/tickets';
 
+// Teto de segurança pras filas abaixo (ativos/SLA-em-risco/não-atribuídos)
+// que não têm controle de página — diferente de useMeusTickets, que já
+// pagina de verdade. Essas filas se auto-limitam pelo filtro de status
+// (só tickets ainda abertos), mas sem um teto explícito nada impede que
+// cresçam sem limite conforme o volume de chamados simultâneos aumenta.
+const ACTIVE_QUEUE_SAFETY_LIMIT = 500;
+
+// Fallback de segurança pras filas abaixo, que já são invalidadas por
+// useRealtimeTickets a cada INSERT/UPDATE em tickets (ver
+// src/hooks/useRealtimeTickets.ts). Com refetchInterval de 30s (igual ao
+// antigo), Realtime + polling faziam o mesmo fetch duas vezes por evento
+// na prática -- mesmo ajuste já aplicado às queries de monitoramento em
+// useMonitoring.ts.
+const FALLBACK_REFETCH_TICKETS = 120_000;
+
 /**
  * Hook para buscar tickets atribuídos ao técnico logado (ativos)
  */
@@ -24,13 +39,14 @@ export const useMyActiveTickets = (userId: string | undefined) => {
         .select('*')
         .eq('assigned_to_user_id', userId)
         .in('status', ['in-progress', 'awaiting-customer', 'awaiting-third-party', 'resolved', 'open', 'reopened'])
-        .order('sla_due_date', { ascending: true, nullsFirst: false });
+        .order('sla_due_date', { ascending: true, nullsFirst: false })
+        .limit(ACTIVE_QUEUE_SAFETY_LIMIT);
 
       if (error) throw error;
       return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
     },
     enabled: !!userId,
-    refetchInterval: 30000,
+    refetchInterval: FALLBACK_REFETCH_TICKETS,
     staleTime: 15_000,
   });
 };
@@ -50,7 +66,8 @@ export const useSLAAtRiskTickets = () => {
         .from('tickets')
         .select('*')
         .not('status', 'in', '("resolved","closed","cancelled")')
-        .order('sla_due_date', { ascending: true, nullsFirst: false });
+        .order('sla_due_date', { ascending: true, nullsFirst: false })
+        .limit(ACTIVE_QUEUE_SAFETY_LIMIT);
 
       if (error) throw error;
       
@@ -62,7 +79,7 @@ export const useSLAAtRiskTickets = () => {
         return status === 'warning' || status === 'attention' || status === 'breached';
       });
     },
-    refetchInterval: 30000,
+    refetchInterval: FALLBACK_REFETCH_TICKETS,
     staleTime: 15_000,
   });
 };
@@ -85,12 +102,13 @@ export const useUnassignedTicketsEnhanced = () => {
         .select('*')
         .is('assigned_to_user_id', null)
         .in('status', ['open', 'reopened', 'awaiting-customer', 'awaiting-third-party'])
-        .order('sla_due_date', { ascending: true, nullsFirst: false });
+        .order('sla_due_date', { ascending: true, nullsFirst: false })
+        .limit(ACTIVE_QUEUE_SAFETY_LIMIT);
 
       if (error) throw error;
       return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
     },
-    refetchInterval: 30000,
+    refetchInterval: FALLBACK_REFETCH_TICKETS,
     staleTime: 15_000,
   });
 };
@@ -110,12 +128,13 @@ export const useAllActiveTickets = () => {
         .from('tickets')
         .select('*')
         .in('status', ['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party'])
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(ACTIVE_QUEUE_SAFETY_LIMIT);
 
       if (error) throw error;
       return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
     },
-    refetchInterval: 30000,
+    refetchInterval: FALLBACK_REFETCH_TICKETS,
     staleTime: 15_000,
   });
 };
@@ -145,7 +164,7 @@ export const useMyRecentClosedTickets = (userId: string | undefined) => {
       return data || [];
     },
     enabled: !!userId,
-    refetchInterval: 60000,
+    refetchInterval: FALLBACK_REFETCH_TICKETS,
   });
 };
 
@@ -209,6 +228,21 @@ export const useMeusTickets = (userId: string | undefined, role: string | undefi
           }
         }
         
+        if (options.searchTerm) {
+          const raw = options.searchTerm.trim().toLowerCase();
+          const cleanNum = raw.replace(/^[#nº\s]+/i, '').trim();
+          mockData = mockData.filter(t => 
+            t.title?.toLowerCase().includes(raw) ||
+            t.description?.toLowerCase().includes(raw) ||
+            t.requester_name?.toLowerCase().includes(raw) ||
+            t.assigned_to?.toLowerCase().includes(raw) ||
+            t.category?.toLowerCase().includes(raw) ||
+            t.id?.toLowerCase().includes(raw) ||
+            t.user_id?.toLowerCase().includes(raw) ||
+            String(t.ticket_number) === cleanNum
+          );
+        }
+
         return { data: mockData as unknown as Ticket[], count: mockData.length };
       }
 
@@ -239,11 +273,52 @@ export const useMeusTickets = (userId: string | undefined, role: string | undefi
       }
 
       if (options.searchTerm) {
-        const isNumeric = !isNaN(Number(options.searchTerm)) && options.searchTerm.trim() !== '';
-        if (isNumeric) {
-          query = query.or(`title.ilike.%${options.searchTerm}%,ticket_number.eq.${Number(options.searchTerm)},requester_name.ilike.%${options.searchTerm}%`);
+        const rawTerm = options.searchTerm.trim();
+        const cleanNumber = rawTerm.replace(/^[#nº\s]+/i, '').trim();
+        const isNumeric = /^\d+$/.test(cleanNumber);
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTerm);
+        const safeTerm = rawTerm.replace(/[%_,()]/g, '');
+
+        if (isUUID) {
+          query = query.or(`id.eq.${rawTerm},user_id.eq.${rawTerm},assigned_to_user_id.eq.${rawTerm}`);
+        } else if (isNumeric) {
+          const num = parseInt(cleanNumber, 10);
+          query = query.or(`ticket_number.eq.${num},title.ilike.%${safeTerm}%,requester_name.ilike.%${safeTerm}%,description.ilike.%${safeTerm}%`);
         } else {
-          query = query.or(`title.ilike.%${options.searchTerm}%,requester_name.ilike.%${options.searchTerm}%`);
+          // Buscas auxiliares por Empresa e Perfil para enriquecer o filtro
+          let matchedCompanyIds: string[] = [];
+          let matchedUserIds: string[] = [];
+
+          if (safeTerm.length >= 2) {
+            try {
+              const [{ data: compData }, { data: profData }] = await Promise.all([
+                supabase.from('companies').select('id').ilike('name', `%${safeTerm}%`).limit(10),
+                supabase.from('profiles').select('id').or(`full_name.ilike.%${safeTerm}%,email.ilike.%${safeTerm}%`).limit(15),
+              ]);
+              if (compData) matchedCompanyIds = compData.map(c => c.id);
+              if (profData) matchedUserIds = profData.map(p => p.id);
+            } catch (e) {
+              console.warn('Erro ao buscar metadados de pesquisa:', e);
+            }
+          }
+
+          const orConditions = [
+            `title.ilike.%${safeTerm}%`,
+            `description.ilike.%${safeTerm}%`,
+            `requester_name.ilike.%${safeTerm}%`,
+            `assigned_to.ilike.%${safeTerm}%`,
+            `category.ilike.%${safeTerm}%`,
+          ];
+
+          if (matchedCompanyIds.length > 0) {
+            orConditions.push(`company_id.in.(${matchedCompanyIds.join(',')})`);
+          }
+          if (matchedUserIds.length > 0) {
+            orConditions.push(`user_id.in.(${matchedUserIds.join(',')})`);
+            orConditions.push(`assigned_to_user_id.in.(${matchedUserIds.join(',')})`);
+          }
+
+          query = query.or(orConditions.join(','));
         }
       }
 

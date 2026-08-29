@@ -11,7 +11,16 @@ import (
 
 	"github.com/getlantern/systray"
 	"github.com/pkg/browser"
+
+	"orion-agent/version"
 )
+
+// tooltipVersao monta o texto do tooltip do ícone com a versão instalada —
+// o usuário pedia isso ao passar o mouse pra confirmar se a máquina já
+// pegou uma atualização recente sem precisar abrir o painel.
+func tooltipVersao(status string) string {
+	return fmt.Sprintf("Orion System v%s — %s", version.Version, status)
+}
 
 // TrayManager organiza as ações e o estado da bandeja do sistema vinculadas ao agente.
 type TrayManager struct {
@@ -44,7 +53,7 @@ func (tm *TrayManager) Run() {
 func (tm *TrayManager) onReady() {
 	systray.SetIcon(DataIcon) // Ícone embutido no arquivo icon_data.go
 	systray.SetTitle("Orion Agent")
-	systray.SetTooltip("Orion System - Suporte Ativo")
+	systray.SetTooltip(tooltipVersao("Suporte Ativo"))
 
 	// Linha de status no topo do menu. Fica desabilitada (não é clicável): serve
 	// apenas para o usuário enxergar o estado real do agente. Antes disso, clicar
@@ -53,8 +62,10 @@ func (tm *TrayManager) onReady() {
 	tm.mu.Lock()
 	tm.mStatus = systray.AddMenuItem("Status: iniciando…", "Estado atual do Orion Agent")
 	tm.mStatus.Disable()
+	// Aplica o status que SetStatus tenha guardado antes de Run() — agora que
+	// mStatus existe, aplicarStatusLocked também acerta o tooltip.
 	if tm.status != "" {
-		tm.mStatus.SetTitle("Status: " + tm.status)
+		tm.aplicarStatusLocked()
 	}
 	tm.mu.Unlock()
 	systray.AddSeparator()
@@ -94,17 +105,43 @@ func (tm *TrayManager) onReady() {
 
 // SetStatus atualiza a linha de status do menu e o tooltip do ícone.
 //
-// É seguro chamar antes de Run(): o texto fica guardado e é aplicado quando o menu
-// é construído em onReady.
+// É seguro chamar antes de Run(): o texto fica guardado e é aplicado quando o
+// menu é construído em onReady.
+//
+// mStatus != nil é o sinal de que onReady já rodou, ou seja, de que o systray
+// terminou de inicializar. TODA chamada à API do systray precisa ficar atrás
+// dessa guarda: systray.SetTooltip estava fora dela e entrava em
+// "nil pointer dereference" (winTray.setTooltip) quando SetStatus era chamado
+// antes de Run() — o que acontece sempre que o serviço já está no ar e o
+// status inicial vira "conectado" (main.go), justamente o estado logo depois
+// de instalar ou auto-atualizar. Resultado: a bandeja morria antes de
+// desenhar o ícone, sem nada no log.
 func (tm *TrayManager) SetStatus(msg string) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
 	tm.status = msg
-	if tm.mStatus != nil {
-		tm.mStatus.SetTitle("Status: " + msg)
+	tm.aplicarStatusLocked()
+}
+
+// aplicarStatusLocked reflete tm.status no menu e no tooltip. Não faz nada
+// enquanto o systray não terminou de inicializar. Exige tm.mu já travado.
+func (tm *TrayManager) aplicarStatusLocked() {
+	if tm.mStatus == nil {
+		return
 	}
-	systray.SetTooltip("Orion System — " + msg)
+	tm.mStatus.SetTitle("Status: " + tm.status)
+	systray.SetTooltip(tooltipVersao(tm.status))
+}
+
+// Quit encerra a bandeja programaticamente, fora de um clique de menu —
+// mesmo caminho que "Sair" usa (systray.Quit() -> onExitInternal() ->
+// OnExit), reaproveitado pela checagem de auto-atualização em main.go: o
+// processo da bandeja precisa se encerrar sozinho depois de relançar uma
+// cópia nova de si mesmo (ver comentário sobre taskkill entre sessões em
+// main.go).
+func (tm *TrayManager) Quit() {
+	systray.Quit()
 }
 
 // onExitInternal é executado quando o systray finaliza, garantindo que o agente limpe seus recursos.

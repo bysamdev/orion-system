@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestRedigirQueryRemoveCredencialDaURL cobre a correcao A.8.
@@ -78,6 +79,34 @@ func TestRedigirQueryComURLInvalidaNaoEntraEmPanic(t *testing.T) {
 	// Byte de controle torna a URL inparseável.
 	if obtido := redigirQuery("http://exemplo\x7f.com/?token=abc"); strings.Contains(obtido, "abc") {
 		t.Errorf("token vazou mesmo com URL inválida: %q", obtido)
+	}
+}
+
+// TestBinarioFoiAtualizado cobre a checagem de auto-restart da bandeja
+// (ver main(), goroutine de mtime periódico): a bandeja interativa não é
+// morta pelo taskkill do auto-update quando ele roda em modo silencioso
+// sob NT SERVICE\OrionAgent (sem privilégio cross-sessão), então ela
+// precisa se auto-detectar desatualizada comparando o mtime do próprio
+// executável.
+func TestBinarioFoiAtualizado(t *testing.T) {
+	base := time.Now()
+
+	casos := []struct {
+		nome     string
+		atual    time.Time
+		esperado bool
+	}{
+		{"mtime mais novo indica atualização", base.Add(time.Second), true},
+		{"mtime igual não indica atualização", base, false},
+		{"mtime mais antigo não indica atualização", base.Add(-time.Second), false},
+	}
+
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			if obtido := binarioFoiAtualizado(base, c.atual); obtido != c.esperado {
+				t.Errorf("binarioFoiAtualizado(%v, %v) = %v, esperado %v", base, c.atual, obtido, c.esperado)
+			}
+		})
 	}
 }
 

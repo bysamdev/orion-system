@@ -99,14 +99,14 @@ export const TopBar: React.FC = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => searchQuery.length >= 2 && setShowResults(true)}
           onKeyDown={(e) => e.stopPropagation()}
-          className="w-full h-10 rounded-xl border border-border/40 bg-muted/20 pl-10 pr-4 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background focus:border-primary/30 transition-all"
+          className="w-full h-9 rounded-md border border-border/40 bg-muted/20 pl-10 pr-4 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background focus:border-primary/30 transition-all"
         />
 
         {/* Dropdown de resultados */}
         {showResults && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowResults(false)} />
-            <div className="absolute top-full left-0 right-0 mt-2 bg-card/90 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 overflow-y-auto max-h-[360px]">
+            <div className="absolute top-full left-0 right-0 mt-2 bg-card/90 backdrop-blur-xl border border-border/60 shadow-2xl rounded-lg p-2 z-50 animate-in fade-in slide-in-from-top-2 overflow-y-auto max-h-[360px]">
               <p className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
                 {isSearching ? 'Buscando...' : searchResults.length > 0 ? 'Resultados' : 'Nenhum ticket encontrado'}
               </p>

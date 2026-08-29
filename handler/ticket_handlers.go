@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"context"
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -16,12 +19,18 @@ var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4
 
 // ticketResolveHandler resolves a numeric ticket ID or a UUID and returns the internal UUID.
 func ticketResolveHandler(w http.ResponseWriter, r *http.Request) {
-	// A rota traduz número sequencial de chamado → UUID interno. Sem guarda de
-	// autenticação, qualquer um percorre /1, /2, /3... e enumera os UUIDs de
-	// todos os chamados do sistema (vuln-0009 do pentest). Todo o resto da API
-	// já faz esse mesmo requireAuth por handler — esta rota era a única exceção.
-	if _, err := requireAuth(r); err != nil {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	u, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
+		return
+	}
+
+	escopo, err := escopoDoUsuario(ctx, u.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
 		return
 	}
 
@@ -36,9 +45,20 @@ func ticketResolveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If it's already a UUID, just return it back to confirm
+	// If it's already a UUID, confirm existence + escopo de tenant antes de
+	// devolver -- sem isso, qualquer UUID (existente em outra empresa ou
+	// inventado) era ecoado de volta com 200 sem consultar o banco.
 	if uuidRegex.MatchString(idParam) {
-		lib.WriteJSON(w, http.StatusOK, map[string]any{"uuid": idParam})
+		uuid, err := db.TicketUUIDByIDScoped(ctx, idParam, escopo.FiltroEmpresa())
+		if err != nil {
+			if errors.Is(err, lib.ErrNoRows) {
+				lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Chamado não encontrado"})
+				return
+			}
+			lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
+			return
+		}
+		lib.WriteJSON(w, http.StatusOK, map[string]any{"uuid": uuid})
 		return
 	}
 
@@ -49,13 +69,14 @@ func ticketResolveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uuid, err := db.TicketUUIDByNumber(r.Context(), ticketNumber)
+	uuid, err := db.TicketUUIDByNumberScoped(ctx, ticketNumber, escopo.FiltroEmpresa())
 	if err != nil {
 		if errors.Is(err, lib.ErrNoRows) {
 			lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Chamado não encontrado"})
 			return
 		}
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[ERRO] falha ao resolver ID numérico de chamado (%d): %v", ticketNumber, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno ao consultar chamado"})
 		return
 	}
 

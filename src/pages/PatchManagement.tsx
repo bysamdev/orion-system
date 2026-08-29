@@ -6,16 +6,18 @@ import { Button } from '@/components/ui/button';
 import { ButtonPrimary } from '@/components/ui/button-primary';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Package, Plus, ShieldCheck, RefreshCw, Clock, Lock } from 'lucide-react';
+import { Loader2, Package, Plus, ShieldCheck, RefreshCw, Clock, Lock, Layers } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSoftwarePackages, usePackageDeployments, useDeletePackage, type SoftwarePackage } from '@/hooks/usePatchManagement';
 import { PackageCard } from '@/components/patch/PackageCard';
+import { AgentInstallerCard } from '@/components/patch/AgentInstallerCard';
 import { NewPackageDialog } from '@/components/patch/NewPackageDialog';
 import { DeployDialog } from '@/components/patch/DeployDialog';
 import { useQueryClient } from '@tanstack/react-query';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 const STATUS_STYLE: Record<string, string> = {
   pending:    'bg-amber-500/10 text-amber-600 border-amber-500/30',
@@ -36,14 +38,15 @@ const PatchManagement: React.FC = () => {
   const qc = useQueryClient();
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: profile } = useUserProfile();
-  const companyId = profile?.company_id ?? '';
+  const isMasterOrDev = role === 'developer' || role === 'admin';
+  const effectiveCompanyId = isMasterOrDev ? undefined : (profile?.company_id || undefined);
 
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [deployingPkg, setDeployingPkg] = useState<SoftwarePackage | null>(null);
 
-  const { data: packages = [], isLoading: pkgsLoading } = useSoftwarePackages(companyId);
-  const { data: deployments = [], isLoading: deplLoading } = usePackageDeployments(companyId);
-  const deleteMutation = useDeletePackage(companyId);
+  const { data: packages = [], isLoading: pkgsLoading } = useSoftwarePackages(effectiveCompanyId);
+  const { data: deployments = [], isLoading: deplLoading } = usePackageDeployments(effectiveCompanyId);
+  const deleteMutation = useDeletePackage(effectiveCompanyId);
 
   const handleDelete = (id: string) => {
     deleteMutation.mutate(id, {
@@ -75,29 +78,22 @@ const PatchManagement: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl bg-purple-600 text-white shadow-lg shadow-purple-500/30">
-              <Package className="w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight">Instaladores & Updates</h1>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
-                Scripts · Instaladores · Implantação Remota
-              </p>
-            </div>
-          </div>
+    <div className="w-full space-y-6">
+      {/* Header */}
+      <PageHeader
+        icon={Layers}
+        badge="AGENT & PATCHES"
+        title="Instaladores & Updates"
+        description="Geração de instaladores parametrizados por empresa e implantação de patches remotos."
+        actions={
           <ButtonPrimary onClick={() => setNewDialogOpen(true)} className="gap-2 font-bold" icon={<Plus className="w-4 h-4" />}>
             Novo Pacote
           </ButtonPrimary>
-        </div>
+        }
+      />
 
         {/* Security banner */}
-        <div className="mb-8 p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl flex items-start gap-3">
+        <div className="mb-8 p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-lg flex items-start gap-3">
           <ShieldCheck className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-bold text-indigo-700 dark:text-indigo-400">Verificação de Segurança Ativa</p>
@@ -107,6 +103,8 @@ const PatchManagement: React.FC = () => {
             </p>
           </div>
         </div>
+
+        <AgentInstallerCard />
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Package list */}
@@ -190,11 +188,10 @@ const PatchManagement: React.FC = () => {
             </Card>
           </div>
         </div>
-      </main>
 
       <NewPackageDialog
         open={newDialogOpen}
-        companyId={companyId}
+        companyId={effectiveCompanyId}
         userId={profile?.id}
         onClose={() => setNewDialogOpen(false)}
       />

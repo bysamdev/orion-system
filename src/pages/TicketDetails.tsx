@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
@@ -16,8 +16,7 @@ import { TicketHeroHeader } from '@/components/ticket/TicketHeroHeader';
 import { UnifiedTimeline } from '@/components/ticket/UnifiedTimeline';
 import { ResolutionDialog } from '@/components/ticket/ResolutionDialog';
 import { EscalateDialog } from '@/components/ticket/EscalateDialog';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2, Sparkles, ExternalLink, FileText, HandHelping, UserCheck, ChevronDown } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2, Sparkles, ExternalLink, FileText, HandHelping, UserCheck, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelector';
 import { AttachmentList } from '@/components/ticket/AttachmentList';
@@ -53,18 +52,14 @@ const ticketUpdateSchema = z.object({
 
 function TicketDetailSkeleton() {
   return (
-    <div className="min-h-screen bg-background">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-12">
-        <div className="space-y-4 animate-pulse">
-          <div className="h-8 bg-muted rounded w-1/3" />
-          <div className="flex gap-4">
-            <div className="h-6 bg-muted rounded w-20" />
-            <div className="h-6 bg-muted rounded w-20" />
-          </div>
-          <div className="h-32 bg-muted rounded" />
-          <div className="h-10 bg-muted rounded w-1/4" />
-        </div>
-      </main>
+    <div className="w-full space-y-4 animate-pulse pt-4">
+      <div className="h-8 bg-muted rounded w-1/3" />
+      <div className="flex gap-4">
+        <div className="h-6 bg-muted rounded w-20" />
+        <div className="h-6 bg-muted rounded w-20" />
+      </div>
+      <div className="h-32 bg-muted rounded" />
+      <div className="h-10 bg-muted rounded w-1/4" />
     </div>
   );
 }
@@ -233,11 +228,21 @@ const TicketDetails: React.FC = () => {
     queryKey: ['kb-suggestions', ticket?.category, ticket?.title],
     queryFn: async (): Promise<Array<{ id: string; title: string; slug: string; category: string }>> => {
       if (!ticket) return [];
-      // knowledge_articles is not in the generated types, so we cast the table name
-      const { data, error } = await (supabase.from as (t: string) => ReturnType<typeof supabase.from>)('knowledge_articles')
-        .select('id, title, slug, category')
-        .or(`category.eq."${ticket.category}",title.ilike.%${ticket.title.split(' ')[0]}%`)
-        .limit(3);
+      const cleanCat = (ticket.category || '').replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
+      const firstWord = (ticket.title || '').split(' ')[0]?.replace(/[^a-zA-Z0-9]/g, '') || '';
+      
+      let query = (supabase.from as (t: string) => ReturnType<typeof supabase.from>)('knowledge_articles')
+        .select('id, title, slug, category');
+
+      if (cleanCat && firstWord) {
+        query = query.or(`category.eq."${cleanCat}",title.ilike.%${firstWord}%`);
+      } else if (cleanCat) {
+        query = query.eq('category', cleanCat);
+      } else if (firstWord) {
+        query = query.ilike('title', `%${firstWord}%`);
+      }
+
+      const { data, error } = await query.limit(3);
       if (error) return [];
       return (data ?? []) as Array<{ id: string; title: string; slug: string; category: string }>;
     },
@@ -261,13 +266,12 @@ const TicketDetails: React.FC = () => {
     queryKey: ['ticket-company-data', ticket?.company_id],
     queryFn: async () => {
       if (!ticket?.company_id) return null;
-      const { data, error } = await supabase
-        .from('companies')
+      const { data, error } = await (supabase.from('companies') as any)
         .select('id, name, has_contract')
         .eq('id', ticket.company_id)
         .maybeSingle();
       if (error) return null;
-      return data;
+      return data as { id: string; name: string; has_contract?: boolean | null } | null;
     },
     enabled: !!ticket?.company_id
   });
@@ -424,12 +428,23 @@ const TicketDetails: React.FC = () => {
     enabled: !!ticket && !!user,
   });
 
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) {
+        clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
+
   const copyToClipboard = async (text: string, field: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
       toast({ title: 'Copiado!', description: 'Texto copiado para a área de transferência.' });
-      setTimeout(() => setCopiedField(null), 2000);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopiedField(null), 2000);
     } catch {
       toast({ title: 'Erro', description: 'Não foi possível copiar o texto.', variant: 'destructive' });
     }
@@ -638,20 +653,16 @@ const TicketDetails: React.FC = () => {
 
   if (!ticket && !isResolving) {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full text-center">
-          <p className="text-muted-foreground mt-20 mb-4">Chamado não encontrado.</p>
-          <Button onClick={() => navigate('/')}><ArrowLeft className="w-4 h-4 mr-2" />Voltar ao Dashboard</Button>
-        </main>
+      <div className="w-full text-center py-16 space-y-4">
+        <p className="text-muted-foreground mb-4">Chamado não encontrado.</p>
+        <Button onClick={() => navigate('/')}><ArrowLeft className="w-4 h-4 mr-2" />Voltar ao Dashboard</Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background selection:bg-primary/10">
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
+    <div className="w-full space-y-6 selection:bg-primary/10">
+      <div>
           <Button 
             variant="ghost" 
             size="sm" 
@@ -701,6 +712,70 @@ const TicketDetails: React.FC = () => {
           </div>
         )}
 
+        {/* Banner de Acesso Remoto em Destaque no Topo */}
+        {canManageTickets && (ticket.remote_id || ticket.remote_password) && (
+          <div className="mb-2 bg-gradient-to-r from-indigo-500/10 via-primary/5 to-transparent border border-indigo-500/30 dark:border-indigo-500/20 rounded-2xl p-4 sm:p-5 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-xs">
+                  <Monitor className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                      Acesso Remoto do Solicitante
+                    </span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
+                      Pronto para conectar
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Dados informados pelo cliente para conexão e suporte remoto.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+                {ticket.remote_id && (
+                  <div className="flex items-center justify-between gap-3 bg-background/90 dark:bg-background/60 backdrop-blur border border-border/60 hover:border-indigo-500/40 rounded-xl px-3.5 py-2 transition-all min-w-[160px]">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-wider">ID da Máquina</p>
+                      <p className="font-mono text-sm font-black text-foreground tracking-wider">{ticket.remote_id}</p>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      aria-label="Copiar ID da máquina" 
+                      className="h-7 w-7 rounded-lg hover:bg-muted shrink-0" 
+                      onClick={() => copyToClipboard(ticket.remote_id!, 'ID')}
+                    >
+                      <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                  </div>
+                )}
+
+                {ticket.remote_password && (
+                  <div className="flex items-center justify-between gap-3 bg-background/90 dark:bg-background/60 backdrop-blur border border-border/60 hover:border-indigo-500/40 rounded-xl px-3.5 py-2 transition-all min-w-[200px] max-w-[320px]">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-wider">Senha de Sessão</p>
+                      <p className="font-mono text-sm font-black text-foreground truncate">{ticket.remote_password}</p>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      aria-label="Copiar senha de sessão" 
+                      className="h-7 w-7 rounded-lg hover:bg-muted shrink-0" 
+                      onClick={() => copyToClipboard(ticket.remote_password!, 'Senha')}
+                    >
+                      <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Main Content (Left Column) */}
           <div className="xl:col-span-2 space-y-8">
@@ -732,14 +807,8 @@ const TicketDetails: React.FC = () => {
               </div>
               <UnifiedTimeline
                 updates={updates}
-                statusHistory={(statusHistory || []).map(sh => ({
-                  ...sh,
-                  changed_by: technicians.find(t => t.id === sh.changed_by)?.full_name || sh.changed_by
-                }))}
-                timeEntries={(timeEntries || []).map(te => ({
-                  ...te,
-                  user_id: technicians.find(t => t.id === te.user_id)?.full_name || te.user_id
-                }))}
+                statusHistory={statusHistory}
+                timeEntries={timeEntries}
               />
             </Card>
 
@@ -780,14 +849,29 @@ const TicketDetails: React.FC = () => {
                   </div>
                 </div>
                 
-                <div className="relative group">
+                <div className={cn(
+                  "relative group rounded-xl transition-all duration-200",
+                  isInternalNote 
+                    ? "p-2 bg-amber-500/5 dark:bg-amber-950/20 border-2 border-amber-500/40" 
+                    : ""
+                )}>
+                  {isInternalNote && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 mb-2 bg-amber-500/15 border border-amber-500/30 rounded-lg text-amber-800 dark:text-amber-200 text-xs font-bold uppercase tracking-wider animate-in fade-in duration-200">
+                      <Lock className="w-3.5 h-3.5 shrink-0" />
+                      <span>Modo Nota Interna Ativo — Visível exclusivamente para técnicos</span>
+                    </div>
+                  )}
+
                   <Textarea
                     ref={textareaRef}
-                    placeholder="Escreva sua resposta ou nota aqui..."
+                    placeholder={isInternalNote ? "Escreva sua nota técnica interna confidencial aqui..." : "Escreva sua resposta para o cliente aqui..."}
                     value={newUpdateText}
                     onChange={handleTextChange}
                     onKeyDown={handleKeyDown}
-                    className="min-h-[160px] bg-background border-border/50 focus-visible:ring-primary/20 resize-none p-4 text-base transition-all group-hover:border-primary/20"
+                    className={cn(
+                      "min-h-[160px] bg-background border-border/50 focus-visible:ring-primary/20 resize-none p-4 text-base transition-all group-hover:border-primary/20",
+                      isInternalNote && "border-amber-500/40 focus-visible:ring-amber-500/30"
+                    )}
                     maxLength={5000}
                   />
 
@@ -920,67 +1004,15 @@ const TicketDetails: React.FC = () => {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Agente Responsável</label>
-                      {ticket.assigned_to_user_id !== user?.id && (
-                        <button
-                          type="button"
-                          onClick={handleAssumeTicket}
-                          disabled={assumeTicket.isPending}
-                          className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
-                        >
-                          <HandHelping className="w-3 h-3" />
-                          {assumeTicket.isPending ? 'Assumindo...' : 'Assumir chamado'}
-                        </button>
-                      )}
-                    </div>
-                    <Select 
-                      value={ticket.assigned_to || 'unassigned'} 
-                      onValueChange={handleAssignmentChange} 
-                      disabled={techniciansLoading}
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      className="w-full h-11 rounded-xl font-bold text-xs gap-2 border-border/60 hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-500/40 transition-all"
+                      onClick={() => setEscalateDialogOpen(true)}
                     >
-                      <SelectTrigger className="h-11 bg-background border-border/50 font-medium">
-                        <SelectValue placeholder={techniciansLoading ? "..." : "Selecione..."} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Fila Geral (Não atribuído)</SelectItem>
-                        {(technicians || []).map(tech => (
-                          <SelectItem key={tech.id} value={tech.full_name || ''}>{tech.full_name || 'Sem nome'}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase px-1">Intensidade de Prioridade</label>
-                    <Select
-                      value={ticket.priority}
-                      onValueChange={async (val) => {
-                         if (!ticket) return;
-                         try {
-                           await updatePriority.mutateAsync({
-                             id: ticket.id,
-                             priority: val,
-                             last_updated_at: ticket.updated_at,
-                             previousPriority: ticket.priority,
-                             updateContent: `Prioridade alterada para: ${val}`,
-                           });
-                         } catch {
-                           // Error handled by mutation onError
-                         }
-                      }}
-                    >
-                      <SelectTrigger className="h-11 bg-background border-border/50 font-medium">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="urgent" className="text-red-600 font-bold">Urgente</SelectItem>
-                        <SelectItem value="high">Alta</SelectItem>
-                        <SelectItem value="medium">Média</SelectItem>
-                        <SelectItem value="low">Baixa</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <ArrowUpRight className="w-4 h-4 text-amber-500" />
+                      Escalar / Transferir Responsável
+                    </Button>
                   </div>
 
                   <Separator className="bg-border/30" />
@@ -1108,7 +1140,7 @@ const TicketDetails: React.FC = () => {
                 </span>
               </div>
               
-              <div className="bg-muted/30 rounded-2xl p-4 space-y-1">
+              <div className="bg-muted/30 rounded-lg p-4 space-y-1">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Duração do Chamado</p>
                 <p className="text-xl font-black text-foreground tracking-tight">
                   {formatDurationHuman(elapsedServiceMinutes)}
@@ -1121,11 +1153,11 @@ const TicketDetails: React.FC = () => {
               {/* Detalhes de faturamento caso seja cliente esporádico e tenha apontamentos */}
               {isSporadic && (totalMinutes > 0 || billableMinutes > 0) && (
                 <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="bg-muted/20 rounded-xl p-3 border border-border/30">
+                  <div className="bg-muted/20 rounded-md p-3 border border-border/30">
                     <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Apontado</p>
                     <p className="text-base font-bold">{totalMinutes > 0 ? formatMinutes(totalMinutes) : '—'}</p>
                   </div>
-                  <div className="bg-muted/20 rounded-xl p-3 border border-border/30">
+                  <div className="bg-muted/20 rounded-md p-3 border border-border/30">
                     <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Faturável</p>
                     <p className="text-base font-bold text-primary">{billableMinutes > 0 ? formatMinutes(billableMinutes) : '—'}</p>
                   </div>
@@ -1135,7 +1167,7 @@ const TicketDetails: React.FC = () => {
 
             {/* Cronógrafo Opcional em Menu Suspenso (Apenas para clientes marcados como esporádico) */}
             {isSporadic && canManageTickets && (
-              <Collapsible defaultOpen={false} className="border border-border/40 rounded-2xl bg-card overflow-hidden shadow-sm">
+              <Collapsible defaultOpen={false} className="border border-border/40 rounded-lg bg-card overflow-hidden shadow-sm">
                 <CollapsibleTrigger asChild>
                   <button
                     type="button"
@@ -1178,20 +1210,6 @@ const TicketDetails: React.FC = () => {
               <TicketAssetContext assetId={ticket.asset_id} />
             )}
 
-            {/* Acesso Remoto */}
-            {canManageTickets && (ticket.remote_id || ticket.remote_password) && (
-              <Card className="p-6 border-none shadow-sm bg-indigo-500/5 border border-indigo-500/20">
-                <div className="flex items-center gap-2 mb-4 text-indigo-600 dark:text-indigo-400">
-                  <Monitor className="w-4 h-4" />
-                  <h3 className="font-bold text-xs uppercase tracking-widest">Acesso Remoto</h3>
-                </div>
-                <div className="space-y-3">
-                  <RemoteField label="ID da Máquina" value={ticket.remote_id} onCopy={() => copyToClipboard(ticket.remote_id!, 'ID')} />
-                  <RemoteField label="Senha de Sessão" value={ticket.remote_password} onCopy={() => copyToClipboard(ticket.remote_password!, 'PASS')} />
-                </div>
-              </Card>
-            )}
-
             {/* Anexos */}
             <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
               <div className="flex items-center justify-between mb-4">
@@ -1202,7 +1220,6 @@ const TicketDetails: React.FC = () => {
             </Card>
           </div>
         </div>
-      </main>
 
       <ResolutionDialog
         open={resolveDialogOpen}

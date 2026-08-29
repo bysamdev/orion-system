@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,12 +7,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import {
   Loader2,
   RefreshCw,
   ChevronRight,
   ChevronDown,
   Monitor,
+  Activity,
   Wifi,
   WifiOff,
   AlertTriangle,
@@ -21,12 +25,18 @@ import {
   Edit2,
   Trash2,
   Lock,
+  LayoutGrid,
+  List,
+  Download,
+  Building2,
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Navigate } from 'react-router-dom';
 import {
   useMonitoringDashboard,
   useMonitoringGroups,
   useGroupMachines,
+  useAllMachines,
   useMachineDetail,
   hasDiskAlert,
   useCreateGroup,
@@ -34,13 +44,16 @@ import {
   useDeleteGroup,
 } from '@/hooks/useMonitoring';
 import type { MachineGroup, MachineWithMetric } from '@/hooks/useMonitoring';
+import { useRealtimeMachines } from '@/hooks/useRealtimeMachines';
 import { useCompanies } from '@/hooks/useCompanies';
 import { MachineCard, MachineCardSkeleton } from '@/components/monitoring/MachineCard';
 import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 import { useQueryClient } from '@tanstack/react-query';
 import { MonitoringOnboarding } from '@/components/monitoring/MonitoringOnboarding';
+import { PendingMachinesBanner } from '@/components/monitoring/PendingMachinesBanner';
+import { ForceUpdateButton } from '@/components/monitoring/ForceUpdateButton';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
-import { useUserRole } from '@/hooks/useUserRole';
+import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import {
   Dialog,
   DialogContent,
@@ -57,6 +70,7 @@ type StatusFilter = 'all' | 'online' | 'offline' | 'alert';
 export interface MonitoringProps {
   externalMachineId?: string | null;
   onClearExternalMachine?: () => void;
+  hideHeader?: boolean;
 }
 
 // ── Sidebar de grupos ─────────────────────────────────────
@@ -76,139 +90,491 @@ function GroupItem({
   canManage?: boolean;
 }) {
   return (
-    <div className="relative group/item flex items-center mb-2">
-      <button
-        onClick={onClick}
-        className={cn(
-          'flex-1 text-left px-3 py-3 rounded-xl flex items-center justify-between gap-3 transition-all transform hover:scale-[1.01] active:scale-95 group relative',
-          selected
-            ? 'bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/20'
-            : 'hover:bg-muted/80 text-foreground border border-transparent hover:border-border/50'
+    <div
+      onClick={onClick}
+      className={cn(
+        'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-2 transition-all cursor-pointer mb-1.5 group/item relative select-none',
+        selected
+          ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+          : 'hover:bg-muted/70 text-foreground border border-transparent hover:border-border/40'
+      )}
+    >
+      <div className="min-w-0 flex-1 pr-2">
+        <p className="text-sm truncate leading-tight font-semibold">{group.name}</p>
+        {group.client_contact && (
+          <p className={cn('text-[10px] truncate mt-0.5 opacity-70')}>
+            {group.client_contact}
+          </p>
         )}
-      >
-        <div className="min-w-0 pr-6">
-          <p className="text-sm truncate leading-tight font-bold">{group.name}</p>
-          {group.client_contact && (
-            <p className={cn('text-[10px] truncate mt-0.5 opacity-60')}>
-              {group.client_contact}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="flex items-center gap-1 text-[10px] font-bold">
+      </div>
+
+      {/* Indicador de Status & Botões de Ação alinhados lado a lado */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Contador de Máquinas */}
+        <div className="flex items-center gap-1">
+          <span className="flex items-center gap-1 text-[11px] font-semibold">
             <span className={cn(
-              "h-1.5 w-1.5 rounded-full animate-pulse",
-              selected ? "bg-white" : "bg-green-500"
+              "h-1.5 w-1.5 rounded-full shrink-0",
+              selected ? "bg-white" : "bg-emerald-500"
             )} />
-            <span className={selected ? 'text-primary-foreground' : 'text-green-600'}>{group.online_machines}</span>
+            <span className={selected ? 'text-primary-foreground' : 'text-emerald-600 dark:text-emerald-400'}>
+              {group.online_machines}
+            </span>
           </span>
-          <span className={cn('text-[10px] font-medium opacity-40')}>
+          <span className={cn('text-[10px] font-medium opacity-50')}>
             /{group.total_machines}
           </span>
         </div>
-      </button>
-      
-      {canManage && (
-        <div className="absolute right-2 opacity-0 group-hover/item:opacity-100 flex gap-1 transition-opacity">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className={cn("h-7 w-7 rounded-full", selected ? "hover:bg-white/20 text-white" : "hover:bg-primary/10 text-primary")}
-            onClick={(e) => { e.stopPropagation(); onEdit?.(); }}
-          >
-            <Edit2 className="w-3 h-3" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-7 w-7 rounded-full text-red-500 hover:bg-red-500/10"
-            onClick={(e) => { e.stopPropagation(); onDelete?.(); }}
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
+
+        {/* Botões de Ação (Aparecem suavemente no hover ao lado do contador, sem sobrepor) */}
+        {canManage && (
+          <div className="flex items-center gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity duration-150 ml-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-6 w-6 rounded-md p-0",
+                selected
+                  ? "hover:bg-white/20 text-primary-foreground"
+                  : "hover:bg-primary/10 text-muted-foreground hover:text-primary"
+              )}
+              title="Editar Grupo"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit?.();
+              }}
+            >
+              <Edit2 className="w-3 h-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-6 w-6 rounded-md p-0 text-red-500",
+                selected
+                  ? "hover:bg-red-500/20 text-red-200"
+                  : "hover:bg-red-500/10 hover:text-red-600"
+              )}
+              title="Excluir Grupo"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete?.();
+              }}
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Divisor e Título de Seção de Grupo / Cliente ─────────
+function GroupSectionHeader({
+  title,
+  contact,
+  onlineCount,
+  totalCount,
+}: {
+  title: string;
+  contact?: string | null;
+  onlineCount: number;
+  totalCount: number;
+}) {
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      {/* Barra vertical destacada ao lado do nome */}
+      <div className="w-1.5 h-6 rounded-full bg-primary flex-shrink-0" />
+      <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+        <h3 className="text-base font-bold text-foreground tracking-tight">
+          {title}
+        </h3>
+        {contact && (
+          <span className="text-xs text-muted-foreground hidden sm:inline-block truncate max-w-[200px]">
+            • {contact}
+          </span>
+        )}
+        <Badge variant="outline" className="text-[11px] font-semibold ml-1 gap-1.5 border-border/60 bg-muted/30">
+          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", onlineCount > 0 ? "bg-emerald-500" : "bg-muted-foreground")} />
+          <span>{onlineCount}/{totalCount} online</span>
+        </Badge>
+      </div>
+      {/* Linha horizontal dividindo a seção */}
+      <div className="flex-1 border-t border-border/40 ml-2" />
+    </div>
+  );
+}
+
+function formatCompactLastSeen(dateStr?: string | null): string {
+  if (!dateStr) return 'Nunca';
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  if (isNaN(diffMs) || diffMs < 0) return 'Visto agora';
+  
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'Visto agora';
+  
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `Visto há ${diffMin}min`;
+  
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `Visto há ${diffHours}h`;
+  
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) return `Visto há ${diffDays}d`;
+  
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) return `Visto há ${diffMonths}m`;
+  
+  const diffYears = Math.floor(diffMonths / 12);
+  return `Visto há ${diffYears}a`;
+}
+
+// ── Tabela Compacta de Máquinas (Visualização Densa) ─────
+function MachinesTableView({
+  machines,
+  onSelect,
+}: {
+  machines: MachineWithMetric[];
+  onSelect: (m: MachineWithMetric, initialTab?: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-border/50 bg-card overflow-hidden shadow-xs">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader className="bg-muted/30">
+            <TableRow>
+              <TableHead className="w-[120px] text-left font-bold text-xs">Status</TableHead>
+              <TableHead className="min-w-[220px] text-left font-bold text-xs">Dispositivo / Hostname</TableHead>
+              <TableHead className="min-w-[180px] text-left font-bold text-xs">IP & Usuário</TableHead>
+              <TableHead className="w-[160px] text-center font-bold text-xs">Último Visto</TableHead>
+              <TableHead className="w-[100px] text-right pr-4 font-bold text-xs">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {machines.map((m) => {
+              const isOnline =
+                m.status === 'online' ||
+                m.status === 'alerta' ||
+                (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false);
+              const alerting = m.status === 'alerta' || hasDiskAlert(m);
+
+              return (
+                <TableRow
+                  key={m.id}
+                  onClick={() => onSelect(m, 'overview')}
+                  className="cursor-pointer hover:bg-muted/40 transition-colors group"
+                >
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "w-2.5 h-2.5 rounded-full shrink-0",
+                        alerting ? "bg-amber-500 animate-pulse" : isOnline ? "bg-emerald-500" : "bg-muted-foreground/40"
+                      )} />
+                      <span className="text-xs font-semibold">
+                        {alerting ? 'Alerta' : isOnline ? 'Online' : 'Offline'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
+                        {m.hostname}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground font-mono">
+                        {m.os || 'Desconhecido'} {m.os_version ? `(${m.os_version})` : ''}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-mono text-xs font-semibold text-foreground/90">
+                        {m.ip_address || '—'}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        {m.current_user || 'Sem usuário'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center whitespace-nowrap">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-muted/60 font-mono text-[11px] font-semibold text-muted-foreground">
+                      {formatCompactLastSeen(m.last_seen)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right pr-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-3 text-xs font-bold hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect(m, 'overview');
+                      }}
+                    >
+                      Ver detalhes
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+// ── Grid Principal de Máquinas ──────────────────────────
+// machineMatchesFilters é a mesma predicado usada tanto pelo grid (onde
+// renderiza) quanto pela exportação (onde decide o que sai na planilha) —
+// extraída pra um lugar só, senão as duas listas divergiam silenciosamente
+// toda vez que um filtro fosse ajustado num lado e esquecido no outro.
+function machineMatchesFilters(
+  m: MachineWithMetric,
+  filters: { statusFilter: StatusFilter; search: string; companyFilter: string }
+): boolean {
+  const { statusFilter, search, companyFilter } = filters;
+  const isOnline =
+    m.status === 'online' ||
+    m.status === 'alerta' ||
+    (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false);
+
+  if (statusFilter === 'online' && !isOnline) return false;
+  if (statusFilter === 'offline' && isOnline) return false;
+  if (statusFilter === 'alert' && m.status !== 'alerta' && !hasDiskAlert(m)) return false;
+  if (companyFilter !== 'all' && m.company_id !== companyFilter) return false;
+  if (search) {
+    const q = search.toLowerCase();
+    const matchHostname = m.hostname?.toLowerCase().includes(q);
+    const matchIp = m.ip_address?.toLowerCase().includes(q);
+    const matchMac = m.mac_address?.toLowerCase().includes(q);
+    const matchUser = m.current_user?.toLowerCase().includes(q);
+    const matchOs = (m.os?.toLowerCase().includes(q)) || (m.os_version?.toLowerCase().includes(q));
+    if (!matchHostname && !matchIp && !matchMac && !matchUser && !matchOs) return false;
+  }
+  return true;
+}
+
+function MachinesGrid({
+  groupId,
+  groups,
+  statusFilter,
+  search,
+  companyFilter,
+  viewMode = 'grid',
+  onSelect,
+}: {
+  groupId: string | null;
+  groups?: MachineGroup[];
+  statusFilter: StatusFilter;
+  search: string;
+  companyFilter: string;
+  viewMode?: 'grid' | 'table';
+  onSelect: (m: MachineWithMetric, initialTab?: string) => void;
+}) {
+  const isAllGroups = groupId === 'all' || !groupId;
+
+  const { data: groupMachines, isLoading: groupLoading } = useGroupMachines(
+    !isAllGroups ? groupId : null
+  );
+  const { data: allMachines, isLoading: allLoading } = useAllMachines();
+
+  const machines = isAllGroups ? allMachines : groupMachines;
+  const isLoading = isAllGroups ? allLoading : groupLoading;
+
+  const filterMachine = (m: MachineWithMetric) =>
+    machineMatchesFilters(m, { statusFilter, search, companyFilter });
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => <MachineCardSkeleton key={i} />)}
+      </div>
+    );
+  }
+
+  // ── Visão de Todos os Grupos (Sectioned by Client with Divider Bar) ──
+  if (isAllGroups) {
+    const registeredGroups = groups || [];
+
+    // Agrupa máquinas por group_id
+    const machinesByGroup = new Map<string, MachineWithMetric[]>();
+    const unassignedMachines: MachineWithMetric[] = [];
+
+    (machines || []).forEach((m) => {
+      if (m.group_id) {
+        const list = machinesByGroup.get(m.group_id) || [];
+        list.push(m);
+        machinesByGroup.set(m.group_id, list);
+      } else {
+        unassignedMachines.push(m);
+      }
+    });
+
+    const totalMatching = (machines || []).filter(filterMachine).length;
+
+    if (registeredGroups.length === 0 && unassignedMachines.length === 0) {
+      return <MonitoringOnboarding />;
+    }
+
+    if (totalMatching === 0 && search) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-lg opacity-60">
+          <div className="p-4 bg-muted rounded-full">
+            <Monitor className="h-10 w-10 text-muted-foreground/40" />
+          </div>
+          <p className="text-sm font-medium">
+            Nenhuma máquina encontrada para a busca "{search}".
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-8">
+        {registeredGroups.map((g) => {
+          const groupRawMachines = machinesByGroup.get(g.id) || [];
+          const groupFiltered = groupRawMachines.filter(filterMachine);
+
+          // Se estiver pesquisando ou filtrando por status e não houver correspondência, oculta o grupo
+          if (groupFiltered.length === 0 && (search || statusFilter !== 'all')) {
+            return null;
+          }
+
+          const onlineCount = groupRawMachines.filter(m =>
+            m.status === 'online' || m.status === 'alerta' ||
+            (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false)
+          ).length;
+
+          return (
+            <div key={g.id} className="space-y-4">
+              <GroupSectionHeader
+                title={g.name}
+                contact={g.client_contact}
+                onlineCount={onlineCount}
+                totalCount={groupRawMachines.length || g.total_machines}
+              />
+
+              {groupFiltered.length > 0 ? (
+                viewMode === 'table' ? (
+                  <MachinesTableView machines={groupFiltered} onSelect={onSelect} />
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                    {groupFiltered.map((m) => (
+                      <MachineCard key={m.id} machine={m} onSelect={onSelect} />
+                    ))}
+                  </div>
+                )
+              ) : (
+                <div className="p-6 rounded-lg border border-dashed border-border/50 bg-muted/20 text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5 py-8">
+                  <Monitor className="w-5 h-5 text-muted-foreground/40" />
+                  <span>Nenhum dispositivo cadastrado neste grupo ainda.</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Dispositivos sem grupo vinculado */}
+        {unassignedMachines.length > 0 && (() => {
+          const filteredUnassigned = unassignedMachines.filter(filterMachine);
+          if (filteredUnassigned.length === 0 && (search || statusFilter !== 'all')) return null;
+
+          const onlineUnassigned = unassignedMachines.filter(m =>
+            m.status === 'online' || m.status === 'alerta' ||
+            (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false)
+          ).length;
+
+          return (
+            <div className="space-y-4">
+              <GroupSectionHeader
+                title="Dispositivos Globais / Sem Grupo"
+                onlineCount={onlineUnassigned}
+                totalCount={unassignedMachines.length}
+              />
+              {viewMode === 'table' ? (
+                <MachinesTableView machines={filteredUnassigned} onSelect={onSelect} />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                  {filteredUnassigned.map((m) => (
+                    <MachineCard key={m.id} machine={m} onSelect={onSelect} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+    );
+  }
+
+  // ── Visão de Grupo Único Selecionado ──
+  const selectedGroup = groups?.find(g => g.id === groupId);
+  const filtered = (machines || []).filter(filterMachine);
+
+  if (filtered.length === 0) {
+    const isTotallyEmpty = machines && machines.length === 0;
+    return (
+      <div className="space-y-4">
+        {selectedGroup && (
+          <GroupSectionHeader
+            title={selectedGroup.name}
+            contact={selectedGroup.client_contact}
+            onlineCount={selectedGroup.online_machines}
+            totalCount={selectedGroup.total_machines}
+          />
+        )}
+        <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-lg opacity-60">
+          <div className="p-4 bg-muted rounded-full">
+            <Monitor className="h-10 w-10 text-muted-foreground/40" />
+          </div>
+          <p className="text-sm font-medium">
+            {isTotallyEmpty
+              ? "Nenhum dispositivo neste grupo ainda. Instale o agente para começar a monitorar."
+              : "Nenhuma máquina encontrada com os filtros ativos."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {selectedGroup && (
+        <GroupSectionHeader
+          title={selectedGroup.name}
+          contact={selectedGroup.client_contact}
+          onlineCount={selectedGroup.online_machines}
+          totalCount={selectedGroup.total_machines}
+        />
+      )}
+      {viewMode === 'table' ? (
+        <MachinesTableView machines={filtered} onSelect={onSelect} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+          {filtered.map((m) => (
+            <MachineCard key={m.id} machine={m} onSelect={onSelect} />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-// ── Grid Principal de Máquinas ──────────────────────────
-function MachinesGrid({
-  groupId,
-  statusFilter,
-  search,
-  onSelect,
-}: {
-  groupId: string | null;
-  statusFilter: StatusFilter;
-  search: string;
-  onSelect: (m: MachineWithMetric, initialTab?: string) => void;
-}) {
-  const { data: machines, isLoading } = useGroupMachines(groupId);
-
-  const filtered = useMemo(() => {
-    if (!machines) return [];
-    return (machines || []).filter((m) => {
-      const isOnline =
-        m.status === 'online' ||
-        m.status === 'alerta' ||
-        (m.last_seen ? Date.now() - new Date(m.last_seen).getTime() < 5 * 60 * 1000 : false);
-
-      if (statusFilter === 'online' && !isOnline) return false;
-      if (statusFilter === 'offline' && isOnline) return false;
-      if (statusFilter === 'alert' && m.status !== 'alerta' && !hasDiskAlert(m)) return false;
-      if (search && !m.hostname.toLowerCase().includes(search.toLowerCase())) return false;
-      return true;
-    });
-  }, [machines, statusFilter, search]);
-
-  if (!groupId) {
-    return <MonitoringOnboarding />;
-  }
-
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-        {Array.from({ length: 6 }).map((_, i) => <MachineCardSkeleton key={i} />)}
-      </div>
-    );
-  }
-
-  if (filtered.length === 0) {
-    const isTotallyEmpty = machines && machines.length === 0;
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3 border-2 border-dashed rounded-2xl opacity-50">
-          <div className="p-4 bg-muted rounded-full">
-            <Monitor className="h-10 w-10 text-muted-foreground/40" />
-          </div>
-          <p className="text-sm font-medium">
-            {isTotallyEmpty 
-              ? "Nenhum dispositivo neste grupo ainda. Instale o agente para começar a monitorar."
-              : "Nenhuma máquina encontrada com os filtros ativos."}
-          </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-      {filtered.map((m) => (
-        <MachineCard key={m.id} machine={m} onSelect={onSelect} />
-      ))}
-    </div>
-  );
-}
-
-// ── Página Principal de Monitoramento (NOC View) ──────────
-const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExternalMachine }) => {
+// ── Página Principal de Monitoramento (NOC View) ───────────
+const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExternalMachine, hideHeader }) => {
   const { data: role, isLoading: roleLoading } = useUserRole();
+  const { data: userProfile } = useUserProfile();
   const queryClient = useQueryClient();
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>('all');
   const [selectedMachine, setSelectedMachine] = useState<MachineWithMetric | null>(null);
   const [selectedDrawerTab, setSelectedDrawerTab] = useState<string>('overview');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
+  const [companyFilter, setCompanyFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [refreshing, setRefreshing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(true);
 
   // Group Management State
@@ -221,24 +587,55 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
     company_id: '',
   });
 
+  // role 'developer' = escopo global (ver escopo.Global() no backend) —
+  // esse perfil legitimamente vê máquinas de qualquer empresa, então o
+  // canal Realtime fica sem filtro de company_id pra ele.
+  useRealtimeMachines(role === 'developer' ? undefined : userProfile?.company_id ?? undefined);
+
   const { data: dashboard } = useMonitoringDashboard();
   const { data: groups, isLoading: groupsLoading } = useMonitoringGroups();
   const { data: companies = [] } = useCompanies();
+
+  // Só pra exportação (ver handleExport) — MESMA queryKey que MachinesGrid
+  // usa internamente pra desenhar o grid, então o React Query serve do
+  // cache já populado em vez de duplicar a requisição de rede.
+  const isAllGroupsView = selectedGroupId === 'all' || !selectedGroupId;
+  const { data: allMachinesForExport } = useAllMachines();
+  const { data: groupMachinesForExport } = useGroupMachines(!isAllGroupsView ? selectedGroupId : null);
   
   const createGroup = useCreateGroup();
   const updateGroup = useUpdateGroup();
   const deleteGroup = useDeleteGroup();
 
   const isAdminOrGestor = role === 'admin' || role === 'developer';
+  const canApproveMachines = isAdminOrGestor || role === 'technician';
 
   const { data: externalMachineDetail } = useMachineDetail(externalMachineId || null);
 
-  // Auto-select first group if none selected
+  const totalOnlineAll = useMemo(() => {
+    if (dashboard?.online !== undefined) return dashboard.online;
+    return (groups || []).reduce((acc, g) => acc + (g.online_machines || 0), 0);
+  }, [dashboard, groups]);
+
+  const totalMachinesAll = useMemo(() => {
+    if (dashboard?.total !== undefined) return dashboard.total;
+    return (groups || []).reduce((acc, g) => acc + (g.total_machines || 0), 0);
+  }, [dashboard, groups]);
+
+  const totalOfflineAll = useMemo(() => {
+    return Math.max(0, totalMachinesAll - totalOnlineAll);
+  }, [totalMachinesAll, totalOnlineAll]);
+
+  const totalAlertAll = useMemo(() => {
+    return (groups || []).reduce((acc, g) => acc + (g.alert_machines || 0), 0);
+  }, [groups]);
+
+  // Auto-select "all" if none selected
   React.useEffect(() => {
-    if (!selectedGroupId && groups && groups.length > 0) {
-      setSelectedGroupId(groups[0].id);
+    if (!selectedGroupId) {
+      setSelectedGroupId('all');
     }
-  }, [groups, selectedGroupId]);
+  }, [selectedGroupId]);
 
   // Handle external machine selection (e.g. clicked from alerts tab)
   React.useEffect(() => {
@@ -252,10 +649,10 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
     }
   }, [externalMachineId, externalMachineDetail]);
 
-  const handleSelectMachine = (machine: MachineWithMetric, initialTab: string = 'overview') => {
+  const handleSelectMachine = useCallback((machine: MachineWithMetric, initialTab: string = 'overview') => {
     setSelectedMachine(machine);
     setSelectedDrawerTab(initialTab);
-  };
+  }, []);
 
   const handleCloseDrawer = () => {
     setSelectedMachine(null);
@@ -265,10 +662,55 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
     }
   };
 
+  const refreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await queryClient.invalidateQueries({ queryKey: ['monitoring'] });
-    setTimeout(() => setRefreshing(false), 800);
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => setRefreshing(false), 800);
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      // Mesma fonte de dados que MachinesGrid usa pra decidir "todos os
+      // grupos" vs. um grupo específico — React Query dedupe pela mesma
+      // queryKey então isso não dispara um segundo fetch de rede, só lê o
+      // cache já populado pelo grid.
+      const fonte = isAllGroupsView ? allMachinesForExport : groupMachinesForExport;
+      const companyNameById = new Map(companies.map((c) => [c.id, c.name]));
+
+      const linhas = (fonte || [])
+        .filter((m) => machineMatchesFilters(m, { statusFilter, search, companyFilter }))
+        .map((m) => ({
+          ...m,
+          company_name: (m.company_id && companyNameById.get(m.company_id)) || 'Sem empresa',
+        }));
+
+      if (linhas.length === 0) {
+        toast.info('Nenhuma máquina pra exportar com os filtros atuais.');
+        return;
+      }
+
+      const { gerarMachinesXlsx, nomeArquivoMachines } = await import('@/lib/monitoring/exportMachinesXlsx');
+      const { baixarBlob } = await import('@/lib/reports/exportPdf');
+      const blob = await gerarMachinesXlsx(linhas);
+      baixarBlob(blob, nomeArquivoMachines());
+      toast.success(`${linhas.length} máquina(s) exportada(s)`);
+    } catch (error) {
+      toast.error('Erro ao exportar planilha', { description: (error as Error).message });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleOpenGroupDialog = (group?: MachineGroup) => {
@@ -350,109 +792,296 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
     <div className="w-full space-y-6">
       <div className="w-full">
 
-        {/* ── Page Header ── */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-border/40">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-              Monitoramento de Sistemas
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Supervisão em tempo real de hosts, servidores e estações de trabalho.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
+        {/* ── Page Header / Action Bar ── */}
+        {hideHeader ? (
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-4 border-b border-border/40">
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
                 autoComplete="off"
-                placeholder="Buscar por hostname..."
-                className="pl-10 w-full sm:w-[260px] rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
+                placeholder="Buscar máquinas, IP, usuário ou SO..."
+                className="pl-9 w-full sm:w-[320px] md:w-[350px] text-xs sm:text-sm rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
-            {dashboard && (
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="gap-1.5 text-green-600 border-green-500/30 bg-green-500/10">
-                  <Wifi className="w-3 h-3" />
-                  {dashboard.online} online
-                </Badge>
-                <Badge variant="outline" className="gap-1.5 text-red-600 border-red-500/30 bg-red-500/10">
-                  <WifiOff className="w-3 h-3" />
-                  <span>{dashboard.offline} offline</span>
-                </Badge>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Alternador de Visualização Cards / Tabela */}
+              <div className="flex items-center bg-muted/40 border border-border/50 rounded-xl p-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Visualização em Cards"
+                  onClick={() => setViewMode('grid')}
+                  className={cn("h-7 px-2.5 rounded-lg text-xs font-bold gap-1 transition-all", viewMode === 'grid' ? "bg-background shadow-xs text-primary font-bold" : "text-muted-foreground")}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Cards</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Visualização em Tabela Densa"
+                  onClick={() => setViewMode('table')}
+                  className={cn("h-7 px-2.5 rounded-lg text-xs font-bold gap-1 transition-all", viewMode === 'table' ? "bg-background shadow-xs text-primary font-bold" : "text-muted-foreground")}
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Tabela</span>
+                </Button>
               </div>
-            )}
 
-            {isAdminOrGestor && (
+              {dashboard && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="gap-1.5 text-green-600 border-green-500/30 bg-green-500/10">
+                    <Wifi className="w-3 h-3" />
+                    {dashboard.online} online
+                  </Badge>
+                  <Badge variant="outline" className="gap-1.5 text-red-600 border-red-500/30 bg-red-500/10">
+                    <WifiOff className="w-3 h-3" />
+                    <span>{dashboard.offline} offline</span>
+                  </Badge>
+                </div>
+              )}
+
+              {isAdminOrGestor && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOpenGroupDialog()}
+                  className="gap-2 rounded-xl border-border/40 hover:bg-primary/10 hover:text-primary transition-all font-semibold"
+                >
+                  <Plus className="w-4 h-4" />
+                  Novo Grupo
+                </Button>
+              )}
+
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleOpenGroupDialog()}
-                className="gap-2 rounded-xl border-border/40 hover:bg-primary/10 hover:text-primary transition-all font-semibold"
+                onClick={handleRefresh}
+                className="gap-2 rounded-xl transition-all"
+                disabled={refreshing}
               >
-                <Plus className="w-4 h-4" />
-                Novo Grupo
+                <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
+                Atualizar
               </Button>
-            )}
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              className="gap-2 rounded-xl transition-all"
-              disabled={refreshing}
-            >
-              <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
-              Atualizar
-            </Button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <PageHeader
+            icon={Activity}
+            badge="SUPERVISÃO RMM"
+            title="Monitoramento de Sistemas"
+            description="Supervisão em tempo real de hosts, servidores e estações de trabalho."
+            actions={
+              <>
+                <div className="relative group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input
+                    autoComplete="off"
+                    placeholder="Buscar máquinas, IP, usuário ou SO..."
+                    className="pl-9 w-full sm:w-[320px] md:w-[350px] text-xs sm:text-sm rounded-xl bg-muted/30 border-border/40 focus:bg-background transition-all"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+
+                {/* Filtro por cliente/empresa */}
+                {companies.length > 1 && (
+                  <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                    <SelectTrigger className="w-full sm:w-[180px] h-9 text-xs sm:text-sm rounded-xl bg-muted/30 border-border/40">
+                      <Building2 className="w-3.5 h-3.5 mr-1.5 text-muted-foreground shrink-0" />
+                      <SelectValue placeholder="Cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os clientes</SelectItem>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {/* Exportar planilha — respeita os filtros ativos (status, busca, cliente) */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="gap-2 rounded-xl transition-all"
+                >
+                  {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  <span className="hidden sm:inline">Exportar</span>
+                </Button>
+
+                {/* Alternador de Visualização Cards / Tabela */}
+                <div className="flex items-center bg-muted/40 border border-border/50 rounded-xl p-0.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Visualização em Cards"
+                    onClick={() => setViewMode('grid')}
+                    className={cn("h-7 px-2.5 rounded-lg text-xs font-bold gap-1 transition-all", viewMode === 'grid' ? "bg-background shadow-xs text-primary font-bold" : "text-muted-foreground")}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Cards</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Visualização em Tabela Densa"
+                    onClick={() => setViewMode('table')}
+                    className={cn("h-7 px-2.5 rounded-lg text-xs font-bold gap-1 transition-all", viewMode === 'table' ? "bg-background shadow-xs text-primary font-bold" : "text-muted-foreground")}
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Tabela</span>
+                  </Button>
+                </div>
+
+                {dashboard && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="gap-1.5 text-green-600 border-green-500/30 bg-green-500/10">
+                      <Wifi className="w-3 h-3" />
+                      {dashboard.online} online
+                    </Badge>
+                    <Badge variant="outline" className="gap-1.5 text-red-600 border-red-500/30 bg-red-500/10">
+                      <WifiOff className="w-3 h-3" />
+                      <span>{dashboard.offline} offline</span>
+                    </Badge>
+                  </div>
+                )}
+
+                {canApproveMachines && <ForceUpdateButton />}
+
+                {isAdminOrGestor && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpenGroupDialog()}
+                    className="gap-2 rounded-xl border-border/40 hover:bg-primary/10 hover:text-primary transition-all font-semibold"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Novo Grupo
+                  </Button>
+                )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  className="gap-2 rounded-xl transition-all"
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
+                  Atualizar
+                </Button>
+              </>
+            }
+          />
+        )}
+
+        {canApproveMachines && <PendingMachinesBanner />}
 
         {/* ── Body ── */}
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Left sidebar — groups */}
-          <aside className="w-full lg:w-64 flex-shrink-0">
+          <aside className="w-full lg:w-60 xl:w-64 flex-shrink-0">
             <div className="sticky top-8">
               <div className="mb-6">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 px-3">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 px-3">
                   Filtrar por Status
                 </h3>
-                <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 px-1">
-                   <Button 
-                    variant={statusFilter === 'all' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="justify-start gap-2"
+                <div className="space-y-1 pr-3 pl-1">
+                  {/* Todos */}
+                  <button
                     onClick={() => setStatusFilter('all')}
-                   >
-                     Todos
-                   </Button>
-                   <Button 
-                    variant={statusFilter === 'online' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="justify-start gap-2 text-green-600"
+                    className={cn(
+                      'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors mb-1 group relative',
+                      statusFilter === 'all'
+                        ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                        : 'hover:bg-muted/70 text-foreground border border-transparent'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <LayoutGrid className={cn("w-4 h-4 shrink-0", statusFilter === 'all' ? "text-primary-foreground" : "text-muted-foreground")} />
+                      <span className="text-sm truncate leading-tight font-semibold">Todos</span>
+                    </div>
+                    <span className={cn(
+                      'text-xs font-semibold',
+                      statusFilter === 'all' ? 'text-primary-foreground opacity-90' : 'text-muted-foreground'
+                    )}>
+                      {totalMachinesAll}
+                    </span>
+                  </button>
+
+                  {/* Online */}
+                  <button
                     onClick={() => setStatusFilter('online')}
-                   >
-                     <Wifi className="w-3.5 h-3.5" /> Online
-                   </Button>
-                   <Button 
-                    variant={statusFilter === 'offline' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="justify-start gap-2 text-red-600"
+                    className={cn(
+                      'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors mb-1 group relative',
+                      statusFilter === 'online'
+                        ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                        : 'hover:bg-muted/70 text-foreground border border-transparent'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Wifi className={cn("w-4 h-4 shrink-0", statusFilter === 'online' ? "text-primary-foreground" : "text-emerald-500")} />
+                      <span className="text-sm truncate leading-tight font-semibold">Online</span>
+                    </div>
+                    <span className={cn(
+                      'text-xs font-semibold',
+                      statusFilter === 'online' ? 'text-primary-foreground opacity-90' : 'text-emerald-600 dark:text-emerald-400'
+                    )}>
+                      {totalOnlineAll}
+                    </span>
+                  </button>
+
+                  {/* Offline */}
+                  <button
                     onClick={() => setStatusFilter('offline')}
-                   >
-                     <WifiOff className="w-3.5 h-3.5" /> Offline
-                   </Button>
-                   <Button 
-                    variant={statusFilter === 'alert' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="justify-start gap-2 text-yellow-600"
+                    className={cn(
+                      'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors mb-1 group relative',
+                      statusFilter === 'offline'
+                        ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                        : 'hover:bg-muted/70 text-foreground border border-transparent'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <WifiOff className={cn("w-4 h-4 shrink-0", statusFilter === 'offline' ? "text-primary-foreground" : "text-red-500")} />
+                      <span className="text-sm truncate leading-tight font-semibold">Offline</span>
+                    </div>
+                    <span className={cn(
+                      'text-xs font-semibold',
+                      statusFilter === 'offline' ? 'text-primary-foreground opacity-90' : 'text-red-500'
+                    )}>
+                      {totalOfflineAll}
+                    </span>
+                  </button>
+
+                  {/* Com Alerta */}
+                  <button
                     onClick={() => setStatusFilter('alert')}
-                   >
-                     <AlertTriangle className="w-3.5 h-3.5" /> Com Alerta
-                   </Button>
+                    className={cn(
+                      'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors mb-1 group relative',
+                      statusFilter === 'alert'
+                        ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                        : 'hover:bg-muted/70 text-foreground border border-transparent'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <AlertTriangle className={cn("w-4 h-4 shrink-0", statusFilter === 'alert' ? "text-primary-foreground" : "text-amber-500")} />
+                      <span className="text-sm truncate leading-tight font-semibold">Com Alerta</span>
+                    </div>
+                    {totalAlertAll > 0 && (
+                      <span className={cn(
+                        'text-xs font-semibold',
+                        statusFilter === 'alert' ? 'text-primary-foreground opacity-90' : 'text-amber-500'
+                      )}>
+                        {totalAlertAll}
+                      </span>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -482,6 +1111,36 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                 {groupsOpen && (
                   <ScrollArea className="h-[calc(100vh-320px)]">
                     <div className="space-y-1 pr-3 pl-1">
+                      {/* Item "Todos os Clientes / Grupos" */}
+                      <button
+                        onClick={() => setSelectedGroupId('all')}
+                        className={cn(
+                          'w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-colors mb-2 group relative',
+                          selectedGroupId === 'all'
+                            ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                            : 'hover:bg-muted/70 text-foreground border border-transparent'
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <LayoutGrid className={cn("w-4 h-4 shrink-0", selectedGroupId === 'all' ? "text-primary-foreground" : "text-muted-foreground")} />
+                          <p className="text-sm truncate leading-tight font-semibold">Todos os Clientes</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className="flex items-center gap-1 text-[11px] font-semibold">
+                            <span className={cn(
+                              "h-1.5 w-1.5 rounded-full shrink-0",
+                              selectedGroupId === 'all' ? "bg-white" : "bg-emerald-500"
+                            )} />
+                            <span className={selectedGroupId === 'all' ? 'text-primary-foreground' : 'text-emerald-600 dark:text-emerald-400'}>
+                              {totalOnlineAll}
+                            </span>
+                          </span>
+                          <span className={cn('text-[10px] font-medium opacity-50')}>
+                            /{totalMachinesAll}
+                          </span>
+                        </div>
+                      </button>
+
                       {groupsLoading ? (
                         Array.from({ length: 4 }).map((_, i) => (
                           <Skeleton key={i} className="h-10 w-full rounded-lg" />
@@ -512,24 +1171,18 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
 
           {/* Main — machine grid */}
           <div className="flex-1 min-w-0">
-            {selectedGroup && (
-              <div className="flex items-center gap-2 mb-4">
-                <h2 className="font-semibold text-foreground">{selectedGroup.name}</h2>
-                <Badge variant="secondary" className="text-xs">
-                  {selectedGroup.total_machines} máquina{selectedGroup.total_machines !== 1 ? 's' : ''}
-                </Badge>
-              </div>
-            )}
-
             {groupsLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => <MachineCardSkeleton key={i} />)}
               </div>
             ) : (
               <MachinesGrid
                 groupId={selectedGroupId}
+                groups={groups}
                 statusFilter={statusFilter}
                 search={search}
+                companyFilter={companyFilter}
+                viewMode={viewMode}
                 onSelect={handleSelectMachine}
               />
             )}
@@ -539,7 +1192,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
 
       {/* Group Dialog */}
       <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="sm:max-w-md rounded-lg">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
               {editingGroup ? 'Editar Grupo' : 'Novo Grupo / Cliente'}

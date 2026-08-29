@@ -25,8 +25,8 @@ const PERIODS: MetricPeriod[] = ['1h', '6h', '24h', '7d'];
 
 const METRIC_TABS: { key: MetricType; label: string; icon: any; color: string }[] = [
   { key: 'all', label: 'Todos', icon: Activity, color: 'text-primary' },
-  { key: 'cpu', label: 'CPU', icon: Cpu, color: 'text-indigo-500' },
-  { key: 'ram', label: 'RAM', icon: Layers, color: 'text-emerald-500' },
+  { key: 'cpu', label: 'CPU', icon: Cpu, color: 'text-primary' },
+  { key: 'ram', label: 'RAM', icon: Layers, color: 'text-brand-400' },
   { key: 'disk', label: 'Disco', icon: HardDrive, color: 'text-amber-500' },
 ];
 
@@ -120,17 +120,17 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
         </div>
 
         {/* Period Selector Buttons */}
-        <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-xl border border-border/30 self-start sm:self-auto">
+        <div className="inline-flex h-8 items-center bg-muted/60 p-1 rounded-lg border border-border/40">
           {PERIODS.map((p) => (
             <button
               key={p}
               type="button"
               onClick={() => onPeriodChange(p)}
               className={cn(
-                'px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all',
+                'h-full px-2.5 rounded-md text-[11px] font-medium transition-all',
                 period === p
-                  ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               {p}
@@ -141,7 +141,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
 
       {/* Metric Selector Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
+        <div className="inline-flex h-9 items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border/40">
           {METRIC_TABS.map((tab) => {
             const Icon = tab.icon;
             const isSelected = activeMetric === tab.key;
@@ -151,10 +151,10 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                 type="button"
                 onClick={() => handleMetricSelect(tab.key)}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border',
+                  'inline-flex h-full items-center gap-1.5 px-3 rounded-md text-xs font-medium transition-all',
                   isSelected
-                    ? 'bg-muted/80 text-foreground border-primary/40 shadow-sm'
-                    : 'bg-transparent text-muted-foreground border-transparent hover:bg-muted/30 hover:text-foreground'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 <Icon className={cn('w-3.5 h-3.5', isSelected ? tab.color : 'opacity-70')} />
@@ -235,7 +235,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                   type="monotone"
                   dataKey="CPU"
                   name="CPU (%)"
-                  stroke="rgb(99, 102, 241)"
+                  stroke="#906090"
                   strokeWidth={2.5}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
@@ -245,7 +245,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                   type="monotone"
                   dataKey="RAM"
                   name="RAM (%)"
-                  stroke="rgb(16, 185, 129)"
+                  stroke="#7c529e"
                   strokeWidth={2.5}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
@@ -255,7 +255,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                   type="monotone"
                   dataKey="Disco"
                   name="Disco (%)"
-                  stroke="rgb(245, 158, 11)"
+                  stroke="#f59e0b"
                   strokeWidth={2.5}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
@@ -266,16 +266,16 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
               <AreaChart data={chartData} margin={{ top: 10, right: 10, bottom: 5, left: -20 }}>
                 <defs>
                   <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="rgb(99, 102, 241)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="rgb(99, 102, 241)" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#906090" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#906090" stopOpacity={0.0} />
                   </linearGradient>
                   <linearGradient id="colorRam" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="rgb(16, 185, 129)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="rgb(16, 185, 129)" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#7c529e" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#7c529e" stopOpacity={0.0} />
                   </linearGradient>
                   <linearGradient id="colorDisk" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="rgb(245, 158, 11)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="rgb(245, 158, 11)" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
@@ -297,7 +297,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                     type="monotone"
                     dataKey="CPU"
                     name="Uso de CPU"
-                    stroke="rgb(99, 102, 241)"
+                    stroke="#906090"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorCpu)"
@@ -310,7 +310,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                     type="monotone"
                     dataKey="RAM"
                     name="Uso de RAM"
-                    stroke="rgb(16, 185, 129)"
+                    stroke="#7c529e"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorRam)"
@@ -323,7 +323,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
                     type="monotone"
                     dataKey="Disco"
                     name="Uso de Disco"
-                    stroke="rgb(245, 158, 11)"
+                    stroke="#f59e0b"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorDisk)"

@@ -14,6 +14,8 @@ import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { ptBR } from 'date-fns/locale';
 import { formatDate } from '@/lib/utils';
 import { useMeusTickets } from '@/hooks/useMyTickets';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
 
 // Define types for tickets to avoid 'unknown' property errors
 interface Ticket {
@@ -45,6 +47,7 @@ export default function TicketHistory() {
 
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: profile } = useUserProfile();
+  const { profilesMap } = useProfilesMap();
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -84,36 +87,30 @@ export default function TicketHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <main className="p-4 md:p-8 lg:p-12 max-w-[1400px] mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
-            <History className="w-6 h-6 text-purple-500" />
-          </div>
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-black text-foreground">Histórico de Chamados</h1>
-            <p className="text-sm font-medium text-muted-foreground mt-1 tracking-tight">
-              Consulte chamados resolvidos, fechados ou cancelados.
-            </p>
-          </div>
-        </div>
+    <div className="w-full space-y-6">
+      <PageHeader
+        icon={History}
+        badge="AUDITORIA & REGISTROS"
+        title="Histórico"
+        description="Consulte chamados resolvidos, fechados ou cancelados com filtros avançados."
+      />
 
         <Card className="border-border/40 shadow-xl shadow-primary/5 overflow-visible bg-card/50 backdrop-blur-sm">
           <CardHeader className="border-b border-border/40 pb-6">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="relative w-full md:max-w-md group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-purple-500" />
+              <div className="relative w-full md:max-w-lg group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
                 <Input
-                  autoComplete="off" placeholder="Pesquisar histórico..."
+                  autoComplete="off"
+                  placeholder="Buscar por #número, ID, usuário, título ou empresa..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-purple-500/20 rounded-2xl transition-all"
+                  className="pl-12 h-10 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-md transition-all text-sm"
                 />
               </div>
               <div className="flex gap-2">
                 {(statusFilter !== 'all' || priorityFilter !== 'all' || searchTerm !== '') && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground h-12 rounded-2xl px-4 text-xs font-bold uppercase tracking-wider">
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground h-10 rounded-md px-4 text-xs font-bold uppercase tracking-wider">
                     <X className="w-4 h-4 mr-2" /> Limpar
                   </Button>
                 )}
@@ -121,7 +118,7 @@ export default function TicketHistory() {
                   variant={advancedOpen ? "default" : "outline"} 
                   size="sm" 
                   onClick={() => setAdvancedOpen(!advancedOpen)}
-                  className="h-12 rounded-2xl border-border/40 font-bold text-xs uppercase tracking-wider px-6 transition-colors shadow-sm"
+                  className="h-10 rounded-md border-border/40 font-bold text-xs uppercase tracking-wider px-5 transition-colors shadow-sm"
                 >
                   <Filter className="w-4 h-4 mr-2" /> Filtros Analíticos
                 </Button>
@@ -129,25 +126,27 @@ export default function TicketHistory() {
             </div>
 
             {advancedOpen && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 p-4 bg-muted/20 rounded-2xl border border-border/40 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 p-4 bg-muted/20 rounded-lg border border-border/40 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Status</label>
                   <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                    <SelectTrigger className="h-10 bg-background border-border/40 rounded-xl">
-                      <SelectValue placeholder="Todos" />
+                    <SelectTrigger className="h-10 bg-background border-border/40 rounded-md">
+                      <SelectValue placeholder="Todos os Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="all">Todos os Status</SelectItem>
+                      <SelectItem value="resolved">Resolvidos</SelectItem>
+                      <SelectItem value="closed">Fechados</SelectItem>
+                      <SelectItem value="cancelled">Cancelados</SelectItem>
                       <SelectItem value="open">Abertos</SelectItem>
                       <SelectItem value="in-progress">Em Atendimento</SelectItem>
-                      <SelectItem value="resolved">Resolvidos</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Prioridade</label>
                   <Select value={priorityFilter} onValueChange={handlePriorityFilterChange}>
-                    <SelectTrigger className="h-10 bg-background border-border/40 rounded-xl">
+                    <SelectTrigger className="h-10 bg-background border-border/40 rounded-md">
                       <SelectValue placeholder="Todas as Prioridades" />
                     </SelectTrigger>
                     <SelectContent>
@@ -189,7 +188,7 @@ export default function TicketHistory() {
                           <PriorityBadge priority={t.priority} size="sm" />
                         </div>
                         <p className="text-sm font-bold text-foreground truncate">{t.title}</p>
-                        <p className="text-[10px] text-muted-foreground">{t.requester_name} · {formatDate(t.updated_at, "dd/MM/yy", { locale: ptBR })}</p>
+                        <p className="text-[10px] text-muted-foreground">{resolveUserDisplayName(t.requester_name, profilesMap, { fallback: 'Cliente' })} · {formatDate(t.updated_at, "dd/MM/yy", { locale: ptBR })}</p>
                       </div>
                       <ArrowRight className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-1" />
                     </button>
@@ -197,16 +196,16 @@ export default function TicketHistory() {
                 </div>
 
                 {/* ── Desktop Table (>= md) ── */}
-                <div className="hidden md:block">
-                  <Table>
+                <div className="hidden md:block overflow-x-auto">
+                  <Table className="min-w-[700px]">
                     <TableHeader className="bg-muted/5">
                       <TableRow className="hover:bg-transparent border-b border-border/40">
-                        <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-14 pl-6">Nº</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-14">Ticket</TableHead>
-                        <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-14">Prioridade</TableHead>
-                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-14">Situação Final</TableHead>
-                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-14">Modificado em</TableHead>
-                        <TableHead className="w-[80px] h-14"></TableHead>
+                        <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-11 pl-6">Nº</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-11">Ticket</TableHead>
+                        <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-11">Prioridade</TableHead>
+                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-11">Situação Final</TableHead>
+                        <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-11">Modificado em</TableHead>
+                        <TableHead className="w-[80px] h-11"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -218,7 +217,7 @@ export default function TicketHistory() {
                         </TableRow>
                       ) : (
                         (filteredTickets || []).map(t => (
-                          <TicketHistoryRow key={t.id} ticket={t} onClick={handleRowClick} />
+                          <TicketHistoryRow key={t.id} ticket={t} profilesMap={profilesMap} onClick={handleRowClick} />
                         ))
                       )}
                     </TableBody>
@@ -261,17 +260,18 @@ export default function TicketHistory() {
             )}
           </CardContent>
         </Card>
-      </main>
     </div>
   );
 }
 
 interface TicketHistoryRowProps {
   ticket: Ticket;
+  profilesMap?: any;
   onClick: (id: string) => void;
 }
 
-const TicketHistoryRow = React.memo(({ ticket, onClick }: TicketHistoryRowProps) => {
+const TicketHistoryRow = React.memo(({ ticket, profilesMap, onClick }: TicketHistoryRowProps) => {
+  const requesterDisplay = resolveUserDisplayName(ticket.requester_name, profilesMap, { fallback: 'Cliente' });
   return (
     <TableRow 
       onClick={() => onClick(ticket.id)} 
@@ -281,8 +281,16 @@ const TicketHistoryRow = React.memo(({ ticket, onClick }: TicketHistoryRowProps)
         #{ticket.ticket_number}
       </TableCell>
       <TableCell className="py-4">
-        <p className="text-sm font-bold text-foreground group-hover:text-purple-500 transition-colors">{ticket.title}</p>
-        <p className="text-[10px] font-medium text-muted-foreground">{ticket.requester_name} · {ticket.company_name || 'N/A'}</p>
+        <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{ticket.title}</p>
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+          <span className="font-semibold text-foreground/80">{requesterDisplay}</span>
+          {ticket.company_name && <span>· {ticket.company_name}</span>}
+          {ticket.category && (
+            <span className="px-1.5 py-0.5 rounded bg-muted/60 font-mono text-[9px] uppercase tracking-wider">
+              {ticket.category}
+            </span>
+          )}
+        </div>
       </TableCell>
       <TableCell className="py-4">
         <PriorityBadge priority={ticket.priority} size="sm" />
@@ -296,7 +304,7 @@ const TicketHistoryRow = React.memo(({ ticket, onClick }: TicketHistoryRowProps)
         </span>
       </TableCell>
       <TableCell className="py-4 text-right pr-6">
-        <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-purple-500 transition-colors inline-block" />
+        <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors inline-block" />
       </TableCell>
     </TableRow>
   );

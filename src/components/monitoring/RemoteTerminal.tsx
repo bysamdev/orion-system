@@ -1,7 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Play, Terminal, Power } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
+import { Play, Terminal, Power, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,10 +33,12 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const onDataDisposableRef = useRef<{ dispose: () => void } | null>(null);
   
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
   const createCommand = useCreateCommand();
 
   useEffect(() => {
@@ -50,9 +62,13 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
     fitAddonRef.current = fitAddon;
     
     const handleResize = () => {
-      fitAddon.fit();
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ cols: term.cols, rows: term.rows }));
+      try {
+        fitAddon.fit();
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ cols: term.cols, rows: term.rows }));
+        }
+      } catch {
+        // ignore resize errors if container was removed
       }
     };
     
@@ -60,7 +76,25 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
     
     return () => {
       window.removeEventListener('resize', handleResize);
-      term.dispose();
+      if (onDataDisposableRef.current) {
+        onDataDisposableRef.current.dispose();
+        onDataDisposableRef.current = null;
+      }
+      if (wsRef.current) {
+        try {
+          wsRef.current.close();
+        } catch {
+          // ignore
+        }
+        wsRef.current = null;
+      }
+      try {
+        term.dispose();
+      } catch {
+        // ignore
+      }
+      xtermRef.current = null;
+      fitAddonRef.current = null;
     };
   }, []);
 
@@ -99,6 +133,16 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
         return;
       }
 
+      // Close previous ws if any
+      if (wsRef.current) {
+        try {
+          wsRef.current.close();
+        } catch {
+          // ignore
+        }
+        wsRef.current = null;
+      }
+
       const ws = new WebSocket(wsUrl, ['orion-bearer', accessToken]);
       
       ws.onopen = () => {
@@ -135,11 +179,18 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
       
       wsRef.current = ws;
       
-      xtermRef.current?.onData((data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(data);
-        }
-      });
+      // Dispose old onData listener before attaching new one
+      if (onDataDisposableRef.current) {
+        onDataDisposableRef.current.dispose();
+      }
+      
+      if (xtermRef.current) {
+        onDataDisposableRef.current = xtermRef.current.onData((data) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(data);
+          }
+        });
+      }
       
     } catch (err: any) {
       setIsConnecting(false);
@@ -148,10 +199,20 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
   };
   
   const disconnectTerminal = () => {
+    if (onDataDisposableRef.current) {
+      onDataDisposableRef.current.dispose();
+      onDataDisposableRef.current = null;
+    }
     if (wsRef.current) {
-      wsRef.current.close();
+      try {
+        wsRef.current.close();
+      } catch {
+        // ignore
+      }
       wsRef.current = null;
     }
+    setIsConnected(false);
+    setIsConnecting(false);
   };
 
   return (
@@ -170,7 +231,7 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
         </div>
         
         <Button
-          onClick={isConnected ? disconnectTerminal : connectToTerminal}
+          onClick={isConnected ? disconnectTerminal : () => setShowConfirmDialog(true)}
           disabled={!isOnline || (isConnecting && !isConnected)}
           variant={isConnected ? 'destructive' : 'default'}
           className="font-bold gap-2 text-xs"
@@ -188,6 +249,38 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
           )}
         </Button>
       </div>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-amber-500" />
+              Confirmar abertura de sessão remota
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-sm text-muted-foreground">
+              <span className="block">
+                Você está prestes a abrir uma sessão de terminal (shell) com acesso total em{' '}
+                <strong className="text-foreground">{hostname ?? 'esta máquina'}</strong>.
+              </span>
+              <span className="block">
+                Essa ação é registrada com seu usuário, horário e a máquina de destino
+                para fins de auditoria.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowConfirmDialog(false);
+                connectToTerminal();
+              }}
+            >
+              Confirmar e abrir sessão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Separator className="border-border/20" />
 

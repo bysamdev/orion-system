@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,14 +11,17 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
+	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/kardianos/service"
@@ -29,6 +33,24 @@ import (
 	"orion-agent/token"
 	"orion-agent/version"
 )
+
+// jitterDuration adiciona uma variação aleatória de +/- percent% em torno de base
+// para evitar que centenas ou milhares de máquinas atinjam o servidor no mesmo milissegundo (thundering herd).
+func jitterDuration(base time.Duration, percent float64) time.Duration {
+	if percent <= 0 || base <= 0 {
+		return base
+	}
+	n, err := rand.Int(rand.Reader, big.NewInt(2000))
+	if err != nil {
+		return base
+	}
+	factor := (float64(n.Int64()-1000) / 1000.0) * (percent / 100.0)
+	jitter := float64(base) * (1.0 + factor)
+	if jitter <= 0 {
+		return base
+	}
+	return time.Duration(jitter)
+}
 
 // tempoLimiteEncerramento é o prazo que Stop() espera o loop principal (run())
 // realmente terminar antes de desistir e retornar mesmo assim. É var, não
@@ -83,6 +105,15 @@ type Svc struct {
 	// o intervalo de agent.yaml (cfg.IntervalSeconds) nesse caso. Mesma
 	// garantia de goroutine única de bufferFalhas.
 	proximoIntervaloSegundos int
+
+	// lastPayload é o snapshot mais recente produzido por tick() — reaproveitado
+	// pelo endpoint /metrics (startMetricsServer) em vez de cada scrape do
+	// Prometheus disparar um collector.Collect() novo. Sem isso, a coleta
+	// completa (incluindo os módulos caros de Security/RemoteSoftware — ver
+	// collector/expensive_cache.go) rodava tanto no ciclo do heartbeat
+	// (interval_seconds, 30s) quanto a cada scrape (15s), quase triplicando a
+	// frequência real de coleta.
+	lastPayload *collector.Payload
 }
 
 // intervaloMinimoSegundos e intervaloMaximoSegundos limitam o que o agente
@@ -172,6 +203,18 @@ func (s *Svc) setMachineID(id string) {
 	s.machineID = id
 }
 
+func (s *Svc) getLastPayload() *collector.Payload {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.lastPayload
+}
+
+func (s *Svc) setLastPayload(p *collector.Payload) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastPayload = p
+}
+
 // New cria uma nova instância do serviço com as dependências necessárias.
 func New(cfg *config.Config, logger *log.Logger) *Svc {
 	return &Svc{cfg: cfg, logger: logger}
@@ -214,28 +257,88 @@ func (s *Svc) Stop(svc service.Service) error {
 }
 
 // GetPortalURL gera a URL de acesso ao portal já autenticada para esta máquina específica.
-func (s *Svc) GetPortalURL() string {
-	token := s.getMachineToken()
-	if token == "" {
-		return ""
+// PreloadMachineToken lê a identidade da máquina já persistida em disco (sem
+// gerar uma nova, sem fazer heartbeat) — usado quando este processo é uma
+// bandeja interativa rodando ao lado do serviço, que já é quem manda
+// heartbeat de verdade (ver main.go). Sem isso, GetPortalURL/GetTicketURL
+// ficariam vazios para sempre nesta instância: token só é escrito em
+// s.machineToken dentro de tick(), que aqui nunca roda.
+func (s *Svc) PreloadMachineToken() error {
+	t, err := token.LoadToken()
+	if err != nil {
+		return err
 	}
-	// Usamos o redirecionador de login automático para que o usuário não precise digitar senha.
-	return fmt.Sprintf("%s/api/auth/machine-login?token=%s", s.cfg.APIURL, token)
+	s.setMachineToken(t)
+	return nil
 }
 
-// GetTicketURL gera a URL que leva direto à página de abertura de chamado, já autenticada.
-func (s *Svc) GetTicketURL() string {
-	token := s.getMachineToken()
-	if token == "" {
+func (s *Svc) GetPortalURL() string {
+	tok := strings.TrimSpace(s.getMachineToken())
+	if tok == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/api/auth/machine-login?token=%s&redirect_to=/novo-ticket", s.cfg.APIURL, token)
+	apiURL := strings.TrimRight(s.cfg.APIURL, "/")
+	// Usamos o redirecionador de login automático para que o usuário não precise digitar senha.
+	u := fmt.Sprintf("%s/api/auth/machine-login?token=%s", apiURL, url.QueryEscape(tok))
+	return anexarUsuarioAtual(u)
+}
+
+// GetTicketURL gera a URL que leva direto à página de abertura de chamado,
+// já autenticada. Construída em cima de GetPortalURL (não duplicando a
+// montagem) por dois motivos: a URL de ticket sempre estende a de portal
+// (mesmo token, mesmo requester_user — contrato coberto por
+// TestPortalETicketCompartilhamMesmoEndpointETokens), e a resolução do
+// usuário Windows/AD ativo (anexarUsuarioAtual, uma chamada WTS) roda uma
+// única vez por clique, não duas.
+func (s *Svc) GetTicketURL() string {
+	portal := s.GetPortalURL()
+	if portal == "" {
+		return ""
+	}
+	return portal + "&redirect_to=/novo-ticket"
+}
+
+// anexarUsuarioAtual acrescenta requester_user=<usuário Windows/AD da sessão
+// ativa AGORA> à URL de login por máquina — resolvido na hora do clique
+// (collector.ResolverUsuarioAtual), não o valor de machines.current_user do
+// último heartbeat, que pode estar até um ciclo inteiro (30-60s) desatualizado
+// se a máquina tiver trocado de usuário nesse meio-tempo.
+//
+// Só afeta o TEXTO de exibição do requisitante no chamado (ver
+// nomeRequisitante em handler/auth_handlers.go) — não é usado como
+// identidade de autenticação nem de autorização; a sessão continua sendo a
+// do usuário-fantasma da máquina, por token. Best-effort: se a resolução
+// falhar (ex: sem sessão de console ativa), a URL sai sem o parâmetro e o
+// backend cai de volta pro current_user já salvo em machines.
+func anexarUsuarioAtual(u string) string {
+	return anexarUsuarioAtualVia(u, collector.ResolverUsuarioAtual)
+}
+
+// anexarUsuarioAtualVia é a lógica de verdade, com o resolvedor injetado —
+// separada só pra ser testável sem depender de uma sessão WTS real (mesma
+// limitação de testabilidade já documentada em device_type_windows_test.go).
+func anexarUsuarioAtualVia(u string, resolver func() string) string {
+	usuarioAtual := strings.TrimSpace(resolver())
+	if usuarioAtual == "" {
+		return u
+	}
+	return u + "&requester_user=" + url.QueryEscape(usuarioAtual)
 }
 
 // run é o loop principal do agente: coleta dados → envia para o servidor → aguarda o próximo intervalo.
 func (s *Svc) run(ctx context.Context) {
 	s.logger.Println("🚀 Orion Agent iniciado com sucesso")
 	s.startMetricsServer(ctx)
+
+	// Jitter inicial no boot (0 a 3s) para desincronizar agentes ligando juntos
+	if initJitter, err := rand.Int(rand.Reader, big.NewInt(3000)); err == nil {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Duration(initJitter.Int64()) * time.Millisecond):
+		}
+	}
+
 	s.tick() // Fazemos a primeira coleta imediatamente ao subir
 
 	// Fase 4 (política de coleta por tipo de ativo): se o check-in imediato
@@ -243,9 +346,12 @@ func (s *Svc) run(ctx context.Context) {
 	// intervalo certo para o tipo desta máquina (servidor bate mais rápido
 	// que estação/notebook) desde o início, em vez de esperar um segundo
 	// ciclo no intervalo padrão de agent.yaml para se ajustar.
-	intervaloTicker := time.Duration(s.cfg.IntervalSeconds) * time.Second
+	baseInterval := time.Duration(s.cfg.IntervalSeconds) * time.Second
+	if baseInterval <= 0 {
+		baseInterval = 60 * time.Second
+	}
 	if s.proximoIntervaloSegundos > 0 {
-		intervaloTicker = time.Duration(s.proximoIntervaloSegundos) * time.Second
+		baseInterval = time.Duration(s.proximoIntervaloSegundos) * time.Second
 	}
 
 	// Jitter de início (Fase 8): sem isso, uma frota inteira reiniciando
@@ -254,24 +360,25 @@ func (s *Svc) run(ctx context.Context) {
 	// primeiro heartbeat, gerando um pico de tráfego sincronizado a cada
 	// intervalo, indefinidamente. Um atraso aleatório de até um intervalo
 	// inteiro, uma única vez logo após o primeiro check-in, já resolve: como
-	// o ticker tem período fixo depois disso, o deslocamento de fase entre
-	// agentes se mantém sem precisar de jitter contínuo. Observa ctx.Done()
+	// o ticker mantém jitter contínuo depois disso (jitterDuration), o
+	// deslocamento de fase entre agentes se mantém. Observa ctx.Done()
 	// durante a espera para não atrasar um encerramento pedido nesta janela.
-	if intervaloTicker > 0 {
-		jitter := time.Duration(rand.Int63n(int64(intervaloTicker)))
-		select {
-		case <-ctx.Done():
-			s.logger.Println("🛑 Encerrando Orion Agent...")
-			return
-		case <-time.After(jitter):
+	if baseInterval > 0 {
+		if n, err := rand.Int(rand.Reader, big.NewInt(int64(baseInterval))); err == nil {
+			select {
+			case <-ctx.Done():
+				s.logger.Println("🛑 Encerrando Orion Agent...")
+				return
+			case <-time.After(time.Duration(n.Int64())):
+			}
 		}
 	}
 
-	ticker := time.NewTicker(intervaloTicker)
-	defer ticker.Stop()
+	heartbeatTicker := time.NewTicker(jitterDuration(baseInterval, 10))
+	defer heartbeatTicker.Stop()
 
-	// Verificamos se existem comandos remotos para executar a cada 30 segundos.
-	commandTicker := time.NewTicker(30 * time.Second)
+	// Verificamos se existem comandos remotos para executar a cada 30 segundos (com jitter).
+	commandTicker := time.NewTicker(jitterDuration(30*time.Second, 10))
 	defer commandTicker.Stop()
 
 	for {
@@ -279,19 +386,21 @@ func (s *Svc) run(ctx context.Context) {
 		case <-ctx.Done():
 			s.logger.Println("🛑 Encerrando Orion Agent...")
 			return
-		case <-ticker.C:
+		case <-heartbeatTicker.C:
 			s.tick() // Ciclo normal de reporte de hardware/status
 			// A política de coleta pode ter mudado neste ciclo (ex.:
 			// classificação da máquina corrigida manualmente, ou reclassificada
-			// pelo agente) — reajusta o ticker se o backend mandou um valor
-			// diferente do período atual.
-			if novoIntervalo := time.Duration(s.proximoIntervaloSegundos) * time.Second; s.proximoIntervaloSegundos > 0 && novoIntervalo != intervaloTicker {
-				intervaloTicker = novoIntervalo
-				ticker.Reset(intervaloTicker)
-				s.logger.Printf("[INFO] Intervalo de coleta ajustado para %s (política do backend)", intervaloTicker)
+			// pelo agente) — adota o novo intervalo-base se o backend mandou um
+			// valor diferente do período atual antes de reaplicar o jitter
+			// contínuo de +/-10%.
+			if novoIntervalo := time.Duration(s.proximoIntervaloSegundos) * time.Second; s.proximoIntervaloSegundos > 0 && novoIntervalo != baseInterval {
+				baseInterval = novoIntervalo
+				s.logger.Printf("[INFO] Intervalo de coleta ajustado para %s (política do backend)", baseInterval)
 			}
+			heartbeatTicker.Reset(jitterDuration(baseInterval, 10))
 		case <-commandTicker.C:
 			s.pollAndExecuteCommands() // Ciclo de verificação de comandos (RMM)
+			commandTicker.Reset(jitterDuration(30*time.Second, 10))
 		}
 	}
 }
@@ -305,6 +414,10 @@ func (s *Svc) tick() {
 	}
 	payload.AgentVersion = version.Version
 
+	if payload.IdentityFallbackReason != "" {
+		s.logger.Printf("[AVISO] Identidade do usuário resolvida via variáveis de ambiente, não WTS: %s", payload.IdentityFallbackReason)
+	}
+
 	// Gerenciamento de Identidade (Token)
 	// Se for o primeiro acesso, carregamos do disco ou geramos uma nova identidade
 	// aleatória (token.GenerateRandomIdentity — ver MACHINE-IDENTITY-OPTIONS.md).
@@ -316,6 +429,22 @@ func (s *Svc) tick() {
 	if s.getMachineToken() == "" {
 		t, err := token.LoadToken()
 		if err != nil {
+			// Máquina nunca registrada nesta instalação — antes de gerar
+			// identidade e registrar de verdade, checa se este processo está
+			// rodando dentro de uma VM de análise dinâmica (sandbox
+			// multi-engine tipo VirusTotal). Essas ferramentas executam o
+			// .exe de verdade numa VM descartável pra observar comportamento;
+			// sem esta checagem, cada análise futura (VT redistribui a
+			// amostra pra dezenas de parceiros) registraria mais uma máquina
+			// fantasma no painel. Só roda nesta ramificação porque uma
+			// máquina já registrada e aprovada não deve mais ser
+			// reavaliada — protege contra falso positivo em VM legítima já
+			// em produção (Hyper-V/ESXi real), que passou pelo gate manual
+			// no primeiro registro.
+			if collector.DetectarAmbienteDeSandbox() {
+				s.logger.Println("[INFO] Ambiente de VM de análise detectado (VirtualBox/VMware/QEMU/Xen) — pulando registro nesta execução.")
+				return
+			}
 			s.logger.Printf("[INFO] Identidade local não encontrada, gerando nova identidade de máquina.")
 			t, err = token.GenerateRandomIdentity()
 			if err != nil {
@@ -337,7 +466,12 @@ func (s *Svc) tick() {
 	}
 	machineToken := s.getMachineToken()
 	payload.MachineToken = machineToken
-	
+
+	// Alimenta o cache do endpoint /metrics (ver lastPayload) com este mesmo
+	// snapshot — inclusive já com MachineToken e AgentVersion preenchidos,
+	// então NewMetricsHandler não precisa repetir essa montagem.
+	s.setLastPayload(payload)
+
 	// Garantimos que o atalho de "Abrir Portal" esteja sempre presente no Desktop do usuário.
 	if err := shortcut.CreatePortalShortcut(s.cfg.APIURL, machineToken); err != nil {
 		s.logger.Printf("[AVISO] Não foi possível atualizar o atalho no Desktop: %v", err)
@@ -389,7 +523,7 @@ func (s *Svc) pollAndExecuteCommands() {
 		// exposição — o conteúdo já fica registrado no backend, sob controle de
 		// acesso por role, via RespondToCommand logo abaixo.
 		s.logger.Printf("[RMM] Executando comando remoto (id=%s)", c.ID)
-		
+
 		cmdTrimmed := strings.TrimSpace(c.Command)
 		if strings.HasPrefix(cmdTrimmed, "orion-install") {
 			go s.handleOrionInstall(c.ID, cmdTrimmed)
@@ -430,6 +564,12 @@ func executeCommand(command string) (string, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "cmd", "/C", command)
+	// Sem isso, o Windows abre e fecha rapidinho uma janela de console
+	// visível toda vez que um comando remoto roda — o agente é um
+	// serviço em segundo plano, sem console próprio, então cmd.exe
+	// herda o comportamento padrão de abrir uma janela nova. Mesmo
+	// padrão já usado em notify_windows.go.
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	out, err := cmd.CombinedOutput()
 
 	if ctx.Err() == context.DeadlineExceeded {
@@ -471,7 +611,10 @@ func ServiceConfig() *service.Config {
 
 func (s *Svc) handleOrionInstall(commandID string, commandText string) {
 	s.logger.Printf("[ORION-INSTALL] Iniciando instalação para comando %s", commandID)
-	
+
+	// Notifica o usuário na área de trabalho que uma atualização automática está em andamento
+	ShowUpdateNotification("Orion System", "Baixando e instalando nova atualização do Orion Agent em segundo plano...")
+
 	url, hash, silentArgs, err := parseOrionInstallArgs(commandText)
 	if err != nil {
 		msg := fmt.Sprintf("Erro ao fazer parse dos argumentos: %v", err)
@@ -487,12 +630,17 @@ func (s *Svc) handleOrionInstall(commandID string, commandText string) {
 	}
 	defer os.Remove(tempFile) // Limpa o arquivo temporário depois
 
-	if hash != "" {
-		if err := verifySHA256(tempFile, hash); err != nil {
-			msg := fmt.Sprintf("Erro na verificação de hash: %v", err)
-			sender.RespondToCommand(s.cfg, commandID, "failed", msg)
-			return
-		}
+	// Hash é obrigatório: sem ele, um instalador baixado por HTTP simples ou
+	// de um host comprometido rodaria sem nenhuma verificação de integridade.
+	if hash == "" {
+		msg := "Comando rejeitado: --hash é obrigatório para orion-install"
+		sender.RespondToCommand(s.cfg, commandID, "failed", msg)
+		return
+	}
+	if err := verifySHA256(tempFile, hash); err != nil {
+		msg := fmt.Sprintf("Erro na verificação de hash: %v", err)
+		sender.RespondToCommand(s.cfg, commandID, "failed", msg)
+		return
 	}
 
 	output, err := runInstaller(tempFile, silentArgs)
@@ -504,6 +652,9 @@ func (s *Svc) handleOrionInstall(commandID string, commandText string) {
 
 	msg := fmt.Sprintf("Instalação concluída com sucesso.\nSaída:\n%s", output)
 	sender.RespondToCommand(s.cfg, commandID, "completed", msg)
+
+	// Notifica que a atualização foi concluída com sucesso
+	ShowUpdateNotification("Orion System", "Orion Agent atualizado com sucesso!")
 }
 
 func parseOrionInstallArgs(command string) (string, string, string, error) {
@@ -544,9 +695,26 @@ func parseOrionInstallArgs(command string) (string, string, string, error) {
 	return url, hash, args, nil
 }
 
-func downloadFileToTemp(url string) (string, error) {
+// extensaoDaURL extrai só a extensão do CAMINHO da URL, ignorando query
+// string e fragmento.
+//
+// filepath.Base/Ext direto na URL crua quebra com as signed URLs do Supabase
+// Storage (".../<hash>.exe?token=eyJ..."): o nome de arquivo saía com a query
+// inteira grudada, "?" é caractere inválido no Windows e todo os.Create
+// falhava ("open ...exe?token=eyJ...: The filename, directory name, or volume
+// label syntax is incorrect"), derrubando 100% das auto-atualizações. Mesmo
+// que o arquivo pudesse ser criado, filepath.Ext devolveria ".exe?token=..."
+// e runInstaller cairia no default "extensão não suportada".
+func extensaoDaURL(bruta string) string {
+	if u, err := url.Parse(bruta); err == nil && u.Path != "" {
+		return strings.ToLower(path.Ext(u.Path))
+	}
+	return ""
+}
+
+func downloadFileToTemp(rawURL string) (string, error) {
 	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
+	resp, err := client.Get(rawURL)
 	if err != nil {
 		return "", err
 	}
@@ -556,18 +724,20 @@ func downloadFileToTemp(url string) (string, error) {
 		return "", fmt.Errorf("status HTTP inválido: %s", resp.Status)
 	}
 
-	fileName := filepath.Base(url)
-	if !strings.Contains(fileName, ".") {
-		fileName = "installer.tmp"
+	// A extensão precisa sobreviver — runInstaller decide como executar
+	// (msiexec/powershell/cmd/direto) a partir dela. O resto do nome não
+	// importa, então CreateTemp resolve unicidade e caracteres inválidos de
+	// uma vez só.
+	ext := extensaoDaURL(rawURL)
+	if ext == "" {
+		ext = ".exe"
 	}
 
-	tempDir := os.TempDir()
-	tempFilePath := filepath.Join(tempDir, fileName)
-
-	out, err := os.Create(tempFilePath)
+	out, err := os.CreateTemp("", "orion-update-*"+ext)
 	if err != nil {
 		return "", err
 	}
+	tempFilePath := out.Name()
 	defer out.Close()
 
 	_, err = io.Copy(out, resp.Body)
@@ -623,32 +793,51 @@ func runInstaller(filePath, silentArgs string) (string, error) {
 		return "", fmt.Errorf("extensão de arquivo não suportada: %s", ext)
 	}
 
+	// Mesmo motivo do executeCommand acima: sem HideWindow, msiexec/
+	// powershell/cmd/o instalador baixado abrem uma janela de console
+	// visível (mesmo rodando dentro do serviço, sem sessão interativa).
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
 
 func (s *Svc) executeSelfHealingRemediation(alertType string, action string, payload string) {
 	s.logger.Printf("[SELF-HEAL] Executing remediation for alert %s: %s", alertType, action)
-	
-	// Simulate remediation execution
+
 	var output string
 	var err error
-	
+
 	if action == "restart_service" {
-		output, err = executeCommand(fmt.Sprintf("net stop %s && net start %s", payload, payload))
+		cleanService := strings.TrimSpace(payload)
+		if !regexp.MustCompile(`^[a-zA-Z0-9_\-\. ]+$`).MatchString(cleanService) {
+			output = "Nome de serviço inválido para reinicialização"
+			err = fmt.Errorf("nome de serviço inválido")
+		} else {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			stopCmd := exec.CommandContext(ctx, "net", "stop", cleanService)
+			stopCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			_ = stopCmd.Run()
+
+			startCmd := exec.CommandContext(ctx, "net", "start", cleanService)
+			startCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			out, startErr := startCmd.CombinedOutput()
+			output = string(out)
+			err = startErr
+		}
 	} else if action == "run_script" {
 		output, err = executeCommand(payload)
 	} else {
 		output = "Ação de remediação desconhecida"
 		err = fmt.Errorf("ação desconhecida")
 	}
-	
+
 	status := "success"
 	if err != nil {
 		status = "failed"
 		output = fmt.Sprintf("Erro: %v\nOutput: %s", err, output)
 	}
-	
+
 	s.reportSelfHealingEvent(alertType, status, output)
 }
 
@@ -657,16 +846,16 @@ func (s *Svc) reportSelfHealingEvent(alertType, status, output string) {
 	if machineID == "" {
 		return
 	}
-	
+
 	endpoint := fmt.Sprintf("%s/api/monitoring/self-heal-event", s.cfg.APIURL)
-	
+
 	payload := map[string]string{
 		"machine_id": machineID,
 		"alert_type": alertType,
 		"status":     status,
 		"output":     output,
 	}
-	
+
 	body, _ := json.Marshal(payload)
 	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(body))
 	if err == nil {
@@ -684,20 +873,39 @@ func (s *Svc) reportSelfHealingEvent(alertType, status, output string) {
 func NewMetricsHandler(s *Svc) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-		payload, err := collector.GetHardwareInfo()
-		if err != nil {
-			if s != nil && s.logger != nil {
-				s.logger.Printf("[METRICS] Erro ao coletar métricas de hardware: %v", err)
-			}
-			http.Error(w, fmt.Sprintf("Erro ao coletar métricas: %v", err), http.StatusInternalServerError)
-			return
-		}
+		// Serve o snapshot já coletado pelo ciclo normal do heartbeat
+		// (s.lastPayload, atualizado em tick()) em vez de rodar
+		// collector.Collect() do zero a cada scrape do Prometheus — essa
+		// coleta já inclui os módulos caros de Security/RemoteSoftware
+		// (com seu próprio cache por TTL, ver expensive_cache.go), então
+		// repeti-la aqui só duplicava o custo sem ganhar atualidade real:
+		// o scrape (15s) é mais frequente que o heartbeat (30s por
+		// padrão), então o snapshot nunca fica "velho" o suficiente para
+		// justificar recoletar.
+		var payload *collector.Payload
 		if s != nil {
-			if tok := s.getMachineToken(); tok != "" && payload.MachineToken == "" {
-				payload.MachineToken = tok
-			}
+			payload = s.getLastPayload()
 		}
-		payload.AgentVersion = version.Version
+		if payload == nil {
+			// Só acontece em janelas raras: processo acabou de subir e o
+			// primeiro tick() ainda não completou. Coleta avulsa aqui é o
+			// preço aceitável de não deixar o primeiro scrape vazio.
+			p, err := collector.GetHardwareInfo()
+			if err != nil {
+				if s != nil && s.logger != nil {
+					s.logger.Printf("[METRICS] Erro ao coletar métricas de hardware: %v", err)
+				}
+				http.Error(w, fmt.Sprintf("Erro ao coletar métricas: %v", err), http.StatusInternalServerError)
+				return
+			}
+			if s != nil {
+				if tok := s.getMachineToken(); tok != "" {
+					p.MachineToken = tok
+				}
+			}
+			p.AgentVersion = version.Version
+			payload = p
+		}
 
 		metricsText := collector.GeneratePrometheusMetrics(payload)
 
@@ -757,4 +965,3 @@ func (s *Svc) startMetricsServer(ctx context.Context) {
 		}
 	}()
 }
-

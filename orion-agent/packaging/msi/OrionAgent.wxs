@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OrionAgent.wxs — MSI genérico do Orion Agent, pra deploy via GPO/SCCM/Intune.
+  Sintaxe WiX Toolset v3 (candle/light) — v4/v7 exigiria aceitar o "Open
+  Source Maintenance Fee" da FireGiant, por isso o projeto ficou na v3
+  (open-source de verdade, sem gate de licença).
+
+  Diferente do .exe personalizado (que sai da fábrica com a agent_key da
+  empresa já colada nos próprios bytes — ver
+  handler/installer_handlers.go no backend), este MSI é um único build
+  reutilizável por todas as empresas: quem instala passa AGENTKEY (e,
+  opcionalmente, APIURL/COMPANYNAME) como propriedade do msiexec — é assim
+  que GPO Software Installation e SCCM/Intune fazem personalização por
+  grupo/OU na prática (via linha de comando ou um transform .mst).
+
+  Toda a lógica de instalação de verdade (copiar orion-agent.exe pra
+  C:\Orion, gravar agent.yaml, registrar o serviço Windows, configurar
+  início automático) já existe e está testada no instalador .exe — este
+  MSI não duplica nada disso, só embute o mesmo OrionInstaller.exe como
+  Binary e roda ele via CustomAction com as propriedades repassadas como
+  flags de linha de comando (-agent-key=, -api-url=, -company-name=, além
+  de -silent). Ver orion-agent/cmd/installer/main.go pro parsing dessas
+  flags.
+
+  Build: build.ps1 nesta pasta (candle + light), com OrionInstaller.exe
+  copiado aqui do lado.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Name="Orion Agent"
+           Language="1033"
+           Version="1.0.0.0"
+           Manufacturer="Orion System"
+           UpgradeCode="6F1A1B2E-6C1A-4A2B-9C3D-2B6A7E9F1A01">
+
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" Description="Instalador do Orion Agent" Manufacturer="Orion System" />
+
+    <MajorUpgrade DowngradeErrorMessage="Ja existe uma versao mais nova do Orion Agent instalada." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Propriedades públicas (MAIÚSCULAS = settable via linha de comando do
+         msiexec ou via transform de GPO). AGENTKEY é obrigatória — sem ela
+         o agente não sobe (config.Load recusa rodar com a chave vazia). -->
+    <Property Id="AGENTKEY" Secure="yes" />
+    <Property Id="APIURL" Secure="yes" />
+    <Property Id="COMPANYNAME" Secure="yes" />
+
+    <Condition Message="Propriedade AGENTKEY e obrigatoria. Instale com: msiexec /i OrionAgent.msi AGENTKEY=&quot;chave_da_empresa&quot; /quiet">
+      AGENTKEY &lt;&gt; ""
+    </Condition>
+
+    <!-- Componente "âncora" só pra dar ao MSI algo de fato registrado em
+         Adicionar/Remover Programas e um estado instalado consistente — a
+         instalação real (arquivos, serviço) é toda feita pelo
+         OrionInstaller.exe embutido, via CustomAction abaixo. -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Component Id="MarkerComponent" Guid="8F3C2A1D-9B4E-4C7A-8E2F-1A5B6C7D8E9F">
+        <RegistryValue Root="HKLM" Key="Software\OrionAgent\MSI" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </Directory>
+
+    <Feature Id="MainFeature" Title="Orion Agent" Level="1">
+      <ComponentRef Id="MarkerComponent" />
+    </Feature>
+
+    <Binary Id="OrionInstallerExe" SourceFile="OrionInstaller.exe" />
+
+    <!-- Deferred custom actions não enxergam Property diretamente — o jeito
+         padrão de repassar valor é uma CustomAction imediata gravando a
+         string final na "CustomActionData" da deferred: o Property desta
+         CA imediata precisa ser exatamente o Id da CA deferred
+         (RunInstallerDeferred), que é o que a engine usa pra achar o valor
+         gravado e expandir sozinha via "[CustomActionData]" na hora de
+         rodar já elevada/em System. -->
+    <CustomAction Id="SetRunInstallerData" Property="RunInstallerDeferred" Value="-silent -agent-key=&quot;[AGENTKEY]&quot; -api-url=&quot;[APIURL]&quot; -company-name=&quot;[COMPANYNAME]&quot;" />
+    <CustomAction Id="RunInstallerDeferred" BinaryKey="OrionInstallerExe" ExeCommand="[CustomActionData]" Execute="deferred" Impersonate="no" Return="check" />
+
+    <InstallExecuteSequence>
+      <Custom Action="SetRunInstallerData" Before="RunInstallerDeferred">NOT Installed</Custom>
+      <Custom Action="RunInstallerDeferred" After="InstallFiles">NOT Installed</Custom>
+    </InstallExecuteSequence>
+  </Product>
+</Wix>

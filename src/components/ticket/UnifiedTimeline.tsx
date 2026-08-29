@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { TicketUpdate } from '@/hooks/useTickets';
 import { TimeEntry } from '@/hooks/useTimeEntries';
+import { useProfilesMap, resolveUserDisplayName, replaceUserUuidsInText, ProfilesMap } from '@/hooks/useUserDisplayName';
 
 interface StatusHistoryEntry {
   id: string;
@@ -40,35 +41,43 @@ const statusLabels: Record<string, string> = {
 };
 
 // Converte dados crus para itens unificados
-const buildTimeline = (updates: TicketUpdate[], statusHistory: StatusHistoryEntry[], timeEntries: TimeEntry[]): TimelineItem[] => {
+const buildTimeline = (
+  updates: TicketUpdate[],
+  statusHistory: StatusHistoryEntry[],
+  timeEntries: TimeEntry[],
+  profilesMap?: ProfilesMap
+): TimelineItem[] => {
   const items: TimelineItem[] = [];
 
   updates.forEach(u => {
+    const authorName = resolveUserDisplayName(u.author, profilesMap, { fallback: 'Sistema' });
     items.push({
       id: u.id,
       type: u.type as any,
-      author: u.author,
-      content: u.content,
+      author: authorName,
+      content: replaceUserUuidsInText(u.content, profilesMap),
       created_at: u.created_at,
       isInternal: u.is_internal,
     });
   });
 
   statusHistory.forEach(sh => {
+    const authorName = resolveUserDisplayName(sh.changed_by, profilesMap, { fallback: 'Sistema' });
     // Evita duplicar com updates do tipo status_change
     items.push({
       id: `sh-${sh.id}`,
       type: 'status_history',
-      author: sh.changed_by,
+      author: authorName,
       content: sh.old_status
         ? `${statusLabels[sh.old_status] || sh.old_status} → ${statusLabels[sh.new_status] || sh.new_status}`
         : `Status inicial: ${statusLabels[sh.new_status] || sh.new_status}`,
       created_at: sh.created_at,
-      meta: { reason: sh.reason },
+      meta: { reason: replaceUserUuidsInText(sh.reason, profilesMap) },
     });
   });
 
   timeEntries.forEach(te => {
+    const authorName = resolveUserDisplayName(te.user_id, profilesMap, { fallback: 'Usuário Removido' });
     const duration = te.duration_minutes || 0;
     const h = Math.floor(duration / 60);
     const m = duration % 60;
@@ -76,8 +85,8 @@ const buildTimeline = (updates: TicketUpdate[], statusHistory: StatusHistoryEntr
     items.push({
       id: `te-${te.id}`,
       type: 'time_entry',
-      author: te.user_id, // idealmente seria o nome, mas usamos o ID por ora
-      content: te.description || 'Apontamento de horas',
+      author: authorName,
+      content: replaceUserUuidsInText(te.description, profilesMap) || 'Apontamento de horas',
       created_at: te.start_time,
       meta: { duration: durationStr, billable: te.billable, running: !te.end_time },
     });
@@ -165,7 +174,8 @@ export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
   statusHistory = [],
   timeEntries = [],
 }) => {
-  const allItems = buildTimeline(updates, statusHistory, timeEntries);
+  const { profilesMap } = useProfilesMap();
+  const allItems = buildTimeline(updates, statusHistory, timeEntries, profilesMap);
   const commentItems = allItems.filter(i => i.type === 'comment');
   const statusItems = allItems.filter(i => i.type === 'status_change' || i.type === 'status_history');
   const timeItems = allItems.filter(i => i.type === 'time_entry');

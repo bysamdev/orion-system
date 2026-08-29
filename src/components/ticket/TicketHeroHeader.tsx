@@ -8,8 +8,10 @@ import { Timer, CheckCircle2, ArrowUpRight, Paperclip, BookOpen, Play, Square, U
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveTimer, useStartTimer, useStopTimer } from '@/hooks/useTimeEntries';
-import { cn, formatDurationHuman, formatDate } from '@/lib/utils';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
+import { cn, formatDurationHuman, formatDate } from '@/lib/utils';
 
 interface TicketHeroHeaderProps {
   ticket: {
@@ -58,6 +60,7 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
   isSummarizing,
 }) => {
   const { user } = useAuth();
+  const { profilesMap } = useProfilesMap();
   const { data: activeTimer } = useActiveTimer(user?.id);
   const startTimer = useStartTimer();
   const stopTimer = useStopTimer();
@@ -65,6 +68,11 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
   const isAssignedToMe = Boolean(user && ticket.assigned_to_user_id === user.id);
   const isResolved = ticket.status === 'resolved' || ticket.status === 'closed';
   const canAssume = canManageTickets && !isResolved && !isAssignedToMe;
+
+  const assignedToDisplayName = resolveUserDisplayName(ticket.assigned_to, profilesMap, {
+    fallback: 'Não atribuído',
+    unassignedFallback: 'Não atribuído',
+  });
 
   // Timer ativo neste ticket?
   const isTimerActiveHere = activeTimer?.ticket_id === ticket.id;
@@ -109,7 +117,8 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
   return (
     <div className="bg-card border border-border rounded-xl p-6 space-y-4">
       {/* Linha 1: Número + Título */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Linha 1: Título e Responsável + Botão Marcar como Resolvido em destaque na direita */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <span className="font-mono text-lg font-bold text-muted-foreground">#{ticket.ticket_number}</span>
@@ -117,21 +126,49 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
           </div>
         </div>
         
-        {/* Responsável no Header com botão Assumir quando não atribuído ou de outro técnico */}
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/40 rounded-lg border border-border/50">
-          <User className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">Responsável:</span>
-          <span className="text-sm font-bold text-foreground">{ticket.assigned_to || 'Não atribuído'}</span>
-          {canAssume && onAssume && (
+        <div className="flex items-center flex-wrap gap-2.5">
+          {/* Responsável no Header com botão Assumir quando não atribuído ou de outro técnico */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/40 rounded-lg border border-border/50">
+            <User className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">Responsável:</span>
+            <span className="text-sm font-bold text-foreground">{assignedToDisplayName}</span>
+            {canAssume && onAssume && (
+              <Button
+                size="sm"
+                variant="default"
+                onClick={onAssume}
+                disabled={isAssuming}
+                className="h-6 px-2.5 text-[10px] font-bold uppercase tracking-wider ml-1 shadow-sm gap-1"
+              >
+                <HandHelping className="w-3 h-3" />
+                {isAssuming ? 'Assumindo...' : 'Assumir'}
+              </Button>
+            )}
+          </div>
+
+          {/* Botão "Marcar como resolvido" destacado na direita */}
+          {canManageTickets && !isResolved && onResolve && (
             <Button
-              size="sm"
               variant="default"
-              onClick={onAssume}
-              disabled={isAssuming}
-              className="h-6 px-2.5 text-[10px] font-bold uppercase tracking-wider ml-1 shadow-sm gap-1"
+              size="sm"
+              onClick={onResolve}
+              className="h-9 px-4 font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
             >
-              <HandHelping className="w-3 h-3" />
-              {isAssuming ? 'Assumindo...' : 'Assumir'}
+              <CheckCircle2 className="w-4 h-4" />
+              Marcar como resolvido
+            </Button>
+          )}
+
+          {/* Botão Concluir Chamado para tickets já resolvidos */}
+          {canManageTickets && ticket.status === 'resolved' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onStatusChange('closed')}
+              className="h-9 px-4 gap-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold shadow-sm"
+            >
+              <Check className="w-4 h-4" />
+              Concluir Chamado
             </Button>
           )}
         </div>
@@ -231,30 +268,11 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
                 {ticket.status === 'awaiting-customer' ? 'Aguardando Cliente' : 'Aguardar Cliente'}
               </Button>
 
-              {/* Botão Resolver */}
-              <Button variant="default" size="sm" onClick={onResolve} className="gap-2 bg-green-600 hover:bg-green-700 text-white">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Resolver
-              </Button>
-
               <Button variant="outline" size="sm" onClick={onEscalate} className="gap-2">
                 <ArrowUpRight className="w-3.5 h-3.5" />
                 Escalar
               </Button>
             </>
-          )}
-
-          {/* Botão Concluir Chamado para tickets resolvidos */}
-          {ticket.status === 'resolved' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onStatusChange('closed')}
-              className="gap-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold"
-            >
-              <Check className="w-3.5 h-3.5" />
-              Concluir Chamado
-            </Button>
           )}
 
 

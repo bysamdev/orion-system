@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -45,7 +46,8 @@ func monitoringListNetworkLinks(w http.ResponseWriter, r *http.Request) {
 
 	links, err := db.ListNetworkLinks(ctx, companyID)
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar links de rede: " + err.Error()})
+		log.Printf("[erro] ListNetworkLinks company=%s: %v", companyID, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar links de rede"})
 		return
 	}
 
@@ -78,8 +80,8 @@ func monitoringCreateNetworkLink(w http.ResponseWriter, r *http.Request) {
 	// um link "pertencendo" a outra empresa. Só quem enxerga tudo pode
 	// escolher a empresa livremente; os demais sempre criam na própria.
 	escopo, err := escopoDoUsuario(ctx, user.ID)
-	if err != nil {
-		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem gerenciar links de rede"})
 		return
 	}
 	if escopo.Global() {
@@ -97,7 +99,8 @@ func monitoringCreateNetworkLink(w http.ResponseWriter, r *http.Request) {
 
 	created, err := db.CreateNetworkLink(ctx, req)
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao criar link de rede: " + err.Error()})
+		log.Printf("[ERRO] falha ao criar link de rede: %v", err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao criar link de rede"})
 		return
 	}
 
@@ -123,6 +126,12 @@ func monitoringDeleteNetworkLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem excluir links de rede"})
+		return
+	}
+
 	id := chi.URLParam(r, "id")
 	if id == "" {
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "ID é obrigatório"})
@@ -130,12 +139,18 @@ func monitoringDeleteNetworkLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var companyID string
-	if userCompanyID, err := db.CompanyByUserID(ctx, user.ID); err == nil && userCompanyID != nil {
-		companyID = *userCompanyID
+	if escopo.Global() {
+		companyID = "all"
+	} else if escopo.CompanyID != nil {
+		companyID = *escopo.CompanyID
+	} else {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
 	}
 
 	if err := db.DeleteNetworkLink(ctx, id, companyID); err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao excluir link de rede: " + err.Error()})
+		log.Printf("[ERRO] falha ao excluir link de rede %s: %v", id, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao excluir link de rede"})
 		return
 	}
 
@@ -157,7 +172,8 @@ func cronProbeNetworkLinks(w http.ResponseWriter, r *http.Request) {
 
 	summary, err := db.ProbeAllNetworkLinks(r.Context())
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[erro] ProbeAllNetworkLinks: %v", err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
 		return
 	}
 

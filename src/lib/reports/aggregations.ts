@@ -21,6 +21,9 @@ import type {
   HoursByCompany,
   TechReopenCsat,
   AutomationTrendPoint,
+  StatusCount,
+  PrioritySla,
+  RequesterCount,
 } from './types';
 
 const MS_POR_HORA = 3_600_000;
@@ -67,6 +70,22 @@ export interface FilterArgs {
  * resolvido dentro da janela, ou se segue ativo — assim o relatório não perde
  * de vista o que está em aberto há mais tempo que o período consultado.
  */
+/**
+ * Monta o filtro PostgREST equivalente ao critério acima (mesma regra que
+ * filterTickets aplica em memória): um ticket entra se foi criado OU
+ * resolvido dentro do período, OU se segue em aberto (STATUS_ATIVOS). Usada
+ * por useTickets para empurrar o filtro pro banco em vez de buscar a tabela
+ * de tickets inteira da empresa a cada carregamento de Relatórios — não
+ * escalava conforme o histórico crescia.
+ */
+export function construirFiltroPeriodoRelatorio({ dateFrom, dateTo }: Pick<FilterArgs, 'dateFrom' | 'dateTo'>): string {
+  return (
+    `and(created_at.gte.${dateFrom}T00:00:00,created_at.lte.${dateTo}T23:59:59.999),` +
+    `and(resolved_at.gte.${dateFrom}T00:00:00,resolved_at.lte.${dateTo}T23:59:59.999),` +
+    `status.in.(${STATUS_ATIVOS.join(',')})`
+  );
+}
+
 export function filterTickets(tickets: Ticket[], f: FilterArgs): Ticket[] {
   return (tickets || []).filter((t) => {
     if (f.companyId !== 'all' && t.company_id !== f.companyId) return false;
@@ -481,8 +500,6 @@ export interface AutomationLogRow {
   created_at: string;
 }
 
-import { StatusCount, PrioritySla, RequesterCount } from './types';
-
 /**
  * Rótulos em português dos status do banco.
  *
@@ -501,7 +518,7 @@ export const ROTULO_STATUS: Record<string, string> = {
   unknown: 'Não Informado',
 };
 
-export function computeByStatus(tickets: TicketRow[]): StatusCount[] {
+export function computeByStatus(tickets: Ticket[]): StatusCount[] {
   const counts: Record<string, number> = {};
   for (const t of tickets) {
     const s = t.status || 'unknown';
@@ -512,12 +529,12 @@ export function computeByStatus(tickets: TicketRow[]): StatusCount[] {
     .sort((a, b) => b.count - a.count);
 }
 
-export function computeSlaByPriority(tickets: TicketRow[]): PrioritySla[] {
+export function computeSlaByPriority(tickets: Ticket[]): PrioritySla[] {
   const stats: Record<string, { total: number; ok: number }> = {};
   for (const t of tickets) {
     const p = t.priority || 'unknown';
     if (!stats[p]) stats[p] = { total: 0, ok: 0 };
-    if (t.sla_status && t.sla_status !== 'none') {
+    if (t.sla_status && (t.sla_status as string) !== 'none') {
       stats[p].total++;
       if (t.sla_status === 'ok' || t.sla_status === 'attention') {
         stats[p].ok++;
@@ -539,7 +556,7 @@ export function computeSlaByPriority(tickets: TicketRow[]): PrioritySla[] {
     .sort((a, b) => (ordemSeveridade[a.priority] ?? 99) - (ordemSeveridade[b.priority] ?? 99));
 }
 
-export function computeTopRequesters(tickets: TicketRow[], limit = 5): RequesterCount[] {
+export function computeTopRequesters(tickets: Ticket[], limit = 5): RequesterCount[] {
   const counts: Record<string, number> = {};
   for (const t of tickets) {
     const name = t.requester_name || 'Desconhecido';

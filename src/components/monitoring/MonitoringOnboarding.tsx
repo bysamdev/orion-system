@@ -118,15 +118,15 @@ export const MonitoringOnboarding: React.FC = () => {
       </div>
 
       <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-        <Button size="lg" className="rounded-2xl px-8 gap-2 font-black uppercase tracking-widest shadow-lg shadow-primary/20">
-          <Plus className="w-5 h-5" /> Adicionar Máquina Manualmente
+        <Button size="lg" className="rounded-md px-6 gap-2 font-bold uppercase tracking-wider shadow-md shadow-primary/20">
+          <Plus className="w-4 h-4" /> Adicionar Máquina Manualmente
         </Button>
-        <Button variant="outline" size="lg" className="rounded-2xl px-8 gap-2 font-black uppercase tracking-widest border-border/40">
-          <Download className="w-5 h-5" /> Baixar Agente Windows
+        <Button variant="outline" size="lg" className="rounded-md px-6 gap-2 font-bold uppercase tracking-wider border-border/40">
+          <Download className="w-4 h-4" /> Baixar Agente Windows
         </Button>
       </div>
 
-      <div className="flex items-center justify-center gap-2 text-muted-foreground p-4 bg-muted/10 rounded-2xl border border-dashed border-border/40">
+      <div className="flex items-center justify-center gap-2 text-muted-foreground p-4 bg-muted/10 rounded-lg border border-dashed border-border/40">
         <Info className="w-4 h-4 text-primary" />
         <p className="text-xs font-medium italic">
           Precisa de ajuda com a instalação? <button className="underline hover:text-primary transition-colors">Ver documentação técnica</button>
@@ -137,8 +137,8 @@ export const MonitoringOnboarding: React.FC = () => {
 };
 
 const FeatureCard = ({ icon: Icon, title, description }: any) => (
-  <div className="p-6 bg-card border border-border/40 rounded-2xl space-y-3 hover:border-primary/50 transition-colors group">
-    <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/10 w-fit group-hover:bg-primary/10 transition-colors">
+  <div className="p-6 bg-card border border-border/40 rounded-lg space-y-3 hover:border-primary/50 transition-colors group">
+    <div className="p-2 rounded-md bg-primary/5 border border-primary/10 w-fit group-hover:bg-primary/10 transition-colors">
       <Icon className="w-5 h-5 text-primary" />
     </div>
     <h3 className="font-bold text-foreground">{title}</h3>

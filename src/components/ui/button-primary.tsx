@@ -1,21 +1,26 @@
 import React from "react";
 import { cn } from "@/lib/utils";
+import { Button, ButtonProps } from "@/components/ui/button";
 
-export interface ButtonPrimaryProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonPrimaryProps extends ButtonProps {
   icon?: React.ReactNode;
 }
 
-export function ButtonPrimary({ children, icon, className, ...props }: ButtonPrimaryProps) {
-  return (
-    <button
-      className={cn(
-        "bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors active:scale-[0.98]",
-        className
-      )}
-      {...props}
-    >
-      {icon}
-      <span>{children}</span>
-    </button>
-  );
-}
+export const ButtonPrimary = React.forwardRef<HTMLButtonElement, ButtonPrimaryProps>(
+  ({ children, icon, className, ...props }, ref) => {
+    return (
+      <Button
+        ref={ref}
+        className={cn(
+          "font-semibold gap-2 shadow-xs transition-all active:scale-[0.98]",
+          className
+        )}
+        {...props}
+      >
+        {icon}
+        <span>{children}</span>
+      </Button>
+    );
+  }
+);
+ButtonPrimary.displayName = "ButtonPrimary";

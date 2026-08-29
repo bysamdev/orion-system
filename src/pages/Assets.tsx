@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getStatusLabel } from '@/components/shared/StatusBadge';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useDeviceInventory, DeviceItem } from '@/hooks/useDeviceInventory';
+import { useRealtimeMachines } from '@/hooks/useRealtimeMachines';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,7 @@ import { MachineDrawer } from '@/components/monitoring/MachineDrawer';
 import { MachineWithMetric } from '@/hooks/useMonitoring';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AssetTopologyGraph } from '@/components/assets/AssetTopologyGraph';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 const deviceIcons: Record<string, React.ElementType> = {
   'Computador': Monitor,
@@ -82,11 +84,13 @@ const Assets = () => {
 
   const { data: companies } = useCompanies();
 
+  useRealtimeMachines(role === 'developer' ? undefined : profile?.company_id ?? undefined);
+
   // Load Device Inventory from unified hook
-  const { 
-    data: devices = [], 
-    isLoading: devicesLoading, 
-    refetch: refetchInventory 
+  const {
+    data: devices = [],
+    isLoading: devicesLoading,
+    refetch: refetchInventory
   } = useDeviceInventory();
 
   // Query tickets history for selected device
@@ -203,11 +207,22 @@ const Assets = () => {
     }
   }, [editingAsset, formData, updateAsset, createAsset]);
 
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleForceRefresh = useCallback(async () => {
     setIsRefreshing(true);
     toast.info('Solicitando atualização de telemetria em tempo real...');
     await refetchInventory();
-    setTimeout(() => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
       setIsRefreshing(false);
       toast.success('Inventário de dispositivos atualizado!');
     }, 800);
@@ -280,23 +295,21 @@ const Assets = () => {
     setStatusFilter('all');
   };
 
-  if (roleLoading || devicesLoading) {
+  if ((roleLoading && !role) || (devicesLoading && devices.length === 0)) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <main className="flex-1 p-6 lg:p-10 max-w-[1600px] mx-auto w-full space-y-8 animate-in fade-in duration-500">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-3">
-              <Skeleton className="h-6 w-32" />
-              <Skeleton className="h-10 w-72" />
-              <Skeleton className="h-4 w-96" />
-            </div>
-            <Skeleton className="h-12 w-36 rounded-xl" />
+      <div className="w-full space-y-6 animate-in fade-in duration-300">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-3">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-10 w-72" />
+            <Skeleton className="h-4 w-96" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
-          </div>
-          <Skeleton className="h-96 w-full rounded-xl" />
-        </main>
+          <Skeleton className="h-10 w-36 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-96 w-full rounded-xl" />
       </div>
     );
   }
@@ -307,49 +320,35 @@ const Assets = () => {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background flex flex-col">
-        <main className="flex-1 p-6 lg:p-10 max-w-[1600px] mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/40 pb-6">
-            <div className="space-y-1">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="p-2 bg-primary/10 rounded-xl">
-                  <Laptop className="w-5 h-5 text-primary" />
-                </div>
-                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-semibold uppercase tracking-widest text-[10px]">
-                  INVENTÁRIO COMPLETO
-                </Badge>
-              </div>
-              <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-foreground">
-                Inventário de Dispositivos
-              </h1>
-              <p className="text-sm text-muted-foreground font-medium">
-                Visão unificada de computadores, notebooks e servidores com estatísticas em tempo real.
-              </p>
-            </div>
+      <div className="w-full space-y-6">
+        {/* Header */}
+        <PageHeader
+            icon={Cpu}
+            badge="INVENTÁRIO COMPLETO"
+            title="Inventário"
+            description="Visão unificada de computadores, notebooks e servidores com estatísticas em tempo real."
+            actions={
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleForceRefresh}
+                  disabled={isRefreshing}
+                  className="h-11 px-4 rounded-xl border-border/50 bg-background/50 hover:bg-accent font-semibold transition-all"
+                >
+                  <RefreshCw className={cn("w-4 h-4 mr-2 text-primary", isRefreshing && "animate-spin")} />
+                  Atualizar Telemetria
+                </Button>
 
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={handleForceRefresh}
-                disabled={isRefreshing}
-                className="h-11 px-4 rounded-xl border-border/50 bg-background/50 hover:bg-accent font-semibold transition-all"
-              >
-                <RefreshCw className={cn("w-4 h-4 mr-2 text-primary", isRefreshing && "animate-spin")} />
-                Atualizar Telemetria
-              </Button>
-
-              <Dialog open={isAssetDialogOpen} onOpenChange={(open) => {
-                setIsAssetDialogOpen(open);
-                if (!open) resetForm();
-              }}>
-                <DialogTrigger asChild>
-                  <ButtonPrimary className="h-11 px-5 rounded-xl font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95" icon={<Plus className="w-4 h-4" />}>
-                    Novo Ativo
-                  </ButtonPrimary>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                <Dialog open={isAssetDialogOpen} onOpenChange={(open) => {
+                  setIsAssetDialogOpen(open);
+                  if (!open) resetForm();
+                }}>
+                  <DialogTrigger asChild>
+                    <ButtonPrimary className="h-11 px-5 rounded-xl font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95" icon={<Plus className="w-4 h-4" />}>
+                      Novo Ativo
+                    </ButtonPrimary>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>{editingAsset ? 'Editar Ativo/Dispositivo' : 'Cadastrar Novo Ativo'}</DialogTitle>
                     <DialogDescription>
@@ -476,8 +475,9 @@ const Assets = () => {
                   </form>
                 </DialogContent>
               </Dialog>
-            </div>
-          </div>
+            </>
+          }
+        />
 
           {/* Filtros Globais (Aplicados tanto à lista quanto à topologia) */}
           <Card className="border-border/40 shadow-xl bg-card/60 backdrop-blur-md overflow-hidden mb-6">
@@ -630,7 +630,7 @@ const Assets = () => {
                       {c.valor}
                     </p>
                   </div>
-                  <div className={cn('shrink-0 p-3 rounded-2xl', c.fundo, c.cor)}>
+                  <div className={cn('shrink-0 p-3 rounded-lg', c.fundo, c.cor)}>
                     <c.icone className="w-6 h-6" />
                   </div>
                 </CardContent>
@@ -669,16 +669,16 @@ const Assets = () => {
 
           {/* 3. Table Columns */}
           <Card className="border-border/40 shadow-xl bg-card/60 backdrop-blur-md overflow-hidden">
-            <CardContent className="p-0">
-              <Table>
+            <CardContent className="p-0 overflow-x-auto">
+              <Table className="min-w-[960px]">
                 <TableHeader className="bg-muted/30">
                   <TableRow className="hover:bg-transparent border-border/40">
-                    <TableHead className="w-[160px] text-center text-[10px] font-semibold uppercase tracking-wider">Status / Tipo</TableHead>
+                    <TableHead className="w-[170px] text-center text-[10px] font-semibold uppercase tracking-wider">Status / Tipo</TableHead>
                     <TableHead className="w-[180px] text-center text-[10px] font-semibold uppercase tracking-wider">Cliente</TableHead>
                     <TableHead className="text-[10px] font-semibold uppercase tracking-wider">Geral (Informações Técnicas)</TableHead>
-                    <TableHead className="w-[110px] text-center text-[10px] font-semibold uppercase tracking-wider">Alertas</TableHead>
-                    <TableHead className="w-[120px] text-center text-[10px] font-semibold uppercase tracking-wider">Chamados (Tkts)</TableHead>
-                    <TableHead className="w-[160px] text-center text-[10px] font-semibold uppercase tracking-wider">Última Atualização</TableHead>
+                    <TableHead className="w-[120px] text-center text-[10px] font-semibold uppercase tracking-wider">Alertas</TableHead>
+                    <TableHead className="w-[130px] text-center text-[10px] font-semibold uppercase tracking-wider">Chamados (Tkts)</TableHead>
+                    <TableHead className="w-[170px] text-center text-[10px] font-semibold uppercase tracking-wider">Última Atualização</TableHead>
                     <TableHead className="w-[160px] text-center text-[10px] font-semibold uppercase tracking-wider">Ações Rápidas</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -689,10 +689,10 @@ const Assets = () => {
                     return (
                       <TableRow key={device.id} className="group hover:bg-primary/5 transition-colors border-border/40">
                         
-                        {/* 1. Status / Tipo */}
-                        <TableCell className="py-4 text-center align-middle">
-                          <div className="flex items-center justify-center gap-3">
-                            <div className="relative p-2.5 bg-background border border-border/60 rounded-xl group-hover:scale-105 transition-transform shadow-sm flex-shrink-0">
+                        {/* 1. Status / Tipo (Grid Aligned) */}
+                        <TableCell className="py-3.5 align-middle">
+                          <div className="grid grid-cols-[40px_1fr] items-center gap-3 w-[150px] mx-auto">
+                            <div className="relative w-10 h-10 bg-background border border-border/60 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs flex-shrink-0">
                               <DeviceIcon className="w-5 h-5 text-primary" />
                               {/* Online / Offline status dot */}
                               <span 
@@ -704,11 +704,11 @@ const Assets = () => {
                                 )} 
                               />
                             </div>
-                            <div className="flex flex-col items-start gap-1">
+                            <div className="flex flex-col items-start gap-1 min-w-0">
                               <Badge 
                                 variant="secondary" 
                                 className={cn(
-                                  "text-[10px] font-semibold px-2 py-0.5 rounded-md border w-fit uppercase tracking-tighter",
+                                  "text-[10px] font-semibold px-2 py-0.5 rounded-md border w-fit uppercase tracking-tight",
                                   device.device_type === 'Servidor' && "bg-indigo-500/10 text-indigo-600 border-indigo-500/30",
                                   device.device_type === 'Notebook' && "bg-sky-500/10 text-sky-600 border-sky-500/30",
                                   device.device_type === 'Computador' && "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
@@ -716,7 +716,7 @@ const Assets = () => {
                               >
                                 {device.device_type}
                               </Badge>
-                              <span className="text-[10px] font-medium text-muted-foreground capitalize">
+                              <span className="text-[10px] font-medium text-muted-foreground capitalize pl-0.5">
                                 {device.status === 'online' && <span className="text-emerald-600 dark:text-emerald-400 font-medium">Online</span>}
                                 {device.status === 'offline' && <span className="text-rose-600 dark:text-rose-400 font-medium">Offline</span>}
                                 {device.status === 'alerta' && <span className="text-amber-600 dark:text-amber-400 font-medium">Alerta</span>}
@@ -726,57 +726,71 @@ const Assets = () => {
                         </TableCell>
 
                         {/* 2. Cliente */}
-                        <TableCell className="py-4 text-center align-middle">
-                          <div className="flex items-center justify-center gap-2">
-                            <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                            <span className="text-xs font-semibold text-foreground line-clamp-2">
+                        <TableCell className="py-3.5 text-center align-middle">
+                          <div className="flex items-center justify-center gap-2 max-w-[170px] mx-auto">
+                            <Building2 className="w-3.5 h-3.5 text-muted-foreground/80 flex-shrink-0" />
+                            <span className="text-xs font-semibold text-foreground truncate" title={device.company_name}>
                               {device.company_name}
                             </span>
                           </div>
                         </TableCell>
 
-                        {/* 3. Geral (Hostname, IP local, MAC, Logged user, OS) */}
-                        <TableCell className="py-4 align-middle">
-                          <div className="flex flex-col space-y-1.5">
-                            {/* Hostname link */}
-                            <button
-                              onClick={() => {
-                                if (device.raw_machine) {
-                                  setDrawerMachine(device.raw_machine);
-                                } else {
-                                  setTerminalDevice(device);
-                                }
-                              }}
-                              className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5 w-fit group/btn"
-                            >
-                              <span>{device.hostname}</span>
-                              <ExternalLink className="w-3 h-3 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
-                            </button>
+                        {/* 3. Geral (Hostname, IP local, MAC, Domínio, Usuário) */}
+                        <TableCell className="py-3.5 align-middle">
+                          <div className="flex flex-col space-y-2">
+                            {/* Hostname link & Domain */}
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <button
+                                onClick={() => {
+                                  if (device.raw_machine) {
+                                    setDrawerMachine(device.raw_machine);
+                                  } else {
+                                    setTerminalDevice(device);
+                                  }
+                                }}
+                                className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5 w-fit group/btn"
+                              >
+                                <span>{device.hostname || device.name}</span>
+                                <ExternalLink className="w-3 h-3 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                              </button>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-medium">
+                              {device.domain && device.domain !== 'WORKGROUP' && device.domain !== '.' && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/20">
+                                  <Building2 className="w-2.5 h-2.5" />
+                                  {device.domain}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Metadados Técnicos: IP, MAC espaçado, Domínio e Usuário (Sem OS) */}
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs text-muted-foreground font-medium">
                               {/* IP Local */}
-                              <div className="flex items-center gap-1.5" title="IP Local">
-                                <Globe className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
+                              <div className="flex items-center gap-1.5 shrink-0" title={`IP Local: ${device.ip_address || device.local_ip || '—'}`}>
+                                <Globe className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
                                 <span className="font-mono">{device.ip_address || device.local_ip || '—'}</span>
                               </div>
 
-                              {/* MAC Address */}
-                              <div className="flex items-center gap-1.5" title="MAC Address">
-                                <Network className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span className="font-mono text-[10px]">{device.mac_address || '—'}</span>
+                              {/* MAC Address (Espaçado, nítido e sem corte de reticências) */}
+                              <div className="flex items-center gap-1.5 shrink-0" title={`MAC Address: ${device.mac_address || '—'}`}>
+                                <Network className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                                <span className="font-mono text-[11px] whitespace-nowrap font-semibold text-foreground/90">
+                                  {device.mac_address || '—'}
+                                </span>
                               </div>
 
-                              {/* Logged-in User */}
-                              <div className="flex items-center gap-1.5" title="Usuário Logado">
-                                <User className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span>{device.logged_user || device.logged_in_user || '—'}</span>
+                              {/* Domínio / Grupo de Rede */}
+                              <div className="flex items-center gap-1.5 shrink-0" title={`Domínio / Grupo de Rede: ${device.domain || 'WORKGROUP'}`}>
+                                <Building2 className="w-3.5 h-3.5 text-primary/70 shrink-0" />
+                                <span className="font-mono text-[11px]">{device.domain || 'WORKGROUP'}</span>
                               </div>
 
-                              {/* Operating System */}
-                              <div className="flex items-center gap-1.5" title="Sistema Operacional">
-                                <Cpu className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" />
-                                <span className="truncate">{device.os || '—'}</span>
-                              </div>
+                              {/* Usuário Logado */}
+                              {(device.logged_user || device.logged_in_user) && (
+                                <div className="flex items-center gap-1.5 shrink-0" title={`Usuário Logado: ${device.logged_user || device.logged_in_user}`}>
+                                  <User className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                                  <span>{device.logged_user || device.logged_in_user}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </TableCell>
@@ -785,17 +799,17 @@ const Assets = () => {
                         <TableCell className="py-4 text-center align-middle">
                           <div className="flex justify-center">
                             {device.alerts_count > 0 ? (
-                              <Badge 
-                                variant="destructive" 
-                                className="bg-rose-500/10 text-rose-600 border border-rose-500/30 font-semibold text-[11px] px-2.5 py-1 gap-1"
+                              <Badge
+                                variant="destructive"
+                                className="bg-rose-500/10 text-rose-600 border border-rose-500/30 font-semibold text-[11px] px-2.5 py-1 gap-1 whitespace-nowrap"
                               >
-                                <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                                 {device.alerts_count} {device.alerts_count === 1 ? 'Alerta' : 'Alertas'}
                               </Badge>
                             ) : (
-                              <Badge 
-                                variant="outline" 
-                                className="bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-medium text-[11px] px-2 py-0.5"
+                              <Badge
+                                variant="outline"
+                                className="bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-medium text-[11px] px-2 py-0.5 whitespace-nowrap"
                               >
                                 0 Alertas
                               </Badge>
@@ -1103,7 +1117,6 @@ const Assets = () => {
             />
           )}
 
-        </main>
       </div>
     </TooltipProvider>
   );

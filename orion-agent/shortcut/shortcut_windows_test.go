@@ -19,7 +19,7 @@ import (
 // TestCriarAtalhoEm_CriaArquivoComFormatoEsperado garante o formato .url e
 // que a URL embutida contém o endpoint e o token corretos.
 func TestCriarAtalhoEm_CriaArquivoComFormatoEsperado(t *testing.T) {
-	caminho := filepath.Join(t.TempDir(), "Abrir Portal de Chamados.url")
+	caminho := filepath.Join(t.TempDir(), "Abrir Chamado Orion.url")
 
 	if err := criarAtalhoEm(caminho, "https://orion.exemplo.test", "tok-123"); err != nil {
 		t.Fatalf("criarAtalhoEm falhou: %v", err)
@@ -30,9 +30,12 @@ func TestCriarAtalhoEm_CriaArquivoComFormatoEsperado(t *testing.T) {
 		t.Fatalf("arquivo não foi criado: %v", err)
 	}
 
-	const esperado = "[InternetShortcut]\nURL=https://orion.exemplo.test/api/auth/machine-login?token=tok-123\n"
-	if string(conteudo) != esperado {
-		t.Errorf("conteúdo = %q, esperado %q", string(conteudo), esperado)
+	str := string(conteudo)
+	if !strings.Contains(str, "URL=https://orion.exemplo.test/api/auth/machine-login?token=tok-123") {
+		t.Errorf("conteúdo = %q, esperado conter URL correta", str)
+	}
+	if !strings.Contains(str, "IconIndex=0") || !strings.Contains(str, "IconFile=") {
+		t.Errorf("conteúdo = %q, esperado conter ícone", str)
 	}
 }
 
@@ -114,5 +117,86 @@ func TestCriarAtalhoEm_ArquivoInexistenteEhCriadoNormalmente(t *testing.T) {
 
 	if _, err := os.Stat(caminho); err != nil {
 		t.Fatalf("arquivo não foi criado: %v", err)
+	}
+}
+
+// TestCriarAtalhoEm_ApontaParaOIconeRealDoOrion cobre o pedido: o atalho
+// precisa mostrar a logo do Orion, não o ícone genérico do .exe. IconFile
+// deve apontar pro orion.ico gravado ao lado do executável (o mesmo
+// tray.DataIcon usado na bandeja), não pro próprio orion-agent.exe.
+func TestCriarAtalhoEm_ApontaParaOIconeRealDoOrion(t *testing.T) {
+	caminho := filepath.Join(t.TempDir(), "atalho.url")
+
+	if err := criarAtalhoEm(caminho, "https://orion.exemplo.test", "tok-1"); err != nil {
+		t.Fatalf("criarAtalhoEm: %v", err)
+	}
+
+	conteudo, err := os.ReadFile(caminho)
+	if err != nil {
+		t.Fatal(err)
+	}
+	str := string(conteudo)
+	if strings.Contains(str, "IconFile=") && strings.HasSuffix(strings.TrimSpace(strings.SplitN(str, "IconFile=", 2)[1]), "orion-agent.exe") {
+		t.Error("IconFile aponta pro .exe (ícone genérico) em vez de orion.ico (logo do Orion)")
+	}
+	if !strings.Contains(str, "orion.ico") {
+		t.Errorf("esperava IconFile apontando pra orion.ico, saída: %s", str)
+	}
+}
+
+// TestGravarIconeEm_EhIdempotente garante que gravar o mesmo ícone duas
+// vezes não regrava o arquivo à toa. Usa gravarIconeEm (não a pública
+// gravarIconeOrion, que agora é fixa em C:\Orion — ver comentário no bug
+// abaixo) sobre t.TempDir(), pra não tocar na instalação real da máquina
+// que roda `go test`.
+func TestGravarIconeEm_EhIdempotente(t *testing.T) {
+	pasta := t.TempDir()
+	caminho, err := gravarIconeEm(pasta)
+	if err != nil {
+		t.Fatalf("gravarIconeEm: %v", err)
+	}
+
+	info1, err := os.Stat(caminho)
+	if err != nil {
+		t.Fatalf("orion.ico não foi criado: %v", err)
+	}
+
+	if _, err := gravarIconeEm(pasta); err != nil {
+		t.Fatalf("segunda chamada: %v", err)
+	}
+	info2, err := os.Stat(caminho)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info1.ModTime() != info2.ModTime() {
+		t.Error("gravarIconeEm regravou um arquivo com conteúdo idêntico")
+	}
+}
+
+// TestGravarIconeOrion_IgnoraProcessoAtualEUsaSempreCOrion é o teste de
+// regressão direto do bug reproduzido em máquina real: gravarIconeOrion
+// usava os.Executable() pra decidir onde gravar orion.ico — quando chamada
+// de dentro do INSTALADOR (rodando de %TEMP%, Downloads, ou da própria
+// Área de Trabalho), o .ico saía gravado nesse caminho efêmero em vez de
+// C:\Orion, deixando o atalho com IconFile pra um arquivo que some assim
+// que o instalador é limpo/movido (confirmado: um atalho real apontava pra
+// "...\Temp\orion.ico", outro direto pro .exe do instalador em
+// "...\Temp\OrionInstaller-1.1.15.exe" — nenhum dos dois mais existia).
+// gravarIconeOrion() não recebe mais nenhum parâmetro nem lê
+// os.Executable() — é hardcoded pra C:\Orion, então não há mais como esse
+// caminho variar por quem chama.
+func TestGravarIconeOrion_IgnoraProcessoAtualEUsaSempreCOrion(t *testing.T) {
+	caminho, err := gravarIconeOrion()
+	if err != nil {
+		// Ambiente de CI sem C:\Orion gravável — não é o que este teste
+		// verifica (isso é coberto por TestGravarIconeEm_EhIdempotente
+		// sobre TempDir); só confirmamos que, quando funciona, o caminho é
+		// o certo.
+		t.Skipf("gravarIconeOrion falhou (ambiente sem acesso a C:\\Orion?): %v", err)
+	}
+	defer os.Remove(caminho)
+
+	if filepath.Dir(caminho) != `C:\Orion` {
+		t.Errorf("gravarIconeOrion() gravou em %q, esperado dentro de C:\\Orion", caminho)
 	}
 }

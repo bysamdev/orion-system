@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -111,5 +112,66 @@ func TestCaminhoRelativoSeguro(t *testing.T) {
 		if caminhoRelativoSeguro(v) {
 			t.Errorf("caminhoRelativoSeguro(%q) = true, esperado false", v)
 		}
+	}
+}
+
+// TestNomeRequisitante cobre o pedido: o requester do chamado precisa
+// acompanhar quem está logado no Windows AGORA, não ficar travado no
+// primeiro usuário da máquina (ela pode trocar de setor/pessoa).
+func TestNomeRequisitante(t *testing.T) {
+	usuario := "joao.silva"
+
+	casos := []struct {
+		nome        string
+		hostname    string
+		currentUser *string
+		esperado    string
+	}{
+		{"usuário Windows logado", "PC-VENDAS-03", &usuario, "joao.silva (PC-VENDAS-03)"},
+		{"sem usuário resolvido (nil)", "PC-VENDAS-03", nil, "Suporte (PC-VENDAS-03)"},
+		{"current_user vazio", "PC-VENDAS-03", strPtr(""), "Suporte (PC-VENDAS-03)"},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			if got := nomeRequisitante(c.hostname, c.currentUser); got != c.esperado {
+				t.Errorf("nomeRequisitante(%q, %v) = %q, esperado %q", c.hostname, c.currentUser, got, c.esperado)
+			}
+		})
+	}
+}
+
+func strPtr(s string) *string { return &s }
+
+// TestSanitizarRequesterUser cobre o parâmetro requester_user, resolvido
+// pelo agente na hora do clique (ver anexarUsuarioAtual em
+// orion-agent/service/windows.go) e usado como nome de exibição — nunca
+// como identidade de autenticação, mas ainda assim precisa ser limpo antes
+// de virar profiles.full_name.
+func TestSanitizarRequesterUser(t *testing.T) {
+	casos := []struct {
+		nome     string
+		entrada  string
+		esperado string
+	}{
+		{"usuário simples", "joao.silva", "joao.silva"},
+		{"domínio\\usuário AD", `CONTOSO\joao.silva`, `CONTOSO\joao.silva`},
+		{"espaços nas pontas são cortados", "  joao.silva  ", "joao.silva"},
+		{"vazio permanece vazio", "", ""},
+		{"só espaços vira vazio", "   ", ""},
+		{"CRLF é removido (injeção de header/log)", "joao\r\nX-Evil: 1", "joaoX-Evil: 1"},
+		{"newline no meio é removido", "joao\nsilva", "joaosilva"},
+		{"tab e outros controles são removidos", "joao\tsilva\x00fim", "joaosilvafim"},
+		{
+			"corta em requesterUserMaxLen",
+			strings.Repeat("a", requesterUserMaxLen+50),
+			strings.Repeat("a", requesterUserMaxLen),
+		},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			if got := sanitizarRequesterUser(c.entrada); got != c.esperado {
+				t.Errorf("sanitizarRequesterUser(%q) = %q, esperado %q", c.entrada, got, c.esperado)
+			}
+		})
 	}
 }

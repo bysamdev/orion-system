@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Loader2, GitBranch, Plus, Edit2, Trash2, RefreshCw, AlertTriangle, Zap, MessageSquare, Crown, ArrowRightLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,7 @@ import {
   type RoutingRule,
 } from '@/hooks/useAutomation';
 import { useCompanies } from '@/hooks/useCompanies';
+import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
 import { RuleForm } from './RuleForm';
 
 const ACTION_ICONS: Record<string, React.ElementType> = {
@@ -49,10 +51,71 @@ export const RulesTab: React.FC<Props> = ({ companyId }) => {
   const { data: technicians = [] } = useTechnicians(companyId);
   const { data: companies = [] } = useCompanies();
   const { data: cannedResponses = [] } = useCannedResponseRefs(companyId);
+  const { profilesMap } = useProfilesMap();
+
+  const nomePorTecnico = React.useMemo(() => {
+    const map = new Map<string, string>();
+    technicians.forEach(t => map.set(t.id, t.full_name));
+    return map;
+  }, [technicians]);
+
+  const nomePorEmpresa = React.useMemo(() => {
+    const map = new Map<string, string>();
+    companies.forEach(c => map.set(c.id, c.name));
+    return map;
+  }, [companies]);
+
+  const nomePorTemplate = React.useMemo(() => {
+    const map = new Map<string, string>();
+    cannedResponses.forEach(r => map.set(r.id, r.title));
+    return map;
+  }, [cannedResponses]);
+
+  const formatActionTarget = (type: string | undefined, target: string | undefined) => {
+    if (!target) return '';
+    if (type === 'assign_tech' || type === 'escalate_manager') {
+      return nomePorTecnico.get(target) || resolveUserDisplayName(target, profilesMap, { fallback: 'Técnico removido' });
+    }
+    if (type === 'auto_response') {
+      return nomePorTemplate.get(target) || 'Template';
+    }
+    if (type === 'set_priority') {
+      const priorityLabels: Record<string, string> = {
+        urgent: 'Urgente',
+        high: 'Alta',
+        medium: 'Média',
+        low: 'Baixa',
+      };
+      return priorityLabels[target] || target;
+    }
+    return target;
+  };
+
+  const formatConditionValue = (field: string | undefined, value: string | undefined) => {
+    if (!value) return '';
+    if (field === 'company_id') {
+      return nomePorEmpresa.get(value) || value;
+    }
+    if (field === 'assigned_to' || field === 'user_id') {
+      return resolveUserDisplayName(value, profilesMap, { fallback: 'Usuário removido' });
+    }
+    if (field === 'priority') {
+      const priorityLabels: Record<string, string> = {
+        urgent: 'Urgente',
+        high: 'Alta',
+        medium: 'Média',
+        low: 'Baixa',
+      };
+      return priorityLabels[value] || value;
+    }
+    return value;
+  };
 
   const saveMutation = useSaveRule(companyId);
   const deleteMutation = useDeleteRule();
   const toggleMutation = useToggleRule();
+
+  const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
 
   const openNew = () => { setEditing(null); setDialogOpen(true); };
   const openEdit = (r: RoutingRule) => { setEditing(r); setDialogOpen(true); };
@@ -66,10 +129,7 @@ export const RulesTab: React.FC<Props> = ({ companyId }) => {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm('Excluir esta regra?')) return;
-    deleteMutation.mutate(id, {
-      onSuccess: () => toast({ title: 'Regra removida' }),
-    });
+    setRuleToDelete(id);
   };
 
   return (
@@ -134,12 +194,14 @@ export const RulesTab: React.FC<Props> = ({ companyId }) => {
                       {rule.description && <p className="text-xs text-muted-foreground mb-2 truncate">{rule.description}</p>}
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full">
-                          {condLabel} {rule.conditions?.operator === 'contains' ? 'contém' : rule.conditions?.operator === 'not_equals' ? '≠' : '='} "{rule.conditions?.value}"
+                          {condLabel} {rule.conditions?.operator === 'contains' ? 'contém' : rule.conditions?.operator === 'not_equals' ? '≠' : '='} "{formatConditionValue(rule.conditions?.field, rule.conditions?.value)}"
                         </span>
                         <ChevronRight className="w-3 h-3 text-muted-foreground" />
                         <ActionBadge type={rule.actions?.type} />
                         {rule.actions?.target && (
-                          <span className="text-[10px] text-muted-foreground font-medium truncate max-w-[160px]">{rule.actions.target}</span>
+                          <span className="text-[10px] text-muted-foreground font-medium truncate max-w-[160px]">
+                            {formatActionTarget(rule.actions?.type, rule.actions?.target)}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -163,6 +225,33 @@ export const RulesTab: React.FC<Props> = ({ companyId }) => {
           })}
         </div>
       )}
+
+      <AlertDialog open={!!ruleToDelete} onOpenChange={(open) => !open && setRuleToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Regra de Automação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta regra deixará de ser executada na criação dos próximos chamados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
+              onClick={() => {
+                if (ruleToDelete) {
+                  deleteMutation.mutate(ruleToDelete, {
+                    onSuccess: () => toast({ title: 'Regra removida com sucesso' }),
+                  });
+                  setRuleToDelete(null);
+                }
+              }}
+            >
+              Excluir Regra
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

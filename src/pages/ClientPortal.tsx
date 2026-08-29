@@ -19,6 +19,8 @@ import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
 
 interface PortalTicket {
   id: string;
@@ -38,6 +40,7 @@ export default function ClientPortal() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: profile, isLoading: profileLoading } = useUserProfile();
+  const { profilesMap } = useProfilesMap();
   const { data: role } = useUserRole();
   const isStaff = role === 'technician' || role === 'admin' || role === 'developer';
 
@@ -82,78 +85,76 @@ export default function ClientPortal() {
   const firstName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário';
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <main className="flex-1 p-4 sm:p-8 lg:p-12 max-w-[1200px] mx-auto w-full space-y-8 sm:space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="w-full flex flex-col space-y-6">
+      <div className="flex-1 w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
-        {/* Sessão de Boas-vindas: Foco em ação rápida de abertura de chamado */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">
-              Olá, {firstName}!
-            </h1>
-            <p className="text-muted-foreground text-base sm:text-lg font-medium">
-              Como podemos ajudar você hoje?
-            </p>
-          </div>
-          <ButtonPrimary 
-            onClick={() => navigate('/novo-ticket')}
-            className="h-12 sm:h-14 px-6 sm:px-8 rounded-2xl font-bold shadow-2xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 text-base sm:text-lg"
-            icon={<Plus className="w-5 h-5 sm:w-6 sm:h-6" />}
-          >
-            Abrir Novo Chamado
-          </ButtonPrimary>
-        </div>
+        {/* Sessão de Boas-vindas padronizada */}
+        <PageHeader
+          icon={LifeBuoy}
+          badge="PORTAL DE SUPORTE"
+          title={`Olá, ${firstName}!`}
+          description="Como podemos ajudar você hoje? Acompanhe seus atendimentos ou abra uma nova solicitação."
+          actions={
+            <ButtonPrimary 
+              onClick={() => navigate('/novo-ticket')}
+              className="h-12 px-6 rounded-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+              icon={<Plus className="w-5 h-5" />}
+            >
+              Abrir Novo Chamado
+            </ButtonPrimary>
+          }
+        />
 
         {/* Atalhos Rápidos: Acesso ao histórico, Wiki e Suporte Humano */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card 
-            className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" 
+            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-xl overflow-hidden shadow-xs" 
             onClick={() => navigate('/historico')}
           >
-            <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-primary/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
-                <History className="w-6 h-6 xl:w-8 xl:h-8 text-primary" />
+            <CardContent className="p-5 sm:p-6 flex items-center gap-4">
+              <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <History className="w-6 h-6 text-primary" />
               </div>
-              <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight sm:truncate">Meus Chamados</h3>
-                <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Acompanhe o status e histórico de todas as suas solicitações.</p>
+              <div className="min-w-0 flex-1 space-y-1">
+                <h3 className="text-base font-bold leading-tight">Meus Chamados</h3>
+                <p className="text-xs text-muted-foreground line-clamp-2">Acompanhe o status e histórico de todas as suas solicitações.</p>
               </div>
             </CardContent>
           </Card>
 
           <Card 
-            className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" 
+            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-xl overflow-hidden shadow-xs" 
             onClick={() => navigate('/conhecimento')}
           >
-            <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-secondary/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
-                <Book className="w-6 h-6 xl:w-8 xl:h-8 text-secondary-foreground" />
+            <CardContent className="p-5 sm:p-6 flex items-center gap-4">
+              <div className="p-3 bg-secondary/15 border border-border/30 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <Book className="w-6 h-6 text-secondary-foreground" />
               </div>
-              <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight sm:truncate">Base de Conhecimento</h3>
-                <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Tire suas dúvidas e encontre soluções rápidas.</p>
+              <div className="min-w-0 flex-1 space-y-1">
+                <h3 className="text-base font-bold leading-tight">Base de Conhecimento</h3>
+                <p className="text-xs text-muted-foreground line-clamp-2">Tire suas dúvidas e encontre soluções rápidas.</p>
               </div>
             </CardContent>
           </Card>
 
           <Card 
-            className="group border-border/40 hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5 transition-all cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden" 
+            className="group border border-border/40 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer bg-card rounded-xl overflow-hidden shadow-xs" 
             onClick={() => navigate('/novo-ticket')}
           >
-            <CardContent className="p-4 sm:p-6 xl:p-8 flex items-center gap-3 sm:gap-4 xl:gap-6">
-              <div className="p-3 xl:p-4 bg-warning/10 rounded-2xl group-hover:scale-110 transition-transform shrink-0">
-                <MessageSquare className="w-6 h-6 xl:w-8 xl:h-8 text-warning" />
+            <CardContent className="p-5 sm:p-6 flex items-center gap-4">
+              <div className="p-3 bg-warning/15 border border-warning/30 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <MessageSquare className="w-6 h-6 text-warning" />
               </div>
-              <div className="min-w-0 sm:min-w-[160px] flex-1 space-y-1">
-                <h3 className="text-base lg:text-lg xl:text-xl font-bold leading-tight sm:truncate">Falar com Consultor</h3>
-                <p className="text-xs xl:text-sm text-muted-foreground line-clamp-2">Abra um chamado e fale diretamente com a equipe de suporte.</p>
+              <div className="min-w-0 flex-1 space-y-1">
+                <h3 className="text-base font-bold leading-tight">Falar com Consultor</h3>
+                <p className="text-xs text-muted-foreground line-clamp-2">Abra um chamado e fale diretamente com a equipe de suporte.</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* SEÇÃO DE DESTAQUE COMPACTA: Chamados em Andamento (Abaixo dos atalhos) */}
-        {openTickets.length > 0 && (
+        {openTickets.length > 0 ? (
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -164,14 +165,14 @@ export default function ClientPortal() {
                 <h2 className="text-lg font-bold tracking-tight text-foreground">
                   Chamados em Andamento
                 </h2>
-                <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5">
+                <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 rounded-full">
                   {openTickets.length}
                 </Badge>
               </div>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-xs font-bold gap-1 text-muted-foreground hover:text-foreground h-8"
+                className="text-xs font-bold gap-1 text-muted-foreground hover:text-foreground h-8 rounded-xl"
                 onClick={() => navigate('/historico')}
               >
                 Ver histórico completo <ChevronRight className="w-3.5 h-3.5" />
@@ -183,30 +184,29 @@ export default function ClientPortal() {
                 const isAwaitingCustomer = ticket.status === 'awaiting-customer';
                 const isResolved = ticket.status === 'resolved';
                 const isInProgress = ticket.status === 'in-progress';
-
                 return (
                   <Card 
                     key={ticket.id} 
                     className={cn(
-                      "group border transition-all duration-200 cursor-pointer overflow-hidden rounded-xl bg-card/60 backdrop-blur-sm hover:border-primary/40 hover:shadow-md",
+                      "group border transition-all duration-200 cursor-pointer overflow-hidden rounded-2xl bg-card shadow-sm hover:border-primary/40 hover:shadow-md",
                       isAwaitingCustomer 
-                        ? "border-purple-500/50 bg-purple-500/5 hover:border-purple-500" 
+                        ? "border-primary/50 bg-primary/5 hover:border-primary" 
                         : isResolved
                         ? "border-emerald-500/50 bg-emerald-500/5 hover:border-emerald-500"
                         : isInProgress
                         ? "border-blue-500/30 bg-blue-500/5 hover:border-blue-500/60"
-                        : "border-border/60 hover:border-primary/40"
+                        : "border-border/40 hover:border-primary/40"
                     )}
                     onClick={() => navigate(`/ticket/${ticket.id}`)}
                   >
                     <CardContent className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className={cn(
-                          "p-2 rounded-lg flex-shrink-0",
-                          isAwaitingCustomer ? "bg-purple-500/10 text-purple-600 dark:text-purple-400" :
-                          isResolved ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
-                          isInProgress ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" :
-                          "bg-primary/10 text-primary"
+                          "p-2.5 rounded-xl border flex-shrink-0",
+                          isAwaitingCustomer ? "bg-primary/10 text-primary border-primary/20" :
+                          isResolved ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" :
+                          isInProgress ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20" :
+                          "bg-primary/10 text-primary border-primary/20"
                         )}>
                           <Ticket className="w-4 h-4" />
                         </div>
@@ -219,24 +219,15 @@ export default function ClientPortal() {
                             <h3 className="text-sm sm:text-base font-bold text-foreground truncate group-hover:text-primary transition-colors">
                               {ticket.title}
                             </h3>
-                            <StatusBadge status={ticket.status} className="scale-90 origin-left py-0" />
-                            <PriorityBadge priority={ticket.priority} className="scale-90 origin-left py-0" />
                           </div>
                           
-                          <div className="flex items-center gap-2.5 text-xs text-muted-foreground flex-wrap">
-                            <span>
-                              {ticket.assigned_to ? `Técnico: ${ticket.assigned_to}` : 'Aguardando atribuição'}
-                            </span>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                            <StatusBadge status={ticket.status as any} />
+                            <PriorityBadge priority={ticket.priority as any} />
+                            <span className="flex items-center gap-1 text-[11px]">
                               <Clock className="w-3 h-3" />
-                              {formatTimeAgo(ticket.created_at)}
+                              {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true, locale: ptBR })}
                             </span>
-                            {isAwaitingCustomer && (
-                              <span className="text-purple-600 dark:text-purple-400 font-bold">
-                                • Aguardando sua resposta
-                              </span>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -245,7 +236,7 @@ export default function ClientPortal() {
                         {isAwaitingCustomer ? (
                           <Button 
                             size="sm"
-                            className="h-8 px-3 text-xs bg-purple-600 hover:bg-purple-700 text-white font-bold gap-1.5 rounded-lg shadow-sm"
+                            className="h-8 px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1.5 rounded-xl shadow-sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/ticket/${ticket.id}`);
@@ -257,20 +248,20 @@ export default function ClientPortal() {
                         ) : isResolved ? (
                           <Button 
                             size="sm"
-                            className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 rounded-lg shadow-sm"
+                            className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 rounded-xl shadow-sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/ticket/${ticket.id}`);
                             }}
                           >
                             <CheckCircle2 className="w-3 h-3" />
-                            Ver Resolução
+                            Avaliar & Concluir
                           </Button>
                         ) : (
                           <Button 
                             size="sm" 
                             variant="outline"
-                            className="h-8 px-3 text-xs font-semibold gap-1 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-all"
+                            className="h-8 px-3 text-xs font-semibold gap-1 rounded-xl group-hover:bg-primary group-hover:text-primary-foreground transition-all"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/ticket/${ticket.id}`);
@@ -287,6 +278,29 @@ export default function ClientPortal() {
               })}
             </div>
           </div>
+        ) : (
+          <Card className="border border-border/40 bg-card/60 backdrop-blur-sm rounded-2xl p-6 text-center shadow-xs">
+            <div className="flex flex-col items-center justify-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-foreground">Tudo em dia!</h3>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  Você não possui nenhum chamado em andamento no momento. Precisa de suporte ou reportar um problema?
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs font-bold rounded-xl gap-1.5 mt-2 hover:border-primary/40 hover:bg-primary/5"
+                onClick={() => navigate('/novo-ticket')}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Abrir Novo Chamado
+              </Button>
+            </div>
+          </Card>
         )}
 
         {/* Destaques da Central de Ajuda */}
@@ -313,7 +327,7 @@ export default function ClientPortal() {
           </div>
         </div>
 
-      </main>
+      </div>
     </div>
   );
 }

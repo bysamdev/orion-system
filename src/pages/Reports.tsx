@@ -18,6 +18,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import {
   Loader2,
   ArrowLeft,
+  BarChart2,
   BarChart3,
   Clock,
   CheckCircle2,
@@ -58,8 +59,10 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 import { BulletChart } from '@/components/reports/BulletChart';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { GaugeChart } from '@/components/reports/GaugeChart';
 import { TechnicianComparisonChart } from '@/components/reports/TechnicianComparisonChart';
+import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
 import {
   useSlaTarget,
   useTicketRatings,
@@ -111,7 +114,7 @@ const SemDados: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
 // nenhuma casava e a pizza inteira caía no cinza de fallback.
 const STATUS_COLORS: Record<string, string> = {
   open: '#3b82f6', // blue-500
-  'in-progress': '#a855f7', // purple-500
+  'in-progress': '#906090', // Roxo claro Orion
   'awaiting-customer': '#eab308', // yellow-500
   'awaiting-third-party': '#f97316', // orange-500
   resolved: '#22c55e', // green-500
@@ -162,13 +165,14 @@ const Reports: React.FC = () => {
     },
   });
 
-  const { data: allTickets = [], isLoading: ticketsLoading } = useTickets();
+  const { data: allTickets = [], isLoading: ticketsLoading } = useTickets(undefined, { dateFrom, dateTo });
   const { data: slaTarget = null } = useSlaTarget(companyFilter);
   const { data: ratings } = useTicketRatings();
   const { data: timeEntries } = useTimeEntriesReport();
   const { data: criticalAssets } = useCriticalAssets(companyFilter);
   const { data: kbLinks } = useKbLinksReport();
   const { data: automationLogs } = useAutomationLogsReport();
+  const { profilesMap } = useProfilesMap();
 
   const tickets = useMemo(
     () =>
@@ -223,9 +227,12 @@ const Reports: React.FC = () => {
           : companies?.find((c) => c.id === companyFilter)?.name ?? companyFilter,
       technicianId: techFilter,
       technicianName:
-        techFilter === 'all' ? 'Todos' : nomePorUsuario.get(techFilter) ?? techFilter,
+        techFilter === 'all'
+          ? 'Todos'
+          : nomePorUsuario.get(techFilter) ??
+            resolveUserDisplayName(techFilter, profilesMap, { fallback: 'Usuário Removido' }),
     }),
-    [dateFrom, dateTo, companyFilter, techFilter, companies, nomePorUsuario],
+    [dateFrom, dateTo, companyFilter, techFilter, companies, nomePorUsuario, profilesMap],
   );
 
   // ── Exportações ────────────────────────────────────────────────────────────
@@ -308,17 +315,13 @@ const Reports: React.FC = () => {
 
   if (role !== 'admin' && role !== 'developer' && role !== 'technician') {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center space-y-2">
-              <p className="text-lg font-semibold text-foreground">Acesso Restrito</p>
-              <p className="text-sm text-muted-foreground">
-                Você não tem permissão para acessar os relatórios.
-              </p>
-            </div>
-          </div>
-        </main>
+      <div className="w-full flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-2">
+          <p className="text-lg font-semibold text-foreground">Acesso Restrito</p>
+          <p className="text-sm text-muted-foreground">
+            Você não tem permissão para acessar os relatórios.
+          </p>
+        </div>
       </div>
     );
   }
@@ -327,20 +330,13 @@ const Reports: React.FC = () => {
   const semTickets = tickets.length === 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="p-8 lg:p-12 max-w-[1400px] mx-auto w-full">
-        <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <Button variant="ghost" onClick={() => navigate('/')} className="mb-4">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar ao Dashboard
-            </Button>
-            <h1 className="text-3xl font-bold text-foreground">Relatórios Gerenciais</h1>
-            <p className="text-muted-foreground mt-1">
-              Métricas, análise de desempenho e exportação de dados
-            </p>
-          </div>
-
+    <div className="w-full space-y-6">
+      <PageHeader
+        icon={BarChart2}
+        badge="MÉTRICAS & SLA"
+        title="Insights & Relatórios"
+        description="Métricas avançadas, análise de desempenho de chamados e exportação de dados."
+        actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {/* Alternador de modo */}
             <div
@@ -402,7 +398,8 @@ const Reports: React.FC = () => {
               </Button>
             </div>
           </div>
-        </div>
+        }
+      />
 
         {/* Filtros */}
         <Card className="mb-6">
@@ -1064,34 +1061,35 @@ const Reports: React.FC = () => {
             {
               rotulo: 'Dentro do Prazo',
               valor: metrics.slaOk,
-              borda: 'border-l-green-600',
-              // Tons -700/-400 no lugar de -600: o -600 sobre fundo claro fica
-              // abaixo de 4.5:1, e no escuro sumia contra o card.
+              dot: 'bg-green-500',
               texto: 'text-green-700 dark:text-green-400',
               badge: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-600/30',
             },
             {
               rotulo: 'Em Atenção',
               valor: metrics.slaAttention,
-              borda: 'border-l-amber-600',
+              dot: 'bg-amber-500',
               texto: 'text-amber-700 dark:text-amber-400',
               badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-600/30',
             },
             {
               rotulo: 'Prazo Estourado',
               valor: metrics.slaBreached,
-              borda: 'border-l-red-600',
+              dot: 'bg-red-500',
               texto: 'text-red-700 dark:text-red-400',
               badge: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-600/30',
             },
           ].map((s) => (
-            <Card key={s.rotulo} className={cn('border-l-4 h-full', s.borda)}>
+            <Card key={s.rotulo} className="border-border/80 bg-card h-full shadow-sm">
               <CardContent className="h-full p-4 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {s.rotulo}
-                  </p>
-                  <p className={cn('text-2xl font-bold tabular-nums mt-1 leading-none', s.texto)}>
+                  <div className="flex items-center gap-2">
+                    <span className={cn('w-2 h-2 rounded-full shrink-0', s.dot)} />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {s.rotulo}
+                    </p>
+                  </div>
+                  <p className={cn('text-2xl font-bold tabular-nums mt-1.5 leading-none', s.texto)}>
                     {s.valor}
                   </p>
                 </div>
@@ -1164,7 +1162,7 @@ const Reports: React.FC = () => {
                               />
                             </TableCell>
                             <TableCell className="text-muted-foreground max-w-[120px] truncate">
-                              {ticket.assigned_to || '—'}
+                              {resolveUserDisplayName(ticket.assigned_to, profilesMap, { fallback: '—', unassignedFallback: '—' })}
                             </TableCell>
                             <TableCell className="whitespace-nowrap text-xs text-muted-foreground capitalize-first">
                               {ticket.created_at && !Number.isNaN(new Date(ticket.created_at).getTime())
@@ -1189,7 +1187,6 @@ const Reports: React.FC = () => {
             a tabela analítica e o comparativo por técnico.
           </p>
         )}
-      </main>
     </div>
   );
 };

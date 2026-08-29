@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -111,6 +111,12 @@ func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{
 		"total": s.Total, "online": s.Online, "offline": s.Offline, "active_alerts": s.ActiveAlerts,
+		// Exposto pro front-end decidir quais máquinas estão desatualizadas
+		// (botão "Atualizar todas", ver ForceUpdateButton.tsx) sem
+		// hardcodear a versão mais recente em dois lugares — já bump
+		// bastante ao longo do desenvolvimento do agente pra arriscar ficar
+		// dessincronizado.
+		"latest_agent_version": lib.LatestAgentVersion,
 	})
 }
 
@@ -136,6 +142,175 @@ func monitoringListGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, groups)
+}
+
+// monitoringPendingMachines lista máquinas que já mandaram heartbeat mas
+// ainda não foram aprovadas por um admin/técnico — a fila que existe pra
+// nunca mais uma VM de sandbox (VirusTotal e afins) aparecer direto como
+// máquina online no painel (ver migration add_machine_approval_gate).
+func monitoringPendingMachines(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem revisar máquinas pendentes"})
+		return
+	}
+
+	pending, err := db.PendingMachines(ctx, escopo.FiltroEmpresa())
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar máquinas pendentes"})
+		return
+	}
+	if pending == nil {
+		pending = []lib.PendingMachineRow{}
+	}
+	lib.WriteJSON(w, http.StatusOK, pending)
+}
+
+// monitoringApproveMachine libera uma máquina pendente pra entrar no painel.
+func monitoringApproveMachine(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem aprovar máquinas"})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "ID é obrigatório"})
+		return
+	}
+	if err := db.ApproveMachine(ctx, id, escopo.FiltroEmpresa()); err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
+// monitoringRejectMachine nega e apaga uma máquina pendente — mesmo destino
+// de uma máquina fantasma de sandbox: some do banco, nunca mais aparece na
+// fila (CASCADE cuida de hardware/alertas/comandos associados).
+func monitoringRejectMachine(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem rejeitar máquinas"})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "ID é obrigatório"})
+		return
+	}
+	if err := db.RejectMachine(ctx, id, escopo.FiltroEmpresa()); err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
+// monitoringAllMachines lista todas as máquinas aprovadas do escopo do
+// chamador num único round-trip — usado pela visão "Todos" do
+// Monitoramento, que antes fazia 1 request por grupo no front-end
+// (useAllMachines, ver useMonitoring.ts).
+func monitoringAllMachines(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	machines, err := db.AllMachines(ctx, escopo.FiltroEmpresa())
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar máquinas"})
+		return
+	}
+	if machines == nil {
+		machines = []lib.MachineWithMetric{}
+	}
+	lib.WriteJSON(w, http.StatusOK, machines)
+}
+
+// monitoringMachineTickets lista o histórico de chamados abertos por uma
+// máquina — na prática, todo chamado aberto por qualquer pessoa que usou
+// essa máquina, já que a sessão do "Abrir Chamado" sempre autentica pelo
+// mesmo usuário-fantasma da máquina (ver lib.MachineGhostEmail). Sem
+// coluna nova nem migration: resolve o e-mail-fantasma a partir do
+// machine_token (nunca devolvido ao chamador) e busca o user_id
+// correspondente.
+func monitoringMachineTickets(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "ID é obrigatório"})
+		return
+	}
+
+	token, companyID, err := db.MachineTokenAndCompanyByID(ctx, id)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Máquina não encontrada"})
+		return
+	}
+	if !podeVerMaquina(ctx, user.ID, companyID) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+		return
+	}
+
+	// Máquina existe mas nunca completou um "Abrir Chamado" (nenhum
+	// usuário-fantasma chegou a ser criado) — histórico vazio, não erro.
+	ghostUserID, err := db.AuthUserIDByEmail(ctx, lib.MachineGhostEmail(token))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusOK, []lib.MachineTicketRow{})
+		return
+	}
+
+	tickets, err := db.TicketsByUserID(ctx, ghostUserID, 100)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar histórico de chamados"})
+		return
+	}
+	if tickets == nil {
+		tickets = []lib.MachineTicketRow{}
+	}
+	lib.WriteJSON(w, http.StatusOK, tickets)
 }
 
 func monitoringGroupMachines(w http.ResponseWriter, r *http.Request) {
@@ -192,6 +367,11 @@ func monitoringMachineDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
+	if !limiterMetricsHistory.Permitir(lib.ClientIP(r)) {
+		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "muitas requisições — aguarde e tente novamente"})
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 	defer cancel()
 
@@ -207,14 +387,15 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
 		return
 	}
-	limit := 100
-	if ls := r.URL.Query().Get("limit"); ls != "" {
-		if l, err := strconv.Atoi(ls); err == nil && l > 0 {
-			limit = l
-		}
+
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		period = "1h"
 	}
-	metrics, err := db.MetricsByMachineID(ctx, id, limit)
+
+	metrics, err := lib.QueryMachineMetricsHistory(ctx, cfg.GrafanaURL, cfg.GrafanaAPIToken, cfg.GrafanaPromDSUID, cfg.GrafanaBypassSecret, id, period)
 	if err != nil {
+		log.Printf("[ERRO] histórico de métricas via Grafana para %s: %v", id, err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar métricas"})
 		return
 	}
@@ -394,18 +575,25 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	machineID, deviceTypeGravado, err := db.HeartbeatUpsert(ctx, lib.HeartbeatUpsertInput{
-		GroupID: groupID, Hostname: req.Hostname, IP: req.IP, OS: req.OS, OSVersion: req.OSVersion,
-		AgentVersion: req.AgentVersion, MachineToken: req.MachineToken, MachineUUID: req.MachineUUID,
-		CurrentUser: req.CurrentUser, CurrentUserSID: req.CurrentUserSID, CompanyID: targetCompanyID,
-		DeviceType: req.DeviceType, MACAddress: req.MACAddress, Domain: req.Domain,
-		CPUUsage: req.CPUUsage, RAMTotal: req.RAMTotal, RAMUsed: req.RAMUsed,
-		DiskTotal: req.DiskTotal, DiskUsed: req.DiskUsed, Uptime: req.Uptime,
-		DeviceTypeReason: req.DeviceTypeReason,
-	})
+	machineID, deviceTypeGravado, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser, req.CurrentUserSID, targetCompanyID, req.DeviceType, req.MACAddress, req.Domain, req.DeviceTypeReason)
 	if err != nil {
-		fmt.Println("Erro HeartbeatUpsert:", err)
+		fmt.Println("Erro UpsertMachine:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar máquina: %v", err)})
+		return
+	}
+
+	// Sincroniza automaticamente o domínio da empresa se estiver vazio
+	if domain != "" && domain != "." && targetCompanyID != "" {
+		_ = db.SyncCompanyDomainIfEmpty(ctx, targetCompanyID, domain)
+	}
+
+	if err := db.UpdateMachineSnapshot(ctx, lib.InsertMetricInput{
+		MachineID: machineID, CPUUsage: req.CPUUsage,
+		RAMTotal: req.RAMTotal, RAMUsed: req.RAMUsed,
+		DiskTotal: req.DiskTotal, DiskUsed: req.DiskUsed, Uptime: req.Uptime,
+	}); err != nil {
+		fmt.Println("Erro UpdateMachineSnapshot:", err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar métricas: %v", err)})
 		return
 	}
 
@@ -510,6 +698,16 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	// Atualizações de sistema (sem geração de alerta de reinicialização conforme preferência)
 	_ = db.ResolveAlertsByType(ctx, machineID, "updates")
 
+	// Este heartbeat É a prova de que a máquina está online agora — resolve
+	// qualquer "Agente Offline" pendente aqui mesmo, sem esperar o Grafana
+	// mandar o evento "resolved" (que só chega depois de alguns ciclos de
+	// avaliação). Sem isso, HasUnresolvedAlerts logo abaixo via esse alerta
+	// como ainda aberto e marcava a máquina como "alerta" em vez de
+	// "online" nos primeiros minutos após ela voltar — ficar offline nunca
+	// deveria contar como um motivo de alerta por si só (CPU/disco/
+	// antivírus/firewall continuam contando normalmente).
+	_ = db.ResolveAlertsByType(ctx, machineID, alertaAgenteOffline)
+
 	// Verifica se ainda existem alertas não resolvidos para esta máquina
 	if hasActive, err := db.HasUnresolvedAlerts(ctx, machineID); err == nil {
 		hasAlert = hasAlert || hasActive
@@ -519,6 +717,17 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		_ = db.UpdateMachineStatus(ctx, machineID, "alerta")
 	} else {
 		_ = db.UpdateMachineStatus(ctx, machineID, "online")
+	}
+
+	// Auto-atualização: a máquina reportou uma versão de agente diferente
+	// da mais recente conhecida (lib.LatestAgentVersion) — enfileira um
+	// comando "orion-install" pra ela buscar e instalar sozinha no próximo
+	// poll (a cada 30s), sem nenhuma ação manual no painel. Best-effort de
+	// propósito: nada aqui pode fazer o heartbeat falhar.
+	if req.AgentVersion != "" && req.AgentVersion != lib.LatestAgentVersion {
+		if _, err := enfileirarAutoUpdateSeNecessario(ctx, machineID, targetCompanyID, req.AgentVersion, key); err != nil {
+			log.Printf("[AVISO] auto-atualização best-effort falhou (máquina %s): %v", machineID, err)
+		}
 	}
 
 	lib.WriteJSON(w, http.StatusOK, map[string]any{
@@ -544,7 +753,210 @@ func collectionIntervalSeconds(deviceType string) int {
 	return 180
 }
 
+// enfileirarAutoUpdateSeNecessario prepara o instalador mais recente da
+// empresa e enfileira um comando de auto-atualização pra esta máquina,
+// mas só se não já tiver um em trânsito (ver db.HasPendingUpdateCommand) —
+// sem essa checagem, cada heartbeat (a cada ~60s) empilharia mais um
+// comando idêntico enquanto o anterior ainda não terminou de ser
+// executado/respondido pelo agente.
+//
+// enfileirado=false sem erro significa "pulado por já ter um comando
+// pendente" — não é falha, só não havia nada novo a fazer. Devolve
+// (bool, error) desde a correção que expôs isso no painel
+// (monitoringForceUpdateMachine/monitoringForceUpdateOutdated, ver
+// abaixo): antes só logava e retornava void, o que bastava pro caminho
+// best-effort do heartbeat mas não dava pro admin saber se o clique em
+// "Forçar atualização" realmente enfileirou algo.
+func enfileirarAutoUpdateSeNecessario(ctx context.Context, machineID, companyID, versaoAtual, agentKey string) (bool, error) {
+	jaTemAtualizacaoPendente, err := db.HasPendingUpdateCommand(ctx, machineID)
+	if err != nil {
+		log.Printf("[AVISO] verificar auto-atualização pendente (máquina %s): %v", machineID, err)
+		return false, fmt.Errorf("verificar atualização pendente: %w", err)
+	}
+	if jaTemAtualizacaoPendente {
+		return false, nil
+	}
+
+	companyName, err := db.CompanyName(ctx, companyID)
+	if err != nil {
+		log.Printf("[AVISO] nome da empresa pra auto-atualização (máquina %s): %v", machineID, err)
+		return false, fmt.Errorf("resolver empresa: %w", err)
+	}
+
+	downloadURL, _, sha256Hex, err := prepararInstaladorDaEmpresa(ctx, companyID, agentKey, apiURLPublica(), companyName)
+	if err != nil {
+		log.Printf("[AVISO] preparar instalador pra auto-atualização (máquina %s): %v", machineID, err)
+		return false, fmt.Errorf("preparar instalador: %w", err)
+	}
+
+	if _, err := db.CreateCommand(ctx, lib.InsertCommandInput{
+		MachineID: machineID,
+		Command:   lib.ComandoAutoUpdate(downloadURL, sha256Hex),
+	}); err != nil {
+		log.Printf("[AVISO] enfileirar auto-atualização (máquina %s): %v", machineID, err)
+		return false, fmt.Errorf("enfileirar comando: %w", err)
+	}
+	log.Printf("[AUTO-UPDATE] comando enfileirado pra máquina %s (agente em %s, mais recente é %s)", machineID, versaoAtual, lib.LatestAgentVersion)
+	return true, nil
+}
+
+// monitoringForceUpdateMachine enfileira uma atualização pra UMA máquina
+// específica, a pedido explícito do admin — ao contrário do gatilho
+// automático em monitoringHeartbeat, ignora se agent_version já bate com
+// lib.LatestAgentVersion (o admin pode saber que o binário em disco está
+// desatualizado mesmo que o último heartbeat reportado não reflita isso —
+// ver a bandeja que fica presa numa versão antiga pra sempre até um
+// restart manual, já documentado nesta sessão).
+func monitoringForceUpdateMachine(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem forçar atualização"})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	machine, err := db.MachineByID(ctx, id)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Máquina não encontrada"})
+		return
+	}
+	if !podeVerMaquina(ctx, user.ID, machine.CompanyID) {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+		return
+	}
+	if machine.CompanyID == nil {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Máquina sem empresa associada"})
+		return
+	}
+
+	agentKey, err := db.ActiveOrNewAPIKey(ctx, *machine.CompanyID, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao preparar a chave de autenticação"})
+		return
+	}
+
+	versaoAtual := ""
+	if machine.AgentVersion != nil {
+		versaoAtual = *machine.AgentVersion
+	}
+	enfileirado, err := enfileirarAutoUpdateSeNecessario(ctx, machine.ID, *machine.CompanyID, versaoAtual, agentKey)
+	if err != nil {
+		log.Printf("[erro] enfileirarAutoUpdateSeNecessario machine=%s: %v", machine.ID, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
+		return
+	}
+	if !enfileirado {
+		lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "enqueued": false, "message": "Já existe uma atualização pendente pra esta máquina"})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "enqueued": true})
+}
+
+// monitoringForceUpdateOutdated enfileira atualização pra TODAS as máquinas
+// aprovadas do escopo do chamador cuja agent_version reportada não bate
+// com lib.LatestAgentVersion — o botão "Atualizar todas" do painel, pro
+// caso comum de várias máquinas terem ficado pra trás.
+func monitoringForceUpdateOutdated(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem forçar atualização"})
+		return
+	}
+
+	machines, err := db.AllMachines(ctx, escopo.FiltroEmpresa())
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar máquinas"})
+		return
+	}
+
+	// Uma chave de API por empresa, resolvida uma vez e reaproveitada —
+	// evita N chamadas a db.ActiveOrNewAPIKey quando várias máquinas
+	// desatualizadas são da mesma empresa (o caso comum).
+	chavesPorEmpresa := map[string]string{}
+	var enfileiradas, jaAtualizadas, puladas int
+	var erros []string
+
+	for _, m := range machines {
+		if m.AgentVersion == nil || *m.AgentVersion == lib.LatestAgentVersion {
+			jaAtualizadas++
+			continue
+		}
+		if m.CompanyID == nil {
+			continue
+		}
+
+		agentKey, ok := chavesPorEmpresa[*m.CompanyID]
+		if !ok {
+			agentKey, err = db.ActiveOrNewAPIKey(ctx, *m.CompanyID, user.ID)
+			if err != nil {
+				erros = append(erros, fmt.Sprintf("%s: erro ao preparar chave da empresa", m.Hostname))
+				continue
+			}
+			chavesPorEmpresa[*m.CompanyID] = agentKey
+		}
+
+		enfileirado, err := enfileirarAutoUpdateSeNecessario(ctx, m.ID, *m.CompanyID, *m.AgentVersion, agentKey)
+		if err != nil {
+			erros = append(erros, fmt.Sprintf("%s: %s", m.Hostname, err.Error()))
+			continue
+		}
+		if enfileirado {
+			enfileiradas++
+		} else {
+			puladas++
+		}
+	}
+
+	lib.WriteJSON(w, http.StatusOK, map[string]any{
+		"success":         true,
+		"enqueued":        enfileiradas,
+		"already_pending": puladas,
+		"already_updated": jaAtualizadas,
+		"errors":          erros,
+	})
+}
+
 // ─── Remote Commands ──────────────────────────────────────────────────────────
+
+// papeisComandoRemoto são os únicos papéis autorizados a enviar comandos
+// remotos (orion-install, terminal, etc.) — nunca customer.
+var papeisComandoRemoto = map[string]bool{"admin": true, "technician": true, "developer": true}
+
+// autorizarComandoRemoto decide se o escopo do chamador pode enviar um
+// comando remoto pra uma máquina de uma dada empresa. Extraída de
+// monitoringCreateCommand pra poder ser testada sem precisar de banco nem
+// Supabase (ambos os checks já existiam — role e tenancy — só não tinham
+// teste de integração cobrindo os três cenários: customer, técnico de outra
+// empresa, e técnico/admin da empresa correta).
+//
+// Não confia em RLS pra isso: o pool do backend conecta com papel
+// privilegiado (ver comentário SEC-01/Strix vuln-0003 no topo do arquivo),
+// então estas DUAS checagens no handler são a única barreira real.
+func autorizarComandoRemoto(escopo lib.UserScope, machineCompanyID *string) (permitido bool, mensagemErro string) {
+	if !papeisComandoRemoto[escopo.Role] {
+		return false, "Acesso restrito: apenas administradores e técnicos podem enviar comandos remotos"
+	}
+	if !escopo.PodeVerEmpresa(machineCompanyID) {
+		return false, "Acesso restrito: máquina não pertence à sua empresa"
+	}
+	return true, ""
+}
 
 func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
@@ -557,14 +969,9 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// RequireUserRole: apenas admin, developer e technician podem enviar comandos remotos.
 	escopo, err := escopoDoUsuario(ctx, user.ID)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível verificar permissões do usuário"})
-		return
-	}
-	if escopo.Role != "admin" && escopo.Role != "technician" && escopo.Role != "developer" {
-		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem enviar comandos remotos"})
 		return
 	}
 
@@ -575,10 +982,13 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ValidateMachineTenancy: escopo de empresa/global — nunca role isolado, para
-	// não permitir que um admin de uma empresa comande máquinas de outra (SEC-01).
-	if !escopo.PodeVerEmpresa(machine.CompanyID) {
-		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
+	if machine.ApprovalStatus != nil && *machine.ApprovalStatus != "approved" {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: comandos só podem ser enviados para máquinas aprovadas"})
+		return
+	}
+
+	if permitido, msg := autorizarComandoRemoto(escopo, machine.CompanyID); !permitido {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": msg})
 		return
 	}
 
@@ -596,11 +1006,19 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userName := user.Email
+	if _, fullName, err := db.ProfileByID(ctx, user.ID); err == nil && fullName != nil && *fullName != "" {
+		userName = *fullName
+	}
+
 	id, err := db.CreateCommand(ctx, lib.InsertCommandInput{
-		MachineID: machineID,
-		Command:   req.Command,
+		MachineID:        machineID,
+		Command:          req.Command,
+		ExecutedByUserID: &user.ID,
+		ExecutedByName:   &userName,
 	})
 	if err != nil {
+		log.Printf("[ERRO] falha ao criar comando remoto: %v", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro ao criar comando"})
 		return
 	}
@@ -613,7 +1031,6 @@ func monitoringGetMachineCommands(w http.ResponseWriter, r *http.Request) {
 
 	user, err := requireAuth(r.WithContext(ctx))
 	if err != nil {
-		fmt.Printf("[DEBUG] mon_handlers list cmds auth error: %v\n", err)
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
@@ -625,6 +1042,7 @@ func monitoringGetMachineCommands(w http.ResponseWriter, r *http.Request) {
 	}
 	cmds, err := db.ListCommandsByMachineID(ctx, machineID, 50)
 	if err != nil {
+		log.Printf("[ERRO] falha ao listar comandos da máquina %s: %v", machineID, err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro ao buscar comandos"})
 		return
 	}
@@ -647,7 +1065,7 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Require Agent Key
-	_, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
+	chaveEmpresaID, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
@@ -659,9 +1077,22 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if chaveEmpresaID != "" && chaveEmpresaID != "global" {
+		machine, err := db.MachineByID(ctx, machineID)
+		if err != nil {
+			lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "máquina não encontrada"})
+			return
+		}
+		if machine.CompanyID == nil || *machine.CompanyID != chaveEmpresaID {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "máquina não pertence à empresa desta chave"})
+			return
+		}
+	}
+
 	cmds, err := db.GetPendingCommands(ctx, machineID)
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[ERRO] falha ao buscar comandos pendentes (machine=%s): %v", machineID, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro interno ao processar comandos"})
 		return
 	}
 
@@ -675,8 +1106,8 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 	for i, c := range cmds {
 		ids[i] = c.ID
 	}
-	if err := db.MarkCommandsSent(ctx, ids); err != nil {
-		log.Printf("[ERRO] commands/poll: falha ao marcar comandos como enviados: %v", err)
+	if err := db.UpdateCommandsStatusBatch(ctx, ids, "sent"); err != nil {
+		log.Printf("[AVISO] falha ao marcar comandos como enviados (machine=%s): %v", machineID, err)
 	}
 
 	lib.WriteJSON(w, http.StatusOK, cmds)
@@ -694,7 +1125,7 @@ func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Require Agent Key
-	_, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
+	chaveEmpresaID, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
@@ -710,9 +1141,22 @@ func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if chaveEmpresaID != "" && chaveEmpresaID != "global" {
+		companyID, err := db.CommandCompanyID(ctx, req.ID)
+		if err != nil {
+			lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "comando não encontrado"})
+			return
+		}
+		if companyID == nil || *companyID != chaveEmpresaID {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "comando não pertence à empresa desta chave"})
+			return
+		}
+	}
+
 	err = db.UpdateCommandStatus(ctx, req.ID, req.Status, req.Output)
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[ERRO] falha ao atualizar status do comando %s: %v", req.ID, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "erro ao atualizar status do comando"})
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -803,7 +1247,8 @@ func monitoringUpdateMachine(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.UpdateMachine(ctx, id, refinedUpdates); err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[erro] UpdateMachine id=%s: %v", id, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -853,7 +1298,8 @@ func monitoringCreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	id, err := db.CreateMachineGroup(ctx, req.Name, req.Description, req.ClientContact, req.CompanyID)
 	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[erro] CreateMachineGroup: %v", err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"id": id})
@@ -921,7 +1367,8 @@ func monitoringUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.UpdateMachineGroup(ctx, id, refined); err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[erro] UpdateMachineGroup id=%s: %v", id, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -963,7 +1410,8 @@ func monitoringDeleteGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.DeleteMachineGroup(ctx, id); err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		log.Printf("[erro] DeleteMachineGroup id=%s: %v", id, err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -1044,6 +1492,132 @@ func monitoringSelfHealEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
+// ─── Grafana Alerting → Orion (webhook) ────────────────────────────────────────
+//
+// Fecha o lado "Prometheus/Grafana ➔ Orion" da integração de alertas: uma
+// regra de Grafana Alerting (ver provisioning/alerting no servidor Debian)
+// dispara, o contact point do tipo "webhook" chama este endpoint, e cada
+// alerta vira uma linha em machine_alerts — a mesma tabela que já alimenta a
+// Central de Alertas / zona vermelha do Orion. Nenhuma tabela nova, nenhuma
+// tela nova: os alertas do Grafana só passam a aparecer onde os alertas do
+// Orion já aparecem.
+//
+// machine_id chega como label da métrica que disparou o alerta — Prometheus
+// herda esse label de agents.json (gerado pelo orion-bridge a partir de
+// get_all_monitoring_targets()), então toda métrica do job "orion_agents" já
+// carrega machine_id/company_id sem o agente precisar expor isso ele mesmo.
+// Alertas de endpoints web/links de rede (que usam endpoint_id/link_id, não
+// machine_id) ficam fora de escopo deste handler por ora.
+
+type grafanaWebhookAlert struct {
+	Status      string            `json:"status"` // "firing" ou "resolved"
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
+}
+
+type grafanaWebhookPayload struct {
+	Alerts []grafanaWebhookAlert `json:"alerts"`
+}
+
+// alertaAgenteOffline/alertaServidorOffline precisam bater exatamente com o
+// `title` das regras "Agente Offline" e "Servidor Debian Offline" em
+// rules.yaml (Grafana usa o title da regra como valor do label reservado
+// `alertname`, sem sufixo/normalização). São os únicos tipos de alerta que
+// também espelham em machines.status — os demais (CPU, disco, antivírus,
+// firewall, ativação, RAM do servidor etc.) só entram em machine_alerts,
+// sem afetar o badge online/offline da tela de Ativos.
+const (
+	alertaAgenteOffline   = "Agente Offline"
+	alertaServidorOffline = "Servidor Debian Offline"
+)
+
+func afetaStatusDaMaquina(alertType string) bool {
+	return alertType == alertaAgenteOffline || alertType == alertaServidorOffline
+}
+
+func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
+	ip := lib.ClientIP(r)
+	if !limiterGrafanaWebhook.Permitir(ip) {
+		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "muitas requisições — aguarde e tente novamente"})
+		return
+	}
+
+	// Segredo compartilhado configurado no contact point do Grafana via
+	// "Authorization Header - Credentials" — campo que o próprio Grafana
+	// marca como "secure" (criptografado em repouso, nunca devolvido em
+	// GETs subsequentes da API), diferente de um header customizado solto.
+	// Grafana não é um usuário nem um agente, então nem requireAuth nem
+	// X-Agent-Key se aplicam aqui. Sem GRAFANA_WEBHOOK_SECRET configurado no
+	// ambiente, o endpoint fica permanentemente fechado (nunca aceita
+	// string vazia == string vazia).
+	const esquemaEsperado = "Bearer "
+	auth := r.Header.Get("Authorization")
+	secret := strings.TrimPrefix(auth, esquemaEsperado)
+	if !strings.HasPrefix(auth, esquemaEsperado) || cfg.GrafanaWebhookSecret == "" || secret != cfg.GrafanaWebhookSecret {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "não autorizado"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	var payload grafanaWebhookPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "corpo inválido"})
+		return
+	}
+
+	processados := 0
+	for _, alerta := range payload.Alerts {
+		machineID := alerta.Labels["machine_id"]
+		alertType := alerta.Labels["alertname"]
+		if machineID == "" || alertType == "" {
+			continue // sem machine_id (ex.: alerta de endpoint web/link) — fora de escopo aqui
+		}
+
+		switch alerta.Status {
+		case "firing":
+			severity := alerta.Labels["severity"]
+			if severity == "" {
+				severity = "warning"
+			}
+			message := alerta.Annotations["summary"]
+			if message == "" {
+				message = alerta.Annotations["description"]
+			}
+			if message == "" {
+				message = alertType
+			}
+			if err := db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
+				MachineID: machineID, Type: alertType, Severity: severity, Message: message,
+			}); err != nil {
+				log.Printf("[GRAFANA-WEBHOOK] erro ao inserir alerta %s/%s: %v", machineID, alertType, err)
+				continue
+			}
+			if afetaStatusDaMaquina(alertType) {
+				if err := db.UpdateMachine(ctx, machineID, map[string]any{"status": "offline"}); err != nil {
+					log.Printf("[GRAFANA-WEBHOOK] erro ao marcar máquina %s como offline: %v", machineID, err)
+				}
+			}
+		case "resolved":
+			if err := db.ResolveAlertsByType(ctx, machineID, alertType); err != nil {
+				log.Printf("[GRAFANA-WEBHOOK] erro ao resolver alerta %s/%s: %v", machineID, alertType, err)
+				continue
+			}
+			if afetaStatusDaMaquina(alertType) {
+				if err := db.UpdateMachine(ctx, machineID, map[string]any{"status": "online"}); err != nil {
+					log.Printf("[GRAFANA-WEBHOOK] erro ao marcar máquina %s como online: %v", machineID, err)
+				}
+			}
+		default:
+			continue
+		}
+		processados++
+	}
+
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "processed": processados})
 }
 
 // ─── Critical Alerts (Red Zone Dashboard) ─────────────────────────────────────

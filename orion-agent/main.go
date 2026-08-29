@@ -6,12 +6,19 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+
+	"strings"
+	"time"
 
 	"github.com/kardianos/service"
 
+	"orion-agent/addremove"
 	"orion-agent/config"
 	agentsvc "orion-agent/service"
+	"orion-agent/shortcut"
+	"orion-agent/startup"
 	"orion-agent/tray"
 )
 
@@ -65,43 +72,77 @@ func main() {
 		fmt.Println("🚀 Inicie com: sc start OrionAgent (ou pelo Gerenciador de Serviços)")
 
 	case "uninstall":
-		if err := s.Uninstall(); err != nil {
-			logger.Fatalf("[ERRO] Não foi possível remover o serviço: %v", err)
+		pararCmd := exec.Command("sc", "stop", "OrionAgent")
+		esconderJanela(pararCmd)
+		_ = pararCmd.Run()
+		_ = s.Stop()
+		_ = s.Uninstall()
+		deletarCmd := exec.Command("sc", "delete", "OrionAgent")
+		esconderJanela(deletarCmd)
+		_ = deletarCmd.Run()
+		_ = startup.Disable()
+		_ = addremove.Remover()
+
+		// Remove atalhos da Área de Trabalho
+		publicDesktop := filepath.Join(os.Getenv("PUBLIC"), "Desktop")
+		if publicDesktop != "Desktop" && publicDesktop != "" {
+			_ = os.Remove(filepath.Join(publicDesktop, "Abrir Chamado Orion.url"))
+			_ = os.Remove(filepath.Join(publicDesktop, "Abrir Portal de Chamados.url"))
 		}
-		fmt.Println("🗑️ Serviço OrionAgent removido com sucesso.")
+		if home, err := os.UserHomeDir(); err == nil {
+			userDesktop := filepath.Join(home, "Desktop")
+			_ = os.Remove(filepath.Join(userDesktop, "Abrir Chamado Orion.url"))
+			_ = os.Remove(filepath.Join(userDesktop, "Abrir Portal de Chamados.url"))
+		}
+		logger.Println("🗑️ Serviço, início automático, atalhos e entrada em Aplicativos Instalados removidos.")
+
+		// Apaga a pasta de instalação inteira (C:\Orion)
+		if exe, err := os.Executable(); err == nil {
+			pasta := filepath.Dir(exe)
+			_ = addremove.LimparPastaDepoisDeSair(pasta)
+		}
+		return
 
 	default:
 		// Se não houver argumentos, estamos rodando o agente "de verdade".
-		//
-		// Instância única (correção B.10): o serviço Windows (SYSTEM) e uma
-		// execução interativa (usuário clicou no .exe) podem coexistir na
-		// mesma máquina — main() sempre sobe a mesma lógica de
-		// coleta+heartbeat+RMM em background nos dois casos. Sem esta
-		// checagem, comandos remotos podiam ser executados DUAS VEZES, uma
-		// por cada instância.
-		if unica, err := garantirInstanciaUnica(); err != nil {
-			logger.Printf("[AVISO] Não foi possível verificar instância única: %v — seguindo mesmo assim.", err)
-		} else if !unica {
-			logger.Println("[ERRO] Já existe uma instância do Orion Agent em execução nesta máquina. Encerrando.")
-			return
-		}
-
 		if !service.Interactive() {
-			// Execução silenciosa como serviço do Windows.
+			// Execução como serviço do Windows: sempre sobe o laço completo
+			// de coleta+heartbeat+RMM, sem depender da checagem de
+			// instância única abaixo — o SCM já garante que só existe uma
+			// cópia deste serviço, e recusar a iniciar por causa de uma
+			// bandeja interativa que porventura já esteja rodando deixaria
+			// o serviço inteiro fora do ar (pior que o problema que a
+			// checagem tentava evitar).
 			if err := s.Run(); err != nil {
 				logger.Fatalf("[ERRO] Falha na execução do serviço: %v", err)
 			}
 			return
 		}
 
-		// Se estivermos em modo interativo (ex: clicado pelo usuário), iniciamos a Tray.
-		// Rodamos a lógica do agente em background (goroutine) para não travar o menu.
-		go func() {
-			logger.Printf("Iniciando monitoramento em background — Servidor: %s", cfg.APIURL)
-			if err := s.Run(); err != nil {
-				logger.Printf("[ERRO] Falha na execução de background: %v", err)
+		// Verifica se o serviço Windows OrionAgent já está ativo em segundo plano
+		servicoAtivo := false
+		queryCmd := exec.Command("sc", "query", "OrionAgent")
+		esconderJanela(queryCmd)
+		if out, err := queryCmd.CombinedOutput(); err == nil && strings.Contains(string(out), "RUNNING") {
+			servicoAtivo = true
+		}
+
+		if !servicoAtivo {
+			go func() {
+				logger.Printf("Iniciando monitoramento em background — Servidor: %s", cfg.APIURL)
+				if err := s.Run(); err != nil {
+					logger.Printf("[ERRO] Falha na execução de background: %v", err)
+				}
+			}()
+		} else {
+			logger.Println("Serviço OrionAgent já está ativo em segundo plano — bandeja sobe só como interface, sem laço de heartbeat próprio.")
+			if err := svc.PreloadMachineToken(); err != nil {
+				logger.Printf("[AVISO] Não foi possível ler a identidade da máquina salva em disco: %v", err)
 			}
-		}()
+		}
+
+		// Garante que o atalho "Abrir Chamado Orion" com o ícone do sistema exista no Desktop
+		_ = shortcut.CreatePortalShortcut(cfg.APIURL, svc.GetTicketURL())
 
 		// Gerenciador da bandeja do sistema (perto do relógio).
 		// Este bloco é bloqueante e mantém o processo vivo.
@@ -158,6 +199,78 @@ func main() {
 				}
 			},
 		)
+
+		// Define status inicial correto antes de abrir o loop da bandeja
+		if svc.GetPortalURL() != "" {
+			t.SetStatus("conectado")
+		} else {
+			if err := svc.PreloadMachineToken(); err == nil && svc.GetPortalURL() != "" {
+				t.SetStatus("conectado")
+			} else {
+				t.SetStatus("conectando…")
+			}
+		}
+
+		// Mantém o status sincronizado periodicamente
+		go func() {
+			for {
+				time.Sleep(5 * time.Second)
+				if svc.GetPortalURL() != "" {
+					t.SetStatus("conectado")
+				} else {
+					if err := svc.PreloadMachineToken(); err == nil && svc.GetPortalURL() != "" {
+						t.SetStatus("conectado")
+					} else {
+						t.SetStatus("conectando…")
+					}
+				}
+			}
+		}()
+
+		// Auto-recarregar a bandeja depois de uma auto-atualização remota.
+		//
+		// pararServicoSeRodando (cmd/installer/main.go) tenta matar esta
+		// bandeja via taskkill antes de sobrescrever orion-agent.exe, mas
+		// quando o instalador roda em modo silencioso (disparado pelo
+		// serviço durante auto-atualização) ele executa sob a conta virtual
+		// NT SERVICE\OrionAgent — sem privilégio pra encerrar um processo
+		// rodando na sessão interativa do usuário (mesma classe de limite
+		// de privilégio entre sessões já documentada em
+		// gravarExeMesmoEmUso/concederAutoGerenciamento). Resultado: o
+		// arquivo em disco e o serviço avançam de versão, mas esta bandeja
+		// continua rodando o binário antigo pra sempre — exatamente o "a
+		// versão na bandeja não atualiza" relatado.
+		//
+		// Em vez de depender de outro processo conseguir nos matar, nos
+		// vigiamos: se o mtime do nosso próprio executável mudar (o
+		// instalador reescreveu o arquivo), relançamos uma cópia nova de
+		// nós mesmos e encerramos esta de forma graciosa (mesmo caminho do
+		// clique em "Sair" — ver TrayManager.Quit).
+		if exePath, errExe := os.Executable(); errExe == nil {
+			if infoInicial, err := os.Stat(exePath); err == nil {
+				mtimeInicial := infoInicial.ModTime()
+				go func() {
+					ticker := time.NewTicker(60 * time.Second)
+					defer ticker.Stop()
+					for range ticker.C {
+						info, err := os.Stat(exePath)
+						if err != nil || !binarioFoiAtualizado(mtimeInicial, info.ModTime()) {
+							continue
+						}
+						logger.Println("[INFO] Binário do agente foi atualizado em disco — reiniciando a bandeja para carregar a versão nova.")
+						nova := exec.Command(exePath)
+						esconderJanela(nova)
+						if err := nova.Start(); err != nil {
+							logger.Printf("[ERRO] Falha ao relançar a bandeja após atualização: %v", err)
+							continue
+						}
+						t.Quit()
+						return
+					}
+				}()
+			}
+		}
+
 		t.Run()
 	}
 }
@@ -168,6 +281,14 @@ func main() {
 // autenticada sem senha — como parâmetro. Sem esta redação, cada clique na bandeja
 // gravava essa credencial em texto plano no agent.log, que fica na pasta do
 // executável e herda a ACL do diretório (legível por usuários comuns).
+// binarioFoiAtualizado decide se o mtime atual do executável indica que ele
+// foi reescrito em disco desde que este processo começou a rodar — critério
+// que a checagem periódica de auto-restart da bandeja usa (ver main()).
+// Extraída pra ser testável sem precisar de um os.Stat de verdade.
+func binarioFoiAtualizado(mtimeInicial, mtimeAtual time.Time) bool {
+	return mtimeAtual.After(mtimeInicial)
+}
+
 func redigirQuery(bruta string) string {
 	u, err := url.Parse(bruta)
 	if err != nil {

@@ -146,7 +146,7 @@ export const useAutomationLogsReport = () => {
   return useQuery({
     queryKey: ['report-automation-logs'],
     queryFn: async (): Promise<AutomationLogRow[]> => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('automation_logs')
         .select('ticket_id, created_at');
       if (error) throw error;

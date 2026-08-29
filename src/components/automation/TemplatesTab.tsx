@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Loader2, Zap, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useCannedResponses, useSaveCannedResponse, useDeleteCannedResponse, type CannedResponseFull } from '@/hooks/useAutomation';
@@ -22,6 +23,7 @@ export const TemplatesTab: React.FC<Props> = ({ companyId }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [shortcut, setShortcut] = useState('');
+  const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
 
   const { data: responses = [], isLoading } = useCannedResponses(companyId);
   const saveMutation = useSaveCannedResponse(companyId);
@@ -58,10 +60,7 @@ export const TemplatesTab: React.FC<Props> = ({ companyId }) => {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm('Excluir este template?')) return;
-    deleteMutation.mutate(id, {
-      onSuccess: () => toast({ title: 'Template removido' }),
-    });
+    setTemplateToDelete(id);
   };
 
   return (
@@ -151,6 +150,33 @@ export const TemplatesTab: React.FC<Props> = ({ companyId }) => {
           )}
         </div>
       )}
+
+      <AlertDialog open={!!templateToDelete} onOpenChange={(open) => !open && setTemplateToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Template de Resposta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este template não estará mais disponível para respostas rápidas e automações.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
+              onClick={() => {
+                if (templateToDelete) {
+                  deleteMutation.mutate(templateToDelete, {
+                    onSuccess: () => toast({ title: 'Template removido com sucesso' }),
+                  });
+                  setTemplateToDelete(null);
+                }
+              }}
+            >
+              Excluir Template
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

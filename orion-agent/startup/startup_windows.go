@@ -1,0 +1,65 @@
+//go:build windows
+
+// Package startup gerencia a entrada de auto-início do Orion Agent no login
+// do Windows (HKCU\...\Run) — o que faz a bandeja aparecer sozinha quando o
+// usuário loga, sem precisar clicar no .exe manualmente. Complementa o
+// serviço Windows (que cobre a máquina sem ninguém logado); ver main.go
+// para a lógica de qual dos dois manda o heartbeat quando os dois estão
+// ativos.
+package startup
+
+import (
+	"fmt"
+
+	"golang.org/x/sys/windows/registry"
+)
+
+const (
+	chaveRun = `Software\Microsoft\Windows\CurrentVersion\Run`
+	valorRun = "OrionAgent"
+)
+
+// Enable grava HKLM e HKCU \...\Run\OrionAgent apontando pro executável informado.
+// HKLM cobre todos os usuários que logarem na máquina; HKCU cobre o usuário atual.
+func Enable(caminhoExe string) error {
+	_ = enableComChave(registry.LOCAL_MACHINE, chaveRun, valorRun, caminhoExe)
+	return enableComChave(registry.CURRENT_USER, chaveRun, valorRun, caminhoExe)
+}
+
+// Disable remove a entrada de auto-início de HKLM e HKCU.
+func Disable() error {
+	_ = disableComChave(registry.LOCAL_MACHINE, chaveRun, valorRun)
+	return disableComChave(registry.CURRENT_USER, chaveRun, valorRun)
+}
+
+// enableComChave/disableComChave fazem o trabalho real aceitando o hive raiz (HKLM ou HKCU).
+func enableComChave(hive registry.Key, chave, valor, caminhoExe string) error {
+	k, _, err := registry.CreateKey(hive, chave, registry.SET_VALUE)
+	if err != nil {
+		return fmt.Errorf("abrir/criar %s: %w", chave, err)
+	}
+	defer k.Close()
+
+	// Aspas em volta do caminho: caminhos com espaço quebrariam sem elas.
+	v := `"` + caminhoExe + `"`
+	if err := k.SetStringValue(valor, v); err != nil {
+		return fmt.Errorf("gravar valor %s: %w", valor, err)
+	}
+	return nil
+}
+
+func disableComChave(hive registry.Key, chave, valor string) error {
+	k, err := registry.OpenKey(hive, chave, registry.SET_VALUE)
+	if err != nil {
+		if err == registry.ErrNotExist {
+			return nil
+		}
+		return fmt.Errorf("abrir %s: %w", chave, err)
+	}
+	defer k.Close()
+
+	if err := k.DeleteValue(valor); err != nil && err != registry.ErrNotExist {
+		return fmt.Errorf("remover valor %s: %w", valor, err)
+	}
+	return nil
+}

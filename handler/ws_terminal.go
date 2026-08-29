@@ -133,6 +133,11 @@ func bombear(origem *SafeConn, destino func() *SafeConn) {
 		return origem.conn.SetReadDeadline(time.Now().Add(prazoLeitura))
 	})
 
+	sessaoInicio := time.Now()
+	maxSessao := 60 * time.Minute
+	maxInatividade := 15 * time.Minute
+	ultimoInput := time.Now()
+
 	pararPing := make(chan struct{})
 	defer close(pararPing)
 	go func() {
@@ -141,6 +146,10 @@ func bombear(origem *SafeConn, destino func() *SafeConn) {
 		for {
 			select {
 			case <-t.C:
+				if time.Since(sessaoInicio) > maxSessao || time.Since(ultimoInput) > maxInatividade {
+					_ = origem.Close()
+					return
+				}
 				if err := origem.WriteMessage(websocket.PingMessage, nil); err != nil {
 					return
 				}
@@ -153,6 +162,10 @@ func bombear(origem *SafeConn, destino func() *SafeConn) {
 	for {
 		messageType, data, err := origem.ReadMessage()
 		if err != nil {
+			return
+		}
+		ultimoInput = time.Now()
+		if time.Since(sessaoInicio) > maxSessao {
 			return
 		}
 		_ = origem.conn.SetReadDeadline(time.Now().Add(prazoLeitura))
@@ -214,6 +227,21 @@ func autorizarTerminalBrowser(w http.ResponseWriter, r *http.Request, machineID 
 	// 'orion-start-terminal' que dispara esta sessão.
 	if !escopo.Global() && escopo.Role != "admin" && escopo.Role != "technician" {
 		http.Error(w, "acesso restrito: apenas administradores e técnicos podem abrir terminal remoto", http.StatusForbidden)
+		return false
+	}
+
+	// Se o usuário possui 2FA configurado, exige autenticação de segundo fator (aal2)
+	if len(user.Factors) > 0 && user.AAL != "aal2" {
+		http.Error(w, "não autorizado: MFA (AAL2) obrigatório para terminal remoto", http.StatusForbidden)
+		return false
+	}
+
+	// Registro de auditoria obrigatório: uma sessão de shell remoto sem
+	// trilha de quem/quando/onde não deve existir. Falha fechado — se o
+	// registro não puder ser gravado, a sessão não abre (não é best-effort).
+	if err := db.RegistrarSessaoTerminalRemoto(r.Context(), machineID, machine.CompanyID, user.ID); err != nil {
+		log.Printf("[AUDITORIA] falha ao registrar sessão de terminal remoto (machine=%s, user=%s): %v", machineID, user.ID, err)
+		http.Error(w, "não foi possível registrar a sessão — tente novamente", http.StatusInternalServerError)
 		return false
 	}
 

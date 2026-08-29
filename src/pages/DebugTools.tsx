@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
-import { ArrowLeft, Play, Zap, Clock, FileText, RefreshCw, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Play, Zap, Clock, FileText, RefreshCw, Loader2, Trash2, Wrench, CheckCircle2, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +14,9 @@ import { invokeOrionFunction } from '@/lib/orion-functions';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatDate } from '@/lib/utils';
+import { ehTituloDeTicketDeTeste } from '@/lib/testDataDetection';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { useProfilesMap, resolveUserDisplayName, replaceUserUuidsInText } from '@/hooks/useUserDisplayName';
 
 interface SLATestResult {
   id: string;
@@ -52,6 +55,7 @@ const DebugTools = () => {
   const { user } = useAuth();
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: profile } = useUserProfile();
+  const { profilesMap } = useProfilesMap();
   
   // SLA Test State
   const [slaResults, setSlaResults] = useState<SLATestResult[]>([]);
@@ -72,14 +76,33 @@ const DebugTools = () => {
   // Check access - only developer or admin
   const hasAccess = role === 'developer' || role === 'admin';
 
+  // 4 tickets [DEBUG-SLA-TEST] ficaram visíveis no histórico real dos
+  // clientes por um teste rodado sem checagem de ambiente (corrigido em
+  // runSlaTest). Aproveita o trigger de auditoria que já existe em `tickets`
+  // (audit_tickets_changes/audit_tickets_trigger → audit_log, já assinado em
+  // tempo real logo abaixo) pra avisar assim que um novo ticket com padrão
+  // de nome de teste for criado, em vez de precisar notar manualmente no log.
+  const avisarSeTicketDeTeste = (entry: AuditLogEntry) => {
+    if (entry.table_name !== 'tickets' || entry.action !== 'INSERT') return;
+    const titulo = entry.new_data?.title;
+    if (ehTituloDeTicketDeTeste(titulo)) {
+      toast({
+        title: 'Possível ticket de teste em produção',
+        description: `"${titulo}" (ticket ${entry.record_id}) — verifique se foi criado por engano fora do ambiente de desenvolvimento.`,
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Load audit logs on mount and setup realtime
   useEffect(() => {
     if (hasAccess) {
       fetchAuditLogs();
       
       // Setup realtime subscription for audit_log
+      const channelName = `audit-log-changes-${Math.random().toString(36).slice(2, 7)}`;
       const channel = supabase
-        .channel('audit-log-changes')
+        .channel(channelName)
         .on(
           'postgres_changes',
           {
@@ -89,13 +112,19 @@ const DebugTools = () => {
           },
           (payload) => {
             console.log('New audit log:', payload);
-            setAuditLogs(prev => [payload.new as AuditLogEntry, ...prev.slice(0, 4)]);
+            const entry = payload.new as AuditLogEntry;
+            setAuditLogs(prev => [entry, ...prev.slice(0, 4)]);
+            avisarSeTicketDeTeste(entry);
           }
         )
         .subscribe();
 
       return () => {
-        supabase.removeChannel(channel);
+        try {
+          supabase.removeChannel(channel);
+        } catch (err) {
+          console.warn('[DebugTools] Erro ao remover canal realtime:', err);
+        }
       };
     }
   }, [hasAccess]);
@@ -121,7 +150,21 @@ const DebugTools = () => {
   // SLA Test - Create tickets with different priorities
   const runSlaTest = async () => {
     if (!user || !profile) return;
-    
+
+    // Correção: este teste inserta tickets reais na tabela `tickets` — não
+    // existe ambiente de staging separado (mesmo projeto Supabase serve dev
+    // e produção), então sem esta checagem qualquer execução em produção
+    // deixava tickets [DEBUG-SLA-TEST] visíveis no histórico real dos
+    // clientes (4 tickets encontrados e removidos em 2026-08-20).
+    if (!import.meta.env.DEV) {
+      toast({
+        title: 'Teste desabilitado em produção',
+        description: 'Este teste cria tickets reais no banco. Rode-o apenas em ambiente de desenvolvimento (npm run dev).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSlaRunning(true);
     setSlaResults([]);
     const newTestIds: string[] = [];
@@ -211,7 +254,7 @@ const DebugTools = () => {
       return;
     }
 
-    console.log('Starting rate limit test with token:', accessToken.slice(0, 20) + '...');
+    console.log('Starting rate limit test...');
 
     const newTestIds: string[] = [];
 
@@ -412,21 +455,17 @@ const DebugTools = () => {
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/')} className="gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Voltar
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold">🛠️ Debug Tools</h1>
-              <p className="text-muted-foreground">Ferramentas para validação de regras de negócio</p>
-            </div>
-          </div>
-          <Badge variant="outline" className="text-lg px-4 py-2">
-            Role: {role}
-          </Badge>
-        </div>
+        <PageHeader
+          icon={Wrench}
+          badge="DIAGNÓSTICO & QA"
+          title="Ferramentas de Debug"
+          description="Ferramentas técnicas para validação de SLA, rate limits e auditoria de regras de negócio."
+          actions={
+            <Badge variant="outline" className="text-sm px-3 py-1.5 font-mono font-bold bg-muted/30">
+              Role: {role}
+            </Badge>
+          }
+        />
 
         {/* SLA Test */}
         <Card>
@@ -438,11 +477,16 @@ const DebugTools = () => {
             <CardDescription>
               Cria tickets com diferentes prioridades e valida se o banco calcula corretamente a data de SLA.
               Esperado: Urgente (2h), Alta (8h), Média (24h), Baixa (72h)
+              {!import.meta.env.DEV && (
+                <span className="block mt-1 text-destructive font-medium">
+                  Desabilitado em produção — cria tickets reais no banco. Rode em ambiente de desenvolvimento.
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
-              <Button onClick={runSlaTest} disabled={isSlaRunning} className="gap-2">
+              <Button onClick={runSlaTest} disabled={isSlaRunning || !import.meta.env.DEV} className="gap-2">
                 {isSlaRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                 Simular Criação de Tickets
               </Button>
@@ -478,8 +522,18 @@ const DebugTools = () => {
                       <TableCell>{result.expected_hours}h</TableCell>
                       <TableCell>{result.calculated_hours}h</TableCell>
                       <TableCell>
-                        <Badge variant={result.status === 'success' ? 'default' : 'destructive'}>
-                          {result.status === 'success' ? '✅ OK' : '❌ Erro'}
+                        <Badge variant={result.status === 'success' ? 'default' : 'destructive'} className="gap-1">
+                          {result.status === 'success' ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              <span>OK</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-3 h-3 text-red-400" />
+                              <span>Erro</span>
+                            </>
+                          )}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -529,7 +583,19 @@ const DebugTools = () => {
                     }`}
                   >
                     <div className="font-bold">#{result.attempt}</div>
-                    <div className="text-sm">{result.allowed ? '✅ Permitido' : '❌ Bloqueado'}</div>
+                    <div className="text-sm font-medium flex items-center justify-center gap-1 mt-0.5">
+                      {result.allowed ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Permitido</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                          <span>Bloqueado</span>
+                        </>
+                      )}
+                    </div>
                     {result.httpStatus && (
                       <div className={`text-xs font-mono font-bold ${
                         result.httpStatus === 200 ? 'text-green-600' :
@@ -581,6 +647,7 @@ const DebugTools = () => {
                     <TableHead>Tabela</TableHead>
                     <TableHead>Ação</TableHead>
                     <TableHead>Record ID</TableHead>
+                    <TableHead>Usuário</TableHead>
                     <TableHead>Mudanças</TableHead>
                     <TableHead>Quando</TableHead>
                   </TableRow>
@@ -605,6 +672,9 @@ const DebugTools = () => {
                       <TableCell className="font-mono text-xs">
                         {log.record_id.slice(0, 8)}...
                       </TableCell>
+                      <TableCell className="text-xs font-medium">
+                        {resolveUserDisplayName(log.changed_by, profilesMap, { fallback: 'Sistema' })}
+                      </TableCell>
                       <TableCell className="max-w-xs">
                         {log.action === 'UPDATE' && log.old_data && log.new_data ? (
                           <div className="text-xs space-y-1">
@@ -613,8 +683,8 @@ const DebugTools = () => {
                             ).slice(0, 3).map(key => (
                               <div key={key}>
                                 <span className="font-medium">{key}:</span>{' '}
-                                <span className="text-red-500 line-through">{JSON.stringify(log.old_data[key])}</span>{' '}
-                                → <span className="text-green-500">{JSON.stringify(log.new_data[key])}</span>
+                                <span className="text-red-500 line-through">{replaceUserUuidsInText(JSON.stringify(log.old_data[key]), profilesMap)}</span>{' '}
+                                → <span className="text-green-500">{replaceUserUuidsInText(JSON.stringify(log.new_data[key]), profilesMap)}</span>
                               </div>
                             ))}
                           </div>

@@ -14,24 +14,23 @@ export default {
   	},
   	extend: {
   		fontFamily: {
-  			sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif']
+  			sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+  			mono: ['"JetBrains Mono"', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
   		},
   		colors: {
-  			// Escala completa do roxo da marca (matiz 283°, extraído da logo).
-  			// Uso pontual (ex: bg-brand-100, text-brand-700) fora dos tokens
-  			// semânticos acima, que já usam esse mesmo matiz via CSS vars.
+  			// Escala oficial da marca Orion System (#301860, #483078, #604878, #906090)
   			brand: {
-  				50: 'hsl(283 100% 97%)',
-  				100: 'hsl(283 92% 94%)',
-  				200: 'hsl(283 86% 87%)',
-  				300: 'hsl(283 82% 77%)',
-  				400: 'hsl(283 78% 65%)',
-  				500: 'hsl(283 75% 55%)',
-  				600: 'hsl(283 80% 45%)',
-  				700: 'hsl(283 85% 35%)',
-  				800: 'hsl(283 90% 24%)',
-  				900: 'hsl(283 94% 15%)',
-  				950: 'hsl(283 96% 9%)'
+  				50: '#f8f5fc',
+  				100: '#efe8f8',
+  				200: '#ded0f0',
+  				300: '#c5ade2',
+  				400: '#906090', // Roxo claro (destaque)
+  				500: '#604878', // Roxo acinzentado (suporte / interação)
+  				600: '#483078', // Roxo principal
+  				700: '#3c246b',
+  				800: '#301860', // Roxo profundo (base)
+  				900: '#231148',
+  				950: '#14092b'
   			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
@@ -82,9 +81,7 @@ export default {
   				accent: 'hsl(var(--sidebar-accent))',
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
   				border: 'hsl(var(--sidebar-border))',
-  				ring: 'hsl(var(--sidebar-ring))',
-  				'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-  				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))'
+  				ring: 'hsl(var(--sidebar-ring))'
   			}
   		},
   		borderRadius: {
