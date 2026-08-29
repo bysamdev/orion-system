@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -63,6 +64,54 @@ type Svc struct {
 	mu           sync.RWMutex
 	machineID    string
 	machineToken string
+
+	// bufferFalhas guarda heartbeats que falharam mesmo após as retentativas
+	// de sender.Send (Fase 8 do plano de escalabilidade) — antes, um
+	// heartbeat que não conseguisse ser entregue era simplesmente
+	// descartado, e o próximo ciclo (60s depois, por padrão) partia do zero
+	// sem nenhum registro de que uma janela ficou sem dado nenhum.
+	//
+	// Só é lido/escrito dentro de tick() (goroutine única do loop principal
+	// em run() — mesma garantia que já vale para machineID, ver comentário
+	// acima), então não precisa do mutex mu.
+	bufferFalhas []*collector.Payload
+}
+
+// bufferFalhasMax limita o crescimento do buffer de heartbeats não
+// entregues: numa queda prolongada do backend, preferimos perder os
+// heartbeats mais antigos (já bem defasados quando finalmente
+// conseguíssemos reenviá-los) a deixar a fila crescer sem limite na memória
+// do agente.
+const bufferFalhasMax = 5
+
+// bufferizarFalha adiciona payload ao fim do buffer, descartando o mais
+// antigo se o limite já foi atingido (FIFO com descarte controlado).
+func (s *Svc) bufferizarFalha(payload *collector.Payload) {
+	if len(s.bufferFalhas) >= bufferFalhasMax {
+		descartado := s.bufferFalhas[0]
+		s.logger.Printf("[AVISO] Buffer de heartbeats cheio (%d) — descartando o mais antigo (%s)", bufferFalhasMax, descartado.Hostname)
+		s.bufferFalhas = s.bufferFalhas[1:]
+	}
+	s.bufferFalhas = append(s.bufferFalhas, payload)
+}
+
+// escoarBufferFalhas tenta reenviar, do mais antigo ao mais novo, os
+// heartbeats acumulados em bufferFalhas — chamado só depois de um heartbeat
+// do ciclo atual ter sido entregue com sucesso (prova de que o backend está
+// alcançável de novo). Para no primeiro reenvio que falhar: sender.Send já
+// esgota suas próprias retentativas internas, então uma falha aqui indica
+// que o backend caiu de novo, e insistir nos demais itens do buffer só
+// atrasaria o próximo ciclo normal sem chance real de sucesso.
+func (s *Svc) escoarBufferFalhas() {
+	for len(s.bufferFalhas) > 0 {
+		payload := s.bufferFalhas[0]
+		if _, err := sender.Send(s.cfg, payload); err != nil {
+			s.logger.Printf("[AVISO] Falha ao reenviar heartbeat represado de %s: %v", payload.Hostname, err)
+			return
+		}
+		s.bufferFalhas = s.bufferFalhas[1:]
+		s.logger.Printf("[OK] Heartbeat represado de %s reenviado com sucesso", payload.Hostname)
+	}
 }
 
 func (s *Svc) getMachineToken() string {
@@ -155,6 +204,25 @@ func (s *Svc) run(ctx context.Context) {
 	s.startMetricsServer(ctx)
 	s.tick() // Fazemos a primeira coleta imediatamente ao subir
 
+	// Jitter de início (Fase 8): sem isso, uma frota inteira reiniciando
+	// junto (patch de segurança agendado, reboot em massa via GPO) manteria
+	// todos os agentes com o ticker na mesma fase entre si a partir do
+	// primeiro heartbeat, gerando um pico de tráfego sincronizado a cada
+	// intervalo, indefinidamente. Um atraso aleatório de até um intervalo
+	// inteiro, uma única vez logo após o primeiro check-in, já resolve: como
+	// o ticker tem período fixo depois disso, o deslocamento de fase entre
+	// agentes se mantém sem precisar de jitter contínuo. Observa ctx.Done()
+	// durante a espera para não atrasar um encerramento pedido nesta janela.
+	if intervalo := time.Duration(s.cfg.IntervalSeconds) * time.Second; intervalo > 0 {
+		jitter := time.Duration(rand.Int63n(int64(intervalo)))
+		select {
+		case <-ctx.Done():
+			s.logger.Println("🛑 Encerrando Orion Agent...")
+			return
+		case <-time.After(jitter):
+		}
+	}
+
 	ticker := time.NewTicker(time.Duration(s.cfg.IntervalSeconds) * time.Second)
 	defer ticker.Stop()
 
@@ -226,9 +294,16 @@ func (s *Svc) tick() {
 	mID, err := sender.Send(s.cfg, payload)
 	if err != nil {
 		s.logger.Printf("[ERRO] Falha no check-in (Heartbeat): %v", err)
+		s.bufferizarFalha(payload)
 		return
 	}
 	s.setMachineID(mID)
+
+	// Backend confirmadamente alcançável de novo — aproveita para tentar
+	// entregar heartbeats represados de ciclos anteriores (ver bufferFalhas).
+	if len(s.bufferFalhas) > 0 {
+		s.escoarBufferFalhas()
+	}
 
 	// Log amigável do status atual da coleta.
 	s.logger.Printf("[OK] Check-in realizado — %s (%s) | CPU: %.1f%% | RAM: %dMB/%dMB",

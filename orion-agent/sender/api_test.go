@@ -384,6 +384,7 @@ func TestDoPost_DNSNaoResolve_RetornaErroSemTravar(t *testing.T) {
 }
 
 func TestPollCommands_DNSNaoResolve_RetornaErroSemTravar(t *testing.T) {
+	comRetryBaseDelayReduzido(t, 1*time.Millisecond)
 	cfg := cfgDeTeste("https://" + hostDNSInvalido)
 
 	var err error
@@ -625,6 +626,7 @@ func TestPollCommands_MachineIDComCaractereDeControle_NaoDevePanicar(t *testing.
 // ---------------------------------------------------------------------------
 
 func TestPollCommands_Status500_RetornaErro(t *testing.T) {
+	comRetryBaseDelayReduzido(t, 1*time.Millisecond)
 	srv := servidorQueResponde(t, http.StatusInternalServerError, `{"error":"falhou"}`, nil)
 
 	cmds, err := PollCommands(cfgDeTeste(srv.URL), "maq-1")
@@ -639,6 +641,7 @@ func TestPollCommands_Status500_RetornaErro(t *testing.T) {
 func TestPollCommands_JSONMalformado_RetornaErro(t *testing.T) {
 	// Diferente de doPost, PollCommands trata o erro de Decode — este teste
 	// protege esse comportamento correto contra regressão.
+	comRetryBaseDelayReduzido(t, 1*time.Millisecond)
 	srv := servidorQueResponde(t, http.StatusOK, `{{{`, nil)
 
 	if _, err := PollCommands(cfgDeTeste(srv.URL), "maq-1"); err == nil {
@@ -647,6 +650,7 @@ func TestPollCommands_JSONMalformado_RetornaErro(t *testing.T) {
 }
 
 func TestRespondToCommand_ErroDoBackend_EPropagado(t *testing.T) {
+	comRetryBaseDelayReduzido(t, 1*time.Millisecond)
 	srv := servidorQueResponde(t, http.StatusInternalServerError, `{"error":"comando desconhecido"}`, nil)
 
 	err := RespondToCommand(cfgDeTeste(srv.URL), "cmd-1", "completed", "ok")
@@ -659,6 +663,7 @@ func TestRespondToCommand_ErroDoBackend_EPropagado(t *testing.T) {
 }
 
 func TestRespondToCommand_BackendIndisponivel_RetornaErro(t *testing.T) {
+	comRetryBaseDelayReduzido(t, 1*time.Millisecond)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	base := srv.URL
 	srv.Close()

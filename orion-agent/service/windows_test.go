@@ -827,3 +827,81 @@ func TestMetricsServerDesabilitadoNaoSobe(t *testing.T) {
 	s.startMetricsServer(ctx)
 }
 
+// ─────────────────────────────────────────────────────────────
+// (H) Buffer de heartbeats represados (Fase 8 do plano de escalabilidade)
+// ─────────────────────────────────────────────────────────────
+//
+// bufferizarFalha/escoarBufferFalhas são testados diretamente, sem passar
+// por tick() (ver aviso no topo do arquivo: tick() escreve no Desktop e em
+// C:\ProgramData\OrionAgent).
+
+func payloadDeTesteComHostname(hostname string) *collector.Payload {
+	return &collector.Payload{Hostname: hostname, MachineToken: "token-fake"}
+}
+
+func TestBufferizarFalha_DescartaOMaisAntigoAoEstourarLimite(t *testing.T) {
+	s := novoSvcDeTeste("https://orion.exemplo.test")
+
+	for i := 0; i < bufferFalhasMax+2; i++ {
+		s.bufferizarFalha(payloadDeTesteComHostname(fmt.Sprintf("host-%d", i)))
+	}
+
+	if got := len(s.bufferFalhas); got != bufferFalhasMax {
+		t.Fatalf("buffer com %d itens, esperado o limite de %d", got, bufferFalhasMax)
+	}
+	// Os dois mais antigos (host-0, host-1) devem ter sido descartados — o
+	// buffer deve conter do host-2 em diante, na ordem de chegada.
+	primeiro := s.bufferFalhas[0].Hostname
+	if primeiro != "host-2" {
+		t.Errorf("primeiro item do buffer = %q, esperado %q (mais antigos descartados)", primeiro, "host-2")
+	}
+	ultimo := s.bufferFalhas[len(s.bufferFalhas)-1].Hostname
+	if esperado := fmt.Sprintf("host-%d", bufferFalhasMax+1); ultimo != esperado {
+		t.Errorf("último item do buffer = %q, esperado %q", ultimo, esperado)
+	}
+}
+
+func TestEscoarBufferFalhas_ReenviaTudoQuandoBackendVoltaAFuncionar(t *testing.T) {
+	var recebidos int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&recebidos, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"machine_id": "id-qualquer"})
+	}))
+	defer srv.Close()
+
+	s := novoSvcDeTeste(srv.URL)
+	for i := 0; i < 3; i++ {
+		s.bufferizarFalha(payloadDeTesteComHostname(fmt.Sprintf("represado-%d", i)))
+	}
+
+	s.escoarBufferFalhas()
+
+	if len(s.bufferFalhas) != 0 {
+		t.Fatalf("buffer com %d itens após escoar com backend saudável, esperado vazio", len(s.bufferFalhas))
+	}
+	if got := atomic.LoadInt32(&recebidos); got != 3 {
+		t.Errorf("backend recebeu %d requisições, esperado 3 (uma por item represado)", got)
+	}
+}
+
+func TestEscoarBufferFalhas_MantemItensSeBackendContinuaFora(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	s := novoSvcDeTeste(srv.URL)
+	s.bufferizarFalha(payloadDeTesteComHostname("represado-0"))
+	s.bufferizarFalha(payloadDeTesteComHostname("represado-1"))
+
+	// sender.Send tenta 3x com backoff antes de desistir de um único item —
+	// este teste paga esse custo real (retryBaseDelay não é ajustável fora
+	// do pacote sender, então não há como acelerar aqui).
+	s.escoarBufferFalhas()
+
+	if len(s.bufferFalhas) != 2 {
+		t.Fatalf("buffer com %d itens após backend continuar fora, esperado os 2 originais intactos", len(s.bufferFalhas))
+	}
+}
+

@@ -30,6 +30,28 @@ var retryBaseDelay = 2 * time.Second
 
 var httpClient = &http.Client{Timeout: httpTimeout}
 
+// retryComBackoff executa op até maxRetries vezes, com o mesmo backoff
+// exponencial e jitter de calcularEspera entre tentativas. Extraído do laço
+// que antes só existia em Send — poll/respond de comando não tinham
+// nenhum retry (uma falha transitória de rede simplesmente descartava o
+// resultado do ciclo, ver Fase 8 do plano de escalabilidade).
+func retryComBackoff(op func() error) error {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if err := op(); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		if attempt < maxRetries {
+			time.Sleep(calcularEspera(attempt, rng))
+		}
+	}
+	return fmt.Errorf("após %d tentativas: %w", maxRetries, lastErr)
+}
+
 // Send POSTs the payload to the backend heartbeat endpoint.
 // It retries up to maxRetries times, com backoff exponencial e jitter entre
 // as tentativas.
@@ -39,24 +61,24 @@ func Send(cfg *config.Config, payload *collector.Payload) (string, error) {
 		return "", fmt.Errorf("marshal payload: %w", err)
 	}
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	var lastErr error
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		url := cfg.APIURL
-		if !strings.HasSuffix(url, "/api/monitoring/machines/heartbeat") {
-			url = strings.TrimSuffix(url, "/") + "/api/monitoring/machines/heartbeat"
-		}
-		machineID, err := doPost(url, cfg.AgentKey, body)
-		if err == nil {
-			return machineID, nil
-		}
-		lastErr = err
-		if attempt < maxRetries {
-			time.Sleep(calcularEspera(attempt, rng))
-		}
+	url := cfg.APIURL
+	if !strings.HasSuffix(url, "/api/monitoring/machines/heartbeat") {
+		url = strings.TrimSuffix(url, "/") + "/api/monitoring/machines/heartbeat"
 	}
-	return "", fmt.Errorf("após %d tentativas: %w", maxRetries, lastErr)
+
+	var machineID string
+	err = retryComBackoff(func() error {
+		mID, err := doPost(url, cfg.AgentKey, body)
+		if err != nil {
+			return err
+		}
+		machineID = mID
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return machineID, nil
 }
 
 // calcularEspera devolve o atraso antes da próxima tentativa: backoff
@@ -124,7 +146,11 @@ type Command struct {
 	Command string `json:"command"`
 }
 
-// PollCommands checks for pending commands from the backend.
+// PollCommands checks for pending commands from the backend. Como Send,
+// tenta até maxRetries vezes com backoff — antes desta correção uma falha
+// de rede num poll simplesmente descartava o ciclo (sem prejuízo grave,
+// já que o próximo poll é só 30s depois, mas ainda assim inconsistente com
+// o tratamento dado ao heartbeat).
 func PollCommands(cfg *config.Config, machineID string) ([]Command, error) {
 	if machineID == "" {
 		return nil, nil
@@ -132,39 +158,44 @@ func PollCommands(cfg *config.Config, machineID string) ([]Command, error) {
 	baseURL := strings.TrimSuffix(cfg.APIURL, "/api/monitoring/machines/heartbeat")
 	baseURL = strings.TrimSuffix(baseURL, "/")
 
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/monitoring/commands/poll", nil)
-	if err != nil {
-		// Antes desta correção o erro era descartado com `req, _ :=` e a linha seguinte
-		// (req.Header.Set) causava panic de nil pointer, derrubando o serviço inteiro.
-		return nil, fmt.Errorf("criar request de poll: %w", err)
-	}
-
-	// machineID vem do JSON do backend. Interpolá-lo cru na query permitia injeção de
-	// parâmetros (um '&' no valor virava parâmetro extra) e quebrava o parse da URL.
-	q := req.URL.Query()
-	q.Set("machine_id", machineID)
-	req.URL.RawQuery = q.Encode()
-
-	req.Header.Set("X-Agent-Key", cfg.AgentKey)
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status error: %d", resp.StatusCode)
-	}
-
 	var cmds []Command
-	if err := json.NewDecoder(resp.Body).Decode(&cmds); err != nil {
+	err := retryComBackoff(func() error {
+		req, err := http.NewRequest(http.MethodGet, baseURL+"/api/monitoring/commands/poll", nil)
+		if err != nil {
+			// Antes desta correção o erro era descartado com `req, _ :=` e a linha seguinte
+			// (req.Header.Set) causava panic de nil pointer, derrubando o serviço inteiro.
+			return fmt.Errorf("criar request de poll: %w", err)
+		}
+
+		// machineID vem do JSON do backend. Interpolá-lo cru na query permitia injeção de
+		// parâmetros (um '&' no valor virava parâmetro extra) e quebrava o parse da URL.
+		q := req.URL.Query()
+		q.Set("machine_id", machineID)
+		req.URL.RawQuery = q.Encode()
+
+		req.Header.Set("X-Agent-Key", cfg.AgentKey)
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("status error: %d", resp.StatusCode)
+		}
+
+		return json.NewDecoder(resp.Body).Decode(&cmds)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return cmds, nil
 }
 
-// RespondToCommand sends the command output back to the backend.
+// RespondToCommand sends the command output back to the backend. Mesmo
+// retry de PollCommands/Send — sem isso, uma falha transitória de rede
+// perdia silenciosamente o resultado de um comando já executado.
 func RespondToCommand(cfg *config.Config, commandID, status, output string) error {
 	payload := map[string]string{
 		"id":     commandID,
@@ -175,6 +206,8 @@ func RespondToCommand(cfg *config.Config, commandID, status, output string) erro
 	baseURL := strings.TrimSuffix(cfg.APIURL, "/api/monitoring/machines/heartbeat")
 	baseURL = strings.TrimSuffix(baseURL, "/")
 	url := fmt.Sprintf("%s/api/monitoring/commands/respond", baseURL)
-	_, err := doPost(url, cfg.AgentKey, body)
-	return err
+	return retryComBackoff(func() error {
+		_, err := doPost(url, cfg.AgentKey, body)
+		return err
+	})
 }
