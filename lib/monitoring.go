@@ -161,14 +161,10 @@ SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_versio
        m.status, m.last_seen, m.agent_version, m.created_at,
        m.domain, m.mac_address, m.current_user,
        hw.security_info, hw.remote_software, hw.battery_info, hw.update_status,
-       lm.cpu_usage, lm.ram_total, lm.ram_used, lm.disk_total, lm.disk_used, lm.uptime, lm.collected_at
+       m.cpu_usage, m.ram_total, m.ram_used, m.disk_total, m.disk_used, m.uptime, m.metrics_collected_at
 FROM public.machines m
 JOIN public.machine_groups mg ON mg.id = m.group_id
 LEFT JOIN public.machine_hardware hw ON hw.machine_id = m.id
-LEFT JOIN LATERAL (
-  SELECT cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, collected_at
-  FROM public.machine_metrics WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
-) lm ON true
 WHERE mg.name = (SELECT name FROM public.machine_groups WHERE id = $1)
   AND ($2::uuid IS NULL OR m.company_id = $2::uuid)
 ORDER BY m.hostname`, groupID, companyID)
@@ -296,11 +292,54 @@ func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, com
 	return id, err
 }
 
-func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, currentUserSID, companyID, deviceType, macAddress, domain string) (string, error) {
-	var id string
+// HeartbeatUpsertInput agrupa tudo que um heartbeat de agente grava: o
+// snapshot de identidade/estado atual da máquina (machines), a leitura de
+// métricas (snapshot em machines + uma linha de histórico em
+// machine_metrics, com retenção de 7 dias — ver migration
+// 20260829120000_metrics_history_and_retention.sql). Rodam numa única
+// transação porque as duas sempre foram tratadas como fatais para o
+// heartbeat (antes: 2 round-trips sequenciais e não-atômicos, com o
+// agravante de que InsertMetric sozinho bastava para falhar o heartbeat
+// mesmo já tendo o UpsertMachine sido efetivado). O upsert de hardware
+// (machine_hardware) fica de fora de propósito e continua sendo uma
+// chamada best-effort separada — um blob de hardware malformado nunca
+// deve derrubar a atualização de identidade/status/métricas da máquina,
+// que é o que sempre foi tratado como obrigatório aqui.
+type HeartbeatUpsertInput struct {
+	// Identidade/estado (machines)
+	GroupID        string
+	Hostname       string
+	IP             string
+	OS             string
+	OSVersion      string
+	AgentVersion   string
+	MachineToken   string
+	MachineUUID    string
+	CurrentUser    string
+	CurrentUserSID string
+	CompanyID      string
+	DeviceType     string
+	MACAddress     string
+	Domain         string
+
+	// Métricas (snapshot em machines + histórico em machine_metrics)
+	CPUUsage  float64
+	RAMTotal  int64
+	RAMUsed   int64
+	DiskTotal int64
+	DiskUsed  int64
+	Uptime    int64
+}
+
+func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (string, error) {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
 
 	// Salva apenas o Hostname puro da máquina (sem IP ou usuário concatenados)
-	cleanHostname := strings.TrimSpace(hostname)
+	cleanHostname := strings.TrimSpace(in.Hostname)
 	if idx := strings.Index(cleanHostname, " - "); idx != -1 {
 		cleanHostname = strings.TrimSpace(cleanHostname[:idx])
 	}
@@ -310,6 +349,7 @@ func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, o
 	// mesmo default já usado pela coluna (migration 20260811000005) para
 	// não perder classificação em heartbeats de agentes antigos ou quando a
 	// detecção falha.
+	deviceType := in.DeviceType
 	if deviceType == "" {
 		deviceType = "desktop"
 	}
@@ -325,32 +365,36 @@ func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, o
 	// NilIfEmpty grava NULL quando o agente não conseguiu resolvê-lo (sem
 	// sessão de console ativa, ou versão do agente anterior a esta
 	// correção), em vez de string vazia.
-	err := d.pool.QueryRow(ctx, `
-INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type, domain)
-VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $14)
+	//
+	// cpu_usage/ram_*/disk_*/uptime/metrics_collected_at: snapshot do
+	// último heartbeat, lido diretamente por MachinesByGroupID e
+	// CriticalAlerts (current-state, sem depender de machine_metrics).
+	var machineID string
+	err = tx.QueryRow(ctx, `
+INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type, domain, cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, metrics_collected_at)
+VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $14, $15, $16, $17, $18, $19, $20, now())
 ON CONFLICT (machine_token) DO UPDATE
-  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=$11, local_ip=$3, logged_in_user=$9, mac_address=$12, device_type=$13, domain=$14
-RETURNING id::text`, groupID, cleanHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID), NilIfEmpty(macAddress), deviceType, NilIfEmpty(domain)).Scan(&id)
-	return id, err
-}
+  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=$11, local_ip=$3, logged_in_user=$9, mac_address=$12, device_type=$13, domain=$14, cpu_usage=$15, ram_total=$16, ram_used=$17, disk_total=$18, disk_used=$19, uptime=$20, metrics_collected_at=now()
+RETURNING id::text`,
+		in.GroupID, cleanHostname, in.IP, in.OS, in.OSVersion, in.AgentVersion, in.MachineToken, NilIfEmpty(in.MachineUUID), in.CurrentUser, NilIfEmpty(in.CurrentUserSID), NilIfEmpty(in.CompanyID), NilIfEmpty(in.MACAddress), deviceType, NilIfEmpty(in.Domain),
+		in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime,
+	).Scan(&machineID)
+	if err != nil {
+		return "", err
+	}
 
-type InsertMetricInput struct {
-	MachineID string
-	CPUUsage  float64
-	RAMTotal  int64
-	RAMUsed   int64
-	DiskTotal int64
-	DiskUsed  int64
-	Uptime    int64
-}
-
-func (d *DB) InsertMetric(ctx context.Context, in InsertMetricInput) error {
-	_, err := d.pool.Exec(ctx, `
+	if _, err = tx.Exec(ctx, `
 INSERT INTO public.machine_metrics
   (machine_id, cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, collected_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
-		in.MachineID, in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime)
-	return err
+		machineID, in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime); err != nil {
+		return "", err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return "", err
+	}
+	return machineID, nil
 }
 
 type UpsertHardwareInput struct {
@@ -553,18 +597,15 @@ WHERE m.status = 'offline' AND m.last_seen < now() - INTERVAL '1 hour'
 
 UNION ALL
 
--- Disco acima de 90%
+-- Disco acima de 90% (snapshot do último heartbeat em machines — ver
+-- HeartbeatUpsert; machine_metrics guarda só o histórico, não o estado atual)
 SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
        'disk'::text, 'critical'::text,
        'Uso de disco acima de 90%',
-       ROUND((lm.disk_used::float8 / NULLIF(lm.disk_total, 0)) * 100, 1)
+       ROUND((m.disk_used::float8 / NULLIF(m.disk_total, 0)) * 100, 1)
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
-LEFT JOIN LATERAL (
-  SELECT disk_used, disk_total FROM public.machine_metrics
-  WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
-) lm ON true
-WHERE lm.disk_total > 0 AND (lm.disk_used::float8 / lm.disk_total) > 0.90
+WHERE m.disk_total > 0 AND (m.disk_used::float8 / m.disk_total) > 0.90
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL
@@ -573,14 +614,10 @@ UNION ALL
 SELECT m.id::text, m.hostname, mg.name, m.status, m.last_seen,
        'cpu'::text, 'warning'::text,
        'Uso de CPU acima de 85%',
-       ROUND(lm.cpu_usage::float8, 1)
+       ROUND(m.cpu_usage::float8, 1)
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
-LEFT JOIN LATERAL (
-  SELECT cpu_usage FROM public.machine_metrics
-  WHERE machine_id = m.id ORDER BY collected_at DESC LIMIT 1
-) lm ON true
-WHERE lm.cpu_usage > 85
+WHERE m.cpu_usage > 85
   AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 
 UNION ALL

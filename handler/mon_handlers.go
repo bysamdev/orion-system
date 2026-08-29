@@ -354,19 +354,17 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	machineID, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser, req.CurrentUserSID, targetCompanyID, req.DeviceType, req.MACAddress, req.Domain)
-	if err != nil {
-		fmt.Println("Erro UpsertMachine:", err)
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar máquina: %v", err)})
-		return
-	}
-
-	if err := db.InsertMetric(ctx, lib.InsertMetricInput{
-		MachineID: machineID, CPUUsage: req.CPUUsage,
-		RAMTotal: req.RAMTotal, RAMUsed: req.RAMUsed,
+	machineID, err := db.HeartbeatUpsert(ctx, lib.HeartbeatUpsertInput{
+		GroupID: groupID, Hostname: req.Hostname, IP: req.IP, OS: req.OS, OSVersion: req.OSVersion,
+		AgentVersion: req.AgentVersion, MachineToken: req.MachineToken, MachineUUID: req.MachineUUID,
+		CurrentUser: req.CurrentUser, CurrentUserSID: req.CurrentUserSID, CompanyID: targetCompanyID,
+		DeviceType: req.DeviceType, MACAddress: req.MACAddress, Domain: req.Domain,
+		CPUUsage: req.CPUUsage, RAMTotal: req.RAMTotal, RAMUsed: req.RAMUsed,
 		DiskTotal: req.DiskTotal, DiskUsed: req.DiskUsed, Uptime: req.Uptime,
-	}); err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao salvar métricas: %v", err)})
+	})
+	if err != nil {
+		fmt.Println("Erro HeartbeatUpsert:", err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar máquina: %v", err)})
 		return
 	}
 
