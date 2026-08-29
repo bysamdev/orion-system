@@ -11,20 +11,22 @@ import "testing"
 // já que o tipo de chassi/bateria/SO varia por máquina de desenvolvimento.
 
 // TestEhServidor_NaoQuebra garante que a consulta a Win32_OperatingSystem não
-// entra em pânico e devolve um bool determinístico nesta máquina.
+// entra em pânico e devolve resultados determinísticos nesta máquina.
 func TestEhServidor_NaoQuebra(t *testing.T) {
-	primeiro := ehServidor()
-	if atual := ehServidor(); atual != primeiro {
-		t.Errorf("ehServidor() não é estável entre chamadas: %v != %v", atual, primeiro)
+	sucesso1, servidor1, _ := ehServidor()
+	sucesso2, servidor2, _ := ehServidor()
+	if sucesso1 != sucesso2 || servidor1 != servidor2 {
+		t.Errorf("ehServidor() não é estável entre chamadas: (%v,%v) != (%v,%v)", sucesso1, servidor1, sucesso2, servidor2)
 	}
 }
 
 // TestTemBateriaCadastrada_NaoQuebra garante que a consulta a Win32_Battery
-// não entra em pânico e devolve um bool determinístico nesta máquina.
+// não entra em pânico e devolve resultados determinísticos nesta máquina.
 func TestTemBateriaCadastrada_NaoQuebra(t *testing.T) {
-	primeiro := temBateriaCadastrada()
-	if atual := temBateriaCadastrada(); atual != primeiro {
-		t.Errorf("temBateriaCadastrada() não é estável entre chamadas: %v != %v", atual, primeiro)
+	sucesso1, tem1 := temBateriaCadastrada()
+	sucesso2, tem2 := temBateriaCadastrada()
+	if sucesso1 != sucesso2 || tem1 != tem2 {
+		t.Errorf("temBateriaCadastrada() não é estável entre chamadas: (%v,%v) != (%v,%v)", sucesso1, tem1, sucesso2, tem2)
 	}
 }
 
@@ -33,20 +35,25 @@ func TestTemBateriaCadastrada_NaoQuebra(t *testing.T) {
 // ([]uint16 -> []int32, ver win32SystemEnclosure), esta chamada derrubava o
 // processo inteiro em qualquer máquina Windows real.
 func TestChassiDeNotebook_NaoQuebra(t *testing.T) {
-	primeiro := chassiDeNotebook()
-	if atual := chassiDeNotebook(); atual != primeiro {
-		t.Errorf("chassiDeNotebook() não é estável entre chamadas: %v != %v", atual, primeiro)
+	sucesso1, notebook1, _ := chassiDeNotebook()
+	sucesso2, notebook2, _ := chassiDeNotebook()
+	if sucesso1 != sucesso2 || notebook1 != notebook2 {
+		t.Errorf("chassiDeNotebook() não é estável entre chamadas: (%v,%v) != (%v,%v)", sucesso1, notebook1, sucesso2, notebook2)
 	}
 }
 
 // TestDetectarTipoDispositivo_RetornaValorValido garante o contrato externo
-// da função usada por tipoDoDispositivo(): sempre um dos três valores
-// conhecidos, nunca vazio nem um valor inesperado.
+// da função usada por tipoDoDispositivo(): sempre um dos valores conhecidos
+// e um motivo não vazio, nunca um valor inesperado.
 func TestDetectarTipoDispositivo_RetornaValorValido(t *testing.T) {
-	switch got := detectarTipoDispositivo(); got {
-	case "desktop", "notebook", "server":
+	tipo, motivo := detectarTipoDispositivo()
+	switch tipo {
+	case "desktop", "notebook", "server", "unknown":
 	default:
-		t.Errorf("detectarTipoDispositivo() = %q; esperado \"desktop\", \"notebook\" ou \"server\"", got)
+		t.Errorf("detectarTipoDispositivo() tipo = %q; esperado \"desktop\", \"notebook\", \"server\" ou \"unknown\"", tipo)
+	}
+	if motivo == "" {
+		t.Error("detectarTipoDispositivo() não informou motivo")
 	}
 }
 
@@ -59,10 +66,30 @@ func TestDetectarTipoDispositivo_RetornaValorValido(t *testing.T) {
 // do fluxo real, não de um cenário sintético (não dá para forjar
 // Win32_OperatingSystem nesta suíte sem mockar o WMI).
 func TestDetectarTipoDispositivo_ServidorTemPrioridadeSobreBateria(t *testing.T) {
-	if !ehServidor() {
+	_, servidor, _ := ehServidor()
+	if !servidor {
 		t.Skip("esta máquina não reporta ProductType de servidor — cenário não observável aqui")
 	}
-	if got := detectarTipoDispositivo(); got != "server" {
-		t.Errorf("detectarTipoDispositivo() = %q numa máquina com ehServidor()=true; esperado \"server\"", got)
+	if tipo, _ := detectarTipoDispositivo(); tipo != "server" {
+		t.Errorf("detectarTipoDispositivo() = %q numa máquina com ehServidor()=true; esperado \"server\"", tipo)
+	}
+}
+
+// TestDetectarTipoDispositivo_UnknownSoQuandoNenhumaConsultaWMITeveSucesso
+// documenta a correção da Fase 3: "unknown" só deve aparecer quando as três
+// consultas WMI falharam — nunca como default silencioso quando pelo menos
+// uma respondeu mas simplesmente não indicou notebook/servidor.
+func TestDetectarTipoDispositivo_UnknownSoQuandoNenhumaConsultaWMITeveSucesso(t *testing.T) {
+	osOK, _, _ := ehServidor()
+	bateriaOK, _ := temBateriaCadastrada()
+	chassiOK, _, _ := chassiDeNotebook()
+	tipo, _ := detectarTipoDispositivo()
+
+	algumaConsultaOK := osOK || bateriaOK || chassiOK
+	if tipo == "unknown" && algumaConsultaOK {
+		t.Errorf("detectarTipoDispositivo() = \"unknown\" mas ao menos uma consulta WMI teve sucesso (os=%v, bateria=%v, chassi=%v)", osOK, bateriaOK, chassiOK)
+	}
+	if tipo != "unknown" && !algumaConsultaOK {
+		t.Errorf("detectarTipoDispositivo() = %q sem nenhuma consulta WMI ter sucesso; esperado \"unknown\"", tipo)
 	}
 }

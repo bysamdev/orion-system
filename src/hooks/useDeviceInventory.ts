@@ -140,6 +140,13 @@ function resolveDeviceType(hwType?: string | null, hostname?: string | null, os?
   if (candidate.includes('server') || candidate.includes('servidor')) return 'Servidor';
   if (candidate.includes('notebook') || candidate.includes('laptop') || candidate.includes('portable')) return 'Notebook';
   if (candidate.includes('desktop') || candidate.includes('workstation') || candidate.includes('pc')) return 'Computador';
+  // O agente já reportou explicitamente que não teve confiança para
+  // classificar (Fase 3 do plano de escalabilidade — nenhum sinal de
+  // hardware/SO disponível, ex.: macOS). Respeitamos esse "não sei" em vez
+  // de cair no palpite por hostname/SO abaixo, que é exatamente o padrão
+  // ("evitar classificar notebook apenas pelo hostname") que a classificação
+  // no agente foi desenhada para evitar.
+  if (candidate === 'unknown') return 'Não identificado';
 
   const host = (hostname || '').toLowerCase();
   const operatingSystem = (os || '').toLowerCase();

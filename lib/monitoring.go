@@ -329,6 +329,10 @@ type HeartbeatUpsertInput struct {
 	DiskTotal int64
 	DiskUsed  int64
 	Uptime    int64
+
+	// DeviceTypeReason documenta o sinal que decidiu DeviceType (Fase 3) —
+	// ver orion-agent/collector/device_type.go.
+	DeviceTypeReason string
 }
 
 func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (string, error) {
@@ -369,18 +373,49 @@ func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (stri
 	// cpu_usage/ram_*/disk_*/uptime/metrics_collected_at: snapshot do
 	// último heartbeat, lido diretamente por MachinesByGroupID e
 	// CriticalAlerts (current-state, sem depender de machine_metrics).
+	//
+	// device_type/device_type_reason: se a máquina já existe e está com
+	// device_type_locked=true (override manual, Fase 3), o CASE abaixo
+	// preserva o valor já gravado em vez do que o agente reportou neste
+	// ciclo — quem corrigiu manualmente sabe mais que a heurística do
+	// agente. O CTE machine_antes captura o device_type de antes desta
+	// gravação só para o Go decidir, depois, se precisa registrar uma
+	// mudança em machine_device_type_history — nunca silenciosamente.
 	var machineID string
+	var deviceTypeAntes *string
+	var deviceTypeFinal string
 	err = tx.QueryRow(ctx, `
-INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type, domain, cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, metrics_collected_at)
-VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $14, $15, $16, $17, $18, $19, $20, now())
+WITH machine_antes AS (
+  SELECT device_type FROM public.machines WHERE machine_token = $7
+)
+INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type, device_type_reason, domain, cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, metrics_collected_at)
+VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $21, $14, $15, $16, $17, $18, $19, $20, now())
 ON CONFLICT (machine_token) DO UPDATE
-  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=$11, local_ip=$3, logged_in_user=$9, mac_address=$12, device_type=$13, domain=$14, cpu_usage=$15, ram_total=$16, ram_used=$17, disk_total=$18, disk_used=$19, uptime=$20, metrics_collected_at=now()
-RETURNING id::text`,
+  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=$11, local_ip=$3, logged_in_user=$9, mac_address=$12,
+      device_type = CASE WHEN machines.device_type_locked THEN machines.device_type ELSE EXCLUDED.device_type END,
+      device_type_reason = CASE WHEN machines.device_type_locked THEN machines.device_type_reason ELSE EXCLUDED.device_type_reason END,
+      domain=$14, cpu_usage=$15, ram_total=$16, ram_used=$17, disk_total=$18, disk_used=$19, uptime=$20, metrics_collected_at=now()
+RETURNING id::text, (SELECT device_type FROM machine_antes), device_type`,
 		in.GroupID, cleanHostname, in.IP, in.OS, in.OSVersion, in.AgentVersion, in.MachineToken, NilIfEmpty(in.MachineUUID), in.CurrentUser, NilIfEmpty(in.CurrentUserSID), NilIfEmpty(in.CompanyID), NilIfEmpty(in.MACAddress), deviceType, NilIfEmpty(in.Domain),
-		in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime,
-	).Scan(&machineID)
+		in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime, NilIfEmpty(in.DeviceTypeReason),
+	).Scan(&machineID, &deviceTypeAntes, &deviceTypeFinal)
 	if err != nil {
 		return "", err
+	}
+
+	// Registra a mudança só quando o device_type efetivamente gravado (já
+	// considerando o lock acima) difere do que havia antes — cobre tanto a
+	// primeira classificação de uma máquina nova (deviceTypeAntes == nil)
+	// quanto uma reclassificação real; uma máquina travada que continua
+	// recebendo um tipo diferente do agente NÃO gera entrada aqui, porque
+	// deviceTypeFinal preserva o valor antigo nesse caso.
+	if deviceTypeAntes == nil || *deviceTypeAntes != deviceTypeFinal {
+		if _, err = tx.Exec(ctx, `
+INSERT INTO public.machine_device_type_history (machine_id, old_type, new_type, reason, changed_by)
+VALUES ($1, $2, $3, $4, 'agent')`,
+			machineID, deviceTypeAntes, deviceTypeFinal, NilIfEmpty(in.DeviceTypeReason)); err != nil {
+			return "", err
+		}
 	}
 
 	if _, err = tx.Exec(ctx, `
@@ -395,6 +430,40 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
 		return "", err
 	}
 	return machineID, nil
+}
+
+// SetDeviceTypeOverride aplica uma correção manual de classificação de
+// dispositivo (Fase 3 do plano de escalabilidade — "permitir override
+// manual pelo Orion"): trava device_type_locked=true, para que o heartbeat
+// do agente pare de sobrescrever esta máquina (ver HeartbeatUpsert), e
+// registra a mudança em machine_device_type_history com changed_by='manual'
+// — só quando o tipo realmente muda, para não logar um "override" que
+// repete o valor já vigente.
+func (d *DB) SetDeviceTypeOverride(ctx context.Context, machineID, newType string) error {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var oldType *string
+	if err := tx.QueryRow(ctx, `SELECT device_type FROM public.machines WHERE id = $1`, machineID).Scan(&oldType); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx, `UPDATE public.machines SET device_type = $2, device_type_locked = true WHERE id = $1`, machineID, newType); err != nil {
+		return err
+	}
+
+	if oldType == nil || *oldType != newType {
+		if _, err := tx.Exec(ctx, `
+INSERT INTO public.machine_device_type_history (machine_id, old_type, new_type, reason, changed_by)
+VALUES ($1, $2, $3, 'override manual', 'manual')`, machineID, oldType, newType); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }
 
 type UpsertHardwareInput struct {

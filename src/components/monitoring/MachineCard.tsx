@@ -222,7 +222,12 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
       machine.security_info.antivirus.length === 0 ||
       !machine.security_info.antivirus.some((a) => a.active);
 
-    const hasLowStorage = (diskPct != null && diskPct >= 85) || hasDiskAlert(machine);
+    // hasDiskAlert já usa o mesmo limiar de 90% que o backend usa para gerar
+    // o alerta oficial de disco (handler/mon_handlers.go) — antes havia um
+    // segundo limiar aqui (85%) que fazia o card mostrar "Pouco
+    // Armazenamento" numa faixa em que a tela de Alertas não mostrava nada,
+    // as duas fontes de verdade divergindo silenciosamente.
+    const hasLowStorage = hasDiskAlert(machine);
     const hasHighUptime = (machine.uptime ?? 0) >= SEVEN_DAYS_SECONDS;
 
     const alerting = hasNoAntivirus || hasLowStorage || hasHighUptime || isOfflineLongAlert;

@@ -81,27 +81,30 @@ type UpdateStatus struct {
 // Payload é o corpo principal do "Check-in" enviado ao servidor Orion.
 // Contém o estado atual completo da saúde do hardware.
 type Payload struct {
-	MachineToken string             `json:"machine_token"`
-	MachineUUID  string             `json:"machine_uuid"`
-	Hostname     string             `json:"hostname"`
-	IP           string             `json:"ip"`
-	OS           string             `json:"os"`
-	OSVersion    string             `json:"os_version"`
-	CPUUsage     float64            `json:"cpu_usage"`
-	RAMTotal     uint64             `json:"ram_total"`
-	RAMUsed      uint64             `json:"ram_used"`
-	DiskTotal    uint64             `json:"disk_total"`
-	DiskUsed     uint64             `json:"disk_used"`
-	Uptime       uint64             `json:"uptime"`
-	CPUModel     string             `json:"cpu_model"`
-	GPU          string             `json:"gpu"` // Campo reservado para expansão futura
-	Disks        []DiskInfo         `json:"disks"`
-	Interfaces   []NetworkInterface `json:"interfaces"`
-	Domain       string             `json:"domain"`
-	CurrentUser  string             `json:"current_user"`
-	CurrentUserSID string           `json:"current_user_sid"`
-	MACAddress   string             `json:"mac_address"`
-	DeviceType   string             `json:"device_type"`
+	MachineToken   string             `json:"machine_token"`
+	MachineUUID    string             `json:"machine_uuid"`
+	Hostname       string             `json:"hostname"`
+	IP             string             `json:"ip"`
+	OS             string             `json:"os"`
+	OSVersion      string             `json:"os_version"`
+	CPUUsage       float64            `json:"cpu_usage"`
+	RAMTotal       uint64             `json:"ram_total"`
+	RAMUsed        uint64             `json:"ram_used"`
+	DiskTotal      uint64             `json:"disk_total"`
+	DiskUsed       uint64             `json:"disk_used"`
+	Uptime         uint64             `json:"uptime"`
+	CPUModel       string             `json:"cpu_model"`
+	GPU            string             `json:"gpu"` // Campo reservado para expansão futura
+	Disks          []DiskInfo         `json:"disks"`
+	Interfaces     []NetworkInterface `json:"interfaces"`
+	Domain         string             `json:"domain"`
+	CurrentUser    string             `json:"current_user"`
+	CurrentUserSID string             `json:"current_user_sid"`
+	MACAddress     string             `json:"mac_address"`
+	DeviceType     string             `json:"device_type"`
+	// DeviceTypeReason documenta qual sinal decidiu DeviceType (Fase 3 do
+	// plano de escalabilidade) — ver tipoEMotivoDoDispositivo().
+	DeviceTypeReason string `json:"device_type_reason"`
 	// AgentVersion não é preenchida aqui: Collect() só lê o estado do
 	// sistema, e a versão do binário é responsabilidade da camada de
 	// serviço (mesmo motivo de MachineToken ficar de fora — ver
@@ -398,33 +401,35 @@ func Collect() (*Payload, error) {
 	// sessão de console ativa para consultar (ex.: tela de logon, ou
 	// plataforma não-Windows).
 	domain, currentUser, currentUserSID := resolverIdentidadeDoUsuario()
+	deviceType, deviceTypeReason := tipoEMotivoDoDispositivo()
 
 	// Montamos o relatório final (Payload)
 	return &Payload{
-		MachineUUID: hi.HostID,
-		Hostname:   hostname,
-		IP:         ip,
-		OS:         osName,
-		OSVersion:  hi.PlatformVersion,
-		CPUUsage:   cpuUsage,
-		RAMTotal:   vm.Total,
-		RAMUsed:    vm.Used,
-		DiskTotal:  du.Total,
-		DiskUsed:   du.Used,
-		Uptime:     hi.Uptime,
-		CPUModel:   cpuModel,
-		GPU:        "",
-		Disks:      disks,
-		Interfaces: interfaces,
-		Domain:         domain,
-		CurrentUser:    currentUser,
-		CurrentUserSID: currentUserSID,
-		MACAddress:     macAddress,
-		DeviceType:     tipoDoDispositivo(),
-		Security:       coletarSeguranca(),
-		RemoteSoftware: coletarSoftwaresRemotos(),
-		Battery:        coletarBateria(),
-		UpdateStatus:   coletarStatusAtualizacoes(),
+		MachineUUID:      hi.HostID,
+		Hostname:         hostname,
+		IP:               ip,
+		OS:               osName,
+		OSVersion:        hi.PlatformVersion,
+		CPUUsage:         cpuUsage,
+		RAMTotal:         vm.Total,
+		RAMUsed:          vm.Used,
+		DiskTotal:        du.Total,
+		DiskUsed:         du.Used,
+		Uptime:           hi.Uptime,
+		CPUModel:         cpuModel,
+		GPU:              "",
+		Disks:            disks,
+		Interfaces:       interfaces,
+		Domain:           domain,
+		CurrentUser:      currentUser,
+		CurrentUserSID:   currentUserSID,
+		MACAddress:       macAddress,
+		DeviceType:       deviceType,
+		DeviceTypeReason: deviceTypeReason,
+		Security:         coletarSeguranca(),
+		RemoteSoftware:   coletarSoftwaresRemotos(),
+		Battery:          coletarBateria(),
+		UpdateStatus:     coletarStatusAtualizacoes(),
 	}, nil
 }
 

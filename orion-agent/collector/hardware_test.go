@@ -360,18 +360,20 @@ func TestCollect_NaoBloqueiaPorUmSegundo(t *testing.T) {
 var regexMACValido = regexp.MustCompile(`^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$`)
 
 // TestCollect_DeviceTypeEhUmValorValido garante que Collect() só devolve um
-// dos três valores que a tela de inventário (useDeviceInventory.ts,
+// dos quatro valores que a tela de inventário (useDeviceInventory.ts,
 // resolveDeviceType) e a coluna machines.device_type sabem interpretar —
 // qualquer string fora desse conjunto cairia como "desconhecido" no
 // frontend ou seria normalizada silenciosamente para "desktop" no backend
-// (lib.UpsertMachine).
+// (lib.HeartbeatUpsert). "unknown" é um valor legítimo desde a Fase 3 do
+// plano de escalabilidade: confiança insuficiente para os outros três, não
+// um "desktop" por omissão.
 func TestCollect_DeviceTypeEhUmValorValido(t *testing.T) {
 	p := coletaOuFalha(t)
 
 	switch p.DeviceType {
-	case "desktop", "notebook", "server":
+	case "desktop", "notebook", "server", "unknown":
 	default:
-		t.Errorf("Payload.DeviceType = %q; esperado um de \"desktop\", \"notebook\" ou \"server\"", p.DeviceType)
+		t.Errorf("Payload.DeviceType = %q; esperado um de \"desktop\", \"notebook\", \"server\" ou \"unknown\"", p.DeviceType)
 	}
 }
 

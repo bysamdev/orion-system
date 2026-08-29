@@ -244,12 +244,21 @@ type heartbeatReq struct {
 	Disks          json.RawMessage `json:"disks"`
 	Interfaces     json.RawMessage `json:"interfaces"`
 	Domain         string          `json:"domain"`
-	MACAddress     string          `json:"mac_address"`
-	DeviceType     string          `json:"device_type"`
-	Security       json.RawMessage `json:"security"`
+	MACAddress       string          `json:"mac_address"`
+	DeviceType       string          `json:"device_type"`
+	DeviceTypeReason string          `json:"device_type_reason"`
+	Security         json.RawMessage `json:"security"`
 	RemoteSoftware json.RawMessage `json:"remote_software"`
 	Battery        json.RawMessage `json:"battery"`
 	UpdateStatus   json.RawMessage `json:"update_status"`
+}
+
+// deviceTypesValidos são os únicos valores aceitos para device_type num
+// override manual (monitoringUpdateMachine) — os mesmos que o agente pode
+// reportar, ver orion-agent/collector/device_type_windows.go /
+// device_type_other.go.
+var deviceTypesValidos = map[string]bool{
+	"desktop": true, "notebook": true, "server": true, "unknown": true,
 }
 
 type securityData struct {
@@ -361,6 +370,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		DeviceType: req.DeviceType, MACAddress: req.MACAddress, Domain: req.Domain,
 		CPUUsage: req.CPUUsage, RAMTotal: req.RAMTotal, RAMUsed: req.RAMUsed,
 		DiskTotal: req.DiskTotal, DiskUsed: req.DiskUsed, Uptime: req.Uptime,
+		DeviceTypeReason: req.DeviceTypeReason,
 	})
 	if err != nil {
 		fmt.Println("Erro HeartbeatUpsert:", err)
@@ -701,6 +711,23 @@ func monitoringUpdateMachine(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "JSON inválido"})
 		return
+	}
+
+	// Fase 3 (override manual de classificação): tratado à parte do resto
+	// dos campos genéricos abaixo porque precisa travar device_type_locked
+	// e registrar a mudança em machine_device_type_history — não é um
+	// simples UPDATE de coluna, ver lib.DB.SetDeviceTypeOverride.
+	if raw, ok := updates["device_type"]; ok {
+		newType, ok := raw.(string)
+		if !ok || !deviceTypesValidos[newType] {
+			lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "device_type inválido — use desktop, notebook, server ou unknown"})
+			return
+		}
+		if err := db.SetDeviceTypeOverride(ctx, id, newType); err != nil {
+			lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		delete(updates, "device_type")
 	}
 
 	// Allowed fields to update

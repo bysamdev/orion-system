@@ -3,6 +3,7 @@
 package collector
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/yusufpapurcu/wmi"
@@ -51,58 +52,76 @@ const (
 
 // detectarTipoDispositivo consulta o WMI (via github.com/yusufpapurcu/wmi,
 // já usado indiretamente pelo gopsutil) em ordem de confiabilidade:
-// 1) SO Server é definitivo, mesmo em hardware que "parece" notebook (raro,
-//    mas possível numa VM de laptop);
-// 2) bateria cadastrada é o sinal mais direto de notebook;
-// 3) tipo de gabinete cobre o caso de bateria não reportada.
+//  1. SO Server é definitivo, mesmo em hardware que "parece" notebook (raro,
+//     mas possível numa VM de laptop);
+//  2. bateria cadastrada é o sinal mais direto de notebook;
+//  3. tipo de gabinete cobre o caso de bateria não reportada.
+//
 // Qualquer falha de consulta (WMI indisponível, permissão) simplesmente
 // deixa a checagem passar para a próxima — best-effort, nunca bloqueia a
 // coleta do resto do payload.
-func detectarTipoDispositivo() string {
-	if ehServidor() {
-		return "server"
+//
+// Devolve também o motivo (Fase 3 do plano de escalabilidade: "armazenar
+// tipo detectado e, se possível, motivo/confiança"). Se NENHUMA das três
+// consultas WMI teve sucesso (não só "não bateu com notebook/servidor", mas
+// literalmente falhou), o resultado é "unknown" em vez de presumir
+// "desktop" sem nenhum sinal — o "desktop" antigo por omissão escondia a
+// diferença entre "confirmamos que é desktop" e "não conseguimos
+// determinar nada".
+func detectarTipoDispositivo() (tipo, motivo string) {
+	osOK, servidor, info := ehServidor()
+	if servidor {
+		return "server", fmt.Sprintf("Win32_OperatingSystem: ProductType=%d, Caption=%q", info.ProductType, info.Caption)
 	}
-	if temBateriaCadastrada() {
-		return "notebook"
+
+	bateriaOK, temBateria := temBateriaCadastrada()
+	if temBateria {
+		return "notebook", "Win32_Battery: pelo menos uma bateria cadastrada"
 	}
-	if chassiDeNotebook() {
-		return "notebook"
+
+	chassiOK, notebook, tipoChassi := chassiDeNotebook()
+	if notebook {
+		return "notebook", fmt.Sprintf("Win32_SystemEnclosure.ChassisTypes contém %d (portátil/laptop/notebook)", tipoChassi)
 	}
-	return "desktop"
+
+	if !osOK && !bateriaOK && !chassiOK {
+		return "unknown", "nenhuma consulta WMI teve sucesso (WMI indisponível ou sem permissão)"
+	}
+	return "desktop", "sem sinal de servidor/bateria/chassi portátil"
 }
 
-func ehServidor() bool {
+func ehServidor() (sucesso, servidor bool, info win32OperatingSystem) {
 	var resultado []win32OperatingSystem
 	if err := wmi.Query("SELECT ProductType, Caption FROM Win32_OperatingSystem", &resultado); err != nil || len(resultado) == 0 {
-		return false
+		return false, false, win32OperatingSystem{}
 	}
-	info := resultado[0]
+	info = resultado[0]
 	if info.ProductType == 2 || info.ProductType == 3 {
-		return true
+		return true, true, info
 	}
-	return strings.Contains(strings.ToLower(info.Caption), "server")
+	return true, strings.Contains(strings.ToLower(info.Caption), "server"), info
 }
 
-func temBateriaCadastrada() bool {
+func temBateriaCadastrada() (sucesso, tem bool) {
 	var baterias []win32Battery
 	if err := wmi.Query("SELECT Name FROM Win32_Battery", &baterias); err != nil {
-		return false
+		return false, false
 	}
-	return len(baterias) > 0
+	return true, len(baterias) > 0
 }
 
-func chassiDeNotebook() bool {
+func chassiDeNotebook() (sucesso, notebook bool, tipoEncontrado int32) {
 	var gabinetes []win32SystemEnclosure
 	if err := wmi.Query("SELECT ChassisTypes FROM Win32_SystemEnclosure", &gabinetes); err != nil {
-		return false
+		return false, false, 0
 	}
 	for _, g := range gabinetes {
 		for _, tipo := range g.ChassisTypes {
 			switch tipo {
 			case chassisPortatil, chassisLaptop, chassisNotebook, chassisSubNotebook:
-				return true
+				return true, true, tipo
 			}
 		}
 	}
-	return false
+	return true, false, 0
 }
