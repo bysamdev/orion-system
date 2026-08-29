@@ -270,7 +270,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	// apertado aqui derrubaria heartbeats legítimos. O objetivo é conter uma
 	// chave vazada sendo usada para inundar o endpoint, não o uso normal.
 	ip := lib.ClientIP(r)
-	if !limiterHeartbeat.Permitir(ip) {
+	if !agentRateLimitAllow(r.Context(), "heartbeat", ip, 300, time.Minute, limiterHeartbeat) {
 		log.Printf("[ALERTA] heartbeat: limite de taxa excedido para IP %s", ip)
 		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "muitas requisições — aguarde e tente novamente"})
 		return
@@ -577,6 +577,14 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 	defer cancel()
 
+	// Sem limitador antes desta correção — poll roda a cada 30s por máquina,
+	// mesma ordem de grandeza do heartbeat.
+	ip := lib.ClientIP(r)
+	if !agentRateLimitAllow(ctx, "commands-poll", ip, 300, time.Minute, limiterCommandsPoll) {
+		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "muitas requisições — aguarde e tente novamente"})
+		return
+	}
+
 	// Require Agent Key
 	_, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
 	if err != nil {
@@ -601,9 +609,13 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For simplicity, once polled, we mark them as 'sent'
-	for _, c := range cmds {
-		_ = db.UpdateCommandStatus(ctx, c.ID, "sent", "")
+	// Marca todos como 'sent' numa única query (antes: um UPDATE por comando)
+	ids := make([]string, len(cmds))
+	for i, c := range cmds {
+		ids[i] = c.ID
+	}
+	if err := db.MarkCommandsSent(ctx, ids); err != nil {
+		log.Printf("[ERRO] commands/poll: falha ao marcar comandos como enviados: %v", err)
 	}
 
 	lib.WriteJSON(w, http.StatusOK, cmds)
@@ -612,6 +624,13 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 	defer cancel()
+
+	// Sem limitador antes desta correção.
+	ip := lib.ClientIP(r)
+	if !agentRateLimitAllow(ctx, "commands-respond", ip, 300, time.Minute, limiterCommandsResp) {
+		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "muitas requisições — aguarde e tente novamente"})
+		return
+	}
 
 	// Require Agent Key
 	_, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)
@@ -877,6 +896,13 @@ func monitoringDeleteGroup(w http.ResponseWriter, r *http.Request) {
 func monitoringSelfHealEvent(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 	defer cancel()
+
+	// Sem limitador antes desta correção.
+	ip := lib.ClientIP(r)
+	if !agentRateLimitAllow(ctx, "self-heal-event", ip, 300, time.Minute, limiterSelfHealEvent) {
+		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "muitas requisições — aguarde e tente novamente"})
+		return
+	}
 
 	// Require Agent Key
 	chaveEmpresaID, err := lib.ValidateAgentKey(r.WithContext(ctx), cfg.AgentKey, db)

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -21,7 +22,7 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 	// direto de um brute-force/scan tentando adivinhar tokens de máquinas já
 	// registradas. Checado antes de qualquer trabalho (parse, banco).
 	ip := lib.ClientIP(r)
-	if !limiterMachineLogin.Permitir(ip) {
+	if !agentRateLimitAllow(r.Context(), "machine-login", ip, 20, time.Minute, limiterMachineLogin) {
 		log.Printf("[ALERTA] machine-login: limite de taxa excedido para IP %s", ip)
 		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{
 			"error": "muitas tentativas — aguarde um minuto e tente novamente",

@@ -45,7 +45,32 @@ var (
 	// apertado aqui derrubaria heartbeats legítimos.
 	limiterMachineLogin = lib.NewRateLimiter(1*time.Minute, 20)
 	limiterHeartbeat    = lib.NewRateLimiter(1*time.Minute, 300)
+
+	// Fallback em memória para agentRateLimitAllow quando o Postgres está
+	// indisponível (ver agentRateLimitAllow) — mesmos limites de heartbeat,
+	// já que poll/respond/self-heal correm na mesma cadência por máquina.
+	// Antes desta correção estes três endpoints não tinham limite nenhum.
+	limiterCommandsPoll  = lib.NewRateLimiter(1*time.Minute, 300)
+	limiterCommandsResp  = lib.NewRateLimiter(1*time.Minute, 300)
+	limiterSelfHealEvent = lib.NewRateLimiter(1*time.Minute, 300)
 )
+
+// agentRateLimitAllow aplica o limite centralizado em Postgres
+// (rate_limit_counters, compartilhado entre todas as instâncias
+// serverless — ver lib.DB.AllowDB) quando o banco está disponível, com o
+// limitador em memória de fallback como rede de segurança se a checagem no
+// banco falhar (não deixamos a ausência do limitador travar tráfego de
+// agente legítimo, mas também não abrimos mão de proteção nenhuma).
+func agentRateLimitAllow(ctx context.Context, bucket, ip string, limit int, window time.Duration, fallback *lib.RateLimiter) bool {
+	if db != nil {
+		allowed, err := db.AllowDB(ctx, bucket+":"+ip, limit, window)
+		if err == nil {
+			return allowed
+		}
+		log.Printf("[AVISO] agentRateLimitAllow: AllowDB falhou (%v), usando fallback em memória para %s", err, bucket)
+	}
+	return fallback.Permitir(ip)
+}
 
 func init() {
 	once.Do(func() {

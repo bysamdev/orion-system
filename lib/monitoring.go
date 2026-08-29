@@ -556,9 +556,23 @@ ORDER BY created_at DESC LIMIT $2`, machineID, limit)
 
 func (d *DB) UpdateCommandStatus(ctx context.Context, id, status, output string) error {
 	_, err := d.pool.Exec(ctx, `
-UPDATE public.machine_commands 
+UPDATE public.machine_commands
 SET status = $2, output = $3, updated_at = now()
 WHERE id = $1`, id, status, output)
+	return err
+}
+
+// MarkCommandsSent marca vários comandos como 'sent' numa única query, em
+// vez de um UPDATE por comando — usado por monitoringPollCommands, que antes
+// fazia N round-trips sequenciais (um por comando pendente) a cada poll.
+func (d *DB) MarkCommandsSent(ctx context.Context, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+UPDATE public.machine_commands
+SET status = 'sent', updated_at = now()
+WHERE id = ANY($1::uuid[])`, ids)
 	return err
 }
 

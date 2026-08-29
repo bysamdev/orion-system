@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -69,4 +70,25 @@ func (rl *RateLimiter) Permitir(chave string) bool {
 	}
 
 	return permitido
+}
+
+// AllowDB é a versão centralizada do limitador acima: em vez de um mapa em
+// memória por instância, incrementa um contador de janela fixa em
+// public.rate_limit_counters (Postgres), compartilhado por todas as
+// instâncias serverless — resolve a limitação documentada em RateLimiter.
+// Janela fixa (não deslizante) por simplicidade: suficiente para o caso de
+// uso aqui (conter abuso/chave vazada), não para billing/quota exatos.
+func (d *DB) AllowDB(ctx context.Context, bucketKey string, limit int, window time.Duration) (bool, error) {
+	windowStart := time.Now().UTC().Truncate(window)
+	var count int
+	err := d.pool.QueryRow(ctx, `
+INSERT INTO public.rate_limit_counters (bucket_key, window_start, count)
+VALUES ($1, $2, 1)
+ON CONFLICT (bucket_key, window_start) DO UPDATE
+  SET count = public.rate_limit_counters.count + 1
+RETURNING count`, bucketKey, windowStart).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count <= limit, nil
 }
