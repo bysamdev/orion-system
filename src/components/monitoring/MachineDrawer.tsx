@@ -475,6 +475,8 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedDeviceType, setSelectedDeviceType] = useState('desktop');
+  const [isApplyingDeviceType, setIsApplyingDeviceType] = useState(false);
 
   const { data: detail } = useMachineDetail(machineId);
   const { data: alerts = [], isLoading: alertsLoading } = useMachineAlerts(machineId);
@@ -515,8 +517,9 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
     if (machine) {
       setSelectedGroupId(machine.group_id || '');
       setSelectedCompanyId(machine.company_id || '');
+      setSelectedDeviceType(detail?.machine?.device_type || machine.device_type || 'desktop');
     }
-  }, [machine]);
+  }, [machine, detail?.machine?.device_type]);
 
   const handleSaveChanges = async () => {
     if (!machineId) return;
@@ -531,6 +534,25 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
       toast.error('Erro ao salvar: ' + err.message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Override manual de classificação de dispositivo (Fase 3 do plano de
+  // escalabilidade) — deliberadamente separado de handleSaveChanges/
+  // "Salvar Alterações": o backend trava device_type_locked=true assim que
+  // o campo device_type aparece no corpo da requisição, então incluí-lo
+  // sempre no salvamento genérico de grupo/empresa travaria a classificação
+  // em toda edição administrativa, mesmo sem intenção de corrigi-la.
+  const handleApplyDeviceType = async () => {
+    if (!machineId) return;
+    setIsApplyingDeviceType(true);
+    try {
+      await updateMachine.mutateAsync({ id: machineId, updates: { device_type: selectedDeviceType } });
+      toast.success('Classificação do dispositivo atualizada e travada — o agente não vai mais sobrescrevê-la.');
+    } catch (err: any) {
+      toast.error('Erro ao atualizar classificação: ' + err.message);
+    } finally {
+      setIsApplyingDeviceType(false);
     }
   };
 
@@ -819,6 +841,47 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                           <RefreshCw className={cn('w-4 h-4', isSaving && 'animate-spin')} />
                           Salvar Alterações
                         </Button>
+
+                        {/* Classificação de dispositivo (Fase 3): separada do resto —
+                            aplicar aqui trava a classificação, o agente para de
+                            sobrescrevê-la nos próximos heartbeats. */}
+                        <div className="pt-3 border-t border-indigo-500/20 space-y-2">
+                          <div className="flex items-center justify-between px-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Classificação do Dispositivo</label>
+                            {detail?.machine?.device_type_locked ? (
+                              <span className="flex items-center gap-1 text-[9px] font-bold text-amber-500 uppercase">
+                                <Lock className="w-3 h-3" /> Travada manualmente
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[9px] font-bold text-muted-foreground uppercase">
+                                <Unlock className="w-3 h-3" /> Auto (agente)
+                              </span>
+                            )}
+                          </div>
+                          {detail?.machine?.device_type_reason && (
+                            <p className="text-[10px] text-muted-foreground px-1 italic">
+                              Motivo da última detecção: {detail.machine.device_type_reason}
+                            </p>
+                          )}
+                          <Select value={selectedDeviceType} onValueChange={setSelectedDeviceType}>
+                            <SelectTrigger className="bg-background border-indigo-500/20 rounded-xl"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="desktop">Computador (Desktop)</SelectItem>
+                              <SelectItem value="notebook">Notebook</SelectItem>
+                              <SelectItem value="server">Servidor</SelectItem>
+                              <SelectItem value="unknown">Não identificado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="outline"
+                            className="w-full font-bold gap-2 border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                            onClick={handleApplyDeviceType}
+                            disabled={isApplyingDeviceType}
+                          >
+                            <Lock className={cn('w-4 h-4', isApplyingDeviceType && 'animate-pulse')} />
+                            Corrigir e Travar Classificação
+                          </Button>
+                        </div>
 
                         {/* Botão de Excluir Registro da Máquina */}
                         <div className="pt-3 border-t border-indigo-500/20">

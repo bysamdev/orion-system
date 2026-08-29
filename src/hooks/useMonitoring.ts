@@ -96,6 +96,9 @@ export interface MachineWithMetric {
   last_seen: string | null;
   agent_version: string | null;
   created_at: string;
+  device_type?: 'desktop' | 'notebook' | 'server' | 'unknown' | string | null;
+  device_type_reason?: string | null;
+  device_type_locked?: boolean;
   // last metric
   cpu_usage: number | null;
   ram_total: number | null;
@@ -472,5 +475,29 @@ export function useCriticalAlerts() {
     queryKey: ['monitoring', 'alerts', 'critical'],
     queryFn: () => apiGet('/api/monitoring/alerts/critical'),
     refetchInterval: 30_000,
+  });
+}
+
+// PlatformHealth — Fase 10 do plano de escalabilidade ("monitorar o
+// monitor"). Cross-tenant, restrito a master/developer no backend
+// (escopo.Global()) — ver handler.monitoringPlatformHealth.
+export interface PlatformHealth {
+  machines_total: number;
+  machines_online: number;
+  machines_offline: number;
+  machines_alerta: number;
+  machines_by_device_type: Record<string, number>;
+  alerts_open: number;
+  commands_pending: number;
+  oldest_pending_command_age_seconds: number | null;
+  rate_limit_active_buckets: number;
+}
+
+export function usePlatformHealth() {
+  return useQuery<PlatformHealth>({
+    queryKey: ['monitoring', 'platform-health'],
+    queryFn: () => apiGet('/api/monitoring/platform-health'),
+    refetchInterval: 30_000,
+    retry: false, // 403 para quem não é master/developer não deve ficar retentando
   });
 }

@@ -21,26 +21,29 @@ type MachineGroupRow struct {
 }
 
 type MachineRow struct {
-	ID             string           `json:"id"`
-	GroupID        *string          `json:"group_id"`
-	CompanyID      *string          `json:"company_id"`
-	Hostname       string           `json:"hostname"`
-	IPAddress      *string          `json:"ip_address"`
-	OS             *string          `json:"os"`
-	OSVersion      *string          `json:"os_version"`
-	Status         string           `json:"status"`
-	LastSeen       *time.Time       `json:"last_seen"`
-	AgentVersion   *string          `json:"agent_version"`
-	CreatedAt      time.Time        `json:"created_at"`
-	MachineToken   *string          `json:"machine_token"`
-	MachineUUID    *string          `json:"machine_uuid"`
-	CurrentUser    *string          `json:"current_user"`
-	Domain         *string          `json:"domain"`
-	MACAddress     *string          `json:"mac_address"`
-	SecurityInfo   *json.RawMessage `json:"security_info,omitempty"`
-	RemoteSoftware *json.RawMessage `json:"remote_software,omitempty"`
-	BatteryInfo    *json.RawMessage `json:"battery_info,omitempty"`
-	UpdateStatus   *json.RawMessage `json:"update_status,omitempty"`
+	ID               string           `json:"id"`
+	GroupID          *string          `json:"group_id"`
+	CompanyID        *string          `json:"company_id"`
+	Hostname         string           `json:"hostname"`
+	IPAddress        *string          `json:"ip_address"`
+	OS               *string          `json:"os"`
+	OSVersion        *string          `json:"os_version"`
+	Status           string           `json:"status"`
+	LastSeen         *time.Time       `json:"last_seen"`
+	AgentVersion     *string          `json:"agent_version"`
+	CreatedAt        time.Time        `json:"created_at"`
+	MachineToken     *string          `json:"machine_token"`
+	MachineUUID      *string          `json:"machine_uuid"`
+	CurrentUser      *string          `json:"current_user"`
+	Domain           *string          `json:"domain"`
+	MACAddress       *string          `json:"mac_address"`
+	DeviceType       *string          `json:"device_type"`
+	DeviceTypeReason *string          `json:"device_type_reason"`
+	DeviceTypeLocked bool             `json:"device_type_locked"`
+	SecurityInfo     *json.RawMessage `json:"security_info,omitempty"`
+	RemoteSoftware   *json.RawMessage `json:"remote_software,omitempty"`
+	BatteryInfo      *json.RawMessage `json:"battery_info,omitempty"`
+	UpdateStatus     *json.RawMessage `json:"update_status,omitempty"`
 }
 
 type MachineWithMetric struct {
@@ -191,10 +194,12 @@ func (d *DB) MachineByID(ctx context.Context, id string) (*MachineRow, error) {
 	var r MachineRow
 	err := d.pool.QueryRow(ctx, `
 SELECT id::text, group_id::text, company_id::text, hostname, ip_address, os, os_version,
-       status, last_seen, agent_version, created_at, domain, mac_address, "current_user"
+       status, last_seen, agent_version, created_at, domain, mac_address, "current_user",
+       device_type, device_type_reason, device_type_locked
 FROM public.machines WHERE id = $1`, id).Scan(
 		&r.ID, &r.GroupID, &r.CompanyID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
-		&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt, &r.Domain, &r.MACAddress, &r.CurrentUser)
+		&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt, &r.Domain, &r.MACAddress, &r.CurrentUser,
+		&r.DeviceType, &r.DeviceTypeReason, &r.DeviceTypeLocked)
 	if err != nil {
 		return nil, err
 	}

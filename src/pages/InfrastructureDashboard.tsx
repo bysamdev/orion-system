@@ -1,9 +1,10 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Monitor, AlertTriangle, Activity } from 'lucide-react';
+import { Monitor, AlertTriangle, Activity, Gauge } from 'lucide-react';
 import MonitoringWrapper from './Monitoring';
 import AlertsDashboardWrapper from './AlertsDashboard';
+import PlatformHealthTab from '@/components/monitoring/PlatformHealthTab';
 
 export default function InfrastructureDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -48,7 +49,7 @@ export default function InfrastructureDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full sm:w-auto">
-          <TabsList className="grid w-full sm:w-[320px] grid-cols-2 p-1 bg-muted/60 rounded-xl border border-border/40">
+          <TabsList className="grid w-full sm:w-[460px] grid-cols-3 p-1 bg-muted/60 rounded-xl border border-border/40">
             <TabsTrigger
               value="sistemas"
               className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold transition-all"
@@ -63,20 +64,27 @@ export default function InfrastructureDashboard() {
               <AlertTriangle className="w-4 h-4 mr-2" />
               Alertas
             </TabsTrigger>
+            <TabsTrigger
+              value="plataforma"
+              className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-indigo-500 font-bold transition-all"
+            >
+              <Gauge className="w-4 h-4 mr-2" />
+              Plataforma
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
       {/* Conteúdo Dinâmico da Aba Ativa */}
       <div className="w-full">
-        {activeTab === 'sistemas' ? (
+        {activeTab === 'sistemas' && (
           <MonitoringWrapper
             externalMachineId={externalMachineId}
             onClearExternalMachine={handleClearExternalMachine}
           />
-        ) : (
-          <AlertsDashboardWrapper onAlertClick={handleAlertClick} />
         )}
+        {activeTab === 'alertas' && <AlertsDashboardWrapper onAlertClick={handleAlertClick} />}
+        {activeTab === 'plataforma' && <PlatformHealthTab />}
       </div>
     </div>
   );
