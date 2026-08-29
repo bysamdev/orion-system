@@ -57,6 +57,37 @@ func podeVerMaquinaPorID(ctx context.Context, userID, machineID string) bool {
 	return podeVerMaquina(ctx, userID, m.CompanyID)
 }
 
+// monitoringPlatformHealth expõe a saúde agregada da frota inteira,
+// cross-tenant — "monitorar o monitor" (Fase 10 do plano de
+// escalabilidade). Restrito a quem enxerga tudo (master/developer): não é
+// uma visão de nenhum cliente específico, é operação da própria plataforma.
+func monitoringPlatformHealth(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
+		return
+	}
+	if !escopo.Global() {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
+		return
+	}
+
+	health, err := db.PlatformHealth(ctx)
+	if err != nil {
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao calcular saúde da plataforma"})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, health)
+}
+
 func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 	defer cancel()
@@ -67,7 +98,7 @@ func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}
-	
+
 	escopo, err := escopoDoUsuario(ctx, user.ID)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
@@ -223,34 +254,34 @@ func monitoringMachineAlerts(w http.ResponseWriter, r *http.Request) {
 // ─── Heartbeat ───────────────────────────────────────────────────────────────
 
 type heartbeatReq struct {
-	AgentKey       string          `json:"agent_key"`
-	MachineToken   string          `json:"machine_token"`
-	MachineUUID    string          `json:"machine_uuid"`
-	CurrentUser    string          `json:"current_user"`
-	CurrentUserSID string          `json:"current_user_sid"`
-	Hostname       string          `json:"hostname"`
-	IP             string          `json:"ip"`
-	OS             string          `json:"os"`
-	OSVersion      string          `json:"os_version"`
-	AgentVersion   string          `json:"agent_version"`
-	CPUUsage       float64         `json:"cpu_usage"`
-	RAMTotal       int64           `json:"ram_total"`
-	RAMUsed        int64           `json:"ram_used"`
-	DiskTotal      int64           `json:"disk_total"`
-	DiskUsed       int64           `json:"disk_used"`
-	Uptime         int64           `json:"uptime"`
-	CPUModel       string          `json:"cpu_model"`
-	GPU            string          `json:"gpu"`
-	Disks          json.RawMessage `json:"disks"`
-	Interfaces     json.RawMessage `json:"interfaces"`
-	Domain         string          `json:"domain"`
+	AgentKey         string          `json:"agent_key"`
+	MachineToken     string          `json:"machine_token"`
+	MachineUUID      string          `json:"machine_uuid"`
+	CurrentUser      string          `json:"current_user"`
+	CurrentUserSID   string          `json:"current_user_sid"`
+	Hostname         string          `json:"hostname"`
+	IP               string          `json:"ip"`
+	OS               string          `json:"os"`
+	OSVersion        string          `json:"os_version"`
+	AgentVersion     string          `json:"agent_version"`
+	CPUUsage         float64         `json:"cpu_usage"`
+	RAMTotal         int64           `json:"ram_total"`
+	RAMUsed          int64           `json:"ram_used"`
+	DiskTotal        int64           `json:"disk_total"`
+	DiskUsed         int64           `json:"disk_used"`
+	Uptime           int64           `json:"uptime"`
+	CPUModel         string          `json:"cpu_model"`
+	GPU              string          `json:"gpu"`
+	Disks            json.RawMessage `json:"disks"`
+	Interfaces       json.RawMessage `json:"interfaces"`
+	Domain           string          `json:"domain"`
 	MACAddress       string          `json:"mac_address"`
 	DeviceType       string          `json:"device_type"`
 	DeviceTypeReason string          `json:"device_type_reason"`
 	Security         json.RawMessage `json:"security"`
-	RemoteSoftware json.RawMessage `json:"remote_software"`
-	Battery        json.RawMessage `json:"battery"`
-	UpdateStatus   json.RawMessage `json:"update_status"`
+	RemoteSoftware   json.RawMessage `json:"remote_software"`
+	Battery          json.RawMessage `json:"battery"`
+	UpdateStatus     json.RawMessage `json:"update_status"`
 }
 
 // deviceTypesValidos são os únicos valores aceitos para device_type num
@@ -307,7 +338,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if key == "" {
 		key = req.AgentKey
 	}
-	
+
 	companyIDFromKey, err := lib.ValidateAgentKey(&http.Request{Header: http.Header{"X-Agent-Key": {key}}}, cfg.AgentKey, db)
 	if err != nil {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
@@ -315,7 +346,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// targetCompanyID is already determined above
-	
+
 	// Utilizando o contexto com timeout criado acima
 
 	// Final company assignment logic
@@ -355,7 +386,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if domain == "" {
 		domain = "WORKGROUP"
 	}
-	
+
 	groupID, err := db.GetOrCreateMachineGroup(ctx, domain, targetCompanyID)
 	if err != nil {
 		fmt.Println("Erro GetOrCreateMachineGroup:", err)

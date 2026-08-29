@@ -1,0 +1,74 @@
+{
+  "machine_token": "fixture-token-64chars-0123456789abcdef0123456789abcdef01234567",
+  "machine_uuid": "fixture-uuid-1234",
+  "hostname": "PC-FIXTURE",
+  "ip": "192.168.1.50",
+  "os": "windows",
+  "os_version": "10.0.19045",
+  "cpu_usage": 42.5,
+  "ram_total": 17179869184,
+  "ram_used": 8589934592,
+  "disk_total": 512110190592,
+  "disk_used": 256055095296,
+  "uptime": 123456,
+  "cpu_model": "Intel(R) Core(TM) i7",
+  "gpu": "",
+  "disks": [
+    {
+      "device": "C:",
+      "mountpoint": "C:\\",
+      "fs_type": "NTFS",
+      "total": 512110190592,
+      "used": 256055095296
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "Ethernet",
+      "mac": "00:11:22:33:44:55",
+      "ips": [
+        "192.168.1.50"
+      ]
+    }
+  ],
+  "domain": "CORP",
+  "current_user": "CORP\\jsilva",
+  "current_user_sid": "S-1-5-21-1111111111-222222222-3333333333-1001",
+  "mac_address": "00:11:22:33:44:55",
+  "device_type": "notebook",
+  "device_type_reason": "Win32_Battery: pelo menos uma bateria cadastrada",
+  "agent_version": "1.0.0",
+  "security": {
+    "antivirus": [
+      {
+        "name": "Windows Defender",
+        "active": true
+      }
+    ],
+    "firewall_active": true,
+    "bitlocker": [
+      {
+        "mount": "C:",
+        "status": "Encrypted",
+        "active": true
+      }
+    ],
+    "bitlocker_active": true
+  },
+  "remote_software": [
+    {
+      "name": "AnyDesk",
+      "version": "8.0.0",
+      "is_running": false
+    }
+  ],
+  "battery": {
+    "has_battery": true,
+    "percent": 87,
+    "plugged_in": true,
+    "status": "Charging"
+  },
+  "update_status": {
+    "reboot_required": false
+  }
+}

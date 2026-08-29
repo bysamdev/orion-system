@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 )
 
@@ -82,6 +83,74 @@ func TestHeartbeatReqJSONDecoding(t *testing.T) {
 	}
 	if upd.RebootRequired {
 		t.Errorf("RebootRequired deveria ser false")
+	}
+}
+
+// TestHeartbeatReq_DecodesRealAgentPayloadFixture usa um fixture gerado a
+// partir do struct collector.Payload real do agente (não um JSON escrito à
+// mão como TestHeartbeatReqJSONDecoding acima) — orion-agent e orion-api são
+// módulos Go separados, então não dá para importar o pacote collector
+// diretamente aqui; o fixture em testdata/agent_heartbeat_payload_fixture.json
+// foi gerado rodando `json.Marshal` sobre um collector.Payload de verdade.
+//
+// Isso existe por causa do achado da Fase 0 da auditoria de escalabilidade:
+// o backend dependia de uma tabela (machine_metrics) já removida em
+// produção sem que nenhum teste tivesse pego a divergência entre o que o
+// agente manda e o que o backend espera. Um teste hand-rolled como o de
+// cima não pega um campo renomeado dos dois lados — este, gerado a partir
+// do tipo real, pega. Reexecutar a geração sempre que Payload mudar:
+//
+//	cd orion-agent && go run <script que monta um collector.Payload e
+//	  faz json.MarshalIndent> > ../handler/testdata/agent_heartbeat_payload_fixture.json
+func TestHeartbeatReq_DecodesRealAgentPayloadFixture(t *testing.T) {
+	raw, err := os.ReadFile("testdata/agent_heartbeat_payload_fixture.json")
+	if err != nil {
+		t.Fatalf("não foi possível ler o fixture: %v", err)
+	}
+
+	var req heartbeatReq
+	if err := json.Unmarshal(raw, &req); err != nil {
+		t.Fatalf("falha ao decodificar o payload real do agente: %v", err)
+	}
+
+	// Campos centrais — se qualquer um vier vazio, um json:"..." tag
+	// divergiu entre collector.Payload e heartbeatReq.
+	casos := map[string]string{
+		"MachineToken": req.MachineToken,
+		"Hostname":     req.Hostname,
+		"IP":           req.IP,
+		"OS":           req.OS,
+		"CurrentUser":  req.CurrentUser,
+		"MACAddress":   req.MACAddress,
+	}
+	for campo, valor := range casos {
+		if valor == "" {
+			t.Errorf("%s veio vazio decodificando o fixture real do agente — tag json divergente?", campo)
+		}
+	}
+
+	// Fase 3 do plano de escalabilidade: os dois campos novos de
+	// classificação de dispositivo, especificamente.
+	if req.DeviceType != "notebook" {
+		t.Errorf("DeviceType = %q, esperado \"notebook\" (valor do fixture)", req.DeviceType)
+	}
+	if req.DeviceTypeReason == "" {
+		t.Error("DeviceTypeReason veio vazio decodificando o fixture real do agente — campo novo (Fase 3) não está chegando ao backend")
+	}
+
+	if req.CPUUsage != 42.5 {
+		t.Errorf("CPUUsage = %v, esperado 42.5", req.CPUUsage)
+	}
+	if req.RAMTotal == 0 || req.DiskTotal == 0 {
+		t.Error("RAMTotal/DiskTotal vieram zerados decodificando o fixture real do agente")
+	}
+
+	var sec securityData
+	if err := json.Unmarshal(req.Security, &sec); err != nil {
+		t.Fatalf("falha ao decodificar Security do fixture real: %v", err)
+	}
+	if len(sec.Antivirus) != 1 || !sec.Antivirus[0].Active {
+		t.Errorf("Security.Antivirus incorreto a partir do fixture real: %+v", sec.Antivirus)
 	}
 }
 

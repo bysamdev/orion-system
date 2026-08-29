@@ -115,8 +115,8 @@ type CriticalAlertItem struct {
 	GroupName   *string    `json:"group_name"`
 	Status      string     `json:"status"`
 	LastSeen    *time.Time `json:"last_seen"`
-	AlertType   string     `json:"alert_type"`   // offline, disk, cpu, alert
-	Severity    string     `json:"severity"`     // critical, warning
+	AlertType   string     `json:"alert_type"` // offline, disk, cpu, alert
+	Severity    string     `json:"severity"`   // critical, warning
 	Message     string     `json:"message"`
 	MetricValue *float64   `json:"metric_value"` // % value when applicable
 }
@@ -288,7 +288,7 @@ func (d *DB) GetOrCreateMachineGroup(ctx context.Context, domainName string, com
 			VALUES ($1, 'Grupo gerado automaticamente')
 			RETURNING id::text`, domainName).Scan(&id)
 	}
-	
+
 	return id, err
 }
 
@@ -667,6 +667,62 @@ SELECT
 	return s, err
 }
 
+// PlatformHealth agrega o estado da frota inteira, cross-tenant — "saúde da
+// própria plataforma" (Fase 10 do plano de escalabilidade), não uma visão
+// por cliente. Reaproveita a mesma definição de online/offline de
+// DashboardSummaryData (status='online'/'alerta' OU heartbeat nos últimos 5
+// minutos) de propósito: inventar um segundo critério aqui reabriria
+// exatamente o tipo de divergência que a Fase 7 corrigiu no card de
+// máquina.
+type PlatformHealth struct {
+	MachinesTotal                  int            `json:"machines_total"`
+	MachinesOnline                 int            `json:"machines_online"`
+	MachinesOffline                int            `json:"machines_offline"`
+	MachinesAlerta                 int            `json:"machines_alerta"`
+	MachinesByDeviceType           map[string]int `json:"machines_by_device_type"`
+	AlertsOpen                     int            `json:"alerts_open"`
+	CommandsPending                int            `json:"commands_pending"`
+	OldestPendingCommandAgeSeconds *int64         `json:"oldest_pending_command_age_seconds"`
+	RateLimitActiveBuckets         int            `json:"rate_limit_active_buckets"`
+}
+
+func (d *DB) PlatformHealth(ctx context.Context) (PlatformHealth, error) {
+	var h PlatformHealth
+	err := d.pool.QueryRow(ctx, `
+SELECT
+  (SELECT COUNT(*) FROM public.machines) AS total,
+  (SELECT COUNT(*) FROM public.machines
+    WHERE status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AS online,
+  (SELECT COUNT(*) FROM public.machines
+    WHERE NOT (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes'))) AS offline,
+  (SELECT COUNT(*) FROM public.machines WHERE status = 'alerta') AS alerta,
+  (SELECT COUNT(*) FROM public.machine_alerts WHERE resolved = false) AS alerts_open,
+  (SELECT COUNT(*) FROM public.machine_commands WHERE status = 'pending') AS commands_pending,
+  (SELECT EXTRACT(EPOCH FROM (now() - MIN(created_at)))::bigint FROM public.machine_commands WHERE status = 'pending') AS oldest_pending_age,
+  (SELECT COUNT(*) FROM public.rate_limit_counters WHERE window_start > now() - INTERVAL '1 minute') AS active_buckets
+`).Scan(&h.MachinesTotal, &h.MachinesOnline, &h.MachinesOffline, &h.MachinesAlerta,
+		&h.AlertsOpen, &h.CommandsPending, &h.OldestPendingCommandAgeSeconds, &h.RateLimitActiveBuckets)
+	if err != nil {
+		return h, err
+	}
+
+	rows, err := d.pool.Query(ctx, `SELECT COALESCE(device_type, 'unknown'), COUNT(*) FROM public.machines GROUP BY device_type`)
+	if err != nil {
+		return h, err
+	}
+	defer rows.Close()
+	h.MachinesByDeviceType = map[string]int{}
+	for rows.Next() {
+		var deviceType string
+		var count int
+		if err := rows.Scan(&deviceType, &count); err != nil {
+			return h, err
+		}
+		h.MachinesByDeviceType[deviceType] = count
+	}
+	return h, rows.Err()
+}
+
 // CriticalAlerts agrega offline/disco/CPU/alertas (incluindo antivírus, firewall, updates).
 // companyID nil = todas as empresas; caso contrário cada ramo do UNION filtra por m.company_id.
 func (d *DB) CriticalAlerts(ctx context.Context, companyID *string) ([]CriticalAlertItem, error) {
@@ -836,4 +892,3 @@ func (d *DB) DeleteMachineGroup(ctx context.Context, id string) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM public.machine_groups WHERE id = $1`, id)
 	return err
 }
-

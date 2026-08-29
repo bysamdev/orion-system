@@ -184,6 +184,7 @@ func buildRouter() http.Handler {
 
 		// /api/monitoring/*
 		r.Get("/api/monitoring/dashboard", monitoringDashboard)
+		r.Get("/api/monitoring/platform-health", monitoringPlatformHealth)
 		r.Get("/api/monitoring/groups", monitoringListGroups)
 		r.Get("/api/monitoring/groups/{id}/machines", monitoringGroupMachines)
 		r.Get("/api/monitoring/machines/{id}", monitoringMachineDetail)
@@ -283,7 +284,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 // Pontos de injeção para teste — permitem exercitar RequireCompanyScope sem
 // Supabase nem banco.
 var (
-	autenticar = func(r *http.Request) (*lib.AuthUser, error) { return lib.RequireAuth(r, sb) }
+	autenticar     = func(r *http.Request) (*lib.AuthUser, error) { return lib.RequireAuth(r, sb) }
 	resolverEscopo = func(r *http.Request, userID string) (lib.UserScope, error) {
 		return db.UserScopeByID(r.Context(), userID)
 	}
@@ -404,4 +405,3 @@ func maxBodySizeMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
