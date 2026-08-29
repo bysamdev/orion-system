@@ -54,11 +54,14 @@ func retryComBackoff(op func() error) error {
 
 // Send POSTs the payload to the backend heartbeat endpoint.
 // It retries up to maxRetries times, com backoff exponencial e jitter entre
-// as tentativas.
-func Send(cfg *config.Config, payload *collector.Payload) (string, error) {
+// as tentativas. O segundo valor devolvido é next_interval_seconds — a
+// política de coleta por tipo de ativo que o backend calcula a partir do
+// device_type gravado (Fase 4 do plano de escalabilidade); zero quando o
+// backend não devolveu o campo (versão antiga do backend, ou corpo vazio).
+func Send(cfg *config.Config, payload *collector.Payload) (string, int, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return "", fmt.Errorf("marshal payload: %w", err)
+		return "", 0, fmt.Errorf("marshal payload: %w", err)
 	}
 
 	url := cfg.APIURL
@@ -67,18 +70,20 @@ func Send(cfg *config.Config, payload *collector.Payload) (string, error) {
 	}
 
 	var machineID string
+	var nextInterval int
 	err = retryComBackoff(func() error {
-		mID, err := doPost(url, cfg.AgentKey, body)
+		mID, interval, err := doPostComIntervalo(url, cfg.AgentKey, body)
 		if err != nil {
 			return err
 		}
 		machineID = mID
+		nextInterval = interval
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	return machineID, nil
+	return machineID, nextInterval, nil
 }
 
 // calcularEspera devolve o atraso antes da próxima tentativa: backoff
@@ -99,16 +104,26 @@ func calcularEspera(tentativa int, rng *rand.Rand) time.Duration {
 }
 
 func doPost(url, agentKey string, body []byte) (string, error) {
+	machineID, _, err := doPostComIntervalo(url, agentKey, body)
+	return machineID, err
+}
+
+// doPostComIntervalo é doPost mais o campo next_interval_seconds da
+// resposta — só o heartbeat (Send) o interpreta (Fase 4 do plano de
+// escalabilidade: política de coleta por tipo de ativo, decidida pelo
+// backend a partir do device_type gravado); RespondToCommand ignora, via
+// doPost, o valor que não faz sentido nesse endpoint.
+func doPostComIntervalo(url, agentKey string, body []byte) (string, int, error) {
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return "", fmt.Errorf("criar request: %w", err)
+		return "", 0, fmt.Errorf("criar request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Agent-Key", agentKey)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("request: %w", err)
+		return "", 0, fmt.Errorf("request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -118,26 +133,27 @@ func doPost(url, agentKey string, body []byte) (string, error) {
 		}
 		json.NewDecoder(resp.Body).Decode(&errBody)
 		if errBody.Error != "" {
-			return "", fmt.Errorf("status HTTP %d: %s", resp.StatusCode, errBody.Error)
+			return "", 0, fmt.Errorf("status HTTP %d: %s", resp.StatusCode, errBody.Error)
 		}
-		return "", fmt.Errorf("status HTTP %d de %s", resp.StatusCode, url)
+		return "", 0, fmt.Errorf("status HTTP %d de %s", resp.StatusCode, url)
 	}
 
 	var res struct {
-		MachineID string `json:"machine_id"`
+		MachineID           string `json:"machine_id"`
+		NextIntervalSeconds int    `json:"next_interval_seconds"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		// Corpo vazio é resposta legítima para endpoints que não devolvem machine_id
 		// (ex: /commands/respond), então io.EOF não é erro.
 		if errors.Is(err, io.EOF) {
-			return "", nil
+			return "", 0, nil
 		}
 		// Já um corpo malformado é falha real: antes desta correção o erro era
 		// descartado e o agente seguia com machineID vazio, logando "[OK] Check-in
 		// realizado" enquanto o polling de comandos nunca mais rodava.
-		return "", fmt.Errorf("resposta do servidor não é JSON válido: %w", err)
+		return "", 0, fmt.Errorf("resposta do servidor não é JSON válido: %w", err)
 	}
-	return res.MachineID, nil
+	return res.MachineID, res.NextIntervalSeconds, nil
 }
 
 // Command represents a remote command to be executed.

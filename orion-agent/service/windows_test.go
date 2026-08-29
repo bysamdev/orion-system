@@ -905,3 +905,36 @@ func TestEscoarBufferFalhas_MantemItensSeBackendContinuaFora(t *testing.T) {
 	}
 }
 
+// ─────────────────────────────────────────────────────────────
+// (I) Política de coleta por tipo de ativo (Fase 4 do plano de escalabilidade)
+// ─────────────────────────────────────────────────────────────
+
+// TestIntervaloValido_AplicaLimitesDeSeguranca garante que um
+// next_interval_seconds vindo do backend nunca é aplicado cru: valores
+// ausentes/negativos são ignorados (0 = "manter o intervalo atual"), e
+// qualquer coisa fora de [intervaloMinimoSegundos, intervaloMaximoSegundos]
+// é limitada à borda mais próxima — defesa contra uma resposta malformada
+// ou um backend comprometido tentando fazer o agente martelar a si mesmo
+// ou parar de reportar na prática.
+func TestIntervaloValido_AplicaLimitesDeSeguranca(t *testing.T) {
+	casos := []struct {
+		nome     string
+		entrada  int
+		esperado int
+	}{
+		{"zero vira zero (ignorar)", 0, 0},
+		{"negativo vira zero (ignorar)", -30, 0},
+		{"abaixo do mínimo sobe para o mínimo", 5, intervaloMinimoSegundos},
+		{"exatamente o mínimo passa", intervaloMinimoSegundos, intervaloMinimoSegundos},
+		{"dentro da faixa passa sem alteração", 120, 120},
+		{"exatamente o máximo passa", intervaloMaximoSegundos, intervaloMaximoSegundos},
+		{"acima do máximo desce para o máximo", 999999, intervaloMaximoSegundos},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			if got := intervaloValido(c.entrada); got != c.esperado {
+				t.Errorf("intervaloValido(%d) = %d, esperado %d", c.entrada, got, c.esperado)
+			}
+		})
+	}
+}

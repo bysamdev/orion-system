@@ -363,7 +363,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	machineID, err := db.HeartbeatUpsert(ctx, lib.HeartbeatUpsertInput{
+	machineID, deviceTypeGravado, err := db.HeartbeatUpsert(ctx, lib.HeartbeatUpsertInput{
 		GroupID: groupID, Hostname: req.Hostname, IP: req.IP, OS: req.OS, OSVersion: req.OSVersion,
 		AgentVersion: req.AgentVersion, MachineToken: req.MachineToken, MachineUUID: req.MachineUUID,
 		CurrentUser: req.CurrentUser, CurrentUserSID: req.CurrentUserSID, CompanyID: targetCompanyID,
@@ -490,7 +490,27 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		_ = db.UpdateMachineStatus(ctx, machineID, "online")
 	}
 
-	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "machine_id": machineID})
+	lib.WriteJSON(w, http.StatusOK, map[string]any{
+		"success": true, "machine_id": machineID,
+		"next_interval_seconds": collectionIntervalSeconds(deviceTypeGravado),
+	})
+}
+
+// collectionIntervalSeconds implementa a política de coleta por tipo de
+// ativo (Fase 4 do plano de escalabilidade): o agente ajusta seu próprio
+// ticker de heartbeat/métricas para o valor devolvido aqui em
+// next_interval_seconds, a cada heartbeat bem-sucedido — sem precisar de
+// reconfiguração manual do agent.yaml por máquina. "unknown" recebe a
+// mesma cadência conservadora de estação/notebook, nunca a de servidor
+// ("não assumir comportamento de servidor" — item explícito da
+// especificação). Os valores em si (60s/180s) são o ponto de partida do
+// documento original; ajustar depois de medido por benchmark real (Fase 11
+// do plano), não só por suposição.
+func collectionIntervalSeconds(deviceType string) int {
+	if deviceType == "server" {
+		return 60
+	}
+	return 180
 }
 
 // ─── Remote Commands ──────────────────────────────────────────────────────────

@@ -335,10 +335,14 @@ type HeartbeatUpsertInput struct {
 	DeviceTypeReason string
 }
 
-func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (string, error) {
+// HeartbeatUpsert devolve, além do id da máquina, o device_type
+// efetivamente gravado (já considerando um eventual override travado —
+// ver device_type_locked) — o chamador usa isso para decidir a política de
+// coleta por tipo de ativo (Fase 4), sem precisar de uma segunda consulta.
+func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (machineID, deviceType string, err error) {
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer tx.Rollback(ctx)
 
@@ -353,9 +357,9 @@ func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (stri
 	// mesmo default já usado pela coluna (migration 20260811000005) para
 	// não perder classificação em heartbeats de agentes antigos ou quando a
 	// detecção falha.
-	deviceType := in.DeviceType
-	if deviceType == "" {
-		deviceType = "desktop"
+	deviceTypeAgente := in.DeviceType
+	if deviceTypeAgente == "" {
+		deviceTypeAgente = "desktop"
 	}
 
 	// local_ip e logged_in_user duplicam, nas colunas dedicadas de
@@ -381,9 +385,7 @@ func (d *DB) HeartbeatUpsert(ctx context.Context, in HeartbeatUpsertInput) (stri
 	// agente. O CTE machine_antes captura o device_type de antes desta
 	// gravação só para o Go decidir, depois, se precisa registrar uma
 	// mudança em machine_device_type_history — nunca silenciosamente.
-	var machineID string
 	var deviceTypeAntes *string
-	var deviceTypeFinal string
 	err = tx.QueryRow(ctx, `
 WITH machine_antes AS (
   SELECT device_type FROM public.machines WHERE machine_token = $7
@@ -396,11 +398,11 @@ ON CONFLICT (machine_token) DO UPDATE
       device_type_reason = CASE WHEN machines.device_type_locked THEN machines.device_type_reason ELSE EXCLUDED.device_type_reason END,
       domain=$14, cpu_usage=$15, ram_total=$16, ram_used=$17, disk_total=$18, disk_used=$19, uptime=$20, metrics_collected_at=now()
 RETURNING id::text, (SELECT device_type FROM machine_antes), device_type`,
-		in.GroupID, cleanHostname, in.IP, in.OS, in.OSVersion, in.AgentVersion, in.MachineToken, NilIfEmpty(in.MachineUUID), in.CurrentUser, NilIfEmpty(in.CurrentUserSID), NilIfEmpty(in.CompanyID), NilIfEmpty(in.MACAddress), deviceType, NilIfEmpty(in.Domain),
+		in.GroupID, cleanHostname, in.IP, in.OS, in.OSVersion, in.AgentVersion, in.MachineToken, NilIfEmpty(in.MachineUUID), in.CurrentUser, NilIfEmpty(in.CurrentUserSID), NilIfEmpty(in.CompanyID), NilIfEmpty(in.MACAddress), deviceTypeAgente, NilIfEmpty(in.Domain),
 		in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime, NilIfEmpty(in.DeviceTypeReason),
-	).Scan(&machineID, &deviceTypeAntes, &deviceTypeFinal)
+	).Scan(&machineID, &deviceTypeAntes, &deviceType)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// Registra a mudança só quando o device_type efetivamente gravado (já
@@ -408,13 +410,14 @@ RETURNING id::text, (SELECT device_type FROM machine_antes), device_type`,
 	// primeira classificação de uma máquina nova (deviceTypeAntes == nil)
 	// quanto uma reclassificação real; uma máquina travada que continua
 	// recebendo um tipo diferente do agente NÃO gera entrada aqui, porque
-	// deviceTypeFinal preserva o valor antigo nesse caso.
-	if deviceTypeAntes == nil || *deviceTypeAntes != deviceTypeFinal {
+	// deviceType (o retorno da query, pós-CASE) preserva o valor antigo
+	// nesse caso.
+	if deviceTypeAntes == nil || *deviceTypeAntes != deviceType {
 		if _, err = tx.Exec(ctx, `
 INSERT INTO public.machine_device_type_history (machine_id, old_type, new_type, reason, changed_by)
 VALUES ($1, $2, $3, $4, 'agent')`,
-			machineID, deviceTypeAntes, deviceTypeFinal, NilIfEmpty(in.DeviceTypeReason)); err != nil {
-			return "", err
+			machineID, deviceTypeAntes, deviceType, NilIfEmpty(in.DeviceTypeReason)); err != nil {
+			return "", "", err
 		}
 	}
 
@@ -423,13 +426,13 @@ INSERT INTO public.machine_metrics
   (machine_id, cpu_usage, ram_total, ram_used, disk_total, disk_used, uptime, collected_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
 		machineID, in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime); err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return machineID, nil
+	return machineID, deviceType, nil
 }
 
 // SetDeviceTypeOverride aplica uma correção manual de classificação de

@@ -163,7 +163,7 @@ func TestSend_CaminhoFeliz_RetornaMachineID(t *testing.T) {
 	var capt requisicaoCapturada
 	srv := servidorQueResponde(t, http.StatusOK, `{"machine_id":"abc"}`, &capt)
 
-	machineID, err := Send(cfgDeTeste(srv.URL), payloadDeTeste())
+	machineID, _, err := Send(cfgDeTeste(srv.URL), payloadDeTeste())
 	if err != nil {
 		t.Fatalf("erro inesperado no caminho feliz: %v", err)
 	}
@@ -185,6 +185,38 @@ func TestSend_CaminhoFeliz_RetornaMachineID(t *testing.T) {
 	}
 }
 
+// TestSend_RetornaNextIntervalSecondsDaResposta cobre a Fase 4 do plano de
+// escalabilidade: o backend devolve a política de coleta (intervalo por
+// tipo de ativo) junto da resposta do heartbeat, e Send precisa repassá-la
+// ao chamador (service.Svc.tick ajusta o próprio ticker com isso).
+func TestSend_RetornaNextIntervalSecondsDaResposta(t *testing.T) {
+	srv := servidorQueResponde(t, http.StatusOK, `{"machine_id":"abc","next_interval_seconds":60}`, nil)
+
+	_, proximoIntervalo, err := Send(cfgDeTeste(srv.URL), payloadDeTeste())
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if proximoIntervalo != 60 {
+		t.Errorf("next_interval_seconds = %d, esperado 60", proximoIntervalo)
+	}
+}
+
+// TestSend_SemNextIntervalSecondsNaResposta_DevolveZero garante que uma
+// resposta de um backend antigo (sem o campo) não vira um valor sensato por
+// acidente — zero é o sinal para o chamador "ignorar, manter o intervalo
+// atual" (ver intervaloValido em service/windows.go).
+func TestSend_SemNextIntervalSecondsNaResposta_DevolveZero(t *testing.T) {
+	srv := servidorQueResponde(t, http.StatusOK, `{"machine_id":"abc"}`, nil)
+
+	_, proximoIntervalo, err := Send(cfgDeTeste(srv.URL), payloadDeTeste())
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if proximoIntervalo != 0 {
+		t.Errorf("next_interval_seconds = %d, esperado 0 (campo ausente na resposta)", proximoIntervalo)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // F) HEADER DE AUTENTICAÇÃO
 // ---------------------------------------------------------------------------
@@ -193,7 +225,7 @@ func TestSend_EnviaHeaderXAgentKey(t *testing.T) {
 	var capt requisicaoCapturada
 	srv := servidorQueResponde(t, http.StatusOK, `{"machine_id":"abc"}`, &capt)
 
-	if _, err := Send(cfgDeTeste(srv.URL), payloadDeTeste()); err != nil {
+	if _, _, err := Send(cfgDeTeste(srv.URL), payloadDeTeste()); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 	if got := capt.ler(); got.agentKey != "chave-de-teste-123" {
@@ -454,7 +486,7 @@ func TestSend_ConstroiURLDoHeartbeatParaVariasFormasDeAPIURL(t *testing.T) {
 			var capt requisicaoCapturada
 			srv := servidorQueResponde(t, http.StatusOK, `{"machine_id":"ok"}`, &capt)
 
-			machineID, err := Send(cfgDeTeste(srv.URL+c.sufixo), payloadDeTeste())
+			machineID, _, err := Send(cfgDeTeste(srv.URL+c.sufixo), payloadDeTeste())
 			if err != nil {
 				t.Fatalf("erro inesperado para APIURL %q: %v", srv.URL+c.sufixo, err)
 			}
@@ -479,7 +511,7 @@ func TestSend_APIURLComPathCompletoEBarraFinal_NaoDeveDuplicarOPath(t *testing.T
 	var capt requisicaoCapturada
 	srv := servidorQueResponde(t, http.StatusOK, `{"machine_id":"ok"}`, &capt)
 
-	if _, err := Send(cfgDeTeste(srv.URL+pathHeartbeat+"/"), payloadDeTeste()); err != nil {
+	if _, _, err := Send(cfgDeTeste(srv.URL+pathHeartbeat+"/"), payloadDeTeste()); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 	if got := capt.ler(); got.path != pathHeartbeat {
@@ -698,7 +730,7 @@ func TestSend_BackendSempreFalhando_TentaTresVezesEDesiste(t *testing.T) {
 	srv := servidorQueResponde(t, http.StatusInternalServerError, `{"error":"backend caiu"}`, &capt)
 
 	inicio := time.Now()
-	machineID, err := Send(cfgDeTeste(srv.URL), payloadDeTeste())
+	machineID, _, err := Send(cfgDeTeste(srv.URL), payloadDeTeste())
 	decorrido := time.Since(inicio)
 
 	if err == nil {
@@ -750,7 +782,7 @@ func TestSend_SucessoNaSegundaTentativa_NaoPropagaErro(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	machineID, err := Send(cfgDeTeste(srv.URL), payloadDeTeste())
+	machineID, _, err := Send(cfgDeTeste(srv.URL), payloadDeTeste())
 	if err != nil {
 		t.Fatalf("Send deveria se recuperar na 2ª tentativa, mas retornou erro: %v", err)
 	}
@@ -874,7 +906,7 @@ func TestSend_PayloadChegaComOsCamposEsperados(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	if _, err := Send(cfgDeTeste(srv.URL), payloadDeTeste()); err != nil {
+	if _, _, err := Send(cfgDeTeste(srv.URL), payloadDeTeste()); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 	mu.Lock()

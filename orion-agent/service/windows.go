@@ -75,6 +75,40 @@ type Svc struct {
 	// em run() — mesma garantia que já vale para machineID, ver comentário
 	// acima), então não precisa do mutex mu.
 	bufferFalhas []*collector.Payload
+
+	// proximoIntervaloSegundos guarda o next_interval_seconds mais recente
+	// devolvido pelo backend (Fase 4 do plano de escalabilidade: política de
+	// coleta por tipo de ativo — servidor reporta mais rápido que estação/
+	// notebook). Zero = nenhuma resposta ainda trouxe o campo; run() mantém
+	// o intervalo de agent.yaml (cfg.IntervalSeconds) nesse caso. Mesma
+	// garantia de goroutine única de bufferFalhas.
+	proximoIntervaloSegundos int
+}
+
+// intervaloMinimoSegundos e intervaloMaximoSegundos limitam o que o agente
+// aceita de next_interval_seconds, independente do que o backend mandar —
+// defesa em profundidade contra uma resposta malformada ou um backend
+// comprometido tentando fazer o agente martelar a si mesmo (intervalo baixo
+// demais) ou parar de reportar na prática (intervalo alto demais).
+const (
+	intervaloMinimoSegundos = 30
+	intervaloMaximoSegundos = 3600
+)
+
+// intervaloValido aplica os limites acima a um next_interval_seconds
+// recebido do backend; devolve 0 (== "ignorar, manter o intervalo atual")
+// se o valor vier fora da faixa aceitável ou não vier (<=0).
+func intervaloValido(segundos int) int {
+	if segundos <= 0 {
+		return 0
+	}
+	if segundos < intervaloMinimoSegundos {
+		return intervaloMinimoSegundos
+	}
+	if segundos > intervaloMaximoSegundos {
+		return intervaloMaximoSegundos
+	}
+	return segundos
 }
 
 // bufferFalhasMax limita o crescimento do buffer de heartbeats não
@@ -105,7 +139,7 @@ func (s *Svc) bufferizarFalha(payload *collector.Payload) {
 func (s *Svc) escoarBufferFalhas() {
 	for len(s.bufferFalhas) > 0 {
 		payload := s.bufferFalhas[0]
-		if _, err := sender.Send(s.cfg, payload); err != nil {
+		if _, _, err := sender.Send(s.cfg, payload); err != nil {
 			s.logger.Printf("[AVISO] Falha ao reenviar heartbeat represado de %s: %v", payload.Hostname, err)
 			return
 		}
@@ -204,6 +238,16 @@ func (s *Svc) run(ctx context.Context) {
 	s.startMetricsServer(ctx)
 	s.tick() // Fazemos a primeira coleta imediatamente ao subir
 
+	// Fase 4 (política de coleta por tipo de ativo): se o check-in imediato
+	// acima já trouxe um next_interval_seconds do backend, o agente já usa o
+	// intervalo certo para o tipo desta máquina (servidor bate mais rápido
+	// que estação/notebook) desde o início, em vez de esperar um segundo
+	// ciclo no intervalo padrão de agent.yaml para se ajustar.
+	intervaloTicker := time.Duration(s.cfg.IntervalSeconds) * time.Second
+	if s.proximoIntervaloSegundos > 0 {
+		intervaloTicker = time.Duration(s.proximoIntervaloSegundos) * time.Second
+	}
+
 	// Jitter de início (Fase 8): sem isso, uma frota inteira reiniciando
 	// junto (patch de segurança agendado, reboot em massa via GPO) manteria
 	// todos os agentes com o ticker na mesma fase entre si a partir do
@@ -213,8 +257,8 @@ func (s *Svc) run(ctx context.Context) {
 	// o ticker tem período fixo depois disso, o deslocamento de fase entre
 	// agentes se mantém sem precisar de jitter contínuo. Observa ctx.Done()
 	// durante a espera para não atrasar um encerramento pedido nesta janela.
-	if intervalo := time.Duration(s.cfg.IntervalSeconds) * time.Second; intervalo > 0 {
-		jitter := time.Duration(rand.Int63n(int64(intervalo)))
+	if intervaloTicker > 0 {
+		jitter := time.Duration(rand.Int63n(int64(intervaloTicker)))
 		select {
 		case <-ctx.Done():
 			s.logger.Println("🛑 Encerrando Orion Agent...")
@@ -223,7 +267,7 @@ func (s *Svc) run(ctx context.Context) {
 		}
 	}
 
-	ticker := time.NewTicker(time.Duration(s.cfg.IntervalSeconds) * time.Second)
+	ticker := time.NewTicker(intervaloTicker)
 	defer ticker.Stop()
 
 	// Verificamos se existem comandos remotos para executar a cada 30 segundos.
@@ -237,6 +281,15 @@ func (s *Svc) run(ctx context.Context) {
 			return
 		case <-ticker.C:
 			s.tick() // Ciclo normal de reporte de hardware/status
+			// A política de coleta pode ter mudado neste ciclo (ex.:
+			// classificação da máquina corrigida manualmente, ou reclassificada
+			// pelo agente) — reajusta o ticker se o backend mandou um valor
+			// diferente do período atual.
+			if novoIntervalo := time.Duration(s.proximoIntervaloSegundos) * time.Second; s.proximoIntervaloSegundos > 0 && novoIntervalo != intervaloTicker {
+				intervaloTicker = novoIntervalo
+				ticker.Reset(intervaloTicker)
+				s.logger.Printf("[INFO] Intervalo de coleta ajustado para %s (política do backend)", intervaloTicker)
+			}
 		case <-commandTicker.C:
 			s.pollAndExecuteCommands() // Ciclo de verificação de comandos (RMM)
 		}
@@ -291,13 +344,14 @@ func (s *Svc) tick() {
 	}
 
 	// Enviamos o relatório para o servidor.
-	mID, err := sender.Send(s.cfg, payload)
+	mID, proximoIntervalo, err := sender.Send(s.cfg, payload)
 	if err != nil {
 		s.logger.Printf("[ERRO] Falha no check-in (Heartbeat): %v", err)
 		s.bufferizarFalha(payload)
 		return
 	}
 	s.setMachineID(mID)
+	s.proximoIntervaloSegundos = intervaloValido(proximoIntervalo)
 
 	// Backend confirmadamente alcançável de novo — aproveita para tentar
 	// entregar heartbeats represados de ciclos anteriores (ver bufferFalhas).
