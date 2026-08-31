@@ -180,12 +180,12 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
         <PriorityBadge priority={ticket.priority} />
         <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} />
         
-        {/* Badge de Tempo de Atendimento (sem relógio piscando na tela, em minutos - horas - dias - meses) */}
+        {/* Badge de Tempo de Atendimento */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary cursor-help">
+            <div className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-primary/10 border border-primary/20 text-primary cursor-help text-xs font-semibold whitespace-nowrap">
               <Clock className="w-3.5 h-3.5" />
-              <span className="text-xs font-bold">{formatDurationHuman(elapsedServiceMinutes)}</span>
+              <span>{formatDurationHuman(elapsedServiceMinutes)}</span>
             </div>
           </TooltipTrigger>
           <TooltipContent>
@@ -195,7 +195,7 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
         </Tooltip>
 
         {ticket.company_name && (
-          <span className="text-sm text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
+          <span className="inline-flex items-center h-6 text-xs font-semibold text-muted-foreground bg-muted border border-border/50 px-2.5 rounded-full whitespace-nowrap">
             {ticket.company_name}
           </span>
         )}
@@ -210,33 +210,32 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
               variant="default"
               size="sm"
               onClick={onAssume}
-              disabled={isAssuming}
-              className="gap-2 shadow-sm font-bold"
+              className="gap-2 font-bold shadow-sm"
             >
-              <HandHelping className="w-3.5 h-3.5" />
-              {isAssuming ? 'Assumindo Chamado...' : 'Assumir Chamado'}
+              <User className="w-3.5 h-3.5" />
+              Assumir Chamado
             </Button>
           )}
 
+          {/* Ações operacionais rápidas */}
           {!isResolved && (
             <>
-              {/* Cronógrafo: Apenas para clientes marcados como esporádico (sem contrato) */}
-              {isSporadic && (
+              {/* Botão de Timer */}
+              {onToggleTimer && (
                 <Button
-                  variant={isTimerActiveHere ? 'destructive' : 'outline'}
+                  variant={isTimerRunning ? 'destructive' : 'outline'}
                   size="sm"
-                  onClick={handleTimerToggle}
-                  disabled={!!isTimerActiveElsewhere || startTimer.isPending || stopTimer.isPending}
-                  className="gap-2"
+                  onClick={onToggleTimer}
+                  className="gap-2 font-semibold"
                 >
-                  {isTimerActiveHere ? (
+                  {isTimerRunning ? (
                     <>
-                      <Square className="w-3.5 h-3.5" />
-                      Parar {elapsed}
+                      <Square className="w-3.5 h-3.5 fill-current" />
+                      Parar Timer
                     </>
                   ) : (
                     <>
-                      <Play className="w-3.5 h-3.5" />
+                      <Timer className="w-3.5 h-3.5" />
                       Iniciar Timer
                     </>
                   )}
@@ -249,7 +248,7 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => onStatusChange('in-progress')}
-                  className="gap-2 border-yellow-500/30 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/10"
+                  className="gap-2 border-cyan-500/30 text-cyan-700 dark:text-cyan-400 hover:bg-cyan-500/10 font-semibold"
                 >
                   <Play className="w-3.5 h-3.5" />
                   Atender
@@ -261,14 +260,14 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
                 variant="outline" 
                 size="sm" 
                 onClick={() => onStatusChange('awaiting-customer')} 
-                className={cn("gap-2", ticket.status === 'awaiting-customer' && "bg-purple-500/10 text-purple-600 border-purple-200")}
+                className={cn("gap-2 font-semibold", ticket.status === 'awaiting-customer' && "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30")}
                 disabled={ticket.status === 'awaiting-customer'}
               >
                 <Clock className="w-3.5 h-3.5" />
                 {ticket.status === 'awaiting-customer' ? 'Aguardando Cliente' : 'Aguardar Cliente'}
               </Button>
 
-              <Button variant="outline" size="sm" onClick={onEscalate} className="gap-2">
+              <Button variant="outline" size="sm" onClick={onEscalate} className="gap-2 font-semibold">
                 <ArrowUpRight className="w-3.5 h-3.5" />
                 Escalar
               </Button>
