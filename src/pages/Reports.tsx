@@ -15,6 +15,7 @@ import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { SLABadge } from '@/components/dashboard/SLABadge';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useCompanies } from '@/hooks/useCompanies';
+import { getRechartsStatusColor } from '@/lib/state-tokens';
 import {
   Loader2,
   ArrowLeft,
@@ -109,18 +110,16 @@ const SemDados: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
-// Cores por status, indexadas pelo valor CRU do banco.
-// Antes as chaves estavam em português enquanto `status` chega em inglês, então
-// nenhuma casava e a pizza inteira caía no cinza de fallback.
+// Cores por status, derivadas da fonte única de verdade (state-tokens.ts).
 const STATUS_COLORS: Record<string, string> = {
-  open: '#3b82f6', // blue-500
-  'in-progress': '#906090', // Roxo claro Orion
-  'awaiting-customer': '#eab308', // yellow-500
-  'awaiting-third-party': '#f97316', // orange-500
-  resolved: '#22c55e', // green-500
-  closed: '#64748b', // slate-500
-  reopened: '#ec4899', // pink-500
-  cancelled: '#94a3b8', // slate-400
+  open: getRechartsStatusColor('open'),
+  'in-progress': getRechartsStatusColor('in-progress'),
+  'awaiting-customer': getRechartsStatusColor('awaiting-customer'),
+  'awaiting-third-party': getRechartsStatusColor('awaiting-third-party'),
+  resolved: getRechartsStatusColor('resolved'),
+  closed: getRechartsStatusColor('closed'),
+  reopened: getRechartsStatusColor('reopened'),
+  cancelled: getRechartsStatusColor('cancelled'),
   unknown: '#94a3b8',
 };
 
