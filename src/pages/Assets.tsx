@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { getStatusLabel } from '@/components/shared/StatusBadge';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useDeviceInventory, DeviceItem } from '@/hooks/useDeviceInventory';
@@ -1078,29 +1079,9 @@ const Assets = () => {
                           </div>
                           <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
                           <div className="flex items-center gap-2 mt-2">
-                            <Badge
-                              variant={
-                                ticket.status === "resolved" || ticket.status === "closed"
-                                  ? "success"
-                                  : ticket.status === "in_progress"
-                                  ? "warning"
-                                  : "info"
-                              }
-                              className="text-micro font-bold uppercase tracking-wider px-2 py-0.5"
-                            >
-                              {getStatusLabel(ticket.status)}
-                            </Badge>
+                            <StatusBadge status={ticket.status} />
                             {ticket.priority && (
-                              <Badge
-                                variant={
-                                  ticket.priority === "critica" || ticket.priority === "urgent" || ticket.priority === "alta"
-                                    ? "destructive"
-                                    : "secondary"
-                                }
-                                className="text-micro font-bold uppercase tracking-wider px-2 py-0.5"
-                              >
-                                {ticket.priority}
-                              </Badge>
+                              <PriorityBadge priority={ticket.priority} size="sm" />
                             )}
                           </div>
                         </div>
