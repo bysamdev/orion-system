@@ -110,7 +110,7 @@ const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
               <div key={step.key} className="flex flex-col items-center gap-2 relative z-10">
                 <div className={cn(
                   "w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-500",
-                  isActive ? "bg-primary border-primary text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-110" :
+                  isActive ? "bg-primary border-primary text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/0.3)] scale-110" :
                   isPast ? "bg-green-500 border-green-500 text-white" :
                   "bg-background border-muted-foreground/20 text-muted-foreground"
                 )}>

@@ -108,11 +108,12 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
         
         <Button
           type="button"
-          size="icon"
+          size="icon-sm"
           variant="secondary"
-          className="absolute bottom-0 right-0 h-8 w-8 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute bottom-0 right-0 rounded-full shadow-md opacity-70 hover:opacity-100 group-hover:opacity-100 transition-opacity"
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
+          aria-label="Alterar foto de perfil"
         >
           {isUploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />

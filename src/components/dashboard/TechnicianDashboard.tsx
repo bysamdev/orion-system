@@ -151,7 +151,7 @@ const TicketRow: React.FC<{ ticket: Ticket }> = React.memo(({ ticket }) => {
         <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} variant="compact" />
       </TableCell>
       <TableCell className="py-4 text-right">
-        <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="text-2xs font-bold text-muted-foreground uppercase opacity-40 group-hover:opacity-100 transition-opacity">
           Ver detalhes <ArrowRight className="inline-block w-3 h-3 ml-1" />
         </span>
         <button 
@@ -560,14 +560,14 @@ export const TechnicianDashboard: React.FC = () => {
           {advancedFiltersOpen && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-muted/10 rounded-2xl border border-border/40 animate-in fade-in slide-in-from-top-2">
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Prioridade</label>
+                <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Prioridade</label>
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                  <SelectTrigger className="h-10 bg-background/50 border-border/40 rounded-xl">
+                  <SelectTrigger className="bg-background/50 border-border/40">
                     <SelectValue placeholder="Todas as Prioridades" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas as Prioridades</SelectItem>
-                    <SelectItem value="urgent" className="text-red-500 font-bold">Urgente</SelectItem>
+                    <SelectItem value="urgent" className="text-destructive font-bold">Urgente</SelectItem>
                     <SelectItem value="high">Alta</SelectItem>
                     <SelectItem value="medium">Média</SelectItem>
                     <SelectItem value="low">Baixa</SelectItem>
@@ -576,9 +576,9 @@ export const TechnicianDashboard: React.FC = () => {
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Status</label>
+                <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Status</label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-10 bg-background/50 border-border/40 rounded-xl">
+                  <SelectTrigger className="bg-background/50 border-border/40">
                     <SelectValue placeholder="Todos os Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -593,9 +593,9 @@ export const TechnicianDashboard: React.FC = () => {
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Categoria</label>
+                <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Categoria</label>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="h-10 bg-background/50 border-border/40 rounded-xl">
+                  <SelectTrigger className="bg-background/50 border-border/40">
                     <SelectValue placeholder="Todas as Categorias" />
                   </SelectTrigger>
                   <SelectContent>
@@ -609,28 +609,28 @@ export const TechnicianDashboard: React.FC = () => {
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Status SLA</label>
+                <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Status SLA</label>
                 <Select value={slaFilter} onValueChange={setSlaFilter}>
-                  <SelectTrigger className="h-10 bg-background/50 border-border/40 rounded-xl">
+                  <SelectTrigger className="bg-background/50 border-border/40">
                     <SelectValue placeholder="Todos os SLAs" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos os SLAs</SelectItem>
                     <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="attention" className="text-amber-600">Em Atenção</SelectItem>
-                    <SelectItem value="breached" className="text-rose-600 font-bold">Vencido</SelectItem>
+                    <SelectItem value="attention" className="text-warning font-semibold">Em Atenção</SelectItem>
+                    <SelectItem value="breached" className="text-destructive font-bold">Vencido</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-1.5 text-left lg:col-span-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Empresa / Cliente</label>
+                <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Empresa / Cliente</label>
                 <div className="relative">
                   <Input 
                     placeholder="Filtrar por nome da empresa..." 
                     value={companyFilter === 'all' ? '' : companyFilter}
                     onChange={(e) => setCompanyFilter(e.target.value || 'all')}
-                    className="h-10 bg-background/50 border-border/40 rounded-xl text-xs"
+                    className="bg-background/50 border-border/40"
                   />
                 </div>
               </div>

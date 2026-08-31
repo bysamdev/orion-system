@@ -1078,11 +1078,27 @@ const Assets = () => {
                           </div>
                           <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
                           <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5">
+                            <Badge
+                              variant={
+                                ticket.status === "resolved" || ticket.status === "closed"
+                                  ? "success"
+                                  : ticket.status === "in_progress"
+                                  ? "warning"
+                                  : "info"
+                              }
+                              className="text-micro font-bold uppercase tracking-wider px-2 py-0.5"
+                            >
                               {getStatusLabel(ticket.status)}
                             </Badge>
                             {ticket.priority && (
-                              <Badge variant="secondary" className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5">
+                              <Badge
+                                variant={
+                                  ticket.priority === "critica" || ticket.priority === "urgent" || ticket.priority === "alta"
+                                    ? "destructive"
+                                    : "secondary"
+                                }
+                                className="text-micro font-bold uppercase tracking-wider px-2 py-0.5"
+                              >
                                 {ticket.priority}
                               </Badge>
                             )}

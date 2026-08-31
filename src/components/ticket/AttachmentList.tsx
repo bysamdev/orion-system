@@ -92,12 +92,12 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
           </div>
           
           {/* Ações */}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 opacity-50 hover:opacity-100 group-hover:opacity-100 transition-opacity">
             <Button
               variant="ghost"
-              size="sm"
+              size="icon-sm"
               onClick={() => handleDownload(attachment)}
-              className="h-8 w-8 p-0"
+              aria-label="Baixar arquivo"
               title="Baixar arquivo"
             >
               <Download className="w-4 h-4" />
@@ -105,11 +105,12 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
             {canDelete && (
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
                 onClick={() => handleDelete(attachment.id)}
                 disabled={deleteAttachment.isPending}
-                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                title="Remover anexo"
+                aria-label="Excluir anexo"
+                title="Excluir anexo"
+                className="text-destructive hover:bg-destructive/10"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>

@@ -47,35 +47,35 @@ export const SLABadge: React.FC<SLABadgeProps> = ({
     dot: string;
   }
   
-  // Configuração de cores e ícones por status
+  // Configuração de cores e ícones por status via tokens semânticos
   const statusConfig: Record<string, StatusConfig> = {
     ok: {
       icon: Clock,
       label: 'No prazo',
-      color: 'bg-green-500/10 text-green-700 border-green-500/20',
-      iconColor: 'text-green-600',
-      dot: 'bg-green-500'
+      color: 'bg-success/15 text-success border-success/30',
+      iconColor: 'text-success',
+      dot: 'bg-success'
     },
     warning: {
       icon: Clock,
       label: 'Atenção',
-      color: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20',
-      iconColor: 'text-yellow-600',
-      dot: 'bg-yellow-500'
+      color: 'bg-warning/15 text-warning border-warning/30',
+      iconColor: 'text-warning',
+      dot: 'bg-warning'
     },
     attention: {
       icon: AlertTriangle,
       label: 'Crítico',
-      color: 'bg-orange-500/10 text-orange-700 border-orange-500/20',
-      iconColor: 'text-orange-600',
-      dot: 'bg-orange-500'
+      color: 'bg-warning/20 text-warning border-warning/40',
+      iconColor: 'text-warning',
+      dot: 'bg-warning'
     },
     breached: {
       icon: AlertCircle,
       label: 'Vencido',
-      color: 'bg-red-500/10 text-red-700 border-red-500/20',
-      iconColor: 'text-red-600',
-      dot: 'bg-red-500'
+      color: 'bg-destructive/15 text-destructive border-destructive/30',
+      iconColor: 'text-destructive',
+      dot: 'bg-destructive'
     }
   };
 

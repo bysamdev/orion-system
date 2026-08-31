@@ -74,7 +74,7 @@ export const MonitoringOnboarding: React.FC = () => {
         />
       </div>
 
-      <div className="bg-card border border-border/40 rounded-3xl overflow-hidden shadow-xl">
+      <div className="bg-card border border-border/40 rounded-2xl overflow-hidden shadow-xl">
         <Tabs defaultValue="linux" className="w-full">
           <div className="p-6 border-b border-border/40 bg-muted/20 flex items-center justify-between">
             <TabsList className="bg-transparent gap-4">

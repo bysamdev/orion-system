@@ -454,18 +454,18 @@ export default function WebMonitoring() {
                   <Badge
                     variant="outline"
                     className={cn(
-                      'text-[10px] font-bold px-1.5 py-0.2',
+                      'text-2xs font-bold px-1.5 py-0.2',
                       webStats.offline === 0
-                        ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/30'
-                        : 'text-red-600 bg-red-500/10 border-red-500/30'
+                        ? 'text-success bg-success/15 border-success/30'
+                        : 'text-destructive bg-destructive/15 border-destructive/30'
                     )}
                   >
                     {webStats.uptimePct}% Online
                   </Badge>
                 </div>
-                <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
+                <div className="text-2xs text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
                   <span>{webStats.offline} offline</span>
-                  <span className="text-emerald-600 font-medium">HTTP 200 OK</span>
+                  <span className="text-success font-medium">HTTP 200 OK</span>
                 </div>
               </CardContent>
             </Card>
@@ -474,25 +474,25 @@ export default function WebMonitoring() {
             <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
               <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  <span className="text-2xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Tempo Médio
                   </span>
-                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <div className="p-1.5 rounded-lg bg-success/15 text-success">
                     <Clock className="w-3.5 h-3.5" />
                   </div>
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-success">
                     {webStats.avgResponseTime ? `${webStats.avgResponseTime} ms` : '–'}
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
+                  <Badge variant="outline" className="text-2xs font-bold px-1.5 py-0.2 text-success bg-success/15 border-success/30">
                     <CheckCircle2 className="w-2.5 h-2.5" />
                     &lt; 200ms
                   </Badge>
                 </div>
-                <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
+                <div className="text-2xs text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
                   <span>Latência média</span>
-                  <span className="text-emerald-600 font-medium">Excelente</span>
+                  <span className="text-success font-medium">Excelente</span>
                 </div>
               </CardContent>
             </Card>
@@ -501,10 +501,10 @@ export default function WebMonitoring() {
             <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
               <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  <span className="text-2xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Certificados SSL
                   </span>
-                  <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <div className="p-1.5 rounded-lg bg-warning/15 text-warning">
                     <ShieldCheck className="w-3.5 h-3.5" />
                   </div>
                 </div>
@@ -512,14 +512,14 @@ export default function WebMonitoring() {
                   <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                     {webStats.sslPct}% Válidos
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
+                  <Badge variant="outline" className="text-2xs font-bold px-1.5 py-0.2 text-success bg-success/15 border-success/30">
                     <ShieldCheck className="w-2.5 h-2.5" />
                     {webStats.httpsCount}/{webStats.total} HTTPS
                   </Badge>
                 </div>
-                <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
+                <div className="text-2xs text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
                   <span>Criptografia TLS</span>
-                  <span className={cn("font-medium", webStats.sslPct === 100 ? "text-emerald-600" : "text-amber-600")}>
+                  <span className={cn("font-medium", webStats.sslPct === 100 ? "text-success" : "text-warning")}>
                     {webStats.sslPct === 100 ? '100% Protegido' : `${webStats.total - webStats.httpsCount} sem HTTPS`}
                   </span>
                 </div>
@@ -530,32 +530,32 @@ export default function WebMonitoring() {
             <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
               <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  <span className="text-2xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Monitoramento de Quedas
                   </span>
-                  <div className={cn("p-1.5 rounded-lg", webStats.offline === 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600")}>
+                  <div className={cn("p-1.5 rounded-lg", webStats.offline === 0 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
                     {webStats.offline === 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
                   </div>
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className={cn("text-xl sm:text-2xl font-bold tracking-tight", webStats.offline === 0 ? "text-foreground" : "text-red-600 dark:text-red-400")}>
+                  <span className={cn("text-xl sm:text-2xl font-bold tracking-tight", webStats.offline === 0 ? "text-foreground" : "text-destructive")}>
                     {webStats.offline === 0 ? '0 Quedas' : `${webStats.offline} Queda(s)`}
                   </span>
                   <Badge
                     variant="outline"
                     className={cn(
-                      "text-[10px] font-bold px-1.5 py-0.2",
+                      "text-2xs font-bold px-1.5 py-0.2",
                       webStats.offline === 0
-                        ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/30"
-                        : "text-red-600 bg-red-500/10 border-red-500/30"
+                        ? "text-success bg-success/15 border-success/30"
+                        : "text-destructive bg-destructive/15 border-destructive/30"
                     )}
                   >
                     {webStats.offline === 0 ? '100% Operacional' : 'Queda Detectada'}
                   </Badge>
                 </div>
-                <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
+                <div className="text-2xs text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
                   <span>Período ({period})</span>
-                  <span className={cn("font-medium", webStats.offline === 0 ? "text-emerald-600" : "text-red-600")}>
+                  <span className={cn("font-medium", webStats.offline === 0 ? "text-success" : "text-destructive")}>
                     {webStats.offline === 0 ? 'Sem interrupções' : 'Alvos inacessíveis'}
                   </span>
                 </div>
@@ -565,10 +565,10 @@ export default function WebMonitoring() {
 
           {/* Banner de Incidentes / Quedas Ativas */}
           {webStats.offline > 0 && (
-            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3 text-red-950 dark:text-red-200">
-              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <div className="p-4 rounded-xl bg-destructive/15 border border-destructive/30 flex items-start gap-3 text-destructive">
+              <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
               <div className="min-w-0 flex-1">
-                <h4 className="text-sm font-bold text-red-600 dark:text-red-400">
+                <h4 className="text-sm font-bold text-destructive">
                   Alerta de Queda Ativa ({webStats.offline} {webStats.offline === 1 ? 'alvo fora do ar' : 'alvos fora do ar'})
                 </h4>
                 <p className="text-xs text-muted-foreground mt-0.5">

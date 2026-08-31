@@ -265,7 +265,7 @@ export const SLAConfiguration: React.FC = () => {
         )}
       </div>
       
-      <Card className="border-border/40 border-dashed bg-transparent rounded-3xl overflow-hidden mt-8">
+      <Card className="border-border/40 border-dashed bg-transparent rounded-2xl overflow-hidden mt-8">
         <CardContent className="p-6 flex items-center gap-4 text-muted-foreground italic text-sm">
           <div className="p-2 rounded-full bg-muted">
             <Check className="w-4 h-4" />
