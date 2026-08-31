@@ -1,6 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { getPriorityConfig, getPriorityLabel } from '@/lib/state-tokens';
 
 interface PriorityBadgeProps {
   priority: string;
@@ -8,30 +9,25 @@ interface PriorityBadgeProps {
   className?: string;
 }
 
-const priorityConfig: Record<string, { label: string; className: string }> = {
-  urgent: {
-    label: 'Urgente',
-    className: 'bg-destructive/10 text-destructive border-destructive/30',
-  },
-  high: {
-    label: 'Alta',
-    className: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30',
-  },
-  medium: {
-    label: 'Média',
-    className: 'bg-warning/10 text-warning border-warning/30',
-  },
-  low: {
-    label: 'Baixa',
-    className: 'bg-muted text-muted-foreground border-border',
-  },
-};
-
 export const PriorityBadge: React.FC<PriorityBadgeProps> = ({ priority, size = 'default', className }) => {
-  const config = priorityConfig[priority] || priorityConfig.medium;
+  const config = getPriorityConfig(priority);
+
   return (
-    <Badge variant="outline" className={cn(config.className, size === 'sm' && 'text-[10px] px-1.5 py-0', className)}>
-      {config.label}
+    <Badge
+      variant="outline"
+      role="status"
+      aria-label={config.ariaLabel}
+      className={cn(
+        'whitespace-nowrap transition-colors',
+        size === 'sm' ? 'h-5 px-2 text-[10px] font-semibold' : 'h-6 px-2.5 text-xs font-semibold',
+        config.badgeClass,
+        className
+      )}
+    >
+      <div className={cn('w-1.5 h-1.5 rounded-full shrink-0 mr-1.5', config.dotColor)} aria-hidden="true" />
+      <span>{config.label}</span>
     </Badge>
   );
 };
+
+export { getPriorityLabel };
