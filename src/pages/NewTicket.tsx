@@ -408,10 +408,6 @@ const NewTicket = () => {
         title: 'Erro ao criar chamado',
         description: err.message || 'Ocorreu um erro inesperado.',
         variant: 'destructive',
-        action: {
-          label: 'Suporte',
-          onClick: () => window.location.href = 'mailto:suporte@orion.com.br',
-        },
       });
     } finally {
       isSubmittingRef.current = false;

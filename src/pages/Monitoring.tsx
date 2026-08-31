@@ -627,8 +627,9 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
   }, [totalMachinesAll, totalOnlineAll]);
 
   const totalAlertAll = useMemo(() => {
+    if (dashboard?.active_alerts !== undefined) return dashboard.active_alerts;
     return (groups || []).reduce((acc, g) => acc + (g.alert_machines || 0), 0);
-  }, [groups]);
+  }, [dashboard, groups]);
 
   // Auto-select "all" if none selected
   React.useEffect(() => {

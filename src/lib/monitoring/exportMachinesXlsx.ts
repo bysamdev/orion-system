@@ -38,7 +38,7 @@ function bytesParaGB(bytes: number | null | undefined): number | null {
 function dataCell(iso: string | null | undefined) {
   if (!iso) return { value: null };
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? { value: null } : { value: d, type: Date as const, format: 'dd/mm/yyyy hh:mm' };
+  return Number.isNaN(d.getTime()) ? { value: null } : { value: d, type: Date, format: 'dd/mm/yyyy hh:mm' };
 }
 
 export interface MachineExportRow extends MachineWithMetric {
