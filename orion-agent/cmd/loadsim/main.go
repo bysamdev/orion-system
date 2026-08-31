@@ -268,8 +268,16 @@ func payloadSintetico(indice int, machineToken string, deviceType string, rng *r
 	ramTotal := uint64(17179869184) // 16 GiB
 	diskTotal := uint64(512110190592)
 	return &collector.Payload{
-		MachineToken:     machineToken,
-		MachineUUID:      fmt.Sprintf("loadsim-%08d", indice),
+		MachineToken: machineToken,
+		// MachineUUID precisa ser um UUID de verdade — a coluna machines.machine_uuid
+		// é tipada uuid no Postgres. Um valor como "loadsim-00000002" (formato
+		// anterior) é rejeitado pelo banco com "invalid input syntax for type
+		// uuid", que vira 500 em toda e qualquer requisição: um bug do loadsim
+		// que passava por rate limit real (429 de execuções anteriores) e nunca
+		// foi um problema do backend. Versão 4 (nibble "4"), variante RFC 4122
+		// (nibble "8") só pela forma — não precisa ser aleatório de verdade, e o
+		// índice embutido no final ajuda a reconhecer/limpar dados sintéticos.
+		MachineUUID:      fmt.Sprintf("00000000-0000-4000-8000-%012d", indice),
 		Hostname:         fmt.Sprintf("LOADSIM-%05d", indice),
 		IP:               fmt.Sprintf("10.%d.%d.%d", rng.IntN(255), rng.IntN(255), rng.IntN(255)),
 		OS:               "windows",
