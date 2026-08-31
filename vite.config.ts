@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => ({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-query': ['@tanstack/react-query'],
-          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-slot', '@radix-ui/react-toast', 'class-variance-authority', 'tailwind-merge', 'clsx', 'lucide-react'],
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-slot', 'class-variance-authority', 'tailwind-merge', 'clsx', 'lucide-react', 'sonner'],
           'vendor-supabase': ['@supabase/supabase-js'],
           // 'recharts' NÃO entra mais aqui: um manualChunks nomeado faz o Vite
           // injetar <link rel="modulepreload"> desse chunk em todo carregamento

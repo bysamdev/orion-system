@@ -202,12 +202,10 @@ EXISTS` — nenhuma é destrutiva por si só. Reverter o código sem reverter o 
 
 Itens do plano original **deliberadamente não fechados** nesta sessão, e por quê:
 
-1. **Capacidade medida em 100/250/500/1000/2500 agentes** (Fase 1/11 do plano) — a ferramenta
-   existe (`loadsim`) e foi validada localmente, mas rodá-la contra um ambiente real (mesmo que
-   staging) e registrar os números é uma ação que precisa de escopo/autorização explícitos, não
-   algo a se decidir sozinho no meio da implementação. Além disso, o código desta sessão está em
-   `main-utu21b`, ainda não mergeado/implantado — rodar `loadsim` contra a produção atual hoje
-   testaria o código antigo, não o que foi construído aqui.
+1. ~~**Capacidade medida em 100/250/500/1000/2500 agentes**~~ — **fechado em 2026-08-31**, ver §4.1
+   abaixo. 100 e 500 agentes já foram medidos contra produção; 1000/2500 ficam para quando o parque
+   real se aproximar dessa escala (não há benefício em medir capacidade muito acima da carga
+   esperada de curto prazo).
 2. **Versionamento formal de contrato/schema** (Fase 2) — hoje a compatibilidade é mantida "por
    convenção" (campos novos são sempre aditivos, nunca removidos/renomeados) mais o teste de
    fixture real agente↔backend (§1.6). Deliberadamente não construído: não há hoje uma mudança
@@ -224,6 +222,46 @@ Itens do plano original **deliberadamente não fechados** nesta sessão, e por q
 UI para `platform-health` e para override manual de `device_type` (`PlatformHealthTab.tsx`,
 `MachineDrawer.tsx` — ver §1.4/§1.6), e injeção de `agent_version` no build (`version.Version` virou
 `var`, aceita `-ldflags -X orion-agent/version.Version=...` — ver §1.6 e `installer-msi/build.ps1`).
+
+### 4.1. Teste de carga real contra produção (2026-08-31)
+
+Rodado com `orion-agent/cmd/loadsim` contra `https://orion.bysam.dev` (produção), a partir de uma
+máquina fora da sandbox desta sessão (rede da sandbox bloqueia esse domínio por política de
+egress). Duas execuções, seguindo a escalada progressiva recomendada pelo próprio `loadsim`:
+
+| Cenário | Agentes | Duração | Heartbeats | Falhas | p50 | p95 | p99 | máx |
+|---|---|---|---|---|---|---|---|---|
+| Validação | 100 | 5 min | 348 | 0 (0,00%) | 209ms | 397ms | 1,38s | 2,6s |
+| Alvo (pedido pelo usuário) | 500 | 15 min | 2.905 | 0 (0,00%) | 194ms | 338ms | 554ms | 5,1s |
+
+Sem nenhum erro/warning no Postgres (`postgres_logs` via Supabase) durante nenhuma das duas
+janelas. `next_interval_seconds` confirmado funcionando (política de coleta por tipo de ativo,
+Fase 4).
+
+**Dois bugs reais encontrados e corrigidos durante o processo** (a primeira tentativa, antes das
+correções, deu 100% de erro — não é um resultado "quase bom", os números acima só valem depois
+dos dois fixes abaixo):
+
+1. **`sender.retryComBackoff` amplificava rate limit em vez de se recuperar dele** (commit
+   `3d631f4`) — o agente insistia 3x com backoff curto (2s/4s) em qualquer heartbeat que batesse
+   em 429, e cada tentativa extra contava como mais uma requisição contra o mesmo limitador que já
+   estava estourado. Com carga suficiente (500 agentes de um único IP, cenário que só acontece de
+   verdade num `loadsim` de origem única — uma frota real está distribuída em dezenas de IPs de
+   escritório), isso virava um loop que nunca se recuperava sozinho: as próprias retentativas
+   mantinham a janela sempre cheia. Corrigido: 429 agora sai do laço de retry na primeira
+   tentativa (`errLimiteDeTaxa`), tanto em `Send`/`RespondToCommand` quanto em `PollCommands` —
+   erro de rede/5xx continua se beneficiando das 3 tentativas normalmente.
+2. **`loadsim` mandava um `machine_uuid` sintético inválido** (commit `20d90ca`) — strings tipo
+   `"loadsim-00000002"` não são UUID, e a coluna `machines.machine_uuid` é tipada `uuid`. Toda
+   requisição batia em `invalid input syntax for type uuid` no Postgres e voltava 500, disfarçado
+   de falha genérica no relatório do `loadsim` (só ficou claro consultando os logs do Postgres
+   direto pela Supabase). Não tinha nenhuma relação com capacidade ou rate limit — um bug isolado
+   do próprio simulador. Corrigido: usa `"00000000-0000-4000-8000-%012d"` (UUID válido, índice do
+   agente ainda rastreável no final).
+
+Ambas as correções já estão em `main`/`main-utu21b`. A primeira é uma correção de resiliência real
+do agente (também vale pra frota de verdade, não só para o `loadsim`); a segunda é específica da
+ferramenta de teste.
 
 ## 5. Merge com o desenvolvimento paralelo em `main` (2026-08-29)
 
