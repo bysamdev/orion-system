@@ -1,15 +1,15 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Monitor, AlertTriangle, Activity, Gauge } from 'lucide-react';
+import { Monitor, AlertTriangle, Activity } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import MonitoringWrapper from './Monitoring';
 import AlertsDashboardWrapper from './AlertsDashboard';
-import PlatformHealthTab from '@/components/monitoring/PlatformHealthTab';
 
 export default function InfrastructureDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'sistemas';
+  const rawTab = searchParams.get('tab');
+  const activeTab = rawTab === 'alertas' ? 'alertas' : 'sistemas';
   const externalMachineId = searchParams.get('machine');
 
   const handleTabChange = (tab: string) => {
@@ -41,7 +41,7 @@ export default function InfrastructureDashboard() {
         description="Supervisão global da infraestrutura corporativa e central de incidentes."
         actions={
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full sm:w-auto">
-            <TabsList className="grid w-full sm:w-[460px] grid-cols-3">
+            <TabsList className="grid w-full sm:w-[320px] grid-cols-2">
               <TabsTrigger value="sistemas" className="gap-2">
                 <Monitor className="w-4 h-4" />
                 Sistemas
@@ -49,10 +49,6 @@ export default function InfrastructureDashboard() {
               <TabsTrigger value="alertas" className="gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
                 Alertas
-              </TabsTrigger>
-              <TabsTrigger value="plataforma" className="gap-2">
-                <Gauge className="w-4 h-4 text-indigo-500" />
-                Plataforma
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -69,7 +65,6 @@ export default function InfrastructureDashboard() {
           />
         )}
         {activeTab === 'alertas' && <AlertsDashboardWrapper onAlertClick={handleAlertClick} hideHeader={true} />}
-        {activeTab === 'plataforma' && <PlatformHealthTab />}
       </div>
     </div>
   );
