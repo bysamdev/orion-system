@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"orion-agent/config"
 	"orion-agent/collector"
+	"orion-agent/config"
 )
 
 const (
@@ -30,6 +30,18 @@ var retryBaseDelay = 2 * time.Second
 
 var httpClient = &http.Client{Timeout: httpTimeout}
 
+// errLimiteDeTaxa sinaliza que o servidor respondeu 429 (rate limit) — ver
+// retryComBackoff. Encontrado num loadsim de 500 agentes contra produção:
+// insistir em segundos numa resposta 429 amplifica exatamente a mesma
+// janela do limitador que já está estourada (cada tentativa extra é mais
+// uma requisição contada por ela), então o backoff curto de Send nunca dava
+// tempo do limite esvaziar — um único agente sozinho já bastava para manter
+// a própria janela sempre cheia. Um erro de rede/5xx continua se
+// beneficiando das 3 tentativas normalmente; só 429 sai do laço na
+// primeira tentativa e deixa o próximo ciclo agendado (heartbeat/poll,
+// já periódico) tentar de novo.
+var errLimiteDeTaxa = errors.New("limite de requisições do servidor (429)")
+
 // retryComBackoff executa op até maxRetries vezes, com o mesmo backoff
 // exponencial e jitter de calcularEspera entre tentativas. Extraído do laço
 // que antes só existia em Send — poll/respond de comando não tinham
@@ -40,10 +52,13 @@ func retryComBackoff(op func() error) error {
 
 	var lastErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		if err := op(); err == nil {
+		err := op()
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
+		}
+		lastErr = err
+		if errors.Is(err, errLimiteDeTaxa) {
+			return fmt.Errorf("desistindo após 1 tentativa (429): %w", lastErr)
 		}
 		if attempt < maxRetries {
 			time.Sleep(calcularEspera(attempt, rng))
@@ -132,10 +147,14 @@ func doPostComIntervalo(url, agentKey string, body []byte) (string, int, error) 
 			Error string `json:"error"`
 		}
 		json.NewDecoder(resp.Body).Decode(&errBody)
+		base := fmt.Errorf("status HTTP %d de %s", resp.StatusCode, url)
 		if errBody.Error != "" {
-			return "", 0, fmt.Errorf("status HTTP %d: %s", resp.StatusCode, errBody.Error)
+			base = fmt.Errorf("status HTTP %d: %s", resp.StatusCode, errBody.Error)
 		}
-		return "", 0, fmt.Errorf("status HTTP %d de %s", resp.StatusCode, url)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return "", 0, fmt.Errorf("%w: %s", errLimiteDeTaxa, base.Error())
+		}
+		return "", 0, base
 	}
 
 	var res struct {
@@ -197,6 +216,9 @@ func PollCommands(cfg *config.Config, machineID string) ([]Command, error) {
 		}
 		defer resp.Body.Close()
 
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return fmt.Errorf("%w: status %d", errLimiteDeTaxa, resp.StatusCode)
+		}
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("status error: %d", resp.StatusCode)
 		}

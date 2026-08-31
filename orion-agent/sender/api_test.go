@@ -670,6 +670,27 @@ func TestPollCommands_Status500_RetornaErro(t *testing.T) {
 	}
 }
 
+// TestPollCommands_Status429_NaoInsisteImediatamente cobre o mesmo achado
+// de TestSend_HTTP429_DesisteNaPrimeiraTentativaSemBackoff, mas no polling
+// de comandos, que usa seu próprio laço de retry inline (não passa por
+// doPostComIntervalo).
+func TestPollCommands_Status429_NaoInsisteImediatamente(t *testing.T) {
+	comRetryBaseDelayReduzido(t, 5*time.Millisecond)
+	var capt requisicaoCapturada
+	srv := servidorQueResponde(t, http.StatusTooManyRequests, `{"error":"muitas requisições"}`, &capt)
+
+	cmds, err := PollCommands(cfgDeTeste(srv.URL), "maq-1")
+	if err == nil {
+		t.Fatal("esperado erro para HTTP 429, veio nil")
+	}
+	if cmds != nil {
+		t.Errorf("comandos = %+v, esperado nil em caso de erro", cmds)
+	}
+	if got := capt.ler(); got.chamadas != 1 {
+		t.Errorf("backend recebeu %d chamadas, esperado 1 (429 não deve gerar retentativa)", got.chamadas)
+	}
+}
+
 func TestPollCommands_JSONMalformado_RetornaErro(t *testing.T) {
 	// Diferente de doPost, PollCommands trata o erro de Decode — este teste
 	// protege esse comportamento correto contra regressão.
@@ -759,6 +780,41 @@ func TestSend_BackendSempreFalhando_TentaTresVezesEDesiste(t *testing.T) {
 	// 10s — se alguém reintroduzir um valor grande aqui, este teste denuncia.
 	if decorrido > 2*time.Second {
 		t.Errorf("Send levou %v — muito mais que o esperado para retryBaseDelay=%v; possível regressão para espera fixa/grande", decorrido, retryBaseDelay)
+	}
+}
+
+// TestSend_HTTP429_DesisteNaPrimeiraTentativaSemBackoff cobre o achado do
+// loadsim contra produção (500 agentes simulados): insistir com backoff
+// curto numa resposta 429 faz cada heartbeat falho virar 3 requisições
+// reais contra o mesmo limitador que já está estourado, mantendo a janela
+// sempre cheia em vez de dar a ela uma chance de esvaziar. 429 deve sair do
+// laço de retry na primeira tentativa — o próximo heartbeat/poll agendado
+// (já periódico) tenta de novo, sem amplificar a carga no meio tempo.
+func TestSend_HTTP429_DesisteNaPrimeiraTentativaSemBackoff(t *testing.T) {
+	comRetryBaseDelayReduzido(t, 5*time.Millisecond)
+
+	var capt requisicaoCapturada
+	srv := servidorQueResponde(t, http.StatusTooManyRequests, `{"error":"muitas requisições — aguarde e tente novamente"}`, &capt)
+
+	inicio := time.Now()
+	machineID, _, err := Send(cfgDeTeste(srv.URL), payloadDeTeste())
+	decorrido := time.Since(inicio)
+
+	if err == nil {
+		t.Fatal("esperado erro para resposta 429, veio nil")
+	}
+	if machineID != "" {
+		t.Errorf("machineID = %q, esperado vazio após 429", machineID)
+	}
+	if got := capt.ler(); got.chamadas != 1 {
+		t.Errorf("backend recebeu %d chamadas, esperado 1 (429 não deve gerar retentativa)", got.chamadas)
+	}
+	if !strings.Contains(err.Error(), "429") {
+		t.Errorf("erro %q não menciona o status 429", err.Error())
+	}
+	// Sem sleep de backoff entre tentativas — deve retornar quase instantâneo.
+	if decorrido > 200*time.Millisecond {
+		t.Errorf("Send levou %v para desistir de um 429, esperado quase instantâneo (sem backoff)", decorrido)
 	}
 }
 
