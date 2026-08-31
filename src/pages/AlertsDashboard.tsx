@@ -546,9 +546,8 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
 
             <Button
               variant="outline"
-              size="sm"
               onClick={handleRefresh}
-              className="gap-2 rounded-xl font-bold h-10 px-4"
+              className="gap-2 font-semibold"
               disabled={refreshing}
             >
               <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
@@ -578,9 +577,8 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
 
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={handleRefresh}
-                  className="gap-2 rounded-xl font-bold h-10 px-4"
+                  className="gap-2 font-semibold"
                   disabled={refreshing}
                 >
                   <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />

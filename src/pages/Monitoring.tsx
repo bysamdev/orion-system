@@ -847,9 +847,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
               {isAdminOrGestor && (
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={() => handleOpenGroupDialog()}
-                  className="gap-2 rounded-xl border-border/40 hover:bg-primary/10 hover:text-primary transition-all font-semibold"
+                  className="gap-2 border-border/40 hover:bg-primary/10 hover:text-primary transition-all font-semibold"
                 >
                   <Plus className="w-4 h-4" />
                   Novo Grupo
@@ -858,9 +857,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
 
               <Button
                 variant="outline"
-                size="sm"
                 onClick={handleRefresh}
-                className="gap-2 rounded-xl transition-all"
+                className="gap-2 transition-all font-semibold"
                 disabled={refreshing}
               >
                 <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
@@ -906,10 +904,9 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                 {/* Exportar planilha — respeita os filtros ativos (status, busca, cliente) */}
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={handleExport}
                   disabled={isExporting}
-                  className="gap-2 rounded-xl transition-all"
+                  className="gap-2 transition-all font-semibold"
                 >
                   {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                   <span className="hidden sm:inline">Exportar</span>
@@ -957,9 +954,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                 {isAdminOrGestor && (
                   <Button
                     variant="outline"
-                    size="sm"
                     onClick={() => handleOpenGroupDialog()}
-                    className="gap-2 rounded-xl border-border/40 hover:bg-primary/10 hover:text-primary transition-all font-semibold"
+                    className="gap-2 border-border/40 hover:bg-primary/10 hover:text-primary transition-all font-semibold"
                   >
                     <Plus className="w-4 h-4" />
                     Novo Grupo
@@ -968,9 +964,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
 
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={handleRefresh}
-                  className="gap-2 rounded-xl transition-all"
+                  className="gap-2 transition-all font-semibold"
                   disabled={refreshing}
                 >
                   <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />

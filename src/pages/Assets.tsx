@@ -333,9 +333,9 @@ const Assets = () => {
                   variant="outline"
                   onClick={handleForceRefresh}
                   disabled={isRefreshing}
-                  className="h-11 px-4 rounded-xl border-border/50 bg-background/50 hover:bg-accent font-semibold transition-all"
+                  className="gap-2 font-semibold transition-all"
                 >
-                  <RefreshCw className={cn("w-4 h-4 mr-2 text-primary", isRefreshing && "animate-spin")} />
+                  <RefreshCw className={cn("w-4 h-4 text-primary", isRefreshing && "animate-spin")} />
                   Atualizar Telemetria
                 </Button>
 
@@ -344,7 +344,7 @@ const Assets = () => {
                   if (!open) resetForm();
                 }}>
                   <DialogTrigger asChild>
-                    <ButtonPrimary className="h-11 px-5 rounded-xl font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95" icon={<Plus className="w-4 h-4" />}>
+                    <ButtonPrimary className="font-bold shadow-lg shadow-primary/20 transition-all" icon={<Plus className="w-4 h-4" />}>
                       Novo Ativo
                     </ButtonPrimary>
                   </DialogTrigger>
@@ -490,7 +490,7 @@ const Assets = () => {
                   <Input 
                     autoComplete="off" 
                     placeholder="Pesquisar por Hostname, IP, MAC ou Nº de Série..." 
-                    className="pl-10 h-11 bg-background/70 border-border/50 rounded-xl focus-visible:ring-primary/20 text-sm font-medium"
+                    className="pl-10 bg-background/70 border-border/50 text-sm font-medium"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -510,7 +510,7 @@ const Assets = () => {
                   {/* Filter by Cliente */}
                   <div className="w-full sm:w-48">
                     <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
+                      <SelectTrigger className="bg-background/70 border-border/50 text-xs font-semibold">
                         <Building2 className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
                         <SelectValue placeholder="Cliente (Empresa)" />
                       </SelectTrigger>
@@ -526,7 +526,7 @@ const Assets = () => {
                   {/* Filter by Device Type */}
                   <div className="w-full sm:w-44">
                     <Select value={typeFilter} onValueChange={setTypeFilter}>
-                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
+                      <SelectTrigger className="bg-background/70 border-border/50 text-xs font-semibold">
                         <SlidersHorizontal className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
                         <SelectValue placeholder="Tipo de Dispositivo" />
                       </SelectTrigger>
@@ -542,7 +542,7 @@ const Assets = () => {
                   {/* Filter by Status */}
                   <div className="w-full sm:w-40">
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="h-11 bg-background/70 border-border/50 rounded-xl text-xs font-semibold">
+                      <SelectTrigger className="bg-background/70 border-border/50 text-xs font-semibold">
                         <Activity className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
@@ -559,7 +559,7 @@ const Assets = () => {
                     <Button 
                       variant="ghost" 
                       onClick={clearFilters}
-                      className="h-11 px-3 text-xs text-muted-foreground hover:text-foreground font-semibold"
+                      className="px-3 text-xs text-muted-foreground hover:text-foreground font-semibold"
                     >
                       Limpar Filtros
                     </Button>
