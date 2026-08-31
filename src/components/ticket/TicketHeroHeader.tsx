@@ -220,11 +220,15 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
           {/* Ações operacionais rápidas */}
           {!isResolved && (
             <>
-              {/* Botão de Timer */}
+              {/* Botão de Timer: cronógrafo manual só pra clientes esporádicos
+                  (sem contrato) -- em contrato o tempo já é rastreado por
+                  outro fluxo, esse botão duplicaria a contagem. */}
+              {isSporadic && (
               <Button
                 variant={isTimerActiveHere ? 'destructive' : 'outline'}
                 size="sm"
                 onClick={handleTimerToggle}
+                disabled={!!isTimerActiveElsewhere || startTimer.isPending || stopTimer.isPending}
                 className="gap-2 font-semibold"
               >
                 {isTimerActiveHere ? (
@@ -239,6 +243,7 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
                   </>
                 )}
               </Button>
+              )}
 
               {/* Ação rápida para Atender (in-progress) se estiver em outro status */}
               {ticket.status !== 'in-progress' && (

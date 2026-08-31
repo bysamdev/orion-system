@@ -412,7 +412,7 @@ export default function WebMonitoring() {
           {/* Period Selector Toggle */}
           <div className="flex items-center gap-1.5 self-stretch sm:self-auto justify-end">
             <div className="inline-flex h-9 items-center bg-muted/60 p-1 rounded-lg border border-border/40">
-              {(['1h', '6h', '24h', '7d'] as TelemetryPeriod[]).map((p) => (
+              {(['1h', '6h', '24h', '7d'] as WebPeriod[]).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPeriod(p)}

@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Loader2, Save, Trash2, Clock, AlertTriangle, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TICKET_PRIORITY_MAP } from '@/lib/state-tokens';
+import { cn } from '@/lib/utils';
 
 export const SLAConfiguration: React.FC = () => {
   const { data: profile } = useUserProfile();
