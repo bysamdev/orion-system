@@ -148,7 +148,7 @@ const TicketRow: React.FC<{ ticket: Ticket }> = React.memo(({ ticket }) => {
         <TimeAgoBadge date={ticket.created_at} />
       </TableCell>
       <TableCell className="py-4">
-        <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} variant="compact" />
+        <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} />
       </TableCell>
       <TableCell className="py-4 text-right">
         <span className="text-2xs font-bold text-muted-foreground uppercase opacity-40 group-hover:opacity-100 transition-opacity">
