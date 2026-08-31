@@ -221,26 +221,24 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
           {!isResolved && (
             <>
               {/* Botão de Timer */}
-              {onToggleTimer && (
-                <Button
-                  variant={isTimerRunning ? 'destructive' : 'outline'}
-                  size="sm"
-                  onClick={onToggleTimer}
-                  className="gap-2 font-semibold"
-                >
-                  {isTimerRunning ? (
-                    <>
-                      <Square className="w-3.5 h-3.5 fill-current" />
-                      Parar Timer
-                    </>
-                  ) : (
-                    <>
-                      <Timer className="w-3.5 h-3.5" />
-                      Iniciar Timer
-                    </>
-                  )}
-                </Button>
-              )}
+              <Button
+                variant={isTimerActiveHere ? 'destructive' : 'outline'}
+                size="sm"
+                onClick={handleTimerToggle}
+                className="gap-2 font-semibold"
+              >
+                {isTimerActiveHere ? (
+                  <>
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                    Parar Timer
+                  </>
+                ) : (
+                  <>
+                    <Timer className="w-3.5 h-3.5" />
+                    Iniciar Timer
+                  </>
+                )}
+              </Button>
 
               {/* Ação rápida para Atender (in-progress) se estiver em outro status */}
               {ticket.status !== 'in-progress' && (
