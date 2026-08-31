@@ -44,6 +44,47 @@
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
 
+    /* ── TOKENS SEMÂNTICOS DE ESTADO (ORION SYSTEM - LIGHT MODE) ── */
+    --state-open-fg: 224 76% 40%;
+    --state-open-bg: 217 91% 60% / 0.12;
+    --state-open-border: 217 91% 60% / 0.25;
+    --state-open-dot: 217 91% 60%;
+
+    --state-progress-fg: 192 91% 32%;
+    --state-progress-bg: 189 94% 43% / 0.12;
+    --state-progress-border: 189 94% 43% / 0.25;
+    --state-progress-dot: 189 94% 43%;
+
+    --state-awaiting-cust-fg: 272 72% 40%;
+    --state-awaiting-cust-bg: 271 91% 65% / 0.12;
+    --state-awaiting-cust-border: 271 91% 65% / 0.25;
+    --state-awaiting-cust-dot: 271 91% 65%;
+
+    --state-awaiting-third-fg: 244 58% 44%;
+    --state-awaiting-third-bg: 239 84% 67% / 0.12;
+    --state-awaiting-third-border: 239 84% 67% / 0.25;
+    --state-awaiting-third-dot: 239 84% 67%;
+
+    --state-resolved-fg: 160 84% 30%;
+    --state-resolved-bg: 152 69% 45% / 0.12;
+    --state-resolved-border: 152 69% 45% / 0.25;
+    --state-resolved-dot: 152 69% 45%;
+
+    --state-closed-fg: 215 25% 35%;
+    --state-closed-bg: 215 20% 65% / 0.12;
+    --state-closed-border: 215 20% 65% / 0.25;
+    --state-closed-dot: 215 20% 65%;
+
+    --state-reopened-fg: 17 88% 36%;
+    --state-reopened-bg: 24 95% 53% / 0.12;
+    --state-reopened-border: 24 95% 53% / 0.25;
+    --state-reopened-dot: 24 95% 53%;
+
+    --state-cancelled-fg: 215 19% 40%;
+    --state-cancelled-bg: 215 20% 65% / 0.10;
+    --state-cancelled-border: 215 20% 65% / 0.20;
+    --state-cancelled-dot: 215 19% 50%;
+
     --border: 220 13% 86%;
     --input: 220 13% 86%;
     --ring: 260 43% 33%;
@@ -99,6 +140,47 @@
 
     --info: 199 89% 58%;
     --info-foreground: 0 0% 100%;
+
+    /* ── TOKENS SEMÂNTICOS DE ESTADO (ORION SYSTEM - DARK MODE) ── */
+    --state-open-fg: 217 91% 70%;
+    --state-open-bg: 217 91% 60% / 0.15;
+    --state-open-border: 217 91% 60% / 0.30;
+    --state-open-dot: 217 91% 60%;
+
+    --state-progress-fg: 187 92% 65%;
+    --state-progress-bg: 189 94% 43% / 0.15;
+    --state-progress-border: 189 94% 43% / 0.30;
+    --state-progress-dot: 189 94% 43%;
+
+    --state-awaiting-cust-fg: 271 91% 75%;
+    --state-awaiting-cust-bg: 271 91% 65% / 0.15;
+    --state-awaiting-cust-border: 271 91% 65% / 0.30;
+    --state-awaiting-cust-dot: 271 91% 65%;
+
+    --state-awaiting-third-fg: 239 84% 75%;
+    --state-awaiting-third-bg: 239 84% 67% / 0.15;
+    --state-awaiting-third-border: 239 84% 67% / 0.30;
+    --state-awaiting-third-dot: 239 84% 67%;
+
+    --state-resolved-fg: 158 64% 60%;
+    --state-resolved-bg: 152 69% 45% / 0.15;
+    --state-resolved-border: 152 69% 45% / 0.30;
+    --state-resolved-dot: 152 69% 45%;
+
+    --state-closed-fg: 215 20% 65%;
+    --state-closed-bg: 215 20% 65% / 0.15;
+    --state-closed-border: 215 20% 65% / 0.30;
+    --state-closed-dot: 215 20% 65%;
+
+    --state-reopened-fg: 24 95% 65%;
+    --state-reopened-bg: 24 95% 53% / 0.15;
+    --state-reopened-border: 24 95% 53% / 0.30;
+    --state-reopened-dot: 24 95% 53%;
+
+    --state-cancelled-fg: 215 20% 60%;
+    --state-cancelled-bg: 215 20% 65% / 0.12;
+    --state-cancelled-border: 215 20% 65% / 0.25;
+    --state-cancelled-dot: 215 20% 60%;
 
     /* Bordas e Dividers discretos e elegantes */
     --border: 220 16% 22%;
