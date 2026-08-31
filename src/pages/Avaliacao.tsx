@@ -130,7 +130,7 @@ export default function Avaliacao() {
                     <Star 
                       className={cn(
                         "w-12 h-12 transition-colors",
-                        (hoveredRating || rating) >= s ? "fill-primary text-primary drop-shadow-[0_0_8px_rgba(var(--primary),0.5)]" : "text-muted-foreground/30"
+                        (hoveredRating || rating) >= s ? "fill-primary text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]" : "text-muted-foreground/30"
                       )} 
                     />
                   </button>

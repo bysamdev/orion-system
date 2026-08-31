@@ -17,6 +17,10 @@ export default {
   			sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
   			mono: ['"JetBrains Mono"', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
   		},
+  		fontSize: {
+  			micro: ['0.5625rem', { lineHeight: '0.75rem' }], // 9px
+  			'2xs': ['0.625rem', { lineHeight: '0.875rem' }], // 10px
+  		},
   		colors: {
   			// Escala oficial da marca Orion System (#301860, #483078, #604878, #906090)
   			brand: {
@@ -57,6 +61,10 @@ export default {
   				DEFAULT: 'hsl(var(--warning))',
   				foreground: 'hsl(var(--warning-foreground))'
   			},
+  			info: {
+  				DEFAULT: 'hsl(var(--info))',
+  				foreground: 'hsl(var(--info-foreground))'
+  			},
   			muted: {
   				DEFAULT: 'hsl(var(--muted))',
   				foreground: 'hsl(var(--muted-foreground))'
@@ -85,9 +93,11 @@ export default {
   			}
   		},
   		borderRadius: {
-  			lg: 'var(--radius)',
-  			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			'2xl': 'calc(var(--radius) + 4px)', // 16px
+  			xl: 'var(--radius)',                // 12px
+  			lg: 'calc(var(--radius) - 2px)',    // 10px
+  			md: 'calc(var(--radius) - 4px)',    // 8px
+  			sm: 'calc(var(--radius) - 6px)'     // 6px
   		},
   		keyframes: {
   			'accordion-down': {

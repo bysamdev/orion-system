@@ -130,7 +130,7 @@ export const TopBar: React.FC = () => {
                       {ticket.title}
                     </p>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 translate-x-[-4px] group-hover:translate-x-0 transition-all" />
+                  <ArrowRight className="w-4 h-4 text-primary opacity-40 group-hover:opacity-100 translate-x-[-4px] group-hover:translate-x-0 transition-all" />
                 </button>
               ))}
             </div>

@@ -62,11 +62,11 @@ export function ForceUpdateButton() {
         <Button
           variant="outline"
           size="sm"
-          className="gap-2 rounded-xl border-amber-500/30 text-amber-600 hover:bg-amber-500/10 transition-all font-semibold"
+          className="gap-2 border-warning/30 text-warning hover:bg-warning/10 transition-all font-semibold"
         >
           <DownloadCloud className="w-4 h-4" />
           Atualizar todas
-          <Badge variant="outline" className="ml-0.5 text-amber-600 border-amber-500/30 bg-amber-500/10">
+          <Badge variant="warning" className="ml-0.5">
             {desatualizadas}
           </Badge>
         </Button>

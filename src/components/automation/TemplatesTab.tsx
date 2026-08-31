@@ -125,11 +125,11 @@ export const TemplatesTab: React.FC<Props> = ({ companyId }) => {
                   {r.shortcut && <Badge variant="secondary" className="text-[9px] font-black shrink-0">{r.shortcut}</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{r.content}</p>
-                <div className="flex items-center justify-end gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" aria-label="Editar modelo" className="h-7 w-7 hover:text-primary" onClick={() => openEdit(r)}>
+                <div className="flex items-center justify-end gap-1 mt-3 opacity-40 hover:opacity-100 group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon-xs" aria-label="Editar modelo" className="hover:text-primary" onClick={() => openEdit(r)}>
                     <Edit2 className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" aria-label="Excluir modelo" className="h-7 w-7 hover:text-destructive" onClick={() => handleDelete(r.id)}>
+                  <Button variant="ghost" size="icon-xs" aria-label="Excluir modelo" className="hover:text-destructive" onClick={() => handleDelete(r.id)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
