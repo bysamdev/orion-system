@@ -422,9 +422,15 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 		period = "1h"
 	}
 
-	metrics, err := lib.QueryMachineMetricsHistory(ctx, cfg.GrafanaURL, cfg.GrafanaAPIToken, cfg.GrafanaPromDSUID, cfg.GrafanaBypassSecret, id, period)
+	// Vem do Postgres, não mais do Prometheus: o scrape só alcança máquina na
+	// mesma rede do servidor de monitoramento, então todo equipamento atrás de
+	// NAT ou em outro site ficava sem gráfico. O heartbeat chega de qualquer
+	// rede e agora alimenta machine_metrics_history (ver AppendMetricPoint).
+	// O Prometheus segue valendo pros alertas do que ele consegue scrapear.
+	janela, passo := lib.JanelaHistorico(period)
+	metrics, err := db.MetricsHistory(ctx, id, janela, passo)
 	if err != nil {
-		log.Printf("[ERRO] histórico de métricas via Grafana para %s: %v", id, err)
+		log.Printf("[ERRO] histórico de métricas para %s: %v", id, err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar métricas"})
 		return
 	}
@@ -621,14 +627,22 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		_ = db.SyncCompanyDomainIfEmpty(ctx, targetCompanyID, domain)
 	}
 
-	if err := db.UpdateMachineSnapshot(ctx, lib.InsertMetricInput{
+	amostra := lib.InsertMetricInput{
 		MachineID: machineID, CPUUsage: req.CPUUsage,
 		RAMTotal: req.RAMTotal, RAMUsed: req.RAMUsed,
 		DiskTotal: req.DiskTotal, DiskUsed: req.DiskUsed, Uptime: req.Uptime,
-	}); err != nil {
+	}
+	if err := db.UpdateMachineSnapshot(ctx, amostra); err != nil {
 		fmt.Println("Erro UpdateMachineSnapshot:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar métricas: %v", err)})
 		return
+	}
+
+	// Série histórica do gráfico de performance. Best-effort de propósito: o
+	// ponto de um heartbeat perdido não vale derrubar o heartbeat inteiro,
+	// que é também o que mantém a máquina online e carrega o inventário.
+	if err := db.AppendMetricPoint(ctx, amostra); err != nil {
+		log.Printf("[AVISO] gravar ponto histórico da máquina %s: %v", machineID, err)
 	}
 
 	disksJSON := req.Disks

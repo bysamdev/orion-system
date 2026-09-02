@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"time"
 
@@ -63,13 +64,18 @@ type MachineWithMetric struct {
 }
 
 type MetricRow struct {
-	ID          string    `json:"id"`
-	MachineID   string    `json:"machine_id"`
-	CPUUsage    *float64  `json:"cpu_usage"`
-	RAMTotal    *int64    `json:"ram_total"`
-	RAMUsed     *int64    `json:"ram_used"`
-	DiskTotal   *int64    `json:"disk_total"`
-	DiskUsed    *int64    `json:"disk_used"`
+	ID        string   `json:"id"`
+	MachineID string   `json:"machine_id"`
+	CPUUsage  *float64 `json:"cpu_usage"`
+	RAMTotal  *int64   `json:"ram_total"`
+	RAMUsed   *int64   `json:"ram_used"`
+	DiskTotal *int64   `json:"disk_total"`
+	DiskUsed  *int64   `json:"disk_used"`
+	// RAMPct/DiskPct são o que a série histórica do Postgres guarda — os
+	// bytes brutos acima só existem no caminho antigo (Prometheus) e vêm
+	// nulos aqui. O gráfico usa a porcentagem direto quando ela chega.
+	RAMPct      *int16    `json:"ram_pct"`
+	DiskPct     *int16    `json:"disk_pct"`
 	Uptime      *int64    `json:"uptime"`
 	CollectedAt time.Time `json:"collected_at"`
 }
@@ -620,9 +626,8 @@ type InsertMetricInput struct {
 
 // UpdateMachineSnapshot grava o valor mais recente de CPU/RAM/disco direto na
 // linha de machines (UPDATE, não INSERT) — substitui InsertMetric no caminho
-// do heartbeat. O histórico de série temporal passou a viver no Prometheus/
-// Grafana (ver lib/grafana_metrics.go); aqui fica só o "agora" que os cards
-// de listagem precisam, sem crescer uma linha por heartbeat.
+// do heartbeat. Aqui fica só o "agora" que os cards de listagem precisam; a
+// série histórica vai pra machine_metrics_history (ver AppendMetricPoint).
 func (d *DB) UpdateMachineSnapshot(ctx context.Context, in InsertMetricInput) error {
 	_, err := d.pool.Exec(ctx, `
 UPDATE public.machines
@@ -630,6 +635,146 @@ SET cpu_usage = $2, ram_total = $3, ram_used = $4, disk_total = $5, disk_used = 
 WHERE id = $1`,
 		in.MachineID, in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime)
 	return err
+}
+
+// IntervaloAmostraHistorico é o espaçamento da série histórica. O heartbeat
+// chega a cada ~60s, mas gravar um ponto por heartbeat renderia 1440
+// linhas/dia/máquina — com as ~500 máquinas previstas, 2,1 milhões de linhas
+// dentro da retenção de 3 dias, perto demais do limite do plano free. A cada
+// 3 minutos são 480 linhas/dia/máquina (~720 mil no total), e a resolução
+// ainda dá 20 pontos na janela de 1h do gráfico.
+const IntervaloAmostraHistorico = 3 * time.Minute
+
+// AppendMetricPoint grava um ponto da série histórica de performance.
+//
+// O timestamp é arredondado pro início do slot de IntervaloAmostraHistorico
+// (date_bin) e faz parte da PK, então os heartbeats seguintes do mesmo slot
+// caem no ON CONFLICT DO NOTHING — um INSERT por heartbeat, no máximo uma
+// linha por slot, sem precisar de SELECT antes pra saber se já gravou.
+//
+// Guarda percentuais em smallint em vez dos bytes brutos: é o que o gráfico
+// desenha, e economiza 26 bytes por linha em relação aos bigints de
+// ram_used/ram_total/disk_used/disk_total.
+func (d *DB) AppendMetricPoint(ctx context.Context, in InsertMetricInput) error {
+	_, err := d.pool.Exec(ctx, `
+INSERT INTO public.machine_metrics_history (machine_id, collected_at, cpu_pct, ram_pct, disk_pct)
+VALUES (
+  $1,
+  date_bin(make_interval(secs => $5), now(), TIMESTAMPTZ 'epoch'),
+  ROUND($2)::smallint,
+  $3::smallint,
+  $4::smallint
+)
+ON CONFLICT (machine_id, collected_at) DO NOTHING`,
+		in.MachineID,
+		clampPercentual(in.CPUUsage),
+		percentualDe(in.RAMUsed, in.RAMTotal),
+		percentualDe(in.DiskUsed, in.DiskTotal),
+		IntervaloAmostraHistorico.Seconds(),
+	)
+	return err
+}
+
+// clampPercentual mantém o valor dentro de 0–100: o agente já manda CPU em
+// porcentagem, mas um pico arredondado pra 101 estouraria a semântica da
+// coluna e apareceria como fora de escala no gráfico.
+func clampPercentual(v float64) float64 {
+	if math.IsNaN(v) || v < 0 {
+		return 0
+	}
+	if v > 100 {
+		return 100
+	}
+	return v
+}
+
+// percentualDe converte usado/total em porcentagem inteira. Devolve nil
+// quando não dá pra calcular (total zerado ou ausente) — a coluna aceita
+// NULL e o gráfico simplesmente não desenha o ponto daquela série.
+func percentualDe(usado, total int64) *int16 {
+	if total <= 0 || usado < 0 {
+		return nil
+	}
+	pct := int16(math.Round(float64(usado) / float64(total) * 100))
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 100 {
+		pct = 100
+	}
+	return &pct
+}
+
+// RetencaoHistorico é por quanto tempo os pontos ficam no banco. Bate com o
+// retencao_dias da migração 20260902180000 (que derruba a partição do dia
+// vencido) — mudar aqui sem mudar lá faz a UI pedir janela que não existe
+// mais. Escolhido pra caber no plano free do Supabase com ~500 máquinas.
+const RetencaoHistorico = 3 * 24 * time.Hour
+
+// JanelaHistorico traduz o período pedido pelo frontend (mesmos valores de
+// MetricPeriod em src/hooks/useMonitoring.ts) na janela consultada e no passo
+// de reamostragem. O passo cresce junto com a janela pra manter o gráfico
+// entre ~20 e ~100 pontos: mais que isso vira ruído numa área de 240px.
+//
+// Nenhuma janela passa de RetencaoHistorico — pedir 7 dias devolveria no
+// máximo os 3 que existem, então o corte é explícito aqui.
+func JanelaHistorico(period string) (janela, passo time.Duration) {
+	switch period {
+	case "6h":
+		return 6 * time.Hour, 6 * time.Minute
+	case "24h":
+		return 24 * time.Hour, 15 * time.Minute
+	case "7d", "3d":
+		return RetencaoHistorico, time.Hour
+	default: // "1h" e qualquer valor desconhecido
+		// Passo igual ao da coleta: na janela de 1h não há o que agregar.
+		return time.Hour, IntervaloAmostraHistorico
+	}
+}
+
+// MetricsHistory devolve a série histórica de uma máquina já reamostrada no
+// passo do período pedido (ver periodWindow em lib/grafana_metrics.go, que
+// define os mesmos passos). Agregar no banco em vez de mandar tudo cru
+// importa: 24h de pontos de 3 minutos são 480 linhas por máquina, e o
+// gráfico não desenha mais que ~300 pontos de forma legível.
+func (d *DB) MetricsHistory(ctx context.Context, machineID string, janela, passo time.Duration) ([]MetricRow, error) {
+	rows, err := d.pool.Query(ctx, `
+SELECT
+  date_bin(make_interval(secs => $3), collected_at, TIMESTAMPTZ 'epoch') AS bucket,
+  ROUND(AVG(cpu_pct))::smallint,
+  ROUND(AVG(ram_pct))::smallint,
+  ROUND(AVG(disk_pct))::smallint
+FROM public.machine_metrics_history
+WHERE machine_id = $1
+  AND collected_at > now() - make_interval(secs => $2)
+GROUP BY bucket
+-- Mais recente primeiro: mesmo contrato que o frontend já consumia do
+-- caminho antigo (ver o sort em queryMachineMetricsHistoryUncached), que
+-- inverte a lista antes de desenhar.
+ORDER BY bucket DESC`,
+		machineID, janela.Seconds(), passo.Seconds())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []MetricRow
+	for rows.Next() {
+		var r MetricRow
+		var cpu, ram, disk *int16
+		if err := rows.Scan(&r.CollectedAt, &cpu, &ram, &disk); err != nil {
+			return nil, err
+		}
+		r.MachineID = machineID
+		if cpu != nil {
+			v := float64(*cpu)
+			r.CPUUsage = &v
+		}
+		r.RAMPct = ram
+		r.DiskPct = disk
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 type UpsertHardwareInput struct {

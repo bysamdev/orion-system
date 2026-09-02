@@ -144,6 +144,13 @@ export interface MetricRow {
   ram_used: number | null;
   disk_total: number | null;
   disk_used: number | null;
+  /**
+   * Percentuais já calculados pela série histórica (machine_metrics_history
+   * guarda porcentagem, não bytes). Quando chegam preenchidos, o gráfico usa
+   * eles direto; os campos em bytes acima só vêm do snapshot ao vivo.
+   */
+  ram_pct: number | null;
+  disk_pct: number | null;
   uptime: number | null;
   collected_at: string;
 }

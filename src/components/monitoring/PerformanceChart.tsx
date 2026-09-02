@@ -86,8 +86,8 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
     .map((m) => ({
       time: format(new Date(m.collected_at), period === '7d' ? 'dd/MM HH:mm' : 'HH:mm'),
       CPU: m.cpu_usage != null ? Math.round(m.cpu_usage) : null,
-      RAM: pct(m.ram_used, m.ram_total),
-      Disco: pct(m.disk_used, m.disk_total),
+      RAM: m.ram_pct ?? pct(m.ram_used, m.ram_total),
+      Disco: m.disk_pct ?? pct(m.disk_used, m.disk_total),
     }));
 
   // Quick statistics calculation
