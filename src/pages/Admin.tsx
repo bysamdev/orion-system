@@ -1,18 +1,18 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { CompanyManagement } from '@/components/admin/CompanyManagement';
 import { ContractManagement } from '@/components/admin/ContractManagement';
-import { CannedResponsesManagement } from '@/components/admin/CannedResponsesManagement';
 import { ResolutionChecklistManagement } from '@/components/admin/ResolutionChecklistManagement';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
-import { Settings2, Users, Building, FileText, MessageSquare, ListChecks, Shield } from 'lucide-react';
+import { Settings2, Users, Building, FileText, ListChecks, Shield } from 'lucide-react';
 import { SLAConfiguration } from '@/components/admin/SLAConfiguration';
 import { ReportScheduleManager } from '@/components/reports/ReportScheduleManager';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
+
 export default function Admin() {
   const { data: role, isLoading } = useUserRole();
 
@@ -23,7 +23,7 @@ export default function Admin() {
         <Skeleton className="h-5 w-96 mb-6" />
         
         <div className="bg-muted/50 p-1 rounded-xl flex space-x-2 w-max mb-6">
-          {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-9 w-32 rounded-lg" />)}
+          {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-9 w-32 rounded-lg" />)}
         </div>
         
         <Card className="border-border/50 shadow-sm mt-6">
@@ -56,13 +56,10 @@ export default function Admin() {
     );
   }
 
-  // Clientes não têm acesso à administração
-  if (role !== 'admin' && role !== 'technician' && role !== 'developer') {
+  // Apenas Administradores e Desenvolvedores acessam a administração global
+  if (role !== 'admin' && role !== 'developer') {
     return <Navigate to="/" replace />;
   }
-
-  // Técnicos só acessam Respostas Prontas
-  const isTechnician = role === 'technician';
 
   return (
     <div className="w-full space-y-6">
@@ -70,64 +67,41 @@ export default function Admin() {
         icon={Shield}
         badge="GESTÃO DO SISTEMA"
         title="Painel Admin"
-        description={
-          isTechnician
-            ? 'Gerencie respostas prontas para agilizar o atendimento aos chamados'
-            : 'Gerencie usuários, empresas, contratos e configurações globais do Orion.'
-        }
+        description="Gerencie usuários, empresas, contratos, SLAs e configurações globais do Orion."
       />
       
-      <Tabs defaultValue={isTechnician ? 'responses' : 'users'} className="w-full">
-          <div className="overflow-x-auto pb-1">
-            <TabsList className="w-auto inline-flex flex-wrap sm:flex-nowrap">
-              {/* Abas exclusivas para admin/developer */}
-              {!isTechnician && (
-                <>
-                  <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Usuários</TabsTrigger>
-                  <TabsTrigger value="companies" className="gap-2"><Building className="w-4 h-4" /> Empresas</TabsTrigger>
-                  <TabsTrigger value="contracts" className="gap-2"><FileText className="w-4 h-4" /> Contratos</TabsTrigger>
-                  <TabsTrigger value="config" className="gap-2"><Settings2 className="w-4 h-4" /> Configurações</TabsTrigger>
-                </>
-              )}
-              {/* Aba disponível para todos (admin, technician, developer) */}
-              <TabsTrigger value="responses" className="gap-2"><MessageSquare className="w-4 h-4" /> Respostas Prontas</TabsTrigger>
-              {!isTechnician && (
-                <TabsTrigger value="checklists" className="gap-2"><ListChecks className="w-4 h-4" /> Checklists</TabsTrigger>
-              )}
-            </TabsList>
-          </div>
-          
-          {!isTechnician && (
-            <>
-              <TabsContent value="users" className="mt-6">
-                <UserManagement />
-              </TabsContent>
-              
-              <TabsContent value="companies" className="mt-6">
-                <CompanyManagement />
-              </TabsContent>
+      <Tabs defaultValue="users" className="w-full">
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="w-auto inline-flex flex-wrap sm:flex-nowrap">
+            <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Usuários</TabsTrigger>
+            <TabsTrigger value="companies" className="gap-2"><Building className="w-4 h-4" /> Empresas</TabsTrigger>
+            <TabsTrigger value="contracts" className="gap-2"><FileText className="w-4 h-4" /> Contratos</TabsTrigger>
+            <TabsTrigger value="config" className="gap-2"><Settings2 className="w-4 h-4" /> Configurações</TabsTrigger>
+            <TabsTrigger value="checklists" className="gap-2"><ListChecks className="w-4 h-4" /> Checklists</TabsTrigger>
+          </TabsList>
+        </div>
+        
+        <TabsContent value="users" className="mt-6">
+          <UserManagement />
+        </TabsContent>
+        
+        <TabsContent value="companies" className="mt-6">
+          <CompanyManagement />
+        </TabsContent>
 
-              <TabsContent value="contracts" className="mt-6">
-                <ContractManagement />
-              </TabsContent>
-              
-              <TabsContent value="config" className="mt-6 space-y-6">
-                <SLAConfiguration />
-                <ReportScheduleManager />
-              </TabsContent>
-            </>
-          )}
-          
-          <TabsContent value="responses" className="mt-6">
-            <CannedResponsesManagement />
-          </TabsContent>
+        <TabsContent value="contracts" className="mt-6">
+          <ContractManagement />
+        </TabsContent>
+        
+        <TabsContent value="config" className="mt-6 space-y-6">
+          <SLAConfiguration />
+          <ReportScheduleManager />
+        </TabsContent>
 
-          {!isTechnician && (
-            <TabsContent value="checklists" className="mt-6">
-              <ResolutionChecklistManagement />
-            </TabsContent>
-          )}
-        </Tabs>
+        <TabsContent value="checklists" className="mt-6">
+          <ResolutionChecklistManagement />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

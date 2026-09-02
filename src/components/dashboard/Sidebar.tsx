@@ -78,7 +78,7 @@ const navGroups: NavGroup[] = [
   {
     name: 'Gestão',
     items: [
-      { icon: GitBranch, label: 'Automações',       path: '/automacoes', roles: ['admin', 'developer'] },
+      { icon: GitBranch, label: 'Automações',       path: '/automacoes', roles: ['admin', 'developer', 'technician'] },
       { icon: BarChart2, label: 'Insights & Relatórios', path: '/relatorios', roles: ['admin', 'developer'] },
       { icon: Shield,    label: 'Painel Admin',     path: '/admin',      roles: ['admin', 'developer'] },
     ],
