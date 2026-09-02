@@ -395,15 +395,31 @@ func (d *DB) CompanyByDomain(ctx context.Context, domain string) (string, error)
 }
 
 // SyncCompanyDomainIfEmpty updates a company's domain from the agent's reported domain if currently empty.
+//
+// "WORKGROUP" é o que o Windows reporta quando a máquina NÃO está num domínio,
+// então não é domínio nenhum e nunca deve ser gravado aqui. Antes desta
+// correção ele passava: o UPDATE gravava domain='WORKGROUP', e como o próprio
+// WHERE trata 'WORKGROUP' como "vazio", o heartbeat seguinte reescrevia o
+// mesmo valor de novo, pra sempre. Cada uma dessas escritas no-op ainda
+// disparava o trigger de auditoria — 1592 linhas de audit_log em 24h com só
+// 2 máquinas ativas, ~800/dia por máquina, todas registrando apenas a
+// mudança de updated_at. Com as ~500 máquinas previstas seriam ~440 MB/dia
+// de auditoria inútil, sozinhos suficientes pra estourar o limite do plano
+// free em um dia.
+//
+// O IS DISTINCT FROM fecha o caso geral: qualquer heartbeat que traga o
+// domínio que já está gravado não vira escrita.
 func (d *DB) SyncCompanyDomainIfEmpty(ctx context.Context, companyID, domain string) error {
 	clean := strings.TrimSpace(domain)
-	if clean == "" || clean == "." || companyID == "" {
+	if clean == "" || clean == "." || strings.EqualFold(clean, "WORKGROUP") || companyID == "" {
 		return nil
 	}
 	_, err := d.pool.Exec(ctx, `
-		UPDATE public.companies 
-		SET domain = $1, updated_at = now() 
-		WHERE id = $2 AND (domain IS NULL OR domain = '' OR domain = 'WORKGROUP')`, clean, companyID)
+		UPDATE public.companies
+		SET domain = $1, updated_at = now()
+		WHERE id = $2
+		  AND (domain IS NULL OR domain = '' OR domain = 'WORKGROUP')
+		  AND domain IS DISTINCT FROM $1`, clean, companyID)
 	return err
 }
 
