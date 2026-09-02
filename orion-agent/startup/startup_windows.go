@@ -19,11 +19,31 @@ const (
 	valorRun = "OrionAgent"
 )
 
-// Enable grava HKLM e HKCU \...\Run\OrionAgent apontando pro executável informado.
-// HKLM cobre todos os usuários que logarem na máquina; HKCU cobre o usuário atual.
+// Enable grava \...\Run\OrionAgent apontando pro executável informado —
+// HKLM se conseguir (cobre qualquer usuário que logar nesta máquina), com
+// HKCU do usuário atual como fallback só se HKLM falhar (ex.: instalador
+// rodou sem elevação).
+//
+// Antes desta correção, os dois hives eram gravados incondicionalmente.
+// Quando a instalação roda elevada (o caso comum) sob a conta do próprio
+// usuário que depois usa a máquina no dia a dia — cenário típico de
+// instalação feita por um técnico logado como o usuário final —, HKLM já
+// cobre esse mesmo usuário, e HKCU vira uma segunda entrada de Run
+// disparando o MESMO executável duas vezes no login: dois processos, dois
+// ícones de bandeja (o bug relatado em "algumas máquinas" — justamente as
+// que tiveram instalação elevada sob a conta do usuário final).
 func Enable(caminhoExe string) error {
-	_ = enableComChave(registry.LOCAL_MACHINE, chaveRun, valorRun, caminhoExe)
-	return enableComChave(registry.CURRENT_USER, chaveRun, valorRun, caminhoExe)
+	return enableComValor(valorRun, caminhoExe)
+}
+
+// enableComValor é Enable() com o nome do valor parametrizável — separado só
+// para os testes gravarem sob um valor aleatório em vez do "OrionAgent" real
+// (mesmo padrão de nomeValorDeTeste/enableComChave já usado neste pacote).
+func enableComValor(valor, caminhoExe string) error {
+	if err := enableComChave(registry.LOCAL_MACHINE, chaveRun, valor, caminhoExe); err == nil {
+		return nil
+	}
+	return enableComChave(registry.CURRENT_USER, chaveRun, valor, caminhoExe)
 }
 
 // Disable remove a entrada de auto-início de HKLM e HKCU.

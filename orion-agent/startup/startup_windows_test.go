@@ -70,3 +70,44 @@ func TestDisableComChave_IdempotenteQuandoValorNaoExiste(t *testing.T) {
 		t.Errorf("disableComChave em valor inexistente deveria ser no-op, deu erro: %v", err)
 	}
 }
+
+// TestEnable_NuncaGravaEmHKLMEHKCUAoMesmoTempo cobre o bug relatado em
+// produção: agente duplicado (dois ícones de bandeja) em algumas máquinas.
+// Causa raiz — Enable() gravava HKLM e HKCU incondicionalmente; quando os
+// dois apontam pro mesmo executável, o Windows lança o processo duas vezes
+// no login de quem está coberto por ambos. O teste não assume se o ambiente
+// de CI roda elevado (só HKLM exige elevação) — verifica a invariante que
+// importa: nunca os dois hives com o valor ao mesmo tempo, não qual dos
+// dois venceu.
+func TestEnable_NuncaGravaEmHKLMEHKCUAoMesmoTempo(t *testing.T) {
+	valor := nomeValorDeTeste(t)
+	t.Cleanup(func() {
+		_ = disableComChave(registry.LOCAL_MACHINE, chaveRun, valor)
+		_ = disableComChave(registry.CURRENT_USER, chaveRun, valor)
+	})
+
+	if err := enableComValor(valor, `C:\Orion\orion-agent.exe`); err != nil {
+		t.Fatalf("enableComValor: %v", err)
+	}
+
+	temEmHKLM := valorExiste(t, registry.LOCAL_MACHINE, valor)
+	temEmHKCU := valorExiste(t, registry.CURRENT_USER, valor)
+
+	if !temEmHKLM && !temEmHKCU {
+		t.Fatal("Enable não gravou o valor em nenhum dos dois hives")
+	}
+	if temEmHKLM && temEmHKCU {
+		t.Error("Enable gravou em HKLM e HKCU ao mesmo tempo — isso duplica o lançamento no login (dois ícones de bandeja)")
+	}
+}
+
+func valorExiste(t *testing.T, hive registry.Key, valor string) bool {
+	t.Helper()
+	k, err := registry.OpenKey(hive, chaveRun, registry.QUERY_VALUE)
+	if err != nil {
+		return false
+	}
+	defer k.Close()
+	_, _, err = k.GetStringValue(valor)
+	return err == nil
+}
