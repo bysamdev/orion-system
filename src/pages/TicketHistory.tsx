@@ -202,7 +202,7 @@ export default function TicketHistory() {
                     <TableHeader className="bg-muted/5">
                       <TableRow className="hover:bg-transparent border-b border-border/40">
                         <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-11 pl-6">Nº</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-11">Ticket</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-11">Chamado</TableHead>
                         <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-11">Prioridade</TableHead>
                         <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-11">Situação Final</TableHead>
                         <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-11">Modificado em</TableHead>

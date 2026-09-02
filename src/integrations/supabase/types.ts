@@ -258,6 +258,57 @@ export type Database = {
           },
         ]
       }
+      contract_billing_cycles: {
+        Row: {
+          closed_at: string
+          company_id: string
+          consumed_hours: number
+          contract_id: string
+          contracted_hours: number | null
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+        }
+        Insert: {
+          closed_at?: string
+          company_id: string
+          consumed_hours?: number
+          contract_id: string
+          contracted_hours?: number | null
+          created_at?: string
+          id?: string
+          period_end: string
+          period_start: string
+        }
+        Update: {
+          closed_at?: string
+          company_id?: string
+          consumed_hours?: number
+          contract_id?: string
+          contracted_hours?: number | null
+          created_at?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_billing_cycles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_billing_cycles_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           company_id: string
@@ -880,6 +931,50 @@ export type Database = {
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_schedules: {
+        Row: {
+          created_at: string
+          created_by: string
+          frequency: string
+          id: string
+          is_active: boolean
+          last_sent_at: string | null
+          next_run_at: string
+          recipients: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          frequency: string
+          id?: string
+          is_active?: boolean
+          last_sent_at?: string | null
+          next_run_at?: string
+          recipients: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_sent_at?: string | null
+          next_run_at?: string
+          recipients?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

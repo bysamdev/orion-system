@@ -40,7 +40,7 @@ interface StatCardProps {
   title: string;
   value: number;
   icon: React.ElementType;
-  variant?: 'default' | 'warning' | 'success' | 'danger';
+  variant?: 'default' | 'info' | 'warning' | 'success' | 'danger';
   description?: string;
   department?: string;
   active?: boolean;
@@ -50,6 +50,7 @@ interface StatCardProps {
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant = 'default', description, active, onClick }) => {
   const styles = {
     default: 'text-primary bg-primary/10 border-primary/20',
+    info: 'text-cyan-600 bg-cyan-500/10 border-cyan-500/20 dark:text-cyan-400',
     warning: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
     success: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
     danger: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
@@ -57,6 +58,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, variant =
 
   const glows = {
     default: 'ring-2 ring-primary/80 bg-primary/5 border-primary/40 shadow-sm',
+    info: 'ring-2 ring-cyan-500/80 bg-cyan-500/5 border-cyan-500/40 shadow-sm',
     warning: 'ring-2 ring-amber-500/80 bg-amber-500/5 border-amber-500/40 shadow-sm',
     success: 'ring-2 ring-emerald-500/80 bg-emerald-500/5 border-emerald-500/40 shadow-sm',
     danger: 'ring-2 ring-rose-500/80 bg-rose-500/5 border-rose-500/40 shadow-sm',
@@ -387,8 +389,9 @@ export const TechnicianDashboard: React.FC = () => {
               <StatCard
                 title="Em Atendimento"
                 value={stats?.inProgress || 0}
-                description="Tickets em atendimento ativo"
+                description="Chamados em atendimento ativo"
                 icon={PlayCircle}
+                variant="info"
                 active={kpiFilter === 'in-progress'}
                 onClick={() => {
                   setKpiFilter(f => f === 'in-progress' ? null : 'in-progress');
@@ -399,7 +402,7 @@ export const TechnicianDashboard: React.FC = () => {
             </div>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="font-medium">
-            <p>Tickets em atendimento ativo</p>
+            <p>Chamados em atendimento ativo</p>
           </TooltipContent>
         </Tooltip>
 
@@ -409,7 +412,7 @@ export const TechnicianDashboard: React.FC = () => {
               <StatCard
                 title="SLA Crítico"
                 value={stats?.slaAtRisk || 0}
-                description="Tickets com prazo vencido"
+                description="Chamados com prazo vencido"
                 icon={AlertTriangle}
                 variant={(stats?.slaAtRisk || 0) > 0 ? 'danger' : 'default'}
                 active={kpiFilter === 'sla'}
@@ -422,7 +425,7 @@ export const TechnicianDashboard: React.FC = () => {
             </div>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="font-medium">
-            <p>Tickets com prazo vencido</p>
+            <p>Chamados com prazo vencido</p>
           </TooltipContent>
         </Tooltip>
 
@@ -432,7 +435,7 @@ export const TechnicianDashboard: React.FC = () => {
               <StatCard
                 title="Minha Fila"
                 value={stats?.pending || 0}
-                description="Tickets pendentes na sua fila"
+                description="Chamados pendentes na sua fila"
                 icon={Clock}
                 variant="warning"
                 active={kpiFilter === 'pending'}
@@ -445,7 +448,7 @@ export const TechnicianDashboard: React.FC = () => {
             </div>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="font-medium">
-            <p>Tickets pendentes na sua fila</p>
+            <p>Chamados pendentes na sua fila</p>
           </TooltipContent>
         </Tooltip>
 
@@ -455,7 +458,7 @@ export const TechnicianDashboard: React.FC = () => {
               <StatCard
                 title="Resolvidos Hoje"
                 value={stats?.resolvedToday || 0}
-                description="Tickets concluídos hoje"
+                description="Chamados concluídos hoje"
                 icon={CheckCircle2}
                 variant="success"
                 active={closedOpen}
@@ -469,7 +472,7 @@ export const TechnicianDashboard: React.FC = () => {
             </div>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="font-medium">
-            <p>Tickets concluídos hoje</p>
+            <p>Chamados concluídos hoje</p>
           </TooltipContent>
         </Tooltip>
       </div>
@@ -624,7 +627,7 @@ export const TechnicianDashboard: React.FC = () => {
               </div>
 
               <div className="space-y-1.5 text-left lg:col-span-2">
-                <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Empresa / Cliente</label>
+                <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Cliente / Empresa</label>
                 <div className="relative">
                   <Input 
                     placeholder="Filtrar por nome da empresa..." 

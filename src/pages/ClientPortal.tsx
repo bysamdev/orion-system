@@ -21,6 +21,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface PortalTicket {
   id: string;
@@ -154,7 +155,15 @@ export default function ClientPortal() {
         </div>
 
         {/* SEÇÃO DE DESTAQUE COMPACTA: Chamados em Andamento (Abaixo dos atalhos) */}
-        {openTickets.length > 0 ? (
+        {ticketsLoading ? (
+          <div className="space-y-3 pt-2">
+            <Skeleton className="h-6 w-48" />
+            <div className="space-y-2.5">
+              <Skeleton className="h-20 w-full rounded-2xl" />
+              <Skeleton className="h-20 w-full rounded-2xl" />
+            </div>
+          </div>
+        ) : openTickets.length > 0 ? (
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
