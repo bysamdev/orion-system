@@ -42,7 +42,25 @@ func NewDB(databaseURL string) (*DB, error) {
 		return dialer.DialContext(ctx, "tcp4", addr)
 	}
 	
-	// Dimensionamento dinâmico de conexões com suporte a PgBouncer
+	// Dimensionamento dinâmico de conexões com suporte a PgBouncer.
+	//
+	// O default de 25 é alto demais pra função serverless: cada instância da
+	// Vercel abre o SEU próprio pool, e o Postgres do plano free tem
+	// max_connections = 60, dos quais ~13 já ficam com os serviços internos
+	// do Supabase (PostgREST, Realtime, exporter, Supavisor). Três instâncias
+	// simultâneas num pico de cold start já saturam o que sobra.
+	//
+	// Produção usa DB_MAX_CONNS=3 e DB_MIN_CONNS=0 (variáveis de ambiente na
+	// Vercel, sem deploy). MinConns > 0 também trabalha contra o serverless:
+	// segura conexão ociosa presa em instância adormecida.
+	//
+	// ATENÇÃO AO REAVALIAR: o valor 3 foi calculado a partir de 8,3
+	// requisições/segundo — a carga medida com apenas 3 máquinas em produção,
+	// extrapolada linearmente pras 500 previstas. Não é número definitivo.
+	// Quando o parque real crescer, refaça a conta com a taxa observada em
+	// vez de confiar nesta extrapolação: pool pequeno demais vira fila de
+	// espera por conexão, que aparece como latência no heartbeat, não como
+	// erro.
 	maxConns := int32(25)
 	if v := os.Getenv("DB_MAX_CONNS"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
