@@ -88,11 +88,21 @@ const Assets = () => {
   useRealtimeMachines(role === 'developer' ? undefined : profile?.company_id ?? undefined);
 
   // Load Device Inventory from unified hook
+  //
+  // refetchInterval explícito em 60s, alinhado ao heartbeat do agente.
+  //
+  // O default do hook é 30s, então esta tela nunca dependeu só do
+  // Realtime — mas com machines fora da publicação supabase_realtime (o
+  // heartbeat de 500 máquinas projetava 21,6M mensagens/mês contra um
+  // teto de 5M até no plano Pro), o polling deixou de ser rede de
+  // segurança e virou o único caminho de atualização. Pesquisar a cada
+  // 30s um dado que só muda a cada 60s dobrava as requisições à toa, e
+  // egress é justamente o outro teto apertado.
   const {
     data: devices = [],
     isLoading: devicesLoading,
     refetch: refetchInventory
-  } = useDeviceInventory();
+  } = useDeviceInventory({ refetchInterval: 60_000 });
 
   // Query tickets history for selected device
   const { data: deviceTickets, isLoading: deviceTicketsLoading } = useQuery({
