@@ -891,10 +891,10 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                   <Select value={companyFilter} onValueChange={setCompanyFilter}>
                     <SelectTrigger className="w-full sm:w-[180px] h-9 text-xs sm:text-sm rounded-xl bg-muted/30 border-border/40">
                       <Building2 className="w-3.5 h-3.5 mr-1.5 text-muted-foreground shrink-0" />
-                      <SelectValue placeholder="Cliente" />
+                      <SelectValue placeholder="Empresa" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos os clientes</SelectItem>
+                      <SelectItem value="all">Todas as empresas</SelectItem>
                       {companies.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}

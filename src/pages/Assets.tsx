@@ -675,10 +675,10 @@ const Assets = () => {
                 <TableHeader className="bg-muted/30">
                   <TableRow className="hover:bg-transparent border-border/40">
                     <TableHead className="w-[170px] text-center text-[10px] font-semibold uppercase tracking-wider">Status / Tipo</TableHead>
-                    <TableHead className="w-[180px] text-center text-[10px] font-semibold uppercase tracking-wider">Cliente</TableHead>
+                    <TableHead className="w-[180px] text-center text-[10px] font-semibold uppercase tracking-wider">Empresa</TableHead>
                     <TableHead className="text-[10px] font-semibold uppercase tracking-wider">Geral (Informações Técnicas)</TableHead>
                     <TableHead className="w-[120px] text-center text-[10px] font-semibold uppercase tracking-wider">Alertas</TableHead>
-                    <TableHead className="w-[130px] text-center text-[10px] font-semibold uppercase tracking-wider">Chamados (Tkts)</TableHead>
+                    <TableHead className="w-[130px] text-center text-[10px] font-semibold uppercase tracking-wider">Chamados</TableHead>
                     <TableHead className="w-[170px] text-center text-[10px] font-semibold uppercase tracking-wider">Última Atualização</TableHead>
                     <TableHead className="w-[160px] text-center text-[10px] font-semibold uppercase tracking-wider">Ações Rápidas</TableHead>
                   </TableRow>

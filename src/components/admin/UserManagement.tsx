@@ -11,8 +11,9 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Trash2, Pencil, AlertTriangle, Merge, RefreshCw } from 'lucide-react';
+import { Loader2, Plus, Trash2, Pencil, AlertTriangle, Merge, RefreshCw, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TableEmptyState } from '@/components/ui/table-empty-state';
 import { useToast } from '@/hooks/use-toast';
 import type { UserRole } from '@/hooks/useUserRole';
 import { userRoleSchema } from '@/lib/validation';
@@ -643,19 +644,31 @@ export const UserManagement = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users?.map((userItem) => (
-              <UserRow
-                key={userItem.id}
-                userItem={userItem}
-                onUpdateRole={handleUpdateUserRole}
-                onEdit={handleOpenEditDialog}
-                onDelete={handleDeleteUser}
-                onMerge={handleOpenMergeDialog}
-                isDeleting={deletingUserId === userItem.id}
-                isCurrentUser={userItem.id === user?.id}
-                isUpdating={isUpdating}
-              />
-            ))}
+            {users && users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="p-0">
+                  <TableEmptyState
+                    icon={Users}
+                    title="Nenhum usuário cadastrado"
+                    description="Adicione o primeiro usuário para começar a gerenciar acessos."
+                  />
+                </TableCell>
+              </TableRow>
+            ) : (
+              users?.map((userItem) => (
+                <UserRow
+                  key={userItem.id}
+                  userItem={userItem}
+                  onUpdateRole={handleUpdateUserRole}
+                  onEdit={handleOpenEditDialog}
+                  onDelete={handleDeleteUser}
+                  onMerge={handleOpenMergeDialog}
+                  isDeleting={deletingUserId === userItem.id}
+                  isCurrentUser={userItem.id === user?.id}
+                  isUpdating={isUpdating}
+                />
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>

@@ -200,11 +200,11 @@ export const SLAConfiguration: React.FC = () => {
                   <Input type="number" min="1" value={formData.urgent_hours} onChange={e => setFormData({ ...formData, urgent_hours: parseInt(e.target.value) || 0 })} />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-amber-500 font-bold">Alta</Label>
+                  <Label className="text-orange-500 font-bold">Alta</Label>
                   <Input type="number" min="1" value={formData.high_hours} onChange={e => setFormData({ ...formData, high_hours: parseInt(e.target.value) || 0 })} />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-blue-500 font-bold">Média</Label>
+                  <Label className="text-amber-500 font-bold">Média</Label>
                   <Input type="number" min="1" value={formData.medium_hours} onChange={e => setFormData({ ...formData, medium_hours: parseInt(e.target.value) || 0 })} />
                 </div>
                 <div className="space-y-2">
