@@ -412,9 +412,9 @@ func (d *DB) MachineByToken(ctx context.Context, token string) (*MachineRow, str
 	var m MachineRow
 	var companyID string
 	err := d.pool.QueryRow(ctx, `
-		SELECT id::text, group_id::text, hostname, ip_address, os, os_version, status, last_seen, agent_version, created_at, company_id::text, "current_user"
+		SELECT id::text, group_id::text, hostname, ip_address, os, os_version, status, last_seen, agent_version, created_at, company_id::text, "current_user", approval_status
 		FROM public.machines WHERE machine_token = $1 LIMIT 1`, token).Scan(
-		&m.ID, &m.GroupID, &m.Hostname, &m.IPAddress, &m.OS, &m.OSVersion, &m.Status, &m.LastSeen, &m.AgentVersion, &m.CreatedAt, &companyID, &m.CurrentUser,
+		&m.ID, &m.GroupID, &m.Hostname, &m.IPAddress, &m.OS, &m.OSVersion, &m.Status, &m.LastSeen, &m.AgentVersion, &m.CreatedAt, &companyID, &m.CurrentUser, &m.ApprovalStatus,
 	)
 	if err != nil {
 		return nil, "", err

@@ -1191,9 +1191,9 @@ const TicketDetails: React.FC = () => {
                </div>
             </Card>
 
-            {/* Context Bridge (Ativo Relacionado) */}
-            {ticket.asset_id && (
-              <TicketAssetContext assetId={ticket.asset_id} />
+            {/* Context Bridge (Ativo Relacionado / Dispositivo RMM) */}
+            {Boolean((ticket.metadata as Record<string, any>)?.machine_id || ticket.asset_id) && (
+              <TicketAssetContext assetId={((ticket.metadata as Record<string, any>)?.machine_id || ticket.asset_id) as string} />
             )}
 
             {/* Anexos */}

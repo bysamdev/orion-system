@@ -215,6 +215,7 @@ func buildRouter() http.Handler {
 		r.Get("/api/monitoring/machines/pending", monitoringPendingMachines)
 		r.Post("/api/monitoring/machines/{id}/approve", monitoringApproveMachine)
 		r.Post("/api/monitoring/machines/{id}/reject", monitoringRejectMachine)
+		r.Delete("/api/monitoring/machines/{id}", monitoringDeleteMachine)
 		r.Get("/api/monitoring/machines/{id}", monitoringMachineDetail)
 		r.Get("/api/monitoring/machines/{id}/metrics", monitoringMachineMetrics)
 		r.Get("/api/monitoring/machines/{id}/tickets", monitoringMachineTickets)

@@ -142,7 +142,7 @@ func prepararInstaladorDaEmpresa(ctx context.Context, companyID, apiKey, apiURL,
 	}
 
 	nomeArquivo = fmt.Sprintf("OrionInstaller-%s.exe", lib.SanitizarNomeArquivo(companyName))
-	downloadURL, err = sb.AssinarInstalador(ctx, caminho, nomeArquivo, 300)
+	downloadURL, err = sb.AssinarInstalador(ctx, caminho, nomeArquivo, 3600)
 	if err != nil {
 		return "", "", "", fmt.Errorf("assinar URL do instalador: %w", err)
 	}

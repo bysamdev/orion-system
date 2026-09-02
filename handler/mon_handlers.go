@@ -232,6 +232,35 @@ func monitoringRejectMachine(w http.ResponseWriter, r *http.Request) {
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
+// monitoringDeleteMachine exclui definitivamente uma máquina do parque (CASCADE cuida de
+// hardware, alertas, comandos etc.). Restrito a administradores, técnicos e desenvolvedores.
+func monitoringDeleteMachine(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+	defer cancel()
+
+	user, err := requireAuth(r.WithContext(ctx))
+	if err != nil {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
+		return
+	}
+	escopo, err := escopoDoUsuario(ctx, user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: apenas administradores e técnicos podem excluir máquinas"})
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "ID é obrigatório"})
+		return
+	}
+	if err := db.DeleteMachine(ctx, id, escopo.FiltroEmpresa()); err != nil {
+		lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
 // monitoringAllMachines lista todas as máquinas aprovadas do escopo do
 // chamador num único round-trip — usado pela visão "Todos" do
 // Monitoramento, que antes fazia 1 request por grupo no front-end
@@ -575,10 +604,15 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	machineID, deviceTypeGravado, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser, req.CurrentUserSID, targetCompanyID, req.DeviceType, req.MACAddress, req.Domain, req.DeviceTypeReason)
+	machineID, deviceTypeGravado, approvalStatus, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser, req.CurrentUserSID, targetCompanyID, req.DeviceType, req.MACAddress, req.Domain, req.DeviceTypeReason)
 	if err != nil {
 		fmt.Println("Erro UpsertMachine:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar máquina: %v", err)})
+		return
+	}
+
+	if approvalStatus == "rejected" {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "máquina rejeitada pela administração"})
 		return
 	}
 
@@ -653,8 +687,15 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 				Message: fmt.Sprintf("Uso de disco crítico: %.1f%% (%d/%d bytes)", diskUsage*100, req.DiskUsed, req.DiskTotal),
 			})
 			hasAlert = true
+			// Apenas servidores abrem chamados automaticamente por alerta de disco crítico
+			if deviceTypeGravado == "server" {
+				_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, req.MachineToken, req.Hostname, "disk", "critical", fmt.Sprintf("Uso de disco crítico no servidor: %.1f%%", diskUsage*100))
+			}
 		} else {
 			_ = db.ResolveAlertsByType(ctx, machineID, "disk")
+			if deviceTypeGravado == "server" {
+				_ = db.ResolverChamadoAlertaServidor(ctx, machineID, "disk")
+			}
 		}
 	}
 
@@ -677,8 +718,15 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 					Message:   "Antivírus desativado ou ausente",
 				})
 				hasAlert = true
+				// Apenas servidores abrem chamados automaticamente por antivírus inativo
+				if deviceTypeGravado == "server" {
+					_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, req.MachineToken, req.Hostname, "antivirus", "critical", "Antivírus desativado ou ausente no servidor")
+				}
 			} else {
 				_ = db.ResolveAlertsByType(ctx, machineID, "antivirus")
+				if deviceTypeGravado == "server" {
+					_ = db.ResolverChamadoAlertaServidor(ctx, machineID, "antivirus")
+				}
 			}
 
 			if !sec.FirewallActive {
@@ -707,6 +755,9 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	// deveria contar como um motivo de alerta por si só (CPU/disco/
 	// antivírus/firewall continuam contando normalmente).
 	_ = db.ResolveAlertsByType(ctx, machineID, alertaAgenteOffline)
+	if deviceTypeGravado == "server" {
+		_ = db.ResolverChamadoAlertaServidor(ctx, machineID, alertaServidorOffline)
+	}
 
 	// Verifica se ainda existem alertas não resolvidos para esta máquina
 	if hasActive, err := db.HasUnresolvedAlerts(ctx, machineID); err == nil {
@@ -1491,6 +1542,15 @@ func monitoringSelfHealEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Se a autocura falhou em um SERVIDOR, abre chamado automático
+	if req.Status == "failed" && machine.DeviceType != nil && *machine.DeviceType == "server" && machine.CompanyID != nil {
+		tok := ""
+		if machine.MachineToken != nil {
+			tok = *machine.MachineToken
+		}
+		_ = db.AbrirChamadoAlertaServidor(ctx, req.MachineID, *machine.CompanyID, tok, machine.Hostname, "autocura_falha", "high", fmt.Sprintf("Falha na autocura para alerta '%s': %s", req.AlertType, req.Output))
+	}
+
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -1544,14 +1604,6 @@ func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Segredo compartilhado configurado no contact point do Grafana via
-	// "Authorization Header - Credentials" — campo que o próprio Grafana
-	// marca como "secure" (criptografado em repouso, nunca devolvido em
-	// GETs subsequentes da API), diferente de um header customizado solto.
-	// Grafana não é um usuário nem um agente, então nem requireAuth nem
-	// X-Agent-Key se aplicam aqui. Sem GRAFANA_WEBHOOK_SECRET configurado no
-	// ambiente, o endpoint fica permanentemente fechado (nunca aceita
-	// string vazia == string vazia).
 	const esquemaEsperado = "Bearer "
 	auth := r.Header.Get("Authorization")
 	secret := strings.TrimPrefix(auth, esquemaEsperado)
@@ -1601,6 +1653,16 @@ func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
 					log.Printf("[GRAFANA-WEBHOOK] erro ao marcar máquina %s como offline: %v", machineID, err)
 				}
 			}
+			if alertType == alertaServidorOffline {
+				m, err := db.MachineByID(ctx, machineID)
+				if err == nil && m != nil && m.DeviceType != nil && *m.DeviceType == "server" && m.CompanyID != nil {
+					tok := ""
+					if m.MachineToken != nil {
+						tok = *m.MachineToken
+					}
+					_ = db.AbrirChamadoAlertaServidor(ctx, machineID, *m.CompanyID, tok, m.Hostname, alertaServidorOffline, "critical", "Servidor offline detectado pelo monitoramento")
+				}
+			}
 		case "resolved":
 			if err := db.ResolveAlertsByType(ctx, machineID, alertType); err != nil {
 				log.Printf("[GRAFANA-WEBHOOK] erro ao resolver alerta %s/%s: %v", machineID, alertType, err)
@@ -1610,6 +1672,9 @@ func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
 				if err := db.UpdateMachine(ctx, machineID, map[string]any{"status": "online"}); err != nil {
 					log.Printf("[GRAFANA-WEBHOOK] erro ao marcar máquina %s como online: %v", machineID, err)
 				}
+			}
+			if alertType == alertaServidorOffline {
+				_ = db.ResolverChamadoAlertaServidor(ctx, machineID, alertaServidorOffline)
 			}
 		default:
 			continue

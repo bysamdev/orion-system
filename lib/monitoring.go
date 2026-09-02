@@ -3,9 +3,13 @@ package lib
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ─── Structs ─────────────────────────────────────────────────────────────────
@@ -461,13 +465,13 @@ WHERE id = $1 AND approval_status = 'pending' AND ($2::uuid IS NULL OR company_i
 	return nil
 }
 
-// RejectMachine remove definitivamente uma máquina pendente (não é um
-// "status rejected" que fica visível em lugar nenhum do painel — é o mesmo
-// fim de uma máquina fantasma de sandbox: sai do banco, CASCADE cuida do
-// resto). companyID nil = sem checagem de tenant.
+// RejectMachine marca definitivamente uma máquina pendente como 'rejected'.
+// Mantida no banco para auditoria e para impedir que heartbeats subsequentes
+// reencarnem a máquina como pendente. companyID nil = sem checagem de tenant.
 func (d *DB) RejectMachine(ctx context.Context, machineID string, companyID *string) error {
 	cmd, err := d.pool.Exec(ctx, `
-DELETE FROM public.machines
+UPDATE public.machines
+SET approval_status = 'rejected', status = 'offline', updated_at = now()
 WHERE id = $1 AND approval_status = 'pending' AND ($2::uuid IS NULL OR company_id = $2::uuid)`,
 		machineID, companyID)
 	if err != nil {
@@ -479,18 +483,30 @@ WHERE id = $1 AND approval_status = 'pending' AND ($2::uuid IS NULL OR company_i
 	return nil
 }
 
+// DeleteMachine remove fisicamente uma máquina do parque (CASCADE cuida de hardware,
+// alertas, comandos etc.). companyID nil = sem checagem de tenant.
+func (d *DB) DeleteMachine(ctx context.Context, machineID string, companyID *string) error {
+	cmd, err := d.pool.Exec(ctx, `
+DELETE FROM public.machines
+WHERE id = $1 AND ($2::uuid IS NULL OR company_id = $2::uuid)`,
+		machineID, companyID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("máquina não encontrada ou acesso não autorizado")
+	}
+	return nil
+}
+
 // UpsertMachine grava/atualiza o estado de identidade da máquina a partir de
 // um heartbeat, numa transação: além do id, devolve o device_type
 // efetivamente gravado (já considerando um eventual override travado — ver
-// device_type_locked), para o chamador decidir a política de coleta por
-// tipo de ativo (Fase 4) sem uma segunda consulta. As métricas (cpu/ram/
-// disco) NÃO entram aqui — ficam em UpdateMachineSnapshot, chamada à parte
-// pelo heartbeat, e o histórico de série temporal vive no Prometheus/
-// Grafana (ver lib/grafana_metrics.go), não numa tabela machine_metrics.
-func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, currentUserSID, companyID, deviceType, macAddress, domain, deviceTypeReason string) (id, resolvedDeviceType string, err error) {
+// device_type_locked) e o approval_status atual.
+func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, currentUserSID, companyID, deviceType, macAddress, domain, deviceTypeReason string) (id, resolvedDeviceType, approvalStatus string, err error) {
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	defer tx.Rollback(ctx)
 
@@ -500,54 +516,40 @@ func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, o
 		cleanHostname = strings.TrimSpace(cleanHostname[:idx])
 	}
 
-	// device_type vem do agente com best-effort (WMI no Windows, /sys no
-	// Linux — ver orion-agent/collector/device_type_*.go); "desktop" é o
-	// mesmo default já usado pela coluna (migration 20260811000005) para
-	// não perder classificação em heartbeats de agentes antigos ou quando a
-	// detecção falha.
 	if deviceType == "" {
 		deviceType = "desktop"
 	}
 
-	// local_ip e logged_in_user duplicam, nas colunas dedicadas de
-	// inventário lidas por src/hooks/useDeviceInventory.ts, os mesmos
-	// valores já capturados em ip_address/"current_user" — não há um
-	// segundo dado independente vindo do agente para eles, então
-	// reaproveitamos $3 (ip) e $9 (currentUser) em vez de pedir ao agente
-	// para mandar os mesmos valores sob dois nomes de campo diferentes.
-	//
-	// current_user_sid (correção A.13): dado informativo de inventário —
-	// NilIfEmpty grava NULL quando o agente não conseguiu resolvê-lo (sem
-	// sessão de console ativa, ou versão do agente anterior a esta
-	// correção), em vez de string vazia.
-	//
-	// company_id=COALESCE(...): preserva a empresa já atribuída em vez de
-	// deixar um heartbeat subsequente sobrescrevê-la.
-	//
-	// device_type/device_type_reason: se a máquina já existe e está com
-	// device_type_locked=true (override manual, Fase 3), o CASE abaixo
-	// preserva o valor já gravado em vez do que o agente reportou neste
-	// ciclo — quem corrigiu manualmente sabe mais que a heurística do
-	// agente. O CTE machine_antes captura o device_type de antes desta
-	// gravação só para o Go decidir, depois, se precisa registrar uma
-	// mudança em machine_device_type_history — nunca silenciosamente.
 	var deviceTypeAntes *string
 	err = tx.QueryRow(ctx, `
 WITH machine_antes AS (
-  SELECT device_type FROM public.machines WHERE machine_token = $7
+  SELECT device_type, approval_status FROM public.machines WHERE machine_token = $7
 )
 INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type, device_type_reason, domain)
 VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $15, $14)
 ON CONFLICT (machine_token) DO UPDATE
-  SET group_id=$1, hostname=$2, ip_address=$3, os=$4, os_version=$5, status='online', last_seen=now(), agent_version=$6, "current_user"=$9, current_user_sid=$10, company_id=COALESCE(public.machines.company_id, $11), local_ip=$3, logged_in_user=$9, mac_address=$12,
+  SET group_id = CASE WHEN machines.approval_status = 'rejected' THEN machines.group_id ELSE $1 END,
+      hostname = CASE WHEN machines.approval_status = 'rejected' THEN machines.hostname ELSE $2 END,
+      ip_address = CASE WHEN machines.approval_status = 'rejected' THEN machines.ip_address ELSE $3 END,
+      os = CASE WHEN machines.approval_status = 'rejected' THEN machines.os ELSE $4 END,
+      os_version = CASE WHEN machines.approval_status = 'rejected' THEN machines.os_version ELSE $5 END,
+      status = CASE WHEN machines.approval_status = 'rejected' THEN 'offline' ELSE 'online' END,
+      last_seen = CASE WHEN machines.approval_status = 'rejected' THEN machines.last_seen ELSE now() END,
+      agent_version = CASE WHEN machines.approval_status = 'rejected' THEN machines.agent_version ELSE $6 END,
+      "current_user" = CASE WHEN machines.approval_status = 'rejected' THEN machines."current_user" ELSE $9 END,
+      current_user_sid = CASE WHEN machines.approval_status = 'rejected' THEN machines.current_user_sid ELSE $10 END,
+      company_id = COALESCE(public.machines.company_id, $11),
+      local_ip = CASE WHEN machines.approval_status = 'rejected' THEN machines.local_ip ELSE $3 END,
+      logged_in_user = CASE WHEN machines.approval_status = 'rejected' THEN machines.logged_in_user ELSE $9 END,
+      mac_address = CASE WHEN machines.approval_status = 'rejected' THEN machines.mac_address ELSE $12 END,
       device_type = CASE WHEN machines.device_type_locked THEN machines.device_type ELSE EXCLUDED.device_type END,
       device_type_reason = CASE WHEN machines.device_type_locked THEN machines.device_type_reason ELSE EXCLUDED.device_type_reason END,
-      domain=$14
-RETURNING id::text, (SELECT device_type FROM machine_antes), device_type`,
+      domain = CASE WHEN machines.approval_status = 'rejected' THEN machines.domain ELSE $14 END
+RETURNING id::text, (SELECT device_type FROM machine_antes), device_type, approval_status::text`,
 		groupID, cleanHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID), NilIfEmpty(macAddress), deviceType, NilIfEmpty(domain), NilIfEmpty(deviceTypeReason),
-	).Scan(&id, &deviceTypeAntes, &resolvedDeviceType)
+	).Scan(&id, &deviceTypeAntes, &resolvedDeviceType, &approvalStatus)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// Registra a mudança só quando o device_type efetivamente gravado (já
@@ -562,14 +564,14 @@ RETURNING id::text, (SELECT device_type FROM machine_antes), device_type`,
 INSERT INTO public.machine_device_type_history (machine_id, old_type, new_type, reason, changed_by)
 VALUES ($1, $2, $3, $4, 'agent')`,
 			id, deviceTypeAntes, resolvedDeviceType, NilIfEmpty(deviceTypeReason)); err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
-	return id, resolvedDeviceType, nil
+	return id, resolvedDeviceType, approvalStatus, nil
 }
 
 // SetDeviceTypeOverride aplica uma correção manual de classificação de
@@ -781,7 +783,7 @@ func (d *DB) HasPendingUpdateCommand(ctx context.Context, machineID string) (boo
 	err := d.pool.QueryRow(ctx, `
 SELECT EXISTS(
   SELECT 1 FROM public.machine_commands
-  WHERE machine_id = $1 AND status IN ('pending', 'dispatched')
+  WHERE machine_id = $1 AND status IN ('pending', 'dispatched', 'sent')
     AND command LIKE '%' || $2 || '%'
 )`, machineID, marcadorAutoUpdate).Scan(&existe)
 	return existe, err
@@ -1138,4 +1140,113 @@ func (d *DB) UpdateMachineGroup(ctx context.Context, id string, updates map[stri
 func (d *DB) DeleteMachineGroup(ctx context.Context, id string) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM public.machine_groups WHERE id = $1`, id)
 	return err
+}
+
+// AbrirChamadoAlertaServidor cria um chamado na tabela public.tickets exclusivamente
+// para alertas críticos em servidores (device_type == 'server'), com deduplicação estrita:
+// se já houver chamado aberto para (machine_id, alert_type), nenhum novo é gerado.
+func (d *DB) AbrirChamadoAlertaServidor(ctx context.Context, machineID, companyID, machineToken, hostname, alertType, severity, alertMessage string) error {
+	if companyID == "" || machineID == "" {
+		return nil
+	}
+
+	// 1. Deduplicação: verifica se já existe chamado em aberto para esta máquina e tipo de alerta
+	var existente bool
+	err := d.pool.QueryRow(ctx, `
+SELECT EXISTS(
+  SELECT 1 FROM public.tickets
+  WHERE company_id = $1::uuid
+    AND status NOT IN ('resolved', 'closed', 'cancelled')
+    AND metadata->>'machine_id' = $2
+    AND metadata->>'alert_type' = $3
+)`, companyID, machineID, alertType).Scan(&existente)
+	if err != nil {
+		return fmt.Errorf("checar duplicidade de chamado: %w", err)
+	}
+	if existente {
+		return nil // Já existe chamado em aberto; evita flapping e tempestade de chamados
+	}
+
+	// 2. Resolve o user_id para satisfazer FK public.tickets.user_id -> auth.users(id)
+	// Tenta primeiro o e-mail fantasma da máquina; se não existir, pega o primeiro perfil da empresa.
+	var userID string
+	machineEmail := MachineGhostEmail(machineToken)
+	userID, _ = d.AuthUserIDByEmail(ctx, machineEmail)
+
+	if userID == "" {
+		_ = d.pool.QueryRow(ctx, `
+SELECT id::text FROM public.profiles
+WHERE company_id = $1::uuid
+ORDER BY created_at ASC LIMIT 1`, companyID).Scan(&userID)
+	}
+	if userID == "" {
+		return fmt.Errorf("nenhum usuário disponível para atribuir a abertura do chamado automático na empresa %s", companyID)
+	}
+
+	priority := "high"
+	if severity == "critical" {
+		priority = "urgent"
+	}
+
+	title := fmt.Sprintf("[ALERTA RMM - Servidor %s] %s", hostname, alertMessage)
+	if len(title) > 200 {
+		title = title[:200]
+	}
+
+	description := fmt.Sprintf("Chamado gerado automaticamente pelo monitoramento Orion RMM.\n\nServidor: %s\nTipo de Alerta: %s\nSeveridade: %s\nMensagem: %s\nDetectado em: %s",
+		hostname, alertType, severity, alertMessage, time.Now().Format("02/01/2006 15:04:05"))
+
+	metaJSON, _ := json.Marshal(map[string]any{
+		"machine_id":     machineID,
+		"alert_type":     alertType,
+		"severity":       severity,
+		"auto_generated": true,
+	})
+
+	requesterName := fmt.Sprintf("Servidor %s (Orion RMM)", hostname)
+
+	_, err = d.pool.Exec(ctx, `
+INSERT INTO public.tickets (title, description, category, priority, status, user_id, company_id, requester_name, metadata)
+VALUES ($1, $2, 'Infraestrutura', $3, 'open', $4::uuid, $5::uuid, $6, $7::jsonb)`,
+		title, description, priority, userID, companyID, requesterName, metaJSON)
+	if err != nil {
+		return fmt.Errorf("inserir ticket automático de servidor: %w", err)
+	}
+
+	log.Printf("[RMM-SERVIDORES] Chamado automático aberto para servidor %s (%s): %s", hostname, alertType, alertMessage)
+	return nil
+}
+
+// ResolverChamadoAlertaServidor resolve chamados automáticos em aberto quando o alerta do servidor normaliza.
+func (d *DB) ResolverChamadoAlertaServidor(ctx context.Context, machineID, alertType string) error {
+	if machineID == "" || alertType == "" {
+		return nil
+	}
+
+	var ticketID, userID string
+	err := d.pool.QueryRow(ctx, `
+UPDATE public.tickets
+SET status = 'resolved',
+    resolved_at = now(),
+    updated_at = now(),
+    resolution_notes = 'Alerta normalizado automaticamente pelo Orion RMM.'
+WHERE status NOT IN ('resolved', 'closed', 'cancelled')
+  AND metadata->>'machine_id' = $1
+  AND metadata->>'alert_type' = $2
+RETURNING id::text, user_id::text`, machineID, alertType).Scan(&ticketID, &userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil // Nenhum chamado em aberto para esse alerta
+		}
+		return err
+	}
+
+	// Registra comentário interno no histórico do chamado
+	_, _ = d.pool.Exec(ctx, `
+INSERT INTO public.ticket_updates (ticket_id, author_id, author, content, type, is_internal, created_at)
+VALUES ($1::uuid, $2::uuid, 'Orion RMM', 'Alerta de telemetria normalizado automaticamente pelo sistema de monitoramento.', 'status_change', true, now())`,
+		ticketID, userID)
+
+	log.Printf("[RMM-SERVIDORES] Chamado automático %s normalizado e resolvido para servidor %s (%s)", ticketID, machineID, alertType)
+	return nil
 }

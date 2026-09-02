@@ -123,6 +123,19 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Bloqueia máquinas pendentes ou rejeitadas de acessarem o portal via machine-login
+	if m.ApprovalStatus != nil && *m.ApprovalStatus != "approved" {
+		http.Error(w, "Esta máquina está aguardando aprovação administrativa.", http.StatusForbidden)
+		return
+	}
+
+	// Anexa o ID da máquina ao destino para vincular os chamados abertos ao dispositivo
+	if strings.Contains(redirectPath, "?") {
+		redirectPath = fmt.Sprintf("%s&machine_id=%s", redirectPath, m.ID)
+	} else {
+		redirectPath = fmt.Sprintf("%s?machine_id=%s", redirectPath, m.ID)
+	}
+
 	// 3. Montamos a identidade digital desta máquina no sistema.
 	// Criamos um e-mail técnico interno para que o Supabase Auth possa gerenciar a sessão.
 	machineEmail := lib.MachineGhostEmail(token)

@@ -119,6 +119,7 @@ func TestRotasDeUsuarioExigemEscopo(t *testing.T) {
 		{http.MethodGet, "/api/monitoring/machines/abc/alerts"},
 		{http.MethodPost, "/api/monitoring/machines/abc/commands"},
 		{http.MethodGet, "/api/monitoring/machines/abc/commands"},
+		{http.MethodDelete, "/api/monitoring/machines/abc"},
 		{http.MethodGet, "/api/monitoring/alerts/critical"},
 		{http.MethodPost, "/api/monitoring/machines/abc/update"},
 		{http.MethodPost, "/api/monitoring/groups"},

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSLAConfigs } from '@/hooks/useSLAConfigs';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -133,6 +133,8 @@ const NewTicket = () => {
   const { data: userRole } = useUserRole();
   const { handleError } = useErrorHandler();
   const { data: activeContracts } = useActiveContracts(profile?.company_id);
+  const [searchParams] = useSearchParams();
+  const urlMachineId = searchParams.get('machine_id');
   
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -348,7 +350,9 @@ const NewTicket = () => {
         remote_password: remotePassword.trim() || null,
         contract_id: selectedContractId || null,
         asset_id: selectedAssetId || null,
-        metadata: {},
+        metadata: {
+          ...(urlMachineId ? { machine_id: urlMachineId } : {}),
+        },
       }).select().single();
 
       if (ticketError) {
