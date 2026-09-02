@@ -101,6 +101,38 @@ func TestEnable_NuncaGravaEmHKLMEHKCUAoMesmoTempo(t *testing.T) {
 	}
 }
 
+// TestEnable_LimpaHKCUQueSobrouDeInstalacaoAntigaQuandoHKLMFunciona cobre o
+// self-heal: uma máquina já afetada pelo bug (HKCU com a entrada de uma
+// instalação anterior a esta correção) precisa ficar com um ícone só depois
+// da próxima auto-atualização remota, que roda o instalador de novo — sem
+// isso, a correção só evitaria piorar instalações novas, sem consertar as
+// que já estão duplicadas hoje.
+func TestEnable_LimpaHKCUQueSobrouDeInstalacaoAntigaQuandoHKLMFunciona(t *testing.T) {
+	valor := nomeValorDeTeste(t)
+	t.Cleanup(func() {
+		_ = disableComChave(registry.LOCAL_MACHINE, chaveRun, valor)
+		_ = disableComChave(registry.CURRENT_USER, chaveRun, valor)
+	})
+
+	// Simula o estado de uma máquina já afetada: HKCU já tem a entrada de
+	// uma instalação anterior a esta correção.
+	if err := enableComChave(registry.CURRENT_USER, chaveRun, valor, `C:\Orion\orion-agent.exe`); err != nil {
+		t.Fatalf("preparar estado de HKCU pré-existente: %v", err)
+	}
+
+	if err := enableComValor(valor, `C:\Orion\orion-agent.exe`); err != nil {
+		t.Fatalf("enableComValor: %v", err)
+	}
+
+	if !valorExiste(t, registry.LOCAL_MACHINE, valor) {
+		t.Skip("HKLM não gravável neste ambiente (sem elevação) — self-heal não se aplica aqui, cai no fallback de HKCU")
+	}
+
+	if valorExiste(t, registry.CURRENT_USER, valor) {
+		t.Error("HKCU de uma instalação antiga continua presente depois de HKLM funcionar — a máquina não se autocorrige na próxima auto-atualização")
+	}
+}
+
 func valorExiste(t *testing.T, hive registry.Key, valor string) bool {
 	t.Helper()
 	k, err := registry.OpenKey(hive, chaveRun, registry.QUERY_VALUE)

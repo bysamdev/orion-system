@@ -39,8 +39,19 @@ func Enable(caminhoExe string) error {
 // enableComValor é Enable() com o nome do valor parametrizável — separado só
 // para os testes gravarem sob um valor aleatório em vez do "OrionAgent" real
 // (mesmo padrão de nomeValorDeTeste/enableComChave já usado neste pacote).
+//
+// Quando HKLM funciona, também remove uma eventual entrada HKCU deixada por
+// uma instalação anterior (de antes desta correção, que gravava os dois
+// incondicionalmente) — sem isso, uma máquina já afetada pelo bug de ícone
+// duplicado continuaria duplicada mesmo depois de atualizar o agente: a
+// auto-atualização remota roda o instalador de novo (ver
+// cmd/installer/main.go:instalar()), mas só ganhava a correção de não
+// piorar o problema, não de limpar o que já estava errado. Com o
+// DeleteValue aqui, a próxima auto-atualização já resolve sozinha, sem
+// exigir reinstalação manual.
 func enableComValor(valor, caminhoExe string) error {
 	if err := enableComChave(registry.LOCAL_MACHINE, chaveRun, valor, caminhoExe); err == nil {
+		_ = disableComChave(registry.CURRENT_USER, chaveRun, valor)
 		return nil
 	}
 	return enableComChave(registry.CURRENT_USER, chaveRun, valor, caminhoExe)
