@@ -1,0 +1,43 @@
+-- =================================================================================
+-- Migration: 20260902190000_remove_machines_from_realtime.sql
+--
+-- Remove public.machines da publicação supabase_realtime.
+--
+-- Motivo: cada heartbeat de agente é um UPDATE em machines, e toda linha
+-- publicada vira mensagem de Realtime. Com as ~500 máquinas previstas em
+-- heartbeat de 60s são 720 mil UPDATEs/dia, ou 21,6 milhões de mensagens por
+-- mês — contra um teto de 2 milhões no plano Free e 5 milhões no Pro. É a
+-- única métrica do levantamento de capacidade que trocar de plano NÃO
+-- resolve.
+--
+-- O custo também aparece em CPU: a consulta de decodificação de WAL do
+-- Realtime acumulou 6.104 segundos e 1.054.683 chamadas em pg_stat_statements
+-- com apenas 3 máquinas cadastradas — de longe a mais cara do banco.
+--
+-- Auditoria feita antes desta remoção (o que NÃO quebra):
+--
+--  - O agente nunca falou com o Realtime. Ele descobre comando pendente por
+--    polling HTTP contra o backend Go: sender.PollCommands() chama
+--    GET /api/monitoring/commands/poll a cada 30s com jitter de ±10%
+--    (orion-agent/service/windows.go, commandTicker). A única conexão
+--    WebSocket do agente é o terminal remoto, contra /api/ws/terminal/agent
+--    no backend Go — não contra o Supabase. Auto-update de agente é imune a
+--    esta mudança.
+--  - machine_commands, machine_alerts e machine_hardware nunca estiveram na
+--    publicação. O status de comando no painel (dispatched -> completed) já
+--    vem de polling adaptativo em useMachineCommands: 3s enquanto houver
+--    comando pending/sent, 10s ocioso.
+--  - Único consumidor do canal de machines é useRealtimeMachines, usado por
+--    Monitoring.tsx e Assets.tsx. Ambos têm polling: 120s em
+--    useMonitoringMachines e 60s no inventário (fixado no commit anterior a
+--    esta migration, deployado antes justamente pra não abrir janela sem
+--    atualização).
+--
+-- audit_log continua publicada de propósito: DebugTools.tsx depende dela e o
+-- volume caiu depois da correção do laço de escrita em companies.
+--
+-- Rollback:
+--   ALTER PUBLICATION supabase_realtime ADD TABLE public.machines;
+-- =================================================================================
+
+ALTER PUBLICATION supabase_realtime DROP TABLE public.machines;
