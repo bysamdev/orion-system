@@ -773,11 +773,25 @@ WHERE c.id = $1`, commandID).Scan(&companyID)
 // decidir se já existe uma atualização enfileirada.
 const marcadorAutoUpdate = `--auto-update="true"`
 
+// JanelaAutoUpdateEmTransito é por quanto tempo um comando de
+// auto-atualização sem resposta continua bloqueando o enfileiramento de um
+// novo. Cobre com folga o ciclo real (poll do agente a cada 30s + download +
+// troca do executável + restart do serviço) sem travar pra sempre.
+const JanelaAutoUpdateEmTransito = 30 * time.Minute
+
 // HasPendingUpdateCommand verifica se já existe um comando de
-// auto-atualização enfileirado (pending ou dispatched, ou seja, ainda sem
-// resposta) pra essa máquina — evita empilhar um novo comando a cada
+// auto-atualização RECENTE enfileirado (pending, dispatched ou sent, ou seja,
+// ainda sem resposta) pra essa máquina — evita empilhar um novo comando a cada
 // heartbeat (a cada IntervalSeconds, tipicamente 60s) enquanto o anterior
 // ainda está em trânsito.
+//
+// O recorte por idade (JanelaAutoUpdateEmTransito) não é detalhe: a própria
+// auto-atualização derruba e sobe o serviço do agente no meio da execução do
+// comando, então é normal ninguém sobrar pra reportar o desfecho e o registro
+// ficar preso em 'sent' pra sempre. Sem a janela, esse órfão bloqueava toda
+// atualização futura daquela máquina — inclusive o botão "Forçar atualização"
+// do painel, que passa por aqui. Aconteceu em produção: comandos parados em
+// 'sent' desde 28/08/2026 seguraram o rollout do 1.1.27.
 func (d *DB) HasPendingUpdateCommand(ctx context.Context, machineID string) (bool, error) {
 	var existe bool
 	err := d.pool.QueryRow(ctx, `
@@ -785,7 +799,8 @@ SELECT EXISTS(
   SELECT 1 FROM public.machine_commands
   WHERE machine_id = $1 AND status IN ('pending', 'dispatched', 'sent')
     AND command LIKE '%' || $2 || '%'
-)`, machineID, marcadorAutoUpdate).Scan(&existe)
+    AND created_at > now() - make_interval(secs => $3)
+)`, machineID, marcadorAutoUpdate, JanelaAutoUpdateEmTransito.Seconds()).Scan(&existe)
 	return existe, err
 }
 
