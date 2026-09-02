@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.send-password-changed-alert]
 verify_jwt = false
+
+[functions.send-scheduled-report]
+verify_jwt = false

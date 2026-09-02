@@ -935,6 +935,50 @@ export type Database = {
           },
         ]
       }
+      report_schedules: {
+        Row: {
+          created_at: string
+          created_by: string
+          frequency: string
+          id: string
+          is_active: boolean
+          last_sent_at: string | null
+          next_run_at: string
+          recipients: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          frequency: string
+          id?: string
+          is_active?: boolean
+          last_sent_at?: string | null
+          next_run_at?: string
+          recipients: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_sent_at?: string | null
+          next_run_at?: string
+          recipients?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resolution_checklists: {
         Row: {
           category: string
