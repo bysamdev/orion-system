@@ -16,7 +16,6 @@ import { SLABadge } from '@/components/dashboard/SLABadge';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useCompanies } from '@/hooks/useCompanies';
 import { getRechartsStatusColor } from '@/lib/state-tokens';
-import { ReportScheduleManager } from '@/components/reports/ReportScheduleManager';
 import {
   Loader2,
   ArrowLeft,
@@ -400,10 +399,6 @@ const Reports: React.FC = () => {
           </div>
         }
       />
-
-        <div className="mb-6">
-          <ReportScheduleManager />
-        </div>
 
         {/* Filtros */}
         <Card className="mb-6">

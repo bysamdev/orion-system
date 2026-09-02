@@ -10,6 +10,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
 import { Settings2, Users, Building, FileText, MessageSquare, ListChecks, Shield } from 'lucide-react';
 import { SLAConfiguration } from '@/components/admin/SLAConfiguration';
+import { ReportScheduleManager } from '@/components/reports/ReportScheduleManager';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
 export default function Admin() {
@@ -110,8 +111,9 @@ export default function Admin() {
                 <ContractManagement />
               </TabsContent>
               
-              <TabsContent value="config" className="mt-6">
+              <TabsContent value="config" className="mt-6 space-y-6">
                 <SLAConfiguration />
+                <ReportScheduleManager />
               </TabsContent>
             </>
           )}
