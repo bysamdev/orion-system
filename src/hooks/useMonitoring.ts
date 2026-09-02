@@ -86,6 +86,7 @@ export interface MachineGroup {
   company_id: string | null;
   total_machines: number;
   online_machines: number;
+  alert_machines?: number;
 }
 
 // Máquina que mandou heartbeat mas ainda não foi aprovada por um

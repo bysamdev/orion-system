@@ -25,6 +25,7 @@ interface Ticket {
   requester_name: string;
   company_id: string;
   user_id: string;
+  category?: string | null;
   status: 'resolved' | 'closed' | 'cancelled' | string;
   priority: 'urgent' | 'high' | 'medium' | 'low' | string;
   updated_at: string;

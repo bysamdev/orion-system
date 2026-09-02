@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -65,53 +65,53 @@ function AlertCard({
 
   const colorMap: Record<string, { bg: string; border: string; text: string; icon: string; badge: string }> = {
     antivirus: {
-      bg: 'bg-rose-500/10 dark:bg-rose-950/20',
-      border: 'border-rose-500/30',
-      text: 'text-rose-600 dark:text-rose-400',
-      icon: 'bg-rose-600 shadow-rose-600/30',
-      badge: 'bg-rose-500 text-white',
+      bg: 'bg-destructive/10',
+      border: 'border-destructive/30',
+      text: 'text-destructive',
+      icon: 'bg-destructive shadow-destructive/30',
+      badge: 'bg-destructive text-destructive-foreground',
     },
     firewall: {
-      bg: 'bg-red-500/10 dark:bg-red-950/20',
-      border: 'border-red-500/30',
-      text: 'text-red-600 dark:text-red-400',
-      icon: 'bg-red-600 shadow-red-600/30',
-      badge: 'bg-red-500 text-white',
+      bg: 'bg-destructive/10',
+      border: 'border-destructive/30',
+      text: 'text-destructive',
+      icon: 'bg-destructive shadow-destructive/30',
+      badge: 'bg-destructive text-destructive-foreground',
     },
     updates: {
-      bg: 'bg-amber-500/10 dark:bg-amber-950/20',
-      border: 'border-amber-500/30',
-      text: 'text-amber-600 dark:text-amber-400',
-      icon: 'bg-amber-600 shadow-amber-600/30',
-      badge: 'bg-amber-500 text-white',
+      bg: 'bg-warning/10',
+      border: 'border-warning/30',
+      text: 'text-warning',
+      icon: 'bg-warning shadow-warning/30',
+      badge: 'bg-warning text-warning-foreground',
     },
     offline: {
-      bg: 'bg-red-500/10 dark:bg-red-950/20',
-      border: 'border-red-500/30',
-      text: 'text-red-600 dark:text-red-400',
-      icon: 'bg-red-600 shadow-red-600/30',
-      badge: 'bg-red-500 text-white',
+      bg: 'bg-destructive/10',
+      border: 'border-destructive/30',
+      text: 'text-destructive',
+      icon: 'bg-destructive shadow-destructive/30',
+      badge: 'bg-destructive text-destructive-foreground',
     },
     disk: {
-      bg: 'bg-orange-500/10 dark:bg-orange-950/20',
-      border: 'border-orange-500/30',
-      text: 'text-orange-600 dark:text-orange-400',
-      icon: 'bg-orange-600 shadow-orange-600/30',
-      badge: 'bg-orange-500 text-white',
+      bg: 'bg-warning/15',
+      border: 'border-warning/35',
+      text: 'text-warning',
+      icon: 'bg-warning shadow-warning/30',
+      badge: 'bg-warning text-warning-foreground',
     },
     cpu: {
-      bg: 'bg-amber-500/10 dark:bg-amber-950/20',
-      border: 'border-amber-500/30',
-      text: 'text-amber-600 dark:text-amber-400',
-      icon: 'bg-amber-500 shadow-amber-500/30',
-      badge: 'bg-amber-500 text-white',
+      bg: 'bg-warning/10',
+      border: 'border-warning/30',
+      text: 'text-warning',
+      icon: 'bg-warning shadow-warning/30',
+      badge: 'bg-warning text-warning-foreground',
     },
     alert: {
-      bg: 'bg-rose-500/10 dark:bg-rose-950/20',
-      border: 'border-rose-500/30',
-      text: 'text-rose-600 dark:text-rose-400',
-      icon: 'bg-rose-600 shadow-rose-600/30',
-      badge: 'bg-rose-500 text-white',
+      bg: 'bg-destructive/10',
+      border: 'border-destructive/30',
+      text: 'text-destructive',
+      icon: 'bg-destructive shadow-destructive/30',
+      badge: 'bg-destructive text-destructive-foreground',
     },
   };
 
@@ -287,6 +287,7 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
   const { data: dashboard } = useMonitoringDashboard();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null);
 
   const machinesMap = useMemo(() => {
@@ -546,9 +547,8 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
 
             <Button
               variant="outline"
-              size="sm"
               onClick={handleRefresh}
-              className="gap-2 rounded-xl font-bold h-10 px-4"
+              className="gap-2 font-semibold"
               disabled={refreshing}
             >
               <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
@@ -578,9 +578,8 @@ const AlertsDashboard: React.FC<AlertsDashboardProps> = ({ onAlertClick, hideHea
 
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={handleRefresh}
-                  className="gap-2 rounded-xl font-bold h-10 px-4"
+                  className="gap-2 font-semibold"
                   disabled={refreshing}
                 >
                   <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />

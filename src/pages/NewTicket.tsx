@@ -31,7 +31,6 @@ import { ArticleMarkdownRenderer } from '@/components/knowledge/ArticleMarkdownR
 import { FileUpload } from '@/components/ticket/FileUpload';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { useToast } from '@/hooks/use-toast';
-import { ToastAction } from '@/components/ui/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
@@ -409,11 +408,6 @@ const NewTicket = () => {
         title: 'Erro ao criar chamado',
         description: err.message || 'Ocorreu um erro inesperado.',
         variant: 'destructive',
-        action: (
-          <ToastAction altText="Tente novamente ou contate o suporte" onClick={() => window.location.href = 'mailto:suporte@orion.com.br'}>
-            Suporte
-          </ToastAction>
-        ),
       });
     } finally {
       isSubmittingRef.current = false;
@@ -727,7 +721,7 @@ const NewTicket = () => {
                               <SelectContent>
                                 <SelectItem value="urgent">
                                   <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                                    <span className="w-2 h-2 rounded-full bg-destructive shrink-0" />
                                     <span>Urgente {isSLALoading || !activeSla ? '(SLA: 4h)' : `(SLA: ${activeSla.urgent_hours}h)`}</span>
                                   </span>
                                 </SelectItem>
@@ -745,7 +739,7 @@ const NewTicket = () => {
                                 </SelectItem>
                                 <SelectItem value="low">
                                   <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                    <span className="w-2 h-2 rounded-full bg-muted-foreground shrink-0" />
                                     <span>Baixa {isSLALoading || !activeSla ? '(SLA: 48h)' : `(SLA: ${activeSla.low_hours}h)`}</span>
                                   </span>
                                 </SelectItem>

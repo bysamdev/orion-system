@@ -262,16 +262,16 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
 
     const getMetricColor = (val: number | null) => {
       if (!isOnline || val == null) return 'text-muted-foreground';
-      if (val > 85) return 'text-red-500 dark:text-red-400';
-      if (val >= 70) return 'text-amber-500 dark:text-amber-400';
-      return 'text-emerald-600 dark:text-emerald-400';
+      if (val > 85) return 'text-destructive';
+      if (val >= 70) return 'text-warning';
+      return 'text-success';
     };
 
     const getProgressBg = (val: number | null) => {
       if (!isOnline || val == null) return 'bg-muted-foreground/20';
-      if (val > 85) return 'bg-red-500';
-      if (val >= 70) return 'bg-amber-500';
-      return 'bg-emerald-500';
+      if (val > 85) return 'bg-destructive';
+      if (val >= 70) return 'bg-warning';
+      return 'bg-success';
     };
 
     const handleDelete = async (e: React.MouseEvent) => {
@@ -359,9 +359,9 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                       'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors shrink-0',
                       isOnline
                         ? alerting
-                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25'
-                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25'
-                        : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20'
+                          ? 'bg-warning/15 text-warning border border-warning/30'
+                          : 'bg-success/15 text-success border border-success/30'
+                        : 'bg-muted/40 text-muted-foreground border border-border/40'
                     )}
                   >
                     <span
@@ -369,9 +369,9 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                         'w-1.5 h-1.5 rounded-full shrink-0',
                         isOnline
                           ? alerting
-                            ? 'bg-amber-500'
-                            : 'bg-emerald-500'
-                          : 'bg-zinc-400'
+                            ? 'bg-warning'
+                            : 'bg-success'
+                          : 'bg-muted-foreground'
                       )}
                     />
                     <span>
@@ -396,28 +396,28 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                 <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                   {hasNoAntivirus && (
                     <span
-                      className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md"
+                      className="inline-flex items-center gap-1 text-2xs font-medium text-destructive bg-destructive/15 border border-destructive/30 px-2 py-0.5 rounded-md"
                       title="Nenhum antivírus ativo detectado"
                     >
-                      <ShieldAlert className="w-3 h-3 text-red-500 shrink-0" />
+                      <ShieldAlert className="w-3 h-3 text-destructive shrink-0" />
                       <span>Sem Antivírus</span>
                     </span>
                   )}
                   {hasLowStorage && (
                     <span
-                      className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md"
+                      className="inline-flex items-center gap-1 text-2xs font-medium text-warning bg-warning/15 border border-warning/30 px-2 py-0.5 rounded-md"
                       title={`Armazenamento principal com ${diskPct}% ocupado`}
                     >
-                      <HardDrive className="w-3 h-3 text-amber-500 shrink-0" />
+                      <HardDrive className="w-3 h-3 text-warning shrink-0" />
                       <span>Disco {diskPct}%</span>
                     </span>
                   )}
                   {hasHighUptime && (
                     <span
-                      className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md"
+                      className="inline-flex items-center gap-1 text-2xs font-medium text-warning bg-warning/15 border border-warning/30 px-2 py-0.5 rounded-md"
                       title={`Sistema ligado continuamente há ${formatUptime(machine.uptime)} sem reiniciar`}
                     >
-                      <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                      <Clock className="w-3 h-3 text-warning shrink-0" />
                       <span>&gt;7d ligado</span>
                     </span>
                   )}

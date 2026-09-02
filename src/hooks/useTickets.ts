@@ -11,6 +11,7 @@ import { construirFiltroPeriodoRelatorio } from '@/lib/reports/aggregations';
 export interface Ticket {
   id: string;
   ticket_number: number;
+  user_id?: string | null;
   title: string;
   description: string;
   requester_name: string;

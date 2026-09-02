@@ -80,10 +80,10 @@ const RemoteTerminal = React.lazy(() =>
 );
 
 const severityColor: Record<string, string> = {
-  critical: 'bg-red-500/10 text-red-600 border-red-500/30',
-  high:     'bg-orange-500/10 text-orange-600 border-orange-500/30',
-  medium:   'bg-yellow-500/10 text-yellow-600 border-yellow-500/30',
-  low:      'bg-blue-500/10 text-blue-600 border-blue-500/30',
+  critical: 'bg-destructive/15 text-destructive border-destructive/30',
+  high:     'bg-warning/20 text-warning border-warning/40',
+  medium:   'bg-warning/15 text-warning border-warning/30',
+  low:      'bg-info/15 text-info border-info/30',
 };
 
 // ─── Sub-components for Security & Endpoint Compliance ───
@@ -94,8 +94,7 @@ export function EndpointSecurityCard({
   securityInfo?: SecurityInfo;
 }) {
   const avList = securityInfo?.antivirus ?? [];
-  const hasAv = avList.length > 0;
-  const isAvActive = hasAv ? avList.some((a) => a.active) : false;
+  const isAvActive = avList.some((a) => a.active);
   const isFirewallActive = securityInfo?.firewall_active;
   const isBitlockerActive = securityInfo?.bitlocker_active;
 
@@ -104,25 +103,25 @@ export function EndpointSecurityCard({
   const hasOtherActiveAv = avList.some(
     (a) => a.active && !a.name.toLowerCase().includes('defender')
   );
+  const displayAvList = avList.filter((a) => {
+    if (!a.active && a.name.toLowerCase().includes('defender') && hasOtherActiveAv) {
+      return false;
+    }
+    return true;
+  });
 
-  const displayAvList = hasOtherActiveAv
-    ? avList.filter((a) => a.active || !a.name.toLowerCase().includes('defender'))
-    : avList;
-
-  const isCompliant =
-    (securityInfo ? (hasAv && isAvActive) : true) &&
-    isFirewallActive !== false;
+  const isCompliant = isAvActive && isFirewallActive && (isBitlockerActive !== false);
 
   return (
-    <Card className="p-4 bg-muted/10 border-border/40 space-y-4">
+    <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-md p-4 space-y-3 shadow-xs">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div
             className={cn(
               'p-2 rounded-xl',
               isCompliant
-                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                ? 'bg-success/15 text-success'
+                : 'bg-warning/15 text-warning'
             )}
           >
             {isCompliant ? (
@@ -135,7 +134,7 @@ export function EndpointSecurityCard({
             <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
               Segurança do Endpoint
             </h4>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-2xs text-muted-foreground">
               Antivírus, Firewall do Windows e Criptografia
             </p>
           </div>
@@ -143,10 +142,10 @@ export function EndpointSecurityCard({
         <Badge
           variant="outline"
           className={cn(
-            'text-[10px] font-bold',
+            'text-2xs font-bold',
             isCompliant
-              ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-              : 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10'
+              ? 'text-success border-success/30 bg-success/15'
+              : 'text-warning border-warning/30 bg-warning/15'
           )}
         >
           {isCompliant ? 'Protegido' : 'Atenção Necessária'}
@@ -168,16 +167,16 @@ export function EndpointSecurityCard({
                   <Badge
                     variant="outline"
                     className={cn(
-                      'text-[10px] font-semibold gap-1',
+                      'text-2xs font-semibold gap-1',
                       av.active
-                        ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5'
-                        : 'text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 animate-pulse'
+                        ? 'text-success border-success/30 bg-success/10'
+                        : 'text-destructive border-destructive/30 bg-destructive/15 animate-pulse'
                     )}
                   >
                     {av.active ? (
-                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
+                      <CheckCircle2 className="w-3 h-3 text-success" />
                     ) : (
-                      <AlertTriangle className="w-2.5 h-2.5 text-red-500" />
+                      <AlertTriangle className="w-3 h-3 text-destructive" />
                     )}
                     {av.active ? 'Proteção Ativa' : 'Proteção Desativada'}
                   </Badge>
@@ -185,10 +184,10 @@ export function EndpointSecurityCard({
                     <Badge
                       variant="outline"
                       className={cn(
-                        'text-[9px]',
+                        'text-micro',
                         av.updated
                           ? 'text-muted-foreground border-border/30'
-                          : 'text-amber-600 border-amber-500/30 bg-amber-500/5'
+                          : 'text-warning border-warning/30 bg-warning/10'
                       )}
                     >
                       {av.updated ? 'Atualizado' : 'Definições Desatualizadas'}
@@ -199,9 +198,9 @@ export function EndpointSecurityCard({
             ) : securityInfo ? (
               <Badge
                 variant="outline"
-                className="text-[10px] font-semibold text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10 gap-1 animate-pulse"
+                className="text-2xs font-semibold text-destructive border-destructive/30 bg-destructive/15 gap-1 animate-pulse"
               >
-                <AlertTriangle className="w-2.5 h-2.5 text-red-500" />
+                <AlertTriangle className="w-3 h-3 text-destructive" />
                 Nenhum Antivírus Detectado
               </Badge>
             ) : (
@@ -272,7 +271,7 @@ export function EndpointSecurityCard({
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
 

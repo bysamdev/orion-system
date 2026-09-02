@@ -187,8 +187,8 @@ export async function getMfaStatus(): Promise<MfaStatus> {
   return {
     isEnabled: verifiedFactors.length > 0,
     factors,
-    currentLevel: aalResponse.data?.currentLevel || 'aal1',
-    nextLevel: aalResponse.data?.nextLevel || 'aal1',
+    currentLevel: ((aalResponse.data?.currentLevel as unknown) as 'aal1' | 'aal2') || 'aal1',
+    nextLevel: ((aalResponse.data?.nextLevel as unknown) as 'aal1' | 'aal2') || 'aal1',
   };
 }
 
@@ -255,7 +255,7 @@ export async function verifyBackupCode(code: string): Promise<boolean> {
     return false;
   }
 
-  const recordId = records[0].id;
+  const recordId = (records as any[])[0]?.id;
   const { error: updateError } = await supabase
     .from('user_backup_codes' as any)
     .update({ used_at: new Date().toISOString() })

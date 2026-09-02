@@ -190,11 +190,11 @@ export default function ClientPortal() {
                     className={cn(
                       "group border transition-all duration-200 cursor-pointer overflow-hidden rounded-2xl bg-card shadow-sm hover:border-primary/40 hover:shadow-md",
                       isAwaitingCustomer 
-                        ? "border-primary/50 bg-primary/5 hover:border-primary" 
+                        ? "border-purple-500/30 bg-purple-500/5 hover:border-purple-500/60" 
                         : isResolved
-                        ? "border-emerald-500/50 bg-emerald-500/5 hover:border-emerald-500"
+                        ? "border-success/30 bg-success/5 hover:border-success/60"
                         : isInProgress
-                        ? "border-blue-500/30 bg-blue-500/5 hover:border-blue-500/60"
+                        ? "border-cyan-500/30 bg-cyan-500/5 hover:border-cyan-500/60"
                         : "border-border/40 hover:border-primary/40"
                     )}
                     onClick={() => navigate(`/ticket/${ticket.id}`)}
@@ -203,9 +203,9 @@ export default function ClientPortal() {
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className={cn(
                           "p-2.5 rounded-xl border flex-shrink-0",
-                          isAwaitingCustomer ? "bg-primary/10 text-primary border-primary/20" :
-                          isResolved ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" :
-                          isInProgress ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20" :
+                          isAwaitingCustomer ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20" :
+                          isResolved ? "bg-success/10 text-success border-success/20" :
+                          isInProgress ? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20" :
                           "bg-primary/10 text-primary border-primary/20"
                         )}>
                           <Ticket className="w-4 h-4" />

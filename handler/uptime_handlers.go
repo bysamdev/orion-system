@@ -23,8 +23,9 @@ func getUptimeRobotKey() string {
 
 
 type createEndpointReq struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
+	Name      string `json:"name"`
+	URL       string `json:"url"`
+	CompanyID string `json:"company_id,omitempty"`
 }
 
 type uptimeResponse struct {
@@ -64,7 +65,8 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if escopo, err := escopoDoUsuario(r.Context(), user.ID); err != nil || !papeisComandoRemoto[escopo.Role] {
+	escopo, err := escopoDoUsuario(r.Context(), user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
 		http.Error(w, "Acesso restrito: apenas administradores e técnicos podem gerenciar monitoramento web", http.StatusForbidden)
 		return
 	}
@@ -75,9 +77,21 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	companyID, err := db.CompanyByUserID(r.Context(), user.ID)
-	if err != nil || companyID == nil {
-		http.Error(w, "Company not found", http.StatusInternalServerError)
+	// Resolução de escopo idêntica ao molde de network_links_handlers.go:87.
+	// Equipe interna (Global) pode criar em qualquer empresa; os demais ficam
+	// fixados na própria empresa.
+	var targetCompanyID string
+	if escopo.Global() {
+		if req.CompanyID != "" {
+			targetCompanyID = req.CompanyID
+		} else if escopo.CompanyID != nil {
+			targetCompanyID = *escopo.CompanyID
+		}
+	} else if escopo.CompanyID != nil {
+		targetCompanyID = *escopo.CompanyID
+	}
+	if targetCompanyID == "" {
+		http.Error(w, "Company not found", http.StatusBadRequest)
 		return
 	}
 
@@ -111,7 +125,7 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 	_, err = db.Pool().Exec(r.Context(), `
 		INSERT INTO public.monitored_endpoints (company_id, name, url_or_ip, uptimerobot_monitor_id, status, created_at)
 		VALUES ($1, $2, $3, $4, 'pending', now())
-	`, *companyID, req.Name, req.URL, monitorID)
+	`, targetCompanyID, req.Name, req.URL, monitorID)
 
 	if err != nil {
 		http.Error(w, "Failed to save to database", http.StatusInternalServerError)
@@ -125,6 +139,7 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 		"monitor_id": monitorID,
 	})
 }
+
 
 type MonitoredEndpoint struct {
 	ID                   string     `json:"id"`
@@ -144,19 +159,45 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	companyID, err := db.CompanyByUserID(r.Context(), user.ID)
-	if err != nil || companyID == nil {
-		http.Error(w, "Company not found", http.StatusInternalServerError)
+	// Resolução de escopo idêntica ao molde de network_links_handlers.go:32.
+	// Equipe interna (Global) pode filtrar por company_id via query string;
+	// os demais ficam fixados na própria empresa.
+	escopo, err := escopoDoUsuario(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, "Não foi possível resolver sua empresa", http.StatusInternalServerError)
+		return
+	}
+	var companyID string
+	if escopo.Global() {
+		companyID = r.URL.Query().Get("company_id")
+	} else if escopo.CompanyID != nil {
+		companyID = *escopo.CompanyID
+	} else {
+		http.Error(w, "Não foi possível resolver sua empresa", http.StatusForbidden)
 		return
 	}
 
 	// 1. Fetch from DB
-	rows, err := db.Pool().Query(r.Context(), `
-		SELECT id, name, url_or_ip, uptimerobot_monitor_id, status
-		FROM public.monitored_endpoints
-		WHERE company_id = $1
-		ORDER BY created_at DESC
-	`, *companyID)
+	var (
+		sqlStr string
+		args   []any
+	)
+	if companyID != "" {
+		sqlStr = `
+			SELECT id, name, url_or_ip, uptimerobot_monitor_id, status
+			FROM public.monitored_endpoints
+			WHERE company_id = $1
+			ORDER BY created_at DESC
+		`
+		args = append(args, companyID)
+	} else {
+		sqlStr = `
+			SELECT id, name, url_or_ip, uptimerobot_monitor_id, status
+			FROM public.monitored_endpoints
+			ORDER BY created_at DESC
+		`
+	}
+	rows, err := db.Pool().Query(r.Context(), sqlStr, args...)
 	if err != nil {
 		http.Error(w, "Failed to query endpoints", http.StatusInternalServerError)
 		return
@@ -264,14 +305,9 @@ func monitoringDeleteWebEndpoint(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if escopo, err := escopoDoUsuario(r.Context(), user.ID); err != nil || !papeisComandoRemoto[escopo.Role] {
+	escopo, err := escopoDoUsuario(r.Context(), user.ID)
+	if err != nil || !papeisComandoRemoto[escopo.Role] {
 		http.Error(w, "Acesso restrito: apenas administradores e técnicos podem gerenciar monitoramento web", http.StatusForbidden)
-		return
-	}
-
-	companyID, err := db.CompanyByUserID(r.Context(), user.ID)
-	if err != nil || companyID == nil {
-		http.Error(w, "Company not found", http.StatusInternalServerError)
 		return
 	}
 
@@ -282,11 +318,24 @@ func monitoringDeleteWebEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. Get UptimeRobot Monitor ID
+	// Resolução de escopo idêntica ao molde de network_links_handlers.go:142.
+	// Equipe interna pode excluir endpoint de qualquer empresa (sem filtrar
+	// por company_id); os demais só apagam da própria empresa.
 	var urID string
-	err = db.Pool().QueryRow(r.Context(), `
-		SELECT uptimerobot_monitor_id FROM public.monitored_endpoints 
-		WHERE id = $1 AND company_id = $2
-	`, id, *companyID).Scan(&urID)
+	if escopo.Global() {
+		err = db.Pool().QueryRow(r.Context(), `
+			SELECT uptimerobot_monitor_id FROM public.monitored_endpoints
+			WHERE id = $1
+		`, id).Scan(&urID)
+	} else if escopo.CompanyID != nil {
+		err = db.Pool().QueryRow(r.Context(), `
+			SELECT uptimerobot_monitor_id FROM public.monitored_endpoints
+			WHERE id = $1 AND company_id = $2
+		`, id, *escopo.CompanyID).Scan(&urID)
+	} else {
+		http.Error(w, "Não foi possível resolver sua empresa", http.StatusForbidden)
+		return
+	}
 
 	if err != nil {
 		http.Error(w, "Endpoint not found", http.StatusNotFound)
@@ -300,7 +349,7 @@ func monitoringDeleteWebEndpoint(w http.ResponseWriter, r *http.Request) {
 		data.Set("api_key", apiKey)
 		data.Set("format", "json")
 		data.Set("id", urID)
-		
+
 		resp, err := http.PostForm(apiURL, data)
 		if err == nil {
 			resp.Body.Close()
@@ -308,9 +357,15 @@ func monitoringDeleteWebEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Delete from DB
-	_, err = db.Pool().Exec(r.Context(), `
-		DELETE FROM public.monitored_endpoints WHERE id = $1 AND company_id = $2
-	`, id, *companyID)
+	if escopo.Global() {
+		_, err = db.Pool().Exec(r.Context(), `
+			DELETE FROM public.monitored_endpoints WHERE id = $1
+		`, id)
+	} else {
+		_, err = db.Pool().Exec(r.Context(), `
+			DELETE FROM public.monitored_endpoints WHERE id = $1 AND company_id = $2
+		`, id, *escopo.CompanyID)
+	}
 
 	if err != nil {
 		http.Error(w, "Failed to delete from DB", http.StatusInternalServerError)
@@ -319,3 +374,4 @@ func monitoringDeleteWebEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+

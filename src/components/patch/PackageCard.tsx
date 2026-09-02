@@ -62,16 +62,18 @@ export const PackageCard: React.FC<Props> = ({ pkg, onDeploy, onDelete }) => {
                   {formatDistanceToNow(new Date(pkg.created_at), { locale: ptBR, addSuffix: true })}
                 </span>
               </div>
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button size="sm" className="h-7 gap-1.5 text-[11px] font-bold" onClick={() => onDeploy(pkg)}>
+              <div className="flex gap-2 opacity-50 hover:opacity-100 group-hover:opacity-100 transition-opacity">
+                <Button size="sm" className="gap-1.5 text-2xs font-bold" onClick={() => onDeploy(pkg)}>
                   <Play className="w-3 h-3" /> Implantar
                 </Button>
                 <Button
-                  variant="ghost" size="icon"
-                  className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Excluir pacote"
+                  className="text-destructive hover:bg-destructive/10"
                   onClick={handleDelete}
                 >
-                  <Trash2 className="w-3 h-3" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
             </div>

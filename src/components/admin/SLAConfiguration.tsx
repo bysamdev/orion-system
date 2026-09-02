@@ -11,6 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Loader2, Save, Trash2, Clock, AlertTriangle, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { TICKET_PRIORITY_MAP } from '@/lib/state-tokens';
+import { cn } from '@/lib/utils';
 
 export const SLAConfiguration: React.FC = () => {
   const { data: profile } = useUserProfile();
@@ -242,10 +244,10 @@ export const SLAConfiguration: React.FC = () => {
                   </div>
                   
                   <div className="flex gap-2 mt-4 flex-wrap">
-                     <Badge variant="outline" className="border-rose-500/30 text-rose-700 dark:text-rose-400 bg-rose-500/10">Urg: {sla.urgent_hours}h</Badge>
-                     <Badge variant="outline" className="border-orange-500/30 text-orange-700 dark:text-orange-400 bg-orange-500/10">Alta: {sla.high_hours}h</Badge>
-                     <Badge variant="outline" className="border-blue-500/30 text-blue-700 dark:text-blue-400 bg-blue-500/10">Méd: {sla.medium_hours}h</Badge>
-                     <Badge variant="outline" className="border-slate-500/30 text-slate-700 dark:text-slate-300 bg-slate-500/10">Bxa: {sla.low_hours}h</Badge>
+                     <Badge variant="outline" className={cn("text-xs font-semibold whitespace-nowrap", TICKET_PRIORITY_MAP.urgent.badgeClass)}>Urg: {sla.urgent_hours}h</Badge>
+                     <Badge variant="outline" className={cn("text-xs font-semibold whitespace-nowrap", TICKET_PRIORITY_MAP.high.badgeClass)}>Alta: {sla.high_hours}h</Badge>
+                     <Badge variant="outline" className={cn("text-xs font-semibold whitespace-nowrap", TICKET_PRIORITY_MAP.medium.badgeClass)}>Méd: {sla.medium_hours}h</Badge>
+                     <Badge variant="outline" className={cn("text-xs font-semibold whitespace-nowrap", TICKET_PRIORITY_MAP.low.badgeClass)}>Bxa: {sla.low_hours}h</Badge>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 md:self-center">
@@ -265,7 +267,7 @@ export const SLAConfiguration: React.FC = () => {
         )}
       </div>
       
-      <Card className="border-border/40 border-dashed bg-transparent rounded-3xl overflow-hidden mt-8">
+      <Card className="border-border/40 border-dashed bg-transparent rounded-2xl overflow-hidden mt-8">
         <CardContent className="p-6 flex items-center gap-4 text-muted-foreground italic text-sm">
           <div className="p-2 rounded-full bg-muted">
             <Check className="w-4 h-4" />

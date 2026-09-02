@@ -8,6 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import { TicketUpdate } from '@/hooks/useTickets';
 import { TimeEntry } from '@/hooks/useTimeEntries';
 import { useProfilesMap, resolveUserDisplayName, replaceUserUuidsInText, ProfilesMap } from '@/hooks/useUserDisplayName';
+import { getStatusLabel } from '@/lib/state-tokens';
 
 interface StatusHistoryEntry {
   id: string;
@@ -34,12 +35,6 @@ type TimelineItem = {
   meta?: Record<string, any>;
 };
 
-const statusLabels: Record<string, string> = {
-  'open': 'Aberto', 'in-progress': 'Em Atendimento', 'awaiting-customer': 'Aguardando Resposta',
-  'awaiting-third-party': 'Aguardando Terceiro', 'resolved': 'Resolvido', 'closed': 'Concluído',
-  'reopened': 'Reaberto', 'cancelled': 'Cancelado',
-};
-
 // Converte dados crus para itens unificados
 const buildTimeline = (
   updates: TicketUpdate[],
@@ -63,16 +58,15 @@ const buildTimeline = (
 
   statusHistory.forEach(sh => {
     const authorName = resolveUserDisplayName(sh.changed_by, profilesMap, { fallback: 'Sistema' });
-    // Evita duplicar com updates do tipo status_change
     items.push({
-      id: `sh-${sh.id}`,
+      id: sh.id,
       type: 'status_history',
       author: authorName,
       content: sh.old_status
-        ? `${statusLabels[sh.old_status] || sh.old_status} → ${statusLabels[sh.new_status] || sh.new_status}`
-        : `Status inicial: ${statusLabels[sh.new_status] || sh.new_status}`,
+        ? `${getStatusLabel(sh.old_status)} → ${getStatusLabel(sh.new_status)}`
+        : `Status inicial: ${getStatusLabel(sh.new_status)}`,
       created_at: sh.created_at,
-      meta: { reason: replaceUserUuidsInText(sh.reason, profilesMap) },
+      meta: { reason: sh.reason, old_status: sh.old_status, new_status: sh.new_status }
     });
   });
 

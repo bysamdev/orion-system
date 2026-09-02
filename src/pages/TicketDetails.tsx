@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
@@ -110,7 +111,7 @@ const TicketStatusStepper = ({ currentStatus }: { currentStatus: string }) => {
               <div key={step.key} className="flex flex-col items-center gap-2 relative z-10">
                 <div className={cn(
                   "w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-500",
-                  isActive ? "bg-primary border-primary text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-110" :
+                  isActive ? "bg-primary border-primary text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/0.3)] scale-110" :
                   isPast ? "bg-green-500 border-green-500 text-white" :
                   "bg-background border-muted-foreground/20 text-muted-foreground"
                 )}>

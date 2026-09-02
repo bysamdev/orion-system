@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfDay } from 'date-fns';
 import { calculateSlaStatus } from '@/lib/ticket-helpers';
+import { getRechartsStatusColor } from '@/lib/state-tokens';
 
 /**
  * Hook para buscar estatísticas pessoais do técnico logado
@@ -133,11 +134,11 @@ export const useTechnicianWorkload = (userId: string | undefined, role?: string)
       });
 
       return [
-        { name: 'Abertos', value: statusCount['open'], color: 'hsl(var(--warning))' },
-        { name: 'Em Atendimento', value: statusCount['in-progress'], color: 'hsl(var(--primary))' },
-        { name: 'Reabertos', value: statusCount['reopened'], color: 'hsl(var(--destructive))' },
-        { name: 'Aguard. Cliente', value: statusCount['awaiting-customer'], color: '#906090' },
-        { name: 'Aguard. Terceiro', value: statusCount['awaiting-third-party'], color: '#604878' },
+        { name: 'Abertos', value: statusCount['open'], color: getRechartsStatusColor('open') },
+        { name: 'Em Atendimento', value: statusCount['in-progress'], color: getRechartsStatusColor('in-progress') },
+        { name: 'Reabertos', value: statusCount['reopened'], color: getRechartsStatusColor('reopened') },
+        { name: 'Aguard. Cliente', value: statusCount['awaiting-customer'], color: getRechartsStatusColor('awaiting-customer') },
+        { name: 'Aguard. Terceiro', value: statusCount['awaiting-third-party'], color: getRechartsStatusColor('awaiting-third-party') },
       ].filter(item => item.value > 0);
     },
     enabled: !!userId,
