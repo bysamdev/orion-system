@@ -1,6 +1,19 @@
-# Acabamento MVP — Auditoria (Fase 1 + Fase 2)
+# Acabamento MVP — Auditoria (Fase 1 + Fase 2) + Implementação
 
-Auditoria somente leitura. Nenhum arquivo de código foi alterado. Zona proibida (autorização/RLS/`RequireCompanyScope`) não foi tocada — achados de autorização estão listados em "Fora de escopo" ao final.
+Auditoria somente leitura nas Fases 1 e 2. Nenhum arquivo de código foi alterado nessas fases. Zona proibida (autorização/RLS/`RequireCompanyScope`) não foi tocada em nenhum momento — achados de autorização estão listados em "Fora de escopo" ao final.
+
+## Fase 3 — Implementação (pós-aprovação)
+
+Decisões confirmadas pelo usuário: 1.1 ocultar card (não implementar decrypt); 1.2 "Em Atendimento" = azul/info; 1.5 não adicionar CSV; 1.6 fechamento automático agendado; 1.8 PDF com gráfico (não XLSX simples).
+
+Todos os itens 1.1–1.8 foram implementados nesta branch (`claude/orion-mvp-polish-4azuhp`), exceto 1.5 (nenhuma mudança — decisão do usuário de manter XLSX/PDF já existentes). Commits: `6172c71` (1.1–1.4), `5a5afb0` (1.6, 1.7), `599b993` (1.8). `tsc --noEmit`, `npm run build` e a suíte de testes (66 passando) foram executados após cada etapa.
+
+**Passos manuais pendentes antes de funcionar em produção** (não executados nesta sessão — aplicar schema/deploy em projeto Supabase compartilhado é ação de alto impacto que requer decisão explícita do usuário, fora do que foi pedido):
+- Aplicar as 3 migrations novas (`20260902120000`, `20260902130000`, `20260902140000`) — via `supabase db push` ou `mcp__Supabase__apply_migration`.
+- Criar o secret no Vault: `select vault.create_secret('<valor-aleatorio>', 'orion_cron_dispatch_secret');` e configurar o mesmo valor como env var `CRON_DISPATCH_SECRET` na Edge Function `send-scheduled-report`.
+- Deploy da function: `supabase functions deploy send-scheduled-report` (ou `mcp__Supabase__deploy_edge_function`).
+- Confirmar que `RESEND_API_KEY` já está configurada no projeto (já usada por outras functions — não deveria precisar de ação nova).
+- A Edge Function `send-scheduled-report` não foi exercitada contra um projeto Supabase real nesta sessão (sem ambiente Deno/edge local disponível) — recomenda-se testar em staging antes de habilitar o cron `dispatch-report-schedules` em produção.
 
 ---
 
