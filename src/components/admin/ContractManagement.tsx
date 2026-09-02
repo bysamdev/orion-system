@@ -135,7 +135,8 @@ export const ContractManagement = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
+          <div className="w-full overflow-x-auto">
+          <Table className="min-w-[800px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Contrato</TableHead>
@@ -262,6 +263,7 @@ export const ContractManagement = () => {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

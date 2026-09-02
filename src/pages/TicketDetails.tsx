@@ -784,7 +784,7 @@ const TicketDetails: React.FC = () => {
             </Card>
 
             {/* Histórico / Timeline */}
-            <Card className="p-8 border-none shadow-sm overflow-hidden bg-background border border-border/40">
+            <Card className="p-8 shadow-sm overflow-hidden bg-background border border-border/40">
               <div className="flex items-center gap-2 mb-6">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                   <MessageSquare className="w-4 h-4 text-primary" />
@@ -1017,7 +1017,7 @@ const TicketDetails: React.FC = () => {
 
             {/* SLA Info */}
             {ticket.sla_due_date && (
-              <Card className="p-6 border-none shadow-sm bg-background border border-border/40">
+              <Card className="p-6 shadow-sm bg-background border border-border/40">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Acordo de SLA</h3>
                   <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} />
@@ -1039,7 +1039,7 @@ const TicketDetails: React.FC = () => {
 
             {/* Artigos Sugeridos KB */}
             {suggestedArticles && suggestedArticles.length > 0 && (
-              <Card className="p-6 border-none shadow-sm bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-right-4 duration-500">
+              <Card className="p-6 shadow-sm bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-right-4 duration-500">
                 <div className="flex items-center gap-2 mb-4">
                   <Sparkles className="w-4 h-4 text-primary" />
                   <h3 className="font-bold text-foreground text-xs uppercase tracking-widest">Artigos Sugeridos</h3>

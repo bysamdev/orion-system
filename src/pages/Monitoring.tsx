@@ -387,7 +387,7 @@ function MachinesGrid({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
         {Array.from({ length: 6 }).map((_, i) => <MachineCardSkeleton key={i} />)}
       </div>
     );
@@ -459,7 +459,7 @@ function MachinesGrid({
                 viewMode === 'table' ? (
                   <MachinesTableView machines={groupFiltered} onSelect={onSelect} />
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
                     {groupFiltered.map((m) => (
                       <MachineCard key={m.id} machine={m} onSelect={onSelect} />
                     ))}
@@ -495,7 +495,7 @@ function MachinesGrid({
               {viewMode === 'table' ? (
                 <MachinesTableView machines={filteredUnassigned} onSelect={onSelect} />
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
                   {filteredUnassigned.map((m) => (
                     <MachineCard key={m.id} machine={m} onSelect={onSelect} />
                   ))}
@@ -551,7 +551,7 @@ function MachinesGrid({
       {viewMode === 'table' ? (
         <MachinesTableView machines={filtered} onSelect={onSelect} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
           {filtered.map((m) => (
             <MachineCard key={m.id} machine={m} onSelect={onSelect} />
           ))}
@@ -1168,7 +1168,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
           {/* Main — machine grid */}
           <div className="flex-1 min-w-0">
             {groupsLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => <MachineCardSkeleton key={i} />)}
               </div>
             ) : (

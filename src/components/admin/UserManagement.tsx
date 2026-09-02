@@ -632,7 +632,8 @@ export const UserManagement = () => {
         </Dialog>
       </CardHeader>
       <CardContent>
-        <Table>
+        <div className="w-full overflow-x-auto">
+        <Table className="min-w-[700px]">
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
@@ -671,6 +672,7 @@ export const UserManagement = () => {
             )}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
 
       {/* Modal de Edição */}

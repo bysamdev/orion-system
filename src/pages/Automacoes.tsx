@@ -30,7 +30,7 @@ const Automacoes: React.FC = () => {
       ) : (
         <Tabs defaultValue="rules" className="space-y-6">
           <div className="overflow-x-auto pb-1">
-            <TabsList className="w-auto inline-flex flex-wrap sm:flex-nowrap">
+            <TabsList className="w-auto inline-flex flex-nowrap overflow-x-auto">
               <TabsTrigger value="rules" className="gap-2">
                 <GitBranch className="w-4 h-4" />
                 <span>Regras</span>

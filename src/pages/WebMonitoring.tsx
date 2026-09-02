@@ -454,7 +454,7 @@ export default function WebMonitoring() {
                   <Badge
                     variant="outline"
                     className={cn(
-                      'text-2xs font-bold px-1.5 py-0.2',
+                      'text-2xs font-bold px-1.5 py-0.5',
                       webStats.offline === 0
                         ? 'text-success bg-success/15 border-success/30'
                         : 'text-destructive bg-destructive/15 border-destructive/30'
@@ -485,7 +485,7 @@ export default function WebMonitoring() {
                   <span className="text-xl sm:text-2xl font-bold tracking-tight text-success">
                     {webStats.avgResponseTime ? `${webStats.avgResponseTime} ms` : '–'}
                   </span>
-                  <Badge variant="outline" className="text-2xs font-bold px-1.5 py-0.2 text-success bg-success/15 border-success/30">
+                  <Badge variant="outline" className="text-2xs font-bold px-1.5 py-0.5 text-success bg-success/15 border-success/30">
                     <CheckCircle2 className="w-2.5 h-2.5" />
                     &lt; 200ms
                   </Badge>
@@ -512,7 +512,7 @@ export default function WebMonitoring() {
                   <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                     {webStats.sslPct}% Válidos
                   </span>
-                  <Badge variant="outline" className="text-2xs font-bold px-1.5 py-0.2 text-success bg-success/15 border-success/30">
+                  <Badge variant="outline" className="text-2xs font-bold px-1.5 py-0.5 text-success bg-success/15 border-success/30">
                     <ShieldCheck className="w-2.5 h-2.5" />
                     {webStats.httpsCount}/{webStats.total} HTTPS
                   </Badge>
@@ -544,7 +544,7 @@ export default function WebMonitoring() {
                   <Badge
                     variant="outline"
                     className={cn(
-                      "text-2xs font-bold px-1.5 py-0.2",
+                      "text-2xs font-bold px-1.5 py-0.5",
                       webStats.offline === 0
                         ? "text-success bg-success/15 border-success/30"
                         : "text-destructive bg-destructive/15 border-destructive/30"
@@ -1039,7 +1039,7 @@ export default function WebMonitoring() {
                   <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                     {networkStats.online}/{networkStats.total}
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-primary bg-primary/10 border-primary/30">
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.5 text-primary bg-primary/10 border-primary/30">
                     Conexões
                   </Badge>
                 </div>
@@ -1064,7 +1064,7 @@ export default function WebMonitoring() {
                   <span className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
                     {networkStats.avgLatency !== null ? `${networkStats.avgLatency} ms` : '–'}
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.5 text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
                     Ping Ativo
                   </Badge>
                 </div>
@@ -1090,7 +1090,7 @@ export default function WebMonitoring() {
                   <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                     {networkStats.starlinkCount > 0 ? `${networkStats.starlinkCount} Link(s)` : '0 Links'}
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 text-primary bg-primary/10 border-primary/30">
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.5 text-primary bg-primary/10 border-primary/30">
                     {networkStats.starlinkAvg ? `${networkStats.starlinkAvg} ms` : 'Satélite LEO'}
                   </Badge>
                 </div>
@@ -1119,7 +1119,7 @@ export default function WebMonitoring() {
                   <Badge
                     variant="outline"
                     className={cn(
-                      "text-[10px] font-bold px-1.5 py-0.2",
+                      "text-[10px] font-bold px-1.5 py-0.5",
                       networkStats.offline === 0
                         ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/30"
                         : "text-red-600 bg-red-500/10 border-red-500/30"

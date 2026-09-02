@@ -70,10 +70,13 @@ import type {
 } from '@/hooks/useMonitoring';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
-import { PerformanceChart } from './PerformanceChart';
 import { InventoryTab } from './InventoryTab';
 import { MachineTicketsTab } from './MachineTicketsTab';
 import { OsIcon, parseOsInfo } from './MachineCard';
+
+const PerformanceChart = React.lazy(() =>
+  import('./PerformanceChart').then((m) => ({ default: m.PerformanceChart }))
+);
 
 const RemoteTerminal = React.lazy(() =>
   import('./RemoteTerminal').then((m) => ({ default: m.RemoteTerminal }))
@@ -523,7 +526,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
       setSelectedCompanyId(machine.company_id || '');
       setSelectedDeviceType(detail?.machine?.device_type || machine.device_type || 'desktop');
     }
-  }, [machine, detail?.machine?.device_type]);
+  }, [machine?.id, detail?.machine?.device_type]);
 
   const handleSaveChanges = async () => {
     if (!machineId) return;
@@ -779,7 +782,9 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                   </section>
 
                   {/* Performance chart */}
-                  <PerformanceChart machineId={machineId} machine={machine} period={period} onPeriodChange={setPeriod} />
+                  <React.Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+                    <PerformanceChart machineId={machineId} machine={machine} period={period} onPeriodChange={setPeriod} />
+                  </React.Suspense>
 
                   {/* Alerts */}
                   <section className="space-y-4">
@@ -843,7 +848,7 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
                             </SelectContent>
                           </Select>
                         </div>
-                        <Button className="w-full font-bold gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/20" onClick={handleSaveChanges} disabled={isSaving}>
+                        <Button className="w-full font-bold gap-2" onClick={handleSaveChanges} disabled={isSaving}>
                           <RefreshCw className={cn('w-4 h-4', isSaving && 'animate-spin')} />
                           Salvar Alterações
                         </Button>
@@ -1184,13 +1189,15 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
 
                   {/* Seção 2: Gráfico de Performance Histórica Nativo */}
                   <section className="space-y-2">
-                    <PerformanceChart
-                      machineId={machineId}
-                      machine={machine}
-                      period={period}
-                      onPeriodChange={setPeriod}
-                      title="Performance Histórica do Host"
-                    />
+                    <React.Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+                      <PerformanceChart
+                        machineId={machineId}
+                        machine={machine}
+                        period={period}
+                        onPeriodChange={setPeriod}
+                        title="Performance Histórica do Host"
+                      />
+                    </React.Suspense>
                   </section>
 
                   {/* Seção 3: Bateria & Conformidade de Segurança */}

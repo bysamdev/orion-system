@@ -25,7 +25,7 @@ export const ResolutionChecklistManagement = () => {
   const [editingChecklist, setEditingChecklist] = useState<{ id: string; category: string; items: string[]; is_active: boolean } | null>(null);
   
   const [category, setCategory] = useState('');
-  const [items, setItems] = useState<string[]>(['']);
+  const [items, setItems] = useState<Array<{ id: string; text: string }>>([{ id: 'init-0', text: '' }]);
   const [isActive, setIsActive] = useState(true);
 
   const { data: checklists = [], isLoading, isError, error, refetch } = useQuery({
@@ -86,35 +86,34 @@ export const ResolutionChecklistManagement = () => {
   const resetForm = () => {
     setEditingChecklist(null);
     setCategory('');
-    setItems(['']);
+    setItems([{ id: crypto.randomUUID(), text: '' }]);
     setIsActive(true);
   };
 
   const handleEdit = (checklist: { id: string; category: string; items: string[]; is_active: boolean }) => {
     setEditingChecklist(checklist);
     setCategory(checklist.category);
-    setItems(checklist.items.length ? checklist.items : ['']);
+    setItems(checklist.items.length ? checklist.items.map(t => ({ id: crypto.randomUUID(), text: t })) : [{ id: crypto.randomUUID(), text: '' }]);
     setIsActive(checklist.is_active);
     setIsDialogOpen(true);
   };
 
-  const addItem = () => setItems([...items, '']);
-  const updateItem = (index: number, value: string) => {
-    const newItems = [...items];
-    newItems[index] = value;
-    setItems(newItems);
+  const addItem = () => setItems([...items, { id: crypto.randomUUID(), text: '' }]);
+  const updateItem = (id: string, value: string) => {
+    setItems(items.map(item => item.id === id ? { ...item, text: value } : item));
   };
-  const removeItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
+  const removeItem = (id: string) => {
+    setItems(items.filter(item => item.id !== id));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!category.trim() || items.filter(i => i.trim() !== '').length === 0) {
+    const cleanItems = items.map(i => i.text).filter(i => i.trim() !== '');
+    if (!category.trim() || cleanItems.length === 0) {
       toast({ title: 'Atenção', description: 'Categoria e pelo menos um item são obrigatórios.', variant: 'destructive' });
       return;
     }
-    saveMutation.mutate({ id: editingChecklist?.id, category, items, isActive });
+    saveMutation.mutate({ id: editingChecklist?.id, category, items: cleanItems, isActive });
   };
 
   return (
@@ -164,14 +163,14 @@ export const ResolutionChecklistManagement = () => {
                 </div>
                 <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
                   {items.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2">
+                    <div key={item.id} className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-muted-foreground shrink-0" />
                       <Input 
                         placeholder={`Executar validação ${index + 1}...`} 
-                        value={item} 
-                        onChange={(e) => updateItem(index, e.target.value)}
+                        value={item.text} 
+                        onChange={(e) => updateItem(item.id, e.target.value)}
                       />
-                      <Button type="button" variant="ghost" size="icon" aria-label={`Remover item ${index + 1}`} className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => removeItem(index)}>
+                      <Button type="button" variant="ghost" size="icon" aria-label={`Remover item ${index + 1}`} className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => removeItem(item.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -196,7 +195,8 @@ export const ResolutionChecklistManagement = () => {
         </Dialog>
       </CardHeader>
       <CardContent className="p-0">
-        <Table>
+        <div className="w-full overflow-x-auto">
+        <Table className="min-w-[500px]">
           <TableHeader className="bg-muted/10">
             <TableRow>
               <TableHead className="w-[200px] pl-6 font-bold uppercase text-[10px] tracking-widest">Categoria</TableHead>
@@ -272,6 +272,7 @@ export const ResolutionChecklistManagement = () => {
             )}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
   );

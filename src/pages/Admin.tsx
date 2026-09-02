@@ -72,7 +72,7 @@ export default function Admin() {
       
       <Tabs defaultValue="users" className="w-full">
         <div className="overflow-x-auto pb-1">
-          <TabsList className="w-auto inline-flex flex-wrap sm:flex-nowrap">
+          <TabsList className="w-auto inline-flex flex-nowrap overflow-x-auto">
             <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Usuários</TabsTrigger>
             <TabsTrigger value="companies" className="gap-2"><Building className="w-4 h-4" /> Empresas</TabsTrigger>
             <TabsTrigger value="contracts" className="gap-2"><FileText className="w-4 h-4" /> Contratos</TabsTrigger>

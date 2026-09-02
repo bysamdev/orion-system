@@ -292,7 +292,8 @@ export const CompanyManagement = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
+          <div className="w-full overflow-x-auto">
+          <Table className="min-w-[750px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Nome da Empresa / Cliente</TableHead>
@@ -390,6 +391,7 @@ export const CompanyManagement = () => {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -413,8 +415,8 @@ export const CompanyManagement = () => {
               Gerar Novo Token
             </ButtonPrimary>
 
-            <div className="rounded-xl border border-border/40 overflow-hidden">
-              <Table>
+            <div className="rounded-xl border border-border/40 overflow-hidden overflow-x-auto">
+              <Table className="min-w-[400px]">
                 <TableHeader className="bg-muted/30 text-[10px] uppercase font-black">
                   <TableRow>
                     <TableHead>Token / Label</TableHead>

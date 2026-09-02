@@ -819,7 +819,7 @@ const NewTicket = () => {
                       {pendingFiles.length > 0 && (
                         <div className="flex gap-2 flex-wrap pt-2">
                           {pendingFiles.map((f, i) => (
-                            <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border/60 rounded-lg text-xs font-medium group">
+                            <div key={`${f.name}-${f.size}-${f.lastModified}`} className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border/60 rounded-lg text-xs font-medium group">
                               <Paperclip className="w-3.5 h-3.5 text-primary shrink-0" />
                               <span className="truncate max-w-[180px]">{f.name}</span>
                               <button

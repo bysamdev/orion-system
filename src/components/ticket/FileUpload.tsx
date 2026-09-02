@@ -154,7 +154,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           </p>
           {pendingFiles.map((file, index) => (
             <div 
-              key={index} 
+              key={`${file.name}-${file.size}-${file.lastModified}`} 
               className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg"
             >
               {getFileIcon(file.type)}

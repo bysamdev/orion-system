@@ -107,7 +107,8 @@ export const HistoryTab: React.FC = () => {
       ) : (
         <Card className="border-border/50 bg-card/60 backdrop-blur-sm overflow-hidden rounded-2xl shadow-xs">
           <ScrollArea className="h-[520px]">
-            <Table>
+            <div className="overflow-x-auto">
+            <Table className="min-w-[600px]">
               <TableHeader className="bg-muted/30 sticky top-0 backdrop-blur-md z-10">
                 <TableRow className="border-border/40 hover:bg-transparent">
                   <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground w-40">Horário</TableHead>
@@ -152,6 +153,7 @@ export const HistoryTab: React.FC = () => {
                 })}
               </TableBody>
             </Table>
+            </div>
           </ScrollArea>
         </Card>
       )}

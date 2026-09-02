@@ -2,7 +2,6 @@ import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpe
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Ticket } from './useTickets';
-import { MOCK_TICKETS, getMockTicketsByStatus } from '@/mocks/tickets';
 
 // Teto de segurança pras filas abaixo (ativos/SLA-em-risco/não-atribuídos)
 // que não têm controle de página — diferente de useMeusTickets, que já
@@ -28,12 +27,6 @@ export const useMyActiveTickets = (userId: string | undefined) => {
     queryFn: async () => {
       if (!userId) return [];
 
-      if (import.meta.env.DEV) {
-        return getMockTicketsByStatus(['in-progress', 'awaiting-customer', 'awaiting-third-party', 'resolved', 'open', 'reopened']).filter(
-          t => t.assigned_to_user_id === userId || !userId || t.assigned_to_user_id === 'test-user'
-        ) as unknown as Promise<Ticket[]>;
-      }
-
       const { data: tickets, error } = await supabase
         .from('tickets')
         .select('*')
@@ -58,10 +51,6 @@ export const useSLAAtRiskTickets = () => {
   return useQuery({
     queryKey: ['sla-at-risk-tickets'],
     queryFn: async () => {
-      if (import.meta.env.DEV) {
-        return MOCK_TICKETS.filter(ticket => ticket.sla_status === 'warning' || ticket.sla_status === 'attention' || ticket.sla_status === 'breached') as unknown as Ticket[];
-      }
-
       const { data: tickets, error } = await supabase
         .from('tickets')
         .select('*')
@@ -91,12 +80,6 @@ export const useUnassignedTicketsEnhanced = () => {
   return useQuery({
     queryKey: ['unassigned-tickets-enhanced'],
     queryFn: async () => {
-      if (import.meta.env.DEV) {
-        return getMockTicketsByStatus(['open', 'reopened', 'awaiting-customer', 'awaiting-third-party']).filter(
-          t => !t.assigned_to_user_id && !t.assigned_to
-        ) as unknown as Promise<Ticket[]>;
-      }
-
       const { data: tickets, error } = await supabase
         .from('tickets')
         .select('*')
@@ -120,10 +103,6 @@ export const useAllActiveTickets = () => {
   return useQuery({
     queryKey: ['all-active-tickets'],
     queryFn: async () => {
-      if (import.meta.env.DEV) {
-        return getMockTicketsByStatus(['open', 'in-progress', 'reopened', 'awaiting-customer', 'awaiting-third-party']) as unknown as Promise<Ticket[]>;
-      }
-
       const { data: tickets, error } = await supabase
         .from('tickets')
         .select('*')
@@ -147,10 +126,6 @@ export const useMyRecentClosedTickets = (userId: string | undefined) => {
     queryKey: ['my-recent-closed', userId],
     queryFn: async () => {
       if (!userId) return [];
-
-      if (import.meta.env.DEV) {
-        return getMockTicketsByStatus(['closed', 'cancelled']) as unknown as any[];
-      }
 
       const { data, error } = await supabase
         .from('tickets')
@@ -210,41 +185,6 @@ export const useMeusTickets = (userId: string | undefined, role: string | undefi
     queryKey: ['meus-tickets', userId, role, options],
     queryFn: async () => {
       if (role === 'customer' && !userId) return { data: [], count: 0 };
-
-      if (import.meta.env.DEV) {
-        let mockData = MOCK_TICKETS;
-        
-        if (options.statusIn && options.statusIn.length > 0) {
-          mockData = mockData.filter(t => options.statusIn?.includes(t.status));
-        } else if (options.statusFilter && options.statusFilter !== 'all') {
-          if (options.statusFilter === 'open') {
-            mockData = mockData.filter(t => ['open', 'reopened'].includes(t.status));
-          } else if (options.statusFilter === 'in-progress') {
-            mockData = mockData.filter(t => ['in-progress', 'awaiting-customer', 'awaiting-third-party'].includes(t.status));
-          } else if (options.statusFilter === 'resolved') {
-            mockData = mockData.filter(t => ['resolved', 'closed', 'cancelled'].includes(t.status));
-          } else {
-            mockData = mockData.filter(t => t.status === options.statusFilter);
-          }
-        }
-        
-        if (options.searchTerm) {
-          const raw = options.searchTerm.trim().toLowerCase();
-          const cleanNum = raw.replace(/^[#nº\s]+/i, '').trim();
-          mockData = mockData.filter(t => 
-            t.title?.toLowerCase().includes(raw) ||
-            t.description?.toLowerCase().includes(raw) ||
-            t.requester_name?.toLowerCase().includes(raw) ||
-            t.assigned_to?.toLowerCase().includes(raw) ||
-            t.category?.toLowerCase().includes(raw) ||
-            t.id?.toLowerCase().includes(raw) ||
-            t.user_id?.toLowerCase().includes(raw) ||
-            String(t.ticket_number) === cleanNum
-          );
-        }
-
-        return { data: mockData as unknown as Ticket[], count: mockData.length };
-      }
 
       let query = supabase
         .from('tickets')

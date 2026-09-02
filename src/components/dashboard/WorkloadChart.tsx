@@ -29,7 +29,7 @@ export default function WorkloadChart({ workload }: WorkloadChartProps) {
         </PieChart>
       </ResponsiveContainer>
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <span className="text-3xl font-black tracking-tighter">{workload.reduce((a, b) => a + b.value, 0)}</span>
+        <span className="text-3xl font-black tracking-tighter">{(workload ?? []).reduce((a, b) => a + b.value, 0)}</span>
         <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Chamados</span>
       </div>
     </div>
