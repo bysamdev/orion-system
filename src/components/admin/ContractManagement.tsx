@@ -14,9 +14,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Loader2, Trash2, Pencil, FileText, AlertTriangle } from 'lucide-react';
+import { Plus, Loader2, Trash2, Pencil, FileText, AlertTriangle, Clock } from 'lucide-react';
 import { useContracts, useCreateContract, useUpdateContract, useDeleteContract, type Contract } from '@/hooks/useContracts';
 import { useCompanies } from '@/hooks/useCompanies';
+import { useLatestContractBillingCycles } from '@/hooks/useContractBillingCycles';
 import { cn, formatDate } from '@/lib/utils';
 
 interface ContractForm {
@@ -24,6 +25,7 @@ interface ContractForm {
   name: string;
   start_date: string;
   end_date: string;
+  monthly_hours: string;
   tickets_limit: string;
   tickets_used: number;
   notes: string;
@@ -35,6 +37,7 @@ const emptyForm: ContractForm = {
   name: '',
   start_date: new Date().toISOString().split('T')[0],
   end_date: '',
+  monthly_hours: '',
   tickets_limit: '',
   tickets_used: 0,
   notes: '',
@@ -48,6 +51,7 @@ export const ContractManagement = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: contracts, isLoading } = useContracts();
+  const { data: latestCycles } = useLatestContractBillingCycles();
   const createContract = useCreateContract();
   const updateContract = useUpdateContract();
   const deleteContract = useDeleteContract();
@@ -67,6 +71,7 @@ export const ContractManagement = () => {
       name: contract.name,
       start_date: contract.start_date,
       end_date: contract.end_date || '',
+      monthly_hours: contract.monthly_hours?.toString() || '',
       tickets_limit: contract.tickets_limit?.toString() || '',
       tickets_used: contract.tickets_used || 0,
       notes: contract.notes || '',
@@ -82,6 +87,7 @@ export const ContractManagement = () => {
       name: formData.name.trim(),
       start_date: formData.start_date,
       end_date: formData.end_date || null,
+      monthly_hours: formData.monthly_hours ? parseFloat(formData.monthly_hours) : null,
       tickets_limit: formData.tickets_limit ? parseInt(formData.tickets_limit) : null,
       tickets_used: formData.tickets_used,
       notes: formData.notes.trim() || null,
@@ -137,6 +143,7 @@ export const ContractManagement = () => {
                 <TableHead>Início</TableHead>
                 <TableHead>Término</TableHead>
                 <TableHead>Consumo Mensal (Tickets)</TableHead>
+                <TableHead>Banco de Horas (Último Fechamento)</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -191,6 +198,45 @@ export const ContractManagement = () => {
                     )}
                   </TableCell>
                   <TableCell>
+                    {(() => {
+                      const cycle = latestCycles?.get(contract.id);
+                      if (!contract.monthly_hours) {
+                        return <span className="text-muted-foreground text-xs">—</span>;
+                      }
+                      if (!cycle) {
+                        return (
+                          <span className="text-muted-foreground text-xs">
+                            Aguardando 1º fechamento
+                          </span>
+                        );
+                      }
+                      const pct = contract.monthly_hours > 0
+                        ? Math.round((cycle.consumed_hours / contract.monthly_hours) * 100)
+                        : 0;
+                      return (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                            <Clock className="w-3 h-3" />
+                            <span>{cycle.consumed_hours.toFixed(1)}h / {contract.monthly_hours}h</span>
+                            <span className="ml-auto">{pct}%</span>
+                          </div>
+                          <div className="w-full h-2 bg-muted rounded-full overflow-hidden border border-border/40">
+                            <div
+                              className={cn(
+                                "h-full transition-all duration-500",
+                                pct >= 100 ? "bg-destructive" : pct >= 80 ? "bg-warning" : "bg-primary"
+                              )}
+                              style={{ width: `${Math.min(100, pct)}%` }}
+                            />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground/70">
+                            Fechado em {formatDate(cycle.period_end + 'T00:00:00')}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell>
                     <Badge variant={contract.is_active ? 'default' : 'secondary'}>
                       {contract.is_active ? 'Ativo' : 'Inativo'}
                     </Badge>
@@ -209,7 +255,7 @@ export const ContractManagement = () => {
               ))}
               {(!contracts || contracts.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Nenhum contrato cadastrado.
                   </TableCell>
                 </TableRow>
@@ -268,15 +314,28 @@ export const ContractManagement = () => {
                 />
               </div>
             </div>
-            <div>
-              <Label>Limite Mensal de Chamados</Label>
-              <Input
-                type="number"
-                value={formData.tickets_limit}
-                onChange={(e) => setFormData(p => ({ ...p, tickets_limit: e.target.value }))}
-                placeholder="Ex: 30"
-                min="0"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Banco de Horas Mensal</Label>
+                <Input
+                  type="number"
+                  value={formData.monthly_hours}
+                  onChange={(e) => setFormData(p => ({ ...p, monthly_hours: e.target.value }))}
+                  placeholder="Ex: 20"
+                  min="0"
+                  step="0.5"
+                />
+              </div>
+              <div>
+                <Label>Limite Mensal de Chamados</Label>
+                <Input
+                  type="number"
+                  value={formData.tickets_limit}
+                  onChange={(e) => setFormData(p => ({ ...p, tickets_limit: e.target.value }))}
+                  placeholder="Ex: 30"
+                  min="0"
+                />
+              </div>
             </div>
             <div>
               <Label>Observações</Label>

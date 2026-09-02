@@ -258,6 +258,57 @@ export type Database = {
           },
         ]
       }
+      contract_billing_cycles: {
+        Row: {
+          closed_at: string
+          company_id: string
+          consumed_hours: number
+          contract_id: string
+          contracted_hours: number | null
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+        }
+        Insert: {
+          closed_at?: string
+          company_id: string
+          consumed_hours?: number
+          contract_id: string
+          contracted_hours?: number | null
+          created_at?: string
+          id?: string
+          period_end: string
+          period_start: string
+        }
+        Update: {
+          closed_at?: string
+          company_id?: string
+          consumed_hours?: number
+          contract_id?: string
+          contracted_hours?: number | null
+          created_at?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_billing_cycles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_billing_cycles_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           company_id: string
