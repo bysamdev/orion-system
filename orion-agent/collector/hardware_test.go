@@ -307,6 +307,62 @@ func TestPrimeiroIPv4NaoLoopback_ListaVaziaRetornaVazio(t *testing.T) {
 	}
 }
 
+// TestInterfaceVirtual_ClassificaAdaptadores cobre os casos que apareceram no
+// parque real: o "Radmin VPN" do NOTE_HELYCK (que fazia o agente reportar
+// 26.140.184.83 em vez do IP da LAN) e o host-only do VirtualBox do SAMUEL,
+// que se chama só "Ethernet 2" e por isso não era pego pelo filtro por nome.
+func TestInterfaceVirtual_ClassificaAdaptadores(t *testing.T) {
+	casos := []struct {
+		nome     string
+		mac      string
+		esperado bool
+	}{
+		{"Radmin VPN", "02:50:90:4a:fd:fa", true},
+		{"Ethernet 2", "0a:00:27:00:00:09", true},
+		{"vEthernet (Default Switch)", "00:15:5d:dc:b9:a0", true},
+		{"OpenVPN TAP-Windows6", "00:ff:fc:a9:b9:c8", true},
+		{"Conexão de Rede Bluetooth", "00:1a:7d:da:71:13", true},
+		{"Ethernet", "3c:7c:3f:79:79:51", false},
+		{"Wi-Fi", "10:f6:0a:ac:27:04", false},
+		{"Wi-Fi", "3c:ef:a5:cd:b6:2f", false},
+	}
+	for _, c := range casos {
+		mac, err := net.ParseMAC(c.mac)
+		if err != nil {
+			t.Fatalf("MAC de teste inválido %q: %v", c.mac, err)
+		}
+		got := interfaceVirtual(net.Interface{Name: c.nome, HardwareAddr: mac})
+		if got != c.esperado {
+			t.Errorf("interfaceVirtual(%q, %s) = %v, esperado %v", c.nome, c.mac, got, c.esperado)
+		}
+	}
+}
+
+// TestIPInternoValido_RejeitaOverlayELinkLocal garante que endereços de VPN
+// peer-to-peer, CGNAT e APIPA nunca sejam reportados como IP interno.
+func TestIPInternoValido_RejeitaOverlayELinkLocal(t *testing.T) {
+	casos := []struct {
+		ip       string
+		esperado bool
+	}{
+		{"192.168.1.2", true},
+		{"10.43.3.29", true},
+		{"172.30.0.1", true},
+		{"200.150.10.5", true}, // IP público direto na NIC: aceitável
+		{"26.140.184.83", false},
+		{"25.10.0.1", false},
+		{"100.100.0.5", false},
+		{"169.254.9.67", false},
+		{"127.0.0.1", false},
+	}
+	for _, c := range casos {
+		got := ipInternoValido(net.ParseIP(c.ip))
+		if got != c.esperado {
+			t.Errorf("ipInternoValido(%s) = %v, esperado %v", c.ip, got, c.esperado)
+		}
+	}
+}
+
 // TestPrimaryIPEPrimeiroIPv4NaoLoopback_Concordam garante que os dois caminhos
 // de código (primaryIP, que faz sua própria net.Interfaces(), e a extração
 // usada por Collect() a partir de um snapshot já obtido) continuam

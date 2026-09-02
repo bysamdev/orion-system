@@ -180,12 +180,21 @@ func primeiroIPv4NaoLoopback(ifaces []net.Interface) string {
 }
 
 // isVirtualInterface verifica se a interface é um adaptador virtual conhecido (Hyper-V, WSL, VirtualBox, VMware, Docker, VPN, etc.)
+//
+// O nome sozinho não basta: adaptadores como o host-only do VirtualBox se
+// chamam apenas "Ethernet 2" no Windows. Por isso interfaceVirtual() combina
+// esta checagem por nome com a checagem por OUI do MAC.
 func isVirtualInterface(name string) bool {
 	low := strings.ToLower(name)
 	virtualKeywords := []string{
 		"vethernet", "hyper-v", "wsl", "virtual", "vbox", "vmware",
 		"docker", "tailscale", "zerotier", "tap", "wintun", "tunnel",
 		"bluetooth", "pseudo", "loopback", "npcap", "teredo", "isatap",
+		// VPNs de acesso remoto: entregam um IP de overlay que não pertence
+		// à LAN onde a máquina está fisicamente ligada (ex.: Radmin VPN em
+		// 26.0.0.0/8), e por isso não podem ser a fonte do IP interno.
+		"vpn", "radmin", "hamachi", "openvpn", "wireguard", "nordlynx",
+		"anydesk", "softether", "zscaler", "forticlient", "pangp", "juniper",
 	}
 	for _, kw := range virtualKeywords {
 		if strings.Contains(low, kw) {
@@ -195,105 +204,189 @@ func isVirtualInterface(name string) bool {
 	return false
 }
 
+// ouisVirtuais lista os prefixos de MAC (OUI) reservados por hipervisores e
+// adaptadores virtuais. Pega os casos em que o nome da interface não denuncia
+// nada — o host-only do VirtualBox aparece como "Ethernet 2", por exemplo.
+var ouisVirtuais = []string{
+	"00:15:5d", // Hyper-V
+	"0a:00:27", // VirtualBox host-only
+	"08:00:27", // VirtualBox NAT/bridge
+	"00:50:56", // VMware
+	"00:0c:29", // VMware
+	"00:05:69", // VMware
+	"00:1c:14", // VMware
+	"00:03:ff", // Microsoft Virtual PC
+	"02:50:90", // Radmin VPN (MAC administrado localmente)
+	"00:ff",    // adaptadores TAP/tunnel da Microsoft
+}
+
+// interfaceVirtual decide se um adaptador é virtual olhando nome E MAC.
+func interfaceVirtual(iface net.Interface) bool {
+	if isVirtualInterface(iface.Name) {
+		return true
+	}
+	mac := strings.ToLower(iface.HardwareAddr.String())
+	if mac == "" {
+		return false
+	}
+	for _, oui := range ouisVirtuais {
+		if strings.HasPrefix(mac, oui) {
+			return true
+		}
+	}
+	// Bit "locally administered" (segundo bit menos significativo do primeiro
+	// octeto) ligado: MAC sintetizado por software, não gravado em NIC física.
+	if len(iface.HardwareAddr) > 0 && iface.HardwareAddr[0]&0x02 != 0 {
+		return true
+	}
+	return false
+}
+
+// redesOverlay são faixas usadas por VPNs peer-to-peer e CGNAT. Um endereço
+// aqui nunca é o IP da LAN interna da máquina, mesmo quando chega por uma
+// interface que passou pelos filtros acima.
+var redesOverlay = []net.IPNet{
+	{IP: net.IPv4(25, 0, 0, 0), Mask: net.CIDRMask(8, 32)},     // Hamachi
+	{IP: net.IPv4(26, 0, 0, 0), Mask: net.CIDRMask(8, 32)},     // Radmin VPN
+	{IP: net.IPv4(100, 64, 0, 0), Mask: net.CIDRMask(10, 32)},  // CGNAT / Tailscale
+	{IP: net.IPv4(169, 254, 0, 0), Mask: net.CIDRMask(16, 32)}, // APIPA (link-local)
+}
+
+// ipInternoValido aceita só IPv4 que pode ser o endereço da rede interna:
+// descarta loopback, link-local e as faixas de overlay/CGNAT.
+func ipInternoValido(ip net.IP) bool {
+	ip4 := ip.To4()
+	if ip4 == nil || ip4.IsLoopback() || ip4.IsUnspecified() || ip4.IsLinkLocalUnicast() {
+		return false
+	}
+	for _, rede := range redesOverlay {
+		if rede.Contains(ip4) {
+			return false
+		}
+	}
+	return true
+}
+
+// ipv4DaInterface devolve os IPv4 configurados numa interface.
+func ipv4DaInterface(iface net.Interface) []net.IP {
+	addrs, _ := iface.Addrs()
+	var ips []net.IP
+	for _, addr := range addrs {
+		var addrIP net.IP
+		switch v := addr.(type) {
+		case *net.IPNet:
+			addrIP = v.IP
+		case *net.IPAddr:
+			addrIP = v.IP
+		}
+		if ip4 := addrIP.To4(); ip4 != nil {
+			ips = append(ips, ip4)
+		}
+	}
+	return ips
+}
+
+// interfaceAtiva descarta interfaces desligadas e a loopback.
+func interfaceAtiva(iface net.Interface) bool {
+	return iface.Flags&net.FlagUp != 0 && iface.Flags&net.FlagLoopback == 0
+}
+
 // primeiroIPv4EMacNaoLoopback varre um snapshot de interfaces e devolve, de
-// uma vez só, o primeiro IPv4 não-loopback ativo E o endereço MAC da
+// uma vez só, o IPv4 da LAN interna onde a máquina está ligada E o MAC da
 // interface física que o carrega.
-// Prioriza a rota de saída real (UDP dial) e adaptadores físicos sobre virtuais.
+//
+// A ordem de preferência resolve dois problemas ao mesmo tempo. Primeiro, a
+// máquina com Wi-Fi e cabo ligados ao mesmo tempo deve reportar a placa que
+// está realmente carregando o tráfego, não a que aparecer primeiro na
+// enumeração. Segundo, o IP da rota default nem sempre é o da rede interna:
+// com Radmin VPN, Hamachi ou WireGuard ligados a rota sai pelo túnel e o
+// endereço de overlay (ex.: 26.140.184.83) não diz nada sobre a LAN onde o
+// equipamento está. Daí:
+//
+//  1. rota de saída em uso (UDP dial), aceita só se a placa dona for física;
+//  2. interface física com IP privado RFC1918 (VPN dona da rota default);
+//  3. qualquer interface física com IPv4 utilizável;
+//  4. último recurso: qualquer interface ativa, inclusive virtual.
 func primeiroIPv4EMacNaoLoopback(ifaces []net.Interface) (ip, mac string) {
 	if len(ifaces) == 0 {
 		return "", ""
 	}
 
-	// 1. Tenta descobrir o IP de saída principal via UDP dial (sem tráfego na rede)
+	// 1. Placa que está em uso agora, descoberta pela rota de saída via UDP
+	//    dial (não gera tráfego). Só vale se a interface dona for física —
+	//    senão estaríamos reportando o endereço do túnel da VPN.
 	conn, err := net.DialTimeout("udp", "8.8.8.8:80", 200*time.Millisecond)
 	if err == nil {
-		if localAddr, ok := conn.LocalAddr().(*net.UDPAddr); ok && localAddr.IP != nil && !localAddr.IP.IsLoopback() {
-			outboundIP := localAddr.IP.To4()
-			if outboundIP != nil {
-				ipStr := outboundIP.String()
-				// Procura a interface exata que possui esse IP para pegar o MAC correspondente
+		localAddr, ok := conn.LocalAddr().(*net.UDPAddr)
+		conn.Close()
+		if ok && localAddr.IP != nil {
+			if outboundIP := localAddr.IP.To4(); outboundIP != nil && ipInternoValido(outboundIP) {
 				for _, iface := range ifaces {
-					if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+					if !interfaceAtiva(iface) || interfaceVirtual(iface) {
 						continue
 					}
-					addrs, _ := iface.Addrs()
-					for _, addr := range addrs {
-						var addrIP net.IP
-						switch v := addr.(type) {
-						case *net.IPNet:
-							addrIP = v.IP
-						case *net.IPAddr:
-							addrIP = v.IP
-						}
-						if addrIP != nil && addrIP.Equal(outboundIP) {
-							conn.Close()
-							return ipStr, iface.HardwareAddr.String()
+					for _, ip4 := range ipv4DaInterface(iface) {
+						if ip4.Equal(outboundIP) {
+							return outboundIP.String(), iface.HardwareAddr.String()
 						}
 					}
 				}
 			}
 		}
-		conn.Close()
 	}
 
-	// 2. Passo 1: Busca apenas interfaces FÍSICAS (ignora adaptadores virtuais como vEthernet, WSL, etc.)
+	// 2. A rota default não serviu (VPN ligada, ou máquina sem internet):
+	//    cai para a primeira placa física com endereço privado RFC1918.
 	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 || isVirtualInterface(iface.Name) {
+		if !interfaceAtiva(iface) || interfaceVirtual(iface) {
 			continue
 		}
-		addrs, _ := iface.Addrs()
-		for _, addr := range addrs {
-			var addrIP net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				addrIP = v.IP
-			case *net.IPAddr:
-				addrIP = v.IP
-			}
-			if addrIP == nil || addrIP.IsLoopback() {
-				continue
-			}
-			if ip4 := addrIP.To4(); ip4 != nil {
-				candidateIP := ip4.String()
-				candidateMac := iface.HardwareAddr.String()
-				if candidateMac != "" {
-					return candidateIP, candidateMac
-				}
-				if ip == "" {
-					ip = candidateIP
-				}
+		for _, ip4 := range ipv4DaInterface(iface) {
+			if ip4.IsPrivate() && ipInternoValido(ip4) {
+				return ip4.String(), iface.HardwareAddr.String()
 			}
 		}
 	}
 
-	// 3. Passo 2 (Fallback): Se só existirem interfaces virtuais ativas
-	if ip == "" || mac == "" {
-		for _, iface := range ifaces {
-			if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+	// 3. Qualquer interface física com IPv4 utilizável (IP público direto na
+	//    NIC, por exemplo — servidor sem NAT).
+	for _, iface := range ifaces {
+		if !interfaceAtiva(iface) || interfaceVirtual(iface) {
+			continue
+		}
+		for _, ip4 := range ipv4DaInterface(iface) {
+			if !ipInternoValido(ip4) {
 				continue
 			}
-			addrs, _ := iface.Addrs()
-			for _, addr := range addrs {
-				var addrIP net.IP
-				switch v := addr.(type) {
-				case *net.IPNet:
-					addrIP = v.IP
-				case *net.IPAddr:
-					addrIP = v.IP
-				}
-				if addrIP == nil || addrIP.IsLoopback() {
+			candidateIP := ip4.String()
+			if candidateMac := iface.HardwareAddr.String(); candidateMac != "" {
+				return candidateIP, candidateMac
+			}
+			if ip == "" {
+				ip = candidateIP
+			}
+		}
+	}
+
+	// 4. Último recurso: máquina só com adaptadores virtuais ativos. Melhor
+	//    reportar o IP do túnel do que não reportar nada.
+	if ip == "" || mac == "" {
+		for _, iface := range ifaces {
+			if !interfaceAtiva(iface) {
+				continue
+			}
+			for _, ip4 := range ipv4DaInterface(iface) {
+				if ip4.IsLoopback() {
 					continue
 				}
-				if ip4 := addrIP.To4(); ip4 != nil {
-					if ip == "" {
-						ip = ip4.String()
-					}
-					if mac == "" {
-						mac = iface.HardwareAddr.String()
-					}
-					if ip != "" && mac != "" {
-						return ip, mac
-					}
+				if ip == "" {
+					ip = ip4.String()
+				}
+				if mac == "" {
+					mac = iface.HardwareAddr.String()
+				}
+				if ip != "" && mac != "" {
+					return ip, mac
 				}
 			}
 		}
