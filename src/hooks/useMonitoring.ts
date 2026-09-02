@@ -291,7 +291,10 @@ export function useMachineDetail(machineId: string | null) {
   });
 }
 
-export type MetricPeriod = '1h' | '6h' | '24h' | '7d';
+// 3d, não 7d: a série histórica é mantida por 3 dias no banco (ver
+// RetencaoHistorico no backend), então oferecer 7 dias prometeria um
+// período que nunca vem completo.
+export type MetricPeriod = '1h' | '6h' | '24h' | '3d';
 
 export function useMachineMetrics(machineId: string | null, limit = 100) {
   return useQuery<MetricRow[]>({

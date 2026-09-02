@@ -21,7 +21,7 @@ import type { MetricPeriod, MachineWithMetric } from '@/hooks/useMonitoring';
 
 export type MetricType = 'all' | 'cpu' | 'ram' | 'disk';
 
-const PERIODS: MetricPeriod[] = ['1h', '6h', '24h', '7d'];
+const PERIODS: MetricPeriod[] = ['1h', '6h', '24h', '3d'];
 
 const METRIC_TABS: { key: MetricType; label: string; icon: any; color: string }[] = [
   { key: 'all', label: 'Todos', icon: Activity, color: 'text-primary' },
@@ -84,7 +84,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
     .slice()
     .reverse()
     .map((m) => ({
-      time: format(new Date(m.collected_at), period === '7d' ? 'dd/MM HH:mm' : 'HH:mm'),
+      time: format(new Date(m.collected_at), period === '3d' ? 'dd/MM HH:mm' : 'HH:mm'),
       CPU: m.cpu_usage != null ? Math.round(m.cpu_usage) : null,
       RAM: m.ram_pct ?? pct(m.ram_used, m.ram_total),
       Disco: m.disk_pct ?? pct(m.disk_used, m.disk_total),
