@@ -2,7 +2,7 @@ import React from 'react';
 import { useUserProfile } from '@/hooks/useUserRole';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { GitBranch, History, Zap, Sparkles, Activity } from 'lucide-react';
+import { GitBranch, History, Zap, Sparkles } from 'lucide-react';
 import { RulesTab } from '@/components/automation/RulesTab';
 import { HistoryTab } from '@/components/automation/HistoryTab';
 import { TemplatesTab } from '@/components/automation/TemplatesTab';
@@ -119,26 +119,16 @@ const Automacoes: React.FC = () => {
                 <TabsTrigger value="rules" className="gap-2">
                   <GitBranch className="w-4 h-4" />
                   <span>Regras de Triagem</span>
-                  <span className="ml-1 text-[10px] font-black px-1.5 py-0.2 rounded-full bg-primary/20 text-primary">
-                    {totalRulesCount}
-                  </span>
                 </TabsTrigger>
 
                 <TabsTrigger value="templates" className="gap-2">
                   <Zap className="w-4 h-4" />
                   <span>Respostas Prontas</span>
-                  <span className="ml-1 text-[10px] font-black px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                    {totalTemplatesCount}
-                  </span>
                 </TabsTrigger>
 
                 <TabsTrigger value="history" className="gap-2">
                   <History className="w-4 h-4" />
                   <span>Histórico de Execuções</span>
-                  <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                    <Activity className="w-2.5 h-2.5 text-emerald-500 animate-pulse" />
-                    Ao vivo
-                  </span>
                 </TabsTrigger>
               </TabsList>
             </div>
