@@ -180,6 +180,11 @@ func buildRouter() http.Handler {
 	// agente. Ver monitoringGrafanaAlertWebhook.
 	r.Post("/api/monitoring/alerts/webhook/grafana", monitoringGrafanaAlertWebhook)
 
+	// Mesmo segredo do webhook acima, no sentido contrário: aqui é o Grafana
+	// LENDO quanto já se consumiu dos tetos do plano Supabase, pra alertar em
+	// 80% antes do banco entrar em somente-leitura. Ver monitoringCapacity.
+	r.Get("/api/monitoring/capacity", monitoringCapacity)
+
 	r.Get("/api/monitoring/cron/mark-offline", cronMarkOffline)
 	r.Get("/api/monitoring/cron/probe-network-links", cronProbeNetworkLinks)
 

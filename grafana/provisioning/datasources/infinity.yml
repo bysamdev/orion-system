@@ -17,3 +17,23 @@ datasources:
         - headerName: Authorization
           headerValue: Bearer $__env{SUPABASE_ANON_KEY}
     version: 1
+
+  # API do próprio Orion, usada hoje só por /api/monitoring/capacity: quanto
+  # do teto do plano Supabase já foi consumido (tamanho do banco, conexões,
+  # storage). Autentica com GRAFANA_WEBHOOK_SECRET, o mesmo segredo que o
+  # Orion já exige no webhook de alertas — é o canal que existe entre os dois
+  # sistemas, no sentido inverso.
+  - name: Orion API
+    type: yesoreyeram-infinity-datasource
+    uid: orion-api
+    access: proxy
+    isDefault: false
+    editable: false
+    jsonData:
+      auth_method: apiKey
+      apiKeyType: header
+      apiKeyKey: Authorization
+      customHeaders:
+        - headerName: Authorization
+          headerValue: Bearer $__env{GRAFANA_WEBHOOK_SECRET}
+    version: 1

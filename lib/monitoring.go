@@ -705,6 +705,78 @@ func percentualDe(usado, total int64) *int16 {
 	return &pct
 }
 
+// CapacitySnapshot são os tetos do projeto Supabase que dá pra observar de
+// dentro do próprio Postgres, num formato que o Grafana consome direto.
+//
+// Egress e mensagens de Realtime NÃO estão aqui de propósito: só a
+// Management API do Supabase os conhece, e ela exige um token de conta que o
+// backend hoje não tem. O que sobra ainda cobre os modos de falha que
+// derrubam o sistema sem aviso — banco em somente-leitura por estourar o
+// limite de tamanho, e conexões recusadas por saturação do pooler.
+type CapacitySnapshot struct {
+	BancoBytes       int64   `json:"banco_bytes"`
+	BancoLimiteBytes int64   `json:"banco_limite_bytes"`
+	BancoPct         float64 `json:"banco_pct"`
+
+	ConexoesUsadas int     `json:"conexoes_usadas"`
+	ConexoesMax    int     `json:"conexoes_max"`
+	ConexoesPct    float64 `json:"conexoes_pct"`
+
+	StorageBytes       int64   `json:"storage_bytes"`
+	StorageLimiteBytes int64   `json:"storage_limite_bytes"`
+	StoragePct         float64 `json:"storage_pct"`
+
+	// TabelasRealtime existe como sentinela de regressão: machines foi
+	// removida da publicação supabase_realtime porque o heartbeat de 500
+	// máquinas geraria 21,6M mensagens/mês contra um teto de 5M até no Pro
+	// (ver migração 20260902190000). Se alguém republicar a tabela — um
+	// `supabase db reset`, um restore de dump antigo, um clique no painel —
+	// o número aqui sobe e o alerta avisa antes da fatura.
+	TabelasRealtime int `json:"tabelas_realtime"`
+
+	PontosHistorico int64 `json:"pontos_historico"`
+}
+
+// Limites do plano Free do Supabase. Ao migrar pro Pro, atualizar aqui: o
+// alerta compara contra estes valores, não contra o plano real da conta.
+const (
+	LimiteBancoFreeBytes   int64 = 500 * 1024 * 1024
+	LimiteStorageFreeBytes int64 = 1024 * 1024 * 1024
+)
+
+func pctDe(usado, limite int64) float64 {
+	if limite <= 0 {
+		return 0
+	}
+	return math.Round(float64(usado)/float64(limite)*1000) / 10
+}
+
+// Capacity coleta o snapshot numa única ida ao banco.
+func (d *DB) Capacity(ctx context.Context) (*CapacitySnapshot, error) {
+	var s CapacitySnapshot
+	err := d.pool.QueryRow(ctx, `
+SELECT
+  pg_database_size(current_database()),
+  (SELECT count(*) FROM pg_stat_activity WHERE backend_type = 'client backend'),
+  (SELECT setting::int FROM pg_settings WHERE name = 'max_connections'),
+  COALESCE((SELECT sum((metadata->>'size')::bigint) FROM storage.objects), 0),
+  (SELECT count(*) FROM pg_publication_tables WHERE pubname = 'supabase_realtime'),
+  (SELECT count(*) FROM public.machine_metrics_history)`).Scan(
+		&s.BancoBytes, &s.ConexoesUsadas, &s.ConexoesMax,
+		&s.StorageBytes, &s.TabelasRealtime, &s.PontosHistorico,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	s.BancoLimiteBytes = LimiteBancoFreeBytes
+	s.StorageLimiteBytes = LimiteStorageFreeBytes
+	s.BancoPct = pctDe(s.BancoBytes, s.BancoLimiteBytes)
+	s.StoragePct = pctDe(s.StorageBytes, s.StorageLimiteBytes)
+	s.ConexoesPct = pctDe(int64(s.ConexoesUsadas), int64(s.ConexoesMax))
+	return &s, nil
+}
+
 // RetencaoHistorico é por quanto tempo os pontos ficam no banco. Bate com o
 // retencao_dias da migração 20260902180000 (que derruba a partição do dia
 // vencido) — mudar aqui sem mudar lá faz a UI pedir janela que não existe

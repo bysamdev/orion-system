@@ -387,3 +387,171 @@ groups:
         annotations:
           summary: "Container {{ $labels.name }} pode estar em crash/restart loop"
           description: "Container parou de reportar métricas por mais de 2 minutos. Verificar logs com 'docker logs'."
+
+  # ══════════════════════════════════════════════════════════════
+  # Grupo: Tetos do plano Supabase
+  #
+  # Sem estas regras, o primeiro sinal de que um teto foi atingido é o
+  # sistema já degradado — banco em somente-leitura ou conexão recusada,
+  # com todo o parque parando de reportar ao mesmo tempo. O disparo em 80%
+  # existe pra dar margem de manobra (migrar de plano, limpar dados) antes
+  # disso.
+  #
+  # Fonte: GET https://orion.bysam.dev/api/monitoring/capacity, autenticado
+  # com GRAFANA_WEBHOOK_SECRET (datasource orion-api). O intervalo é de 15
+  # minutos porque nenhum destes números se move em escala de segundos, e a
+  # consulta custa uma ida ao Postgres.
+  #
+  # Egress e mensagens de Realtime NÃO estão cobertos aqui: só a Management
+  # API do Supabase os conhece, e ela exige um token de conta que o Orion
+  # não tem. Enquanto isso, esses dois continuam sendo acompanhados à mão no
+  # painel de billing.
+  # ══════════════════════════════════════════════════════════════
+  - orgId: 1
+    name: orion-supabase-capacity
+    folder: Orion
+    interval: 15m
+    rules:
+      - uid: orion-supabase-banco-cheio
+        title: Banco Supabase Perto do Limite
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: orion-api
+            model:
+              refId: A
+              type: json
+              source: url
+              format: table
+              parser: backend
+              url: https://orion.bysam.dev/api/monitoring/capacity
+              url_options: { method: GET }
+              root_selector: ""
+              columns:
+                - selector: banco_pct
+                  text: banco_pct
+                  type: number
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+              refId: C
+        for: 15m
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: "Banco Supabase em {{ $values.A }}% do limite do plano"
+          description: "Ao chegar em 100% o projeto entra em somente-leitura e TODAS as máquinas param de reportar. Liberar espaço (retenção de audit_log, machine_commands, machine_metrics_history) ou migrar pro plano Pro."
+
+      - uid: orion-supabase-conexoes
+        title: Conexões Postgres Perto do Limite
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: orion-api
+            model:
+              refId: A
+              type: json
+              source: url
+              format: table
+              parser: backend
+              url: https://orion.bysam.dev/api/monitoring/capacity
+              url_options: { method: GET }
+              root_selector: ""
+              columns:
+                - selector: conexoes_pct
+                  text: conexoes_pct
+                  type: number
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+              refId: C
+        for: 15m
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: "Conexões Postgres em {{ $values.A }}% do máximo"
+          description: "Saturar o pooler faz o heartbeat começar a receber erro de conexão. Conferir DB_MAX_CONNS (esperado 3) e DB_MIN_CONNS (esperado 0) nas variáveis da Vercel."
+
+      - uid: orion-supabase-storage
+        title: Storage Supabase Perto do Limite
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: orion-api
+            model:
+              refId: A
+              type: json
+              source: url
+              format: table
+              parser: backend
+              url: https://orion.bysam.dev/api/monitoring/capacity
+              url_options: { method: GET }
+              root_selector: ""
+              columns:
+                - selector: storage_pct
+                  text: storage_pct
+                  type: number
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+              refId: C
+        for: 15m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "Storage Supabase em {{ $values.A }}% do limite"
+          description: "O bucket agent-installers acumula um executável por build. Apagar as versões antigas, mantendo as duas últimas."
+
+      - uid: orion-supabase-realtime-regressao
+        title: Tabela Voltou para o Realtime
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: orion-api
+            model:
+              refId: A
+              type: json
+              source: url
+              format: table
+              parser: backend
+              url: https://orion.bysam.dev/api/monitoring/capacity
+              url_options: { method: GET }
+              root_selector: ""
+              columns:
+                - selector: tabelas_realtime
+                  text: tabelas_realtime
+                  type: number
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [1] }
+              refId: C
+        for: 15m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "A publicação supabase_realtime tem {{ $values.A }} tabelas (esperado: 1, só audit_log)"
+          description: "machines foi removida da publicação porque o heartbeat de 500 máquinas geraria 21,6M mensagens/mês contra um teto de 5M até no plano Pro. Se voltou, foi restore de dump antigo, db reset ou clique no painel — remover de novo com: ALTER PUBLICATION supabase_realtime DROP TABLE public.machines;"

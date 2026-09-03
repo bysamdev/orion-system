@@ -1611,6 +1611,46 @@ func afetaStatusDaMaquina(alertType string) bool {
 	return alertType == alertaAgenteOffline || alertType == alertaServidorOffline
 }
 
+// monitoringCapacity expõe pro Grafana o quanto o projeto Supabase já
+// consumiu dos tetos do plano.
+//
+// Existe porque o primeiro sinal de que um teto foi atingido, hoje, é o
+// sistema já degradado: banco em somente-leitura ou conexão recusada, com
+// todo o parque parando de reportar ao mesmo tempo. O alerta em 80% (ver
+// grafana/provisioning/alerting/rules.yaml, grupo orion-supabase-capacity)
+// dá margem pra agir antes disso.
+//
+// Autenticado pelo mesmo segredo do webhook de alertas — é o canal que já
+// existe entre Grafana e Orion, e não valia inventar uma segunda variável de
+// ambiente pra atravessar o mesmo caminho. Sem login de usuário: quem chama
+// é o Grafana, não uma pessoa.
+func monitoringCapacity(w http.ResponseWriter, r *http.Request) {
+	ip := lib.ClientIP(r)
+	if !limiterGrafanaWebhook.Permitir(ip) {
+		lib.WriteJSON(w, http.StatusTooManyRequests, map[string]any{"error": "muitas requisições — aguarde e tente novamente"})
+		return
+	}
+
+	const esquemaEsperado = "Bearer "
+	auth := r.Header.Get("Authorization")
+	secret := strings.TrimPrefix(auth, esquemaEsperado)
+	if !strings.HasPrefix(auth, esquemaEsperado) || cfg.GrafanaWebhookSecret == "" || secret != cfg.GrafanaWebhookSecret {
+		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "não autorizado"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	snapshot, err := db.Capacity(ctx)
+	if err != nil {
+		log.Printf("[ERRO] coletar capacidade: %v", err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao coletar capacidade"})
+		return
+	}
+	lib.WriteJSON(w, http.StatusOK, snapshot)
+}
+
 func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
 	ip := lib.ClientIP(r)
 	if !limiterGrafanaWebhook.Permitir(ip) {
