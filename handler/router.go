@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -151,6 +152,7 @@ func buildRouter() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(securityHeadersMiddleware)
+	r.Use(egressMiddleware)
 	r.Use(maxBodySizeMiddleware)
 	r.Use(corsMiddleware)
 
@@ -498,6 +500,63 @@ func maxBodySizeMiddleware(next http.Handler) http.Handler {
 }
 
 // securityHeadersMiddleware adds standard protective HTTP security headers.
+// ─── Contagem de egress ──────────────────────────────────────────────────────
+//
+// Conta os bytes que a API devolve, pra estimar quanto do teto de egress do
+// plano Supabase já foi consumido (5 GB/mês no plano atual). O número oficial
+// só existe no painel de billing: a Management API pública não expõe usage,
+// e o endpoint que o painel usa é interno, sem contrato de estabilidade.
+//
+// Acumula em memória e só grava no banco quando passa de egressFlushBytes.
+// Gravar a cada requisição resolveria a precisão e criaria o problema que
+// estamos justamente combatendo — uma escrita extra por requisição, com
+// centenas de máquinas em heartbeat. O resíduo abaixo do limiar se perde
+// quando a instância serverless morre, o que subestima um pouco; o alerta
+// dispara em 80% pra caber essa margem junto com o que o frontend busca
+// direto do Supabase (auth e Storage não passam por aqui).
+const egressFlushBytes = 512 * 1024
+
+var egressAcumulado atomic.Int64
+
+// contadorDeBytes embrulha o ResponseWriter só pra somar o que foi escrito.
+// Preserva o status code porque middleware.Logger, mais acima na cadeia, o
+// consulta.
+type contadorDeBytes struct {
+	http.ResponseWriter
+	bytes int
+}
+
+func (c *contadorDeBytes) Write(b []byte) (int, error) {
+	n, err := c.ResponseWriter.Write(b)
+	c.bytes += n
+	return n, err
+}
+
+func egressMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contador := &contadorDeBytes{ResponseWriter: w}
+		next.ServeHTTP(contador, r)
+
+		if contador.bytes <= 0 || db == nil {
+			return
+		}
+		total := egressAcumulado.Add(int64(contador.bytes))
+		if total < egressFlushBytes {
+			return
+		}
+		// Zera antes de gravar: se o flush falhar, perdemos esta janela em vez
+		// de contar duas vezes na próxima. Subestimar é o erro seguro aqui.
+		if !egressAcumulado.CompareAndSwap(total, 0) {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := db.SomarEgress(ctx, total); err != nil {
+			log.Printf("[AVISO] somar egress (%d bytes): %v", total, err)
+		}
+	})
+}
+
 func securityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")

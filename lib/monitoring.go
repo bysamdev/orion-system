@@ -782,6 +782,14 @@ type CapacitySnapshot struct {
 	StorageLimiteBytes int64   `json:"storage_limite_bytes"`
 	StoragePct         float64 `json:"storage_pct"`
 
+	// Egress do mês corrente, estimado pelos bytes que a API devolveu (ver
+	// egressMiddleware e a migração 20260903010000). Não é o número de
+	// billing: a Management API pública do Supabase não expõe usage, então
+	// esta é a melhor medida disponível sem depender de endpoint interno.
+	EgressBytes       int64   `json:"egress_bytes"`
+	EgressLimiteBytes int64   `json:"egress_limite_bytes"`
+	EgressPct         float64 `json:"egress_pct"`
+
 	// TabelasRealtime existe como sentinela de regressão: machines foi
 	// removida da publicação supabase_realtime porque o heartbeat de 500
 	// máquinas geraria 21,6M mensagens/mês contra um teto de 5M até no Pro
@@ -798,7 +806,15 @@ type CapacitySnapshot struct {
 const (
 	LimiteBancoFreeBytes   int64 = 500 * 1024 * 1024
 	LimiteStorageFreeBytes int64 = 1024 * 1024 * 1024
+	LimiteEgressFreeBytes  int64 = 5 * 1024 * 1024 * 1024
 )
+
+// SomarEgress acumula bytes servidos no contador do dia. Chamada pelo
+// egressMiddleware só a cada ~512 KB acumulados, nunca por requisição.
+func (d *DB) SomarEgress(ctx context.Context, bytes int64) error {
+	_, err := d.pool.Exec(ctx, `SELECT public.somar_egress($1)`, bytes)
+	return err
+}
 
 func pctDe(usado, limite int64) float64 {
 	if limite <= 0 {
@@ -817,9 +833,10 @@ SELECT
   (SELECT setting::int FROM pg_settings WHERE name = 'max_connections'),
   COALESCE((SELECT sum((metadata->>'size')::bigint) FROM storage.objects), 0),
   (SELECT count(*) FROM pg_publication_tables WHERE pubname = 'supabase_realtime'),
-  (SELECT count(*) FROM public.machine_metrics_history)`).Scan(
+  (SELECT count(*) FROM public.machine_metrics_history),
+  COALESCE((SELECT sum(bytes) FROM public.egress_diario WHERE dia >= date_trunc('month', current_date)), 0)`).Scan(
 		&s.BancoBytes, &s.ConexoesUsadas, &s.ConexoesMax,
-		&s.StorageBytes, &s.TabelasRealtime, &s.PontosHistorico,
+		&s.StorageBytes, &s.TabelasRealtime, &s.PontosHistorico, &s.EgressBytes,
 	)
 	if err != nil {
 		return nil, err
@@ -827,6 +844,8 @@ SELECT
 
 	s.BancoLimiteBytes = LimiteBancoFreeBytes
 	s.StorageLimiteBytes = LimiteStorageFreeBytes
+	s.EgressLimiteBytes = LimiteEgressFreeBytes
+	s.EgressPct = pctDe(s.EgressBytes, s.EgressLimiteBytes)
 	s.BancoPct = pctDe(s.BancoBytes, s.BancoLimiteBytes)
 	s.StoragePct = pctDe(s.StorageBytes, s.StorageLimiteBytes)
 	s.ConexoesPct = pctDe(int64(s.ConexoesUsadas), int64(s.ConexoesMax))

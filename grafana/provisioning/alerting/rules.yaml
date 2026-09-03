@@ -555,3 +555,39 @@ groups:
         annotations:
           summary: "A publicação supabase_realtime tem {{ $values.A }} tabelas (esperado: 1, só audit_log)"
           description: "machines foi removida da publicação porque o heartbeat de 500 máquinas geraria 21,6M mensagens/mês contra um teto de 5M até no plano Pro. Se voltou, foi restore de dump antigo, db reset ou clique no painel — remover de novo com: ALTER PUBLICATION supabase_realtime DROP TABLE public.machines;"
+
+      - uid: orion-supabase-egress
+        title: Egress Supabase Perto do Limite
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: orion-api
+            model:
+              refId: A
+              type: json
+              source: url
+              format: table
+              parser: backend
+              url: https://orion.bysam.dev/api/monitoring/capacity
+              url_options: { method: GET }
+              root_selector: ""
+              columns:
+                - selector: egress_pct
+                  text: egress_pct
+                  type: number
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+              refId: C
+        for: 15m
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: "Egress do mês em {{ $values.A }}% do teto (4 GB de 5 GB)"
+          description: "Estimado pelos bytes servidos pela API — o número oficial fica no painel de billing do Supabase, e tende a ser um pouco maior porque auth e Storage não passam pelo backend. Ao estourar 5 GB o projeto entra em restrição de uso. Para reduzir agora: aumentar o intervalo de coleta de estação/notebook (collectionIntervalSeconds) e o refetch das telas de monitoramento."
