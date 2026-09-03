@@ -507,16 +507,32 @@ func maxBodySizeMiddleware(next http.Handler) http.Handler {
 // só existe no painel de billing: a Management API pública não expõe usage,
 // e o endpoint que o painel usa é interno, sem contrato de estabilidade.
 //
-// Acumula em memória e só grava no banco quando passa de egressFlushBytes.
-// Gravar a cada requisição resolveria a precisão e criaria o problema que
-// estamos justamente combatendo — uma escrita extra por requisição, com
-// centenas de máquinas em heartbeat. O resíduo abaixo do limiar se perde
-// quando a instância serverless morre, o que subestima um pouco; o alerta
-// dispara em 80% pra caber essa margem junto com o que o frontend busca
-// direto do Supabase (auth e Storage não passam por aqui).
-const egressFlushBytes = 512 * 1024
+// Acumula em memória e grava no banco por volume OU por tempo, o que vier
+// primeiro. Gravar a cada requisição criaria o problema que estamos
+// justamente combatendo — uma escrita extra por heartbeat.
+//
+// O limiar por tempo não é refinamento: sem ele, o contador só funcionaria
+// sob carga alta. Instância serverless com pouco tráfego acumula alguns KB,
+// nunca alcança o limiar de volume e MORRE levando o resíduo — foi o que
+// aconteceu no primeiro teste em produção, com o contador zerado depois do
+// deploy. Com o limiar de tempo, qualquer instância que viva mais de 60s
+// registra o que viu.
+//
+// Ainda subestima: instância muito efêmera perde o resíduo, e o que o
+// frontend busca direto do Supabase (auth, Storage) nunca passa por aqui. O
+// alerta dispara em 80% pra caber essa margem.
+const (
+	egressFlushBytes     = 64 * 1024
+	egressFlushIntervalo = time.Minute
+)
 
-var egressAcumulado atomic.Int64
+var (
+	egressAcumulado atomic.Int64
+	// Unix nanos do último flush; zero significa "nunca", tratado como
+	// vencido pra que o primeiro tráfego depois de um cold start registre
+	// logo em vez de esperar um minuto.
+	egressUltimoFlush atomic.Int64
+)
 
 // contadorDeBytes embrulha o ResponseWriter só pra somar o que foi escrito.
 // Preserva o status code porque middleware.Logger, mais acima na cadeia, o
@@ -541,12 +557,26 @@ func egressMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		total := egressAcumulado.Add(int64(contador.bytes))
-		if total < egressFlushBytes {
+
+		agora := time.Now().UnixNano()
+		ultimo := egressUltimoFlush.Load()
+		venceuPorTempo := ultimo == 0 || agora-ultimo >= int64(egressFlushIntervalo)
+		if total < egressFlushBytes && !venceuPorTempo {
 			return
 		}
+
 		// Zera antes de gravar: se o flush falhar, perdemos esta janela em vez
 		// de contar duas vezes na próxima. Subestimar é o erro seguro aqui.
 		if !egressAcumulado.CompareAndSwap(total, 0) {
+			return
+		}
+		// Marca o flush antes de gravar, e só se ninguém marcou no meio: duas
+		// requisições concorrentes que vencem o tempo juntas não devem virar
+		// duas escritas.
+		if !egressUltimoFlush.CompareAndSwap(ultimo, agora) {
+			// Outro flush assumiu a janela; devolve os bytes pro acumulador
+			// pra não perdê-los.
+			egressAcumulado.Add(total)
 			return
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
