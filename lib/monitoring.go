@@ -152,7 +152,7 @@ func (d *DB) ListMachineGroups(ctx context.Context, companyID *string) ([]Machin
 	rows, err := d.pool.Query(ctx, `
 SELECT MAX(mg.id::text) AS id, mg.name, MAX(mg.description), MAX(mg.client_contact), MIN(mg.created_at),
        COUNT(m.id)                                              AS total_machines,
-       COUNT(m.id) FILTER (WHERE m.status = 'online' OR m.status = 'alerta' OR (m.last_seen > NOW() - INTERVAL '5 minutes')) AS online_machines
+       COUNT(m.id) FILTER (WHERE m.status = 'online' OR m.status = 'alerta' OR (m.last_seen > NOW() - public.silencio_tolerado(m.device_type))) AS online_machines
 FROM public.machine_groups mg
 LEFT JOIN public.machines m
        ON m.group_id = mg.id
@@ -1200,9 +1200,9 @@ SELECT
   (SELECT COUNT(*) FROM public.machines
     WHERE approval_status = 'approved' AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS total,
   (SELECT COUNT(*) FROM public.machines
-    WHERE approval_status = 'approved' AND (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS online,
+    WHERE approval_status = 'approved' AND (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - public.silencio_tolerado(device_type))) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS online,
   (SELECT COUNT(*) FROM public.machines
-    WHERE approval_status = 'approved' AND NOT (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS offline,
+    WHERE approval_status = 'approved' AND NOT (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - public.silencio_tolerado(device_type))) AND ($1::uuid IS NULL OR company_id = $1::uuid)) AS offline,
   (SELECT COUNT(*) FROM public.machine_alerts a
     JOIN public.machines m ON m.id = a.machine_id
     WHERE a.resolved = false AND m.approval_status = 'approved' AND ($1::uuid IS NULL OR m.company_id = $1::uuid)) AS active_alerts
@@ -1235,9 +1235,9 @@ func (d *DB) PlatformHealth(ctx context.Context) (PlatformHealth, error) {
 SELECT
   (SELECT COUNT(*) FROM public.machines) AS total,
   (SELECT COUNT(*) FROM public.machines
-    WHERE status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes')) AS online,
+    WHERE status = 'online' OR status = 'alerta' OR (last_seen > NOW() - public.silencio_tolerado(device_type))) AS online,
   (SELECT COUNT(*) FROM public.machines
-    WHERE NOT (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - INTERVAL '5 minutes'))) AS offline,
+    WHERE NOT (status = 'online' OR status = 'alerta' OR (last_seen > NOW() - public.silencio_tolerado(device_type)))) AS offline,
   (SELECT COUNT(*) FROM public.machines WHERE status = 'alerta') AS alerta,
   (SELECT COUNT(*) FROM public.machine_alerts WHERE resolved = false) AS alerts_open,
   (SELECT COUNT(*) FROM public.machine_commands WHERE status = 'pending') AS commands_pending,
@@ -1339,7 +1339,7 @@ ORDER BY severity DESC, alert_type
 func (d *DB) MarkOfflineMachines(ctx context.Context) (int64, error) {
 	cmd, err := d.pool.Exec(ctx, `
 UPDATE public.machines SET status='offline'
-WHERE status <> 'offline' AND last_seen < now() - INTERVAL '5 minutes'`)
+WHERE status <> 'offline' AND last_seen < now() - public.silencio_tolerado(device_type)`)
 	if err != nil {
 		return 0, err
 	}

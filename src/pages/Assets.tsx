@@ -89,20 +89,24 @@ const Assets = () => {
 
   // Load Device Inventory from unified hook
   //
-  // refetchInterval explícito em 60s, alinhado ao heartbeat do agente.
+  // refetchInterval de 300s, alinhado ao heartbeat de estação/notebook.
   //
-  // O default do hook é 30s, então esta tela nunca dependeu só do
-  // Realtime — mas com machines fora da publicação supabase_realtime (o
-  // heartbeat de 500 máquinas projetava 21,6M mensagens/mês contra um
-  // teto de 5M até no plano Pro), o polling deixou de ser rede de
-  // segurança e virou o único caminho de atualização. Pesquisar a cada
-  // 30s um dado que só muda a cada 60s dobrava as requisições à toa, e
-  // egress é justamente o outro teto apertado.
+  // O default do hook é 30s, e esta tela nunca dependeu só do Realtime —
+  // mas com machines fora da publicação supabase_realtime o polling
+  // deixou de ser rede de segurança e virou o único caminho de
+  // atualização, então o intervalo virou escolha em vez de herança.
+  //
+  // 300s porque é a cadência real do dado: estação e notebook reportam a
+  // cada 5 minutos (ver collectionIntervalSeconds no backend). Cada
+  // refetch custa ~427 KB com 500 máquinas, medido — a 60s isso sozinho
+  // passaria de 25 MB/hora por operador, contra um teto de 5 GB/mês de
+  // egress. Inventário é a tela menos volátil do sistema: hostname, IP e
+  // disco não mudam em segundos.
   const {
     data: devices = [],
     isLoading: devicesLoading,
     refetch: refetchInventory
-  } = useDeviceInventory({ refetchInterval: 60_000 });
+  } = useDeviceInventory({ refetchInterval: 300_000 });
 
   // Query tickets history for selected device
   const { data: deviceTickets, isLoading: deviceTicketsLoading } = useQuery({

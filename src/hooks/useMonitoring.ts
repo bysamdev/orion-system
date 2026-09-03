@@ -206,14 +206,17 @@ export interface DashboardSummary {
   latest_agent_version?: string;
 }
 
-// Fallback de segurança pras queries de monitoramento que já são
-// invalidadas por useRealtimeMachines a cada heartbeat (INSERT/UPDATE em
-// machines dispara invalidateQueries(['monitoring']) — ver
-// src/hooks/useRealtimeMachines.ts). Com refetchInterval igual ao dos
-// heartbeats (30s), Realtime + polling faziam o mesmo fetch duas vezes por
-// ciclo. Mantido em 2min só pra cobrir o caso do canal Realtime cair
-// silenciosamente (CHANNEL_ERROR) — não é mais o mecanismo primário.
-const FALLBACK_REFETCH_MONITORING = 120_000;
+// Cadência de atualização das telas de monitoramento. Já foi "fallback" de
+// verdade, quando useRealtimeMachines invalidava estas queries a cada
+// heartbeat; com machines fora da publicação supabase_realtime, este
+// intervalo virou o único caminho de atualização — o nome ficou por
+// compatibilidade com os pontos que o referenciam.
+//
+// 180s vem da medição de egress: a lista custa ~427 KB com 500 máquinas, e
+// estação/notebook só reporta a cada 300s (ver collectionIntervalSeconds no
+// backend). Pesquisar mais rápido que a origem do dado gasta cota de egress
+// pra redesenhar exatamente a mesma tela.
+const FALLBACK_REFETCH_MONITORING = 180_000;
 
 // ─── Hooks ───────────────────────────────────────────────
 export function useMonitoringDashboard() {

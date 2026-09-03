@@ -814,14 +814,23 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 // reconfiguração manual do agent.yaml por máquina. "unknown" recebe a
 // mesma cadência conservadora de estação/notebook, nunca a de servidor
 // ("não assumir comportamento de servidor" — item explícito da
-// especificação). Os valores em si (60s/180s) são o ponto de partida do
-// documento original; ajustar depois de medido por benchmark real (Fase 11
-// do plano), não só por suposição.
+// especificação).
+//
+// Estação/notebook subiu de 180s pra 300s depois da medição de egress: com
+// as 500 máquinas previstas, cada heartbeat custa ~500 bytes de resposta do
+// Postgres, e a 180s isso dava ~3,6 GB/mês contra um teto de 5 GB no plano
+// atual — sem contar o painel. A 300s cai pra ~2,2 GB.
+//
+// Servidor fica em 60s de propósito: é onde a detecção rápida de queda
+// realmente vale, e servidores são a minoria do parque, então o custo de
+// egress deles é pequeno. Notebook que dorme ou troca de rede não se
+// beneficia de heartbeat de minuto em minuto — o que muda é só a latência
+// pra aparecer offline, e cinco minutos é aceitável pra estação.
 func collectionIntervalSeconds(deviceType string) int {
 	if deviceType == "server" {
 		return 60
 	}
-	return 180
+	return 300
 }
 
 // enfileirarAutoUpdateSeNecessario prepara o instalador mais recente da
