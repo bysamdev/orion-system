@@ -187,6 +187,7 @@ func buildRouter() http.Handler {
 
 	r.Get("/api/monitoring/cron/mark-offline", cronMarkOffline)
 	r.Get("/api/monitoring/cron/probe-network-links", cronProbeNetworkLinks)
+	r.Get("/api/monitoring/cron/cleanup-installers", cronCleanupInstallers)
 
 	r.Get("/api/ws/terminal", WsTerminalBrowserHandler)
 	r.Get("/api/ws/terminal/agent", WsTerminalAgentHandler)
@@ -436,6 +437,54 @@ func cronMarkOffline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"marked_offline": n})
+}
+
+// cronCleanupInstallers apaga instaladores antigos do bucket
+// agent-installers, mantendo os 2 mais recentes de cada empresa.
+//
+// Cada geração de instalador sobe um executável de ~15 MB com o nome
+// derivado da configuração da empresa, e nada apagava os anteriores: 36
+// objetos somavam 533 MB, 52% da cota de 1 GB do plano, crescendo a cada
+// release. Sem isto o Storage estoura antes do banco.
+//
+// Mantém 2 (e não 1) de propósito: o penúltimo cobre a janela em que uma
+// máquina ainda está executando um comando gerado com a versão anterior.
+// Comandos ainda em trânsito protegem seus arquivos de qualquer forma — ver
+// InstaladoresObsoletos.
+const instaladoresPorEmpresa = 2
+
+func cronCleanupInstallers(w http.ResponseWriter, r *http.Request) {
+	if !autorizarCron(w, r) {
+		return
+	}
+
+	if db == nil || sb == nil {
+		lib.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "sem conexão com banco ou storage"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	obsoletos, err := db.InstaladoresObsoletos(ctx, instaladoresPorEmpresa)
+	if err != nil {
+		log.Printf("[ERRO] listar instaladores obsoletos: %v", err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar instaladores"})
+		return
+	}
+	if len(obsoletos) == 0 {
+		lib.WriteJSON(w, http.StatusOK, map[string]any{"removidos": 0})
+		return
+	}
+
+	if err := sb.RemoverInstaladores(ctx, obsoletos); err != nil {
+		log.Printf("[ERRO] remover instaladores obsoletos: %v", err)
+		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao remover instaladores"})
+		return
+	}
+
+	log.Printf("[LIMPEZA] %d instaladores antigos removidos do storage", len(obsoletos))
+	lib.WriteJSON(w, http.StatusOK, map[string]any{"removidos": len(obsoletos)})
 }
 
 // maxBodySizeMiddleware limits incoming request body to prevent memory exhaustion DoS (10MB max).

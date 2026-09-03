@@ -705,6 +705,62 @@ func percentualDe(usado, total int64) *int16 {
 	return &pct
 }
 
+// InstaladoresObsoletos devolve os caminhos do bucket agent-installers que
+// podem ser apagados: tudo que não está entre os `manter` mais recentes da
+// sua pasta E não é alvo de nenhum comando ainda em trânsito.
+//
+// A pasta é o id da empresa (ou "generic"), e cada empresa precisa do SEU
+// instalador — a chave de agente vai embutida no executável —, então a
+// retenção é por pasta, nunca global.
+//
+// O NOT EXISTS é a parte que não pode sair: um comando orion-install
+// pendente carrega a URL do objeto, e apagar o arquivo no meio do caminho
+// deixaria o agente baixando um 404 sem nunca conseguir se atualizar. Já
+// aconteceu antes de mudança no mecanismo de entrega quebrar agente com
+// atualização pendente; aqui a proteção é explícita.
+//
+// A janela de 24h nessa proteção é o que a torna útil: a auto-atualização
+// reinicia o próprio agente antes dele responder, então comandos ficam
+// presos em 'sent' pra sempre (mesma causa tratada em
+// JanelaAutoUpdateEmTransito). Sem recorte de tempo, um órfão de semanas
+// atrás protegeria seu instalador eternamente — na medição real eram 15
+// arquivos, 419 MB, imunes à limpeza. Uma instalação leva minutos; 24h é
+// margem de sobra pra qualquer comando que ainda tenha chance de rodar.
+func (d *DB) InstaladoresObsoletos(ctx context.Context, manter int) ([]string, error) {
+	rows, err := d.pool.Query(ctx, `
+WITH ranqueados AS (
+  SELECT
+    name,
+    row_number() OVER (PARTITION BY split_part(name, '/', 1) ORDER BY created_at DESC) AS posicao
+  FROM storage.objects
+  WHERE bucket_id = 'agent-installers'
+)
+SELECT r.name
+FROM ranqueados r
+WHERE r.posicao > $1
+  AND NOT EXISTS (
+    SELECT 1 FROM public.machine_commands c
+    WHERE c.status IN ('pending', 'dispatched', 'sent')
+      AND c.created_at > now() - INTERVAL '24 hours'
+      AND c.command LIKE '%' || r.name || '%'
+  )
+ORDER BY r.name`, manter)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var caminhos []string
+	for rows.Next() {
+		var nome string
+		if err := rows.Scan(&nome); err != nil {
+			return nil, err
+		}
+		caminhos = append(caminhos, nome)
+	}
+	return caminhos, rows.Err()
+}
+
 // CapacitySnapshot são os tetos do projeto Supabase que dá pra observar de
 // dentro do próprio Postgres, num formato que o Grafana consome direto.
 //

@@ -211,6 +211,77 @@ func (c *SupabaseClient) SubirInstalador(ctx context.Context, caminho string, da
 	return nil
 }
 
+// InstaladorInfo é um objeto do bucket com a data que permite ordenar por
+// idade — o list do Storage devolve created_at junto do nome.
+type InstaladorInfo struct {
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// ListarInstaladores devolve os objetos de uma "pasta" (prefixo = id da
+// empresa, ou "generic") do bucket agent-installers, do mais novo pro mais
+// antigo.
+func (c *SupabaseClient) ListarInstaladores(ctx context.Context, pasta string) ([]InstaladorInfo, error) {
+	body, _ := json.Marshal(map[string]any{
+		"prefix": pasta,
+		"limit":  1000,
+		"sortBy": map[string]string{"column": "created_at", "order": "desc"},
+	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/storage/v1/object/list/agent-installers", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.serviceKey)
+	req.Header.Set("apikey", c.serviceKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("listar instaladores: %w", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		b, _ := io.ReadAll(res.Body)
+		return nil, fmt.Errorf("listar instaladores: %s", string(b))
+	}
+
+	var itens []InstaladorInfo
+	if err := json.NewDecoder(res.Body).Decode(&itens); err != nil {
+		return nil, fmt.Errorf("decodificar lista de instaladores: %w", err)
+	}
+	return itens, nil
+}
+
+// RemoverInstaladores apaga objetos do bucket de verdade — pelo endpoint do
+// Storage, não por DELETE em storage.objects, que apagaria só o registro e
+// deixaria os bytes órfãos ocupando a cota.
+func (c *SupabaseClient) RemoverInstaladores(ctx context.Context, caminhos []string) error {
+	if len(caminhos) == 0 {
+		return nil
+	}
+	body, _ := json.Marshal(map[string]any{"prefixes": caminhos})
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete,
+		c.baseURL+"/storage/v1/object/agent-installers", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.serviceKey)
+	req.Header.Set("apikey", c.serviceKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("remover instaladores: %w", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		b, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("remover instaladores: %s", string(b))
+	}
+	return nil
+}
+
 // AssinarInstalador gera a signed URL de download pra um objeto que já
 // existe no bucket "agent-installers" — sempre chamada (mesmo em cache
 // hit), já que a URL assinada expira em minutos e cada geração deve dar
