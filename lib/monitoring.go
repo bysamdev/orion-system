@@ -892,11 +892,29 @@ func (d *DB) UpsertHardware(ctx context.Context, in UpsertHardwareInput) error {
 		upStatus = "null"
 	}
 
+	// O WHERE no DO UPDATE é o ponto todo desta query: inventário de hardware
+	// quase nunca muda, mas o heartbeat manda o retrato completo a cada 60s.
+	// Sem ele, cada máquina reescrevia ~1,3 KB de jsonb por minuto — 720 mil
+	// reescritas por dia nas 500 máquinas previstas, cada uma gerando linha
+	// morta pro autovacuum perseguir e WAL pra replicar, tudo pra gravar
+	// exatamente o que já estava lá.
+	//
+	// Comparar a linha inteira menos updated_at: incluir o timestamp faria
+	// toda comparação dar diferente, que é justamente o problema.
+	// IS DISTINCT FROM (e não <>) porque as colunas jsonb são nulas em
+	// máquina que ainda não reportou aquele bloco, e NULL <> NULL não é true.
 	_, err := d.pool.Exec(ctx, `
 INSERT INTO public.machine_hardware (machine_id, cpu_model, ram_slots, disks, interfaces, gpu, security_info, remote_software, battery_info, update_status, updated_at)
 VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10::jsonb, now())
 ON CONFLICT (machine_id) DO UPDATE
-  SET cpu_model=$2, ram_slots=$3::jsonb, disks=$4::jsonb, interfaces=$5::jsonb, gpu=$6, security_info=$7::jsonb, remote_software=$8::jsonb, battery_info=$9::jsonb, update_status=$10::jsonb, updated_at=now()`,
+  SET cpu_model=$2, ram_slots=$3::jsonb, disks=$4::jsonb, interfaces=$5::jsonb, gpu=$6, security_info=$7::jsonb, remote_software=$8::jsonb, battery_info=$9::jsonb, update_status=$10::jsonb, updated_at=now()
+  WHERE (machine_hardware.cpu_model, machine_hardware.ram_slots, machine_hardware.disks,
+         machine_hardware.interfaces, machine_hardware.gpu, machine_hardware.security_info,
+         machine_hardware.remote_software, machine_hardware.battery_info, machine_hardware.update_status)
+        IS DISTINCT FROM
+        (EXCLUDED.cpu_model, EXCLUDED.ram_slots, EXCLUDED.disks,
+         EXCLUDED.interfaces, EXCLUDED.gpu, EXCLUDED.security_info,
+         EXCLUDED.remote_software, EXCLUDED.battery_info, EXCLUDED.update_status)`,
 		in.MachineID, in.CPUModel, ramSlots, disks, ifaces, in.GPU, secInfo, remoteSoft, battery, upStatus)
 	return err
 }
@@ -928,9 +946,30 @@ WHERE NOT EXISTS (
 
 func (d *DB) ResolveAlertsByType(ctx context.Context, machineID, alertType string) error {
 	_, err := d.pool.Exec(ctx, `
-UPDATE public.machine_alerts 
-SET resolved = true 
+UPDATE public.machine_alerts
+SET resolved = true
 WHERE machine_id = $1 AND type = $2 AND resolved = false`, machineID, alertType)
+	return err
+}
+
+// ResolveAlertTypes resolve vários tipos de alerta de uma máquina numa ida
+// só ao banco.
+//
+// O heartbeat resolve até 7 tipos por ciclo (cpu, ram, disk, antivirus,
+// firewall, updates, agente offline), e quase sempre não há nada pra
+// resolver: 99% das 219 mil execuções medidas em pg_stat_statements não
+// tocaram uma linha sequer. O UPDATE em si é barato (0,02 ms), o caro é a
+// ida e volta — sete round-trips por heartbeat viram 5 milhões por dia nas
+// 500 máquinas previstas, cada um segurando uma conexão do pooler, que é
+// justamente o recurso escasso aqui.
+func (d *DB) ResolveAlertTypes(ctx context.Context, machineID string, tipos []string) error {
+	if len(tipos) == 0 {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+UPDATE public.machine_alerts
+SET resolved = true
+WHERE machine_id = $1 AND type = ANY($2) AND resolved = false`, machineID, tipos)
 	return err
 }
 

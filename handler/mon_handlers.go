@@ -670,6 +670,11 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 	hasAlert := false
 
+	// Tipos de alerta que este heartbeat prova estarem normalizados.
+	// Acumulados aqui e resolvidos num UPDATE so no fim, em vez de um
+	// round-trip por tipo — ver lib.ResolveAlertTypes.
+	resolver := make([]string, 0, 7)
+
 	if req.CPUUsage > 85 {
 		_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
 			MachineID: machineID, Type: "cpu", Severity: "warning",
@@ -677,7 +682,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		})
 		hasAlert = true
 	} else {
-		_ = db.ResolveAlertsByType(ctx, machineID, "cpu")
+		resolver = append(resolver, "cpu")
 	}
 
 	if req.RAMTotal > 0 {
@@ -689,7 +694,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 			})
 			hasAlert = true
 		} else {
-			_ = db.ResolveAlertsByType(ctx, machineID, "ram")
+			resolver = append(resolver, "ram")
 		}
 	}
 
@@ -706,7 +711,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 				_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, req.MachineToken, req.Hostname, "disk", "critical", fmt.Sprintf("Uso de disco crítico no servidor: %.1f%%", diskUsage*100))
 			}
 		} else {
-			_ = db.ResolveAlertsByType(ctx, machineID, "disk")
+			resolver = append(resolver, "disk")
 			if deviceTypeGravado == "server" {
 				_ = db.ResolverChamadoAlertaServidor(ctx, machineID, "disk")
 			}
@@ -737,7 +742,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 					_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, req.MachineToken, req.Hostname, "antivirus", "critical", "Antivírus desativado ou ausente no servidor")
 				}
 			} else {
-				_ = db.ResolveAlertsByType(ctx, machineID, "antivirus")
+				resolver = append(resolver, "antivirus")
 				if deviceTypeGravado == "server" {
 					_ = db.ResolverChamadoAlertaServidor(ctx, machineID, "antivirus")
 				}
@@ -752,13 +757,13 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 				})
 				hasAlert = true
 			} else {
-				_ = db.ResolveAlertsByType(ctx, machineID, "firewall")
+				resolver = append(resolver, "firewall")
 			}
 		}
 	}
 
 	// Atualizações de sistema (sem geração de alerta de reinicialização conforme preferência)
-	_ = db.ResolveAlertsByType(ctx, machineID, "updates")
+	resolver = append(resolver, "updates")
 
 	// Este heartbeat É a prova de que a máquina está online agora — resolve
 	// qualquer "Agente Offline" pendente aqui mesmo, sem esperar o Grafana
@@ -768,7 +773,8 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	// "online" nos primeiros minutos após ela voltar — ficar offline nunca
 	// deveria contar como um motivo de alerta por si só (CPU/disco/
 	// antivírus/firewall continuam contando normalmente).
-	_ = db.ResolveAlertsByType(ctx, machineID, alertaAgenteOffline)
+	resolver = append(resolver, alertaAgenteOffline)
+	_ = db.ResolveAlertTypes(ctx, machineID, resolver)
 	if deviceTypeGravado == "server" {
 		_ = db.ResolverChamadoAlertaServidor(ctx, machineID, alertaServidorOffline)
 	}
