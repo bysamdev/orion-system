@@ -40,4 +40,21 @@
 --   ALTER PUBLICATION supabase_realtime ADD TABLE public.machines;
 -- =================================================================================
 
-ALTER PUBLICATION supabase_realtime DROP TABLE public.machines;
+-- Guarda de replay: nenhuma migration deste repositório ADICIONA machines à
+-- publicação supabase_realtime — ela entrou lá manualmente em produção. Num
+-- banco limpo a tabela nunca é publicada, e o DROP aborta com 42704
+-- ("relation machines is not part of the publication"). Em produção a tabela
+-- estava publicada quando esta migration rodou, então o guarda é transparente.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'machines'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime DROP TABLE public.machines;
+  ELSE
+    RAISE NOTICE 'machines não está na publicação supabase_realtime — nada a remover (esperado em banco limpo)';
+  END IF;
+END $$;

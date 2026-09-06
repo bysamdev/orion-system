@@ -16,8 +16,14 @@ BEGIN
     SET user_id = admin_user_id
     WHERE user_id IS NULL;
   ELSE
-    -- If no admin exists, raise error
-    RAISE EXCEPTION 'No admin user found. Please create an admin user first before fixing NULL tickets.';
+    -- Banco limpo (replay/staging): não há admin para adotar os chamados.
+    -- As únicas linhas com user_id NULL aqui são as 5 de demonstração
+    -- inseridas por 20251017174456_2a51efde...sql:58-61, que não têm dono.
+    -- Sem removê-las, o ALTER COLUMN ... SET NOT NULL da linha seguinte falha
+    -- com 23502. Este ramo ELSE é inalcançável em produção (havia admin, e a
+    -- migration passou), então a remoção não altera o comportamento aplicado.
+    RAISE NOTICE 'No admin user found, skipping NULL ticket fix (expected on a clean database)';
+    DELETE FROM tickets WHERE user_id IS NULL;
   END IF;
 END $$;
 

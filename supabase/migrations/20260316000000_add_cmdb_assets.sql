@@ -34,8 +34,13 @@ CREATE POLICY "Users can view assets of their company"
     company_id IN (
       SELECT company_id FROM public.profiles WHERE id = auth.uid()
     )
-    OR EXISTS (
-      SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'technician', 'developer')
+    OR (
+      -- profiles.role nunca existiu: papéis moram em public.user_roles e são
+      -- lidos por has_role(). A referência original abortava o replay com
+      -- 42703 (column "role" does not exist).
+      has_role(auth.uid(), 'admin'::app_role)
+      OR has_role(auth.uid(), 'technician'::app_role)
+      OR has_role(auth.uid(), 'developer'::app_role)
     )
   );
 
@@ -44,8 +49,13 @@ CREATE POLICY "Admins and Technicians can manage assets"
   FOR ALL
   TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'technician', 'developer')
+    (
+      -- profiles.role nunca existiu: papéis moram em public.user_roles e são
+      -- lidos por has_role(). A referência original abortava o replay com
+      -- 42703 (column "role" does not exist).
+      has_role(auth.uid(), 'admin'::app_role)
+      OR has_role(auth.uid(), 'technician'::app_role)
+      OR has_role(auth.uid(), 'developer'::app_role)
     )
   );
 
@@ -56,8 +66,13 @@ CREATE POLICY "Users can view links for their tickets"
   USING (
     EXISTS (
       SELECT 1 FROM public.tickets t
-      JOIN public.profiles p ON p.id = auth.uid()
-      WHERE t.id = ticket_id AND (t.user_id = auth.uid() OR p.role IN ('admin', 'technician', 'developer'))
+      WHERE t.id = ticket_id AND (
+        t.user_id = auth.uid()
+        -- idem: p.role não existe; o JOIN em profiles só servia para lê-lo.
+        OR has_role(auth.uid(), 'admin'::app_role)
+        OR has_role(auth.uid(), 'technician'::app_role)
+        OR has_role(auth.uid(), 'developer'::app_role)
+      )
     )
   );
 
@@ -66,7 +81,12 @@ CREATE POLICY "Admins and Technicians can link assets to tickets"
   FOR ALL
   TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'technician', 'developer')
+    (
+      -- profiles.role nunca existiu: papéis moram em public.user_roles e são
+      -- lidos por has_role(). A referência original abortava o replay com
+      -- 42703 (column "role" does not exist).
+      has_role(auth.uid(), 'admin'::app_role)
+      OR has_role(auth.uid(), 'technician'::app_role)
+      OR has_role(auth.uid(), 'developer'::app_role)
     )
   );

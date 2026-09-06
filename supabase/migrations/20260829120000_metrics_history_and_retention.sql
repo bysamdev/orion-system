@@ -53,18 +53,26 @@ CREATE INDEX IF NOT EXISTS idx_machine_metrics_machine_collected
 
 ALTER TABLE public.machine_metrics ENABLE ROW LEVEL SECURITY;
 
+-- DROP antes de cada CREATE: estas três policies têm nomes idênticos às
+-- criadas em 20260614000001_enable_rls_machines.sql:126,132,144 sobre a mesma
+-- tabela. CREATE POLICY não aceita IF NOT EXISTS, então em replay limpo o
+-- arquivo abortava com "policy ... already exists". Em produção passava porque
+-- machine_metrics havia sido removida ao vivo por migration não versionada.
+DROP POLICY IF EXISTS "Users can view company machine_metrics" ON public.machine_metrics;
 CREATE POLICY "Users can view company machine_metrics" ON public.machine_metrics FOR SELECT USING (
   machine_id IN (SELECT id FROM public.machines WHERE company_id = get_user_company_id(auth.uid()))
   OR is_master_company_user(auth.uid())
   OR has_role(auth.uid(), 'developer'::app_role)
 );
 
+DROP POLICY IF EXISTS "Admins and techs can insert company machine_metrics" ON public.machine_metrics;
 CREATE POLICY "Admins and techs can insert company machine_metrics" ON public.machine_metrics FOR INSERT WITH CHECK (
   machine_id IN (SELECT id FROM public.machines WHERE company_id = get_user_company_id(auth.uid()) AND (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'technician'::app_role)))
   OR is_master_company_user(auth.uid())
   OR has_role(auth.uid(), 'developer'::app_role)
 );
 
+DROP POLICY IF EXISTS "Admins can delete company machine_metrics" ON public.machine_metrics;
 CREATE POLICY "Admins can delete company machine_metrics" ON public.machine_metrics FOR DELETE USING (
   machine_id IN (SELECT id FROM public.machines WHERE company_id = get_user_company_id(auth.uid()) AND has_role(auth.uid(), 'admin'::app_role))
   OR is_master_company_user(auth.uid())

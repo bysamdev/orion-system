@@ -49,8 +49,26 @@ CREATE TRIGGER update_tickets_updated_at BEFORE UPDATE ON public.tickets FOR EAC
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_companies_updated_at BEFORE UPDATE ON public.companies FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_departments_updated_at BEFORE UPDATE ON public.departments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-CREATE TRIGGER validate_ticket_before_insert_update BEFORE INSERT OR UPDATE ON public.tickets FOR EACH ROW EXECUTE FUNCTION public.validate_ticket_input();
-CREATE TRIGGER validate_profile_before_insert_update BEFORE INSERT OR UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.validate_profile_input();
+-- validate_ticket_input() e validate_profile_input() só são criadas em
+-- 20251022014710:366 e adiante — depois deste arquivo na ordem cronológica.
+-- Em banco limpo o CREATE TRIGGER aborta com 42883 (function does not exist).
+-- Aquele mesmo arquivo recria função e trigger (linhas 366 e 568), então pular
+-- aqui não deixa lacuna no schema final. Em produção as funções já existem, os
+-- guardas passam, e os triggers são criados como sempre foram.
+DO $$
+BEGIN
+  IF to_regprocedure('public.validate_ticket_input()') IS NOT NULL THEN
+    EXECUTE 'CREATE TRIGGER validate_ticket_before_insert_update BEFORE INSERT OR UPDATE ON public.tickets FOR EACH ROW EXECUTE FUNCTION public.validate_ticket_input()';
+  ELSE
+    RAISE NOTICE 'validate_ticket_input() ainda não existe — trigger criado adiante em 20251022014710';
+  END IF;
+
+  IF to_regprocedure('public.validate_profile_input()') IS NOT NULL THEN
+    EXECUTE 'CREATE TRIGGER validate_profile_before_insert_update BEFORE INSERT OR UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.validate_profile_input()';
+  ELSE
+    RAISE NOTICE 'validate_profile_input() ainda não existe — trigger criado adiante em 20251022014710';
+  END IF;
+END $$;
 CREATE TRIGGER validate_company_before_insert_update BEFORE INSERT OR UPDATE ON public.companies FOR EACH ROW EXECUTE FUNCTION public.validate_company_input();
 CREATE TRIGGER set_ticket_update_author_trigger BEFORE INSERT ON public.ticket_updates FOR EACH ROW EXECUTE FUNCTION public.set_ticket_update_author();
 CREATE TRIGGER validate_assignment_before_update BEFORE UPDATE ON public.tickets FOR EACH ROW EXECUTE FUNCTION public.validate_ticket_assignment();

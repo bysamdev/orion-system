@@ -1,5 +1,11 @@
 -- Create app_role enum for user roles
-CREATE TYPE public.app_role AS ENUM ('customer', 'technician', 'admin');
+-- 'developer' incluído já na criação: três migrations posteriores porém
+-- anteriores ao ALTER de 20251022014710:63 (20251021012335, 20251021034345,
+-- 20251022011630) já usam 'developer'::app_role, o que aborta o replay em
+-- banco limpo com "invalid input value for enum app_role" (22P02). Nenhuma
+-- migration entre 20251017175907 e 20251022014710 depende do enum ter
+-- exatamente três valores, e produção já tem os quatro — neutro lá.
+CREATE TYPE public.app_role AS ENUM ('customer', 'technician', 'admin', 'developer');
 
 -- Create user_roles table (separate from profiles to prevent privilege escalation)
 CREATE TABLE public.user_roles (

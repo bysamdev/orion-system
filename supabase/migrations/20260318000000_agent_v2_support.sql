@@ -7,7 +7,11 @@
 -- 1. Add machine_token and current_user to machines
 ALTER TABLE public.machines 
 ADD COLUMN IF NOT EXISTS machine_token TEXT UNIQUE,
-ADD COLUMN IF NOT EXISTS current_user TEXT,
+-- current_user é palavra reservada do Postgres (função especial), então o
+-- identificador precisa de aspas — sem elas o parser aborta com 42601.
+-- Mesma forma já usada em 20260321000300_master_monitoring_repair.sql:21, e a
+-- coluna em produção chama-se literalmente current_user, então é neutro lá.
+ADD COLUMN IF NOT EXISTS "current_user" TEXT,
 ADD COLUMN IF NOT EXISTS machine_uuid UUID;
 
 -- 2. Add machine_token to tickets for easier association

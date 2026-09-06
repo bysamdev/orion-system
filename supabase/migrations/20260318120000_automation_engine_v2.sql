@@ -50,10 +50,13 @@ CREATE POLICY "Admins and devs can view automation logs"
   ON public.automation_logs FOR SELECT
   TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid()
-        AND role IN ('admin', 'developer', 'technician')
+    -- profiles.role nunca existiu: papéis moram em public.user_roles e são
+    -- lidos por has_role(). A referência original abortava o replay com
+    -- 42703 (column "role" does not exist).
+    (
+      has_role(auth.uid(), 'admin'::app_role)
+      OR has_role(auth.uid(), 'developer'::app_role)
+      OR has_role(auth.uid(), 'technician'::app_role)
     )
   );
 

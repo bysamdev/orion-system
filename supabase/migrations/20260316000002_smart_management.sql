@@ -15,7 +15,12 @@ CREATE TABLE IF NOT EXISTS public.routing_rules (
     condition_priority TEXT,
     condition_company_id UUID REFERENCES public.companies(id),
     action_type TEXT NOT NULL CHECK (action_type IN ('assign_tech', 'round_robin', 'notify_all', 'escalate_manager')),
-    action_target_user_id UUID REFERENCES public.users(id),
+    -- FK removida: public.users não é criada por nenhuma migration deste
+    -- repositório (provável erro de digitação por auth.users). A referência
+    -- abortava o replay em banco limpo com "relation public.users does not
+    -- exist". A integridade nunca foi exercida — a coluna é descartada em
+    -- 20260614000001_enable_rls_machines.sql:25-28.
+    action_target_user_id UUID,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -33,9 +38,12 @@ CREATE POLICY "Users can view routing rules of their company"
 CREATE POLICY "Admins can manage routing rules"
     ON public.routing_rules FOR ALL
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('admin', 'developer')
+        -- profiles.role nunca existiu: papéis moram em public.user_roles e são
+        -- lidos por has_role(). A referência original abortava o replay com
+        -- 42703 (column "role" does not exist).
+        (
+            has_role(auth.uid(), 'admin'::app_role)
+            OR has_role(auth.uid(), 'developer'::app_role)
         )
     );
 
@@ -64,9 +72,12 @@ CREATE POLICY "Users can view escalation settings of their company"
 CREATE POLICY "Admins can manage escalation settings"
     ON public.escalation_settings FOR ALL
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('admin', 'developer')
+        -- profiles.role nunca existiu: papéis moram em public.user_roles e são
+        -- lidos por has_role(). A referência original abortava o replay com
+        -- 42703 (column "role" does not exist).
+        (
+            has_role(auth.uid(), 'admin'::app_role)
+            OR has_role(auth.uid(), 'developer'::app_role)
         )
     );
 
@@ -94,9 +105,12 @@ CREATE POLICY "Users can view resolution checklists of their company"
 CREATE POLICY "Admins can manage resolution checklists"
     ON public.resolution_checklists FOR ALL
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('admin', 'developer')
+        -- profiles.role nunca existiu: papéis moram em public.user_roles e são
+        -- lidos por has_role(). A referência original abortava o replay com
+        -- 42703 (column "role" does not exist).
+        (
+            has_role(auth.uid(), 'admin'::app_role)
+            OR has_role(auth.uid(), 'developer'::app_role)
         )
     );
 

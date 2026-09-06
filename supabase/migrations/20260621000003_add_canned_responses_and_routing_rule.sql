@@ -19,7 +19,15 @@ BEGIN
 
     FOR company_record IN SELECT id FROM public.companies LOOP
         -- Find an admin for the company to be the 'created_by'
-        SELECT id INTO admin_id FROM public.profiles WHERE company_id = company_record.id AND role = 'admin' LIMIT 1;
+        -- profiles.role nunca existiu: papéis moram em public.user_roles.
+        -- Diferente dos casos em corpo de função, este bloco DO é executado
+        -- durante a migration, então a referência aborta o replay com 42703.
+        SELECT p.id INTO admin_id
+        FROM public.profiles p
+        JOIN public.user_roles ur ON ur.user_id = p.id
+        WHERE p.company_id = company_record.id
+          AND ur.role = 'admin'::app_role
+        LIMIT 1;
         
         -- If no admin is found, find any user for that company
         IF admin_id IS NULL THEN

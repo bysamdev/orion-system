@@ -111,8 +111,12 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.verify_user_backup_code(text[]) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.verify_user_backup_code(text[]) TO authenticated;
+-- Assinatura corrigida: a função é criada na linha 80 como
+-- verify_user_backup_code(p_code_hash text), não text[]. O text[] veio por
+-- cópia do bloco de save_user_backup_codes acima e abortava o replay com
+-- 42883 (function does not exist).
+REVOKE ALL ON FUNCTION public.verify_user_backup_code(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.verify_user_backup_code(text) TO authenticated;
 
 -- RPC: Obter status/contagem dos códigos de backup
 CREATE OR REPLACE FUNCTION public.get_backup_codes_status()

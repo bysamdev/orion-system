@@ -375,6 +375,24 @@ USING (has_role((SELECT auth.uid()), 'developer'::app_role));
 -- DEPARTMENTS: Políticas Otimizadas
 -- ============================================
 
+-- public.departments só é criada em 20251022014710:81, um dia depois na linha
+-- do tempo, mas já é usada aqui — o replay em banco limpo aborta com
+-- "relation public.departments does not exist" (42P01). Note que
+-- DROP POLICY IF EXISTS protege a policy, não a tabela.
+-- Definição idêntica à de 20251022014710:81; lá o arquivo faz
+-- DROP TABLE IF EXISTS departments CASCADE (linha 33) antes de recriar, então
+-- esta criação antecipada é descartada e substituída. Em produção o objeto já
+-- existe há muito, e o IF NOT EXISTS torna isto no-op.
+CREATE TABLE IF NOT EXISTS public.departments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT departments_name_length CHECK (LENGTH(TRIM(name)) >= 2),
+  CONSTRAINT departments_unique_per_company UNIQUE(company_id, name)
+);
+
 DROP POLICY IF EXISTS "Developers can view all departments" ON public.departments;
 CREATE POLICY "Developers can view all departments"
 ON public.departments
