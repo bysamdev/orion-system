@@ -1,0 +1,61 @@
+-- =============================================================================
+-- Migration: 20260904095100_fix_ch_c17_revoke_anon_on_cleanup_audit_logs.sql
+--
+-- Fix CH-C17: revoke anonymous execute on the audit/notification purge function
+--
+-- Descrição:
+--   public.cleanup_audit_logs() é SECURITY DEFINER com owner postgres, não tem
+--   nenhuma checagem de autorização, e está executável por anon. Corpo:
+--
+--     DELETE FROM audit_log
+--     WHERE changed_at < NOW() - INTERVAL '90 days';
+--
+--     DELETE FROM notifications
+--     WHERE is_read = true AND created_at < NOW() - INTERVAL '30 days';
+--
+--   Ou seja, um POST /rest/v1/rpc/cleanup_audit_logs sem token nenhum apaga
+--   linhas de audit_log e de notifications.
+--
+-- SEVERIDADE — P2, e a razão de não ser mais alto:
+--   O DELETE é limitado à janela de retenção que o próprio sistema já aplica.
+--   Só remove o que o cron diário (jobid 2, 'cleanup-old-logs-daily') removeria
+--   de qualquer forma. Um atacante consegue antecipar a limpeza, não apagar
+--   trilha recente: registros com menos de 90 dias ficam intactos.
+--   O que existe aqui é ausência de controle, não destruição arbitrária. Se a
+--   política de retenção mudar, o raio de alcance muda junto.
+--
+-- Dependência de cron verificada:
+--   cron.job jobid 2 'cleanup-old-logs-daily', schedule '0 3 * * *',
+--   command 'SELECT cleanup_audit_logs()', username=postgres.
+--   postgres é o owner e mantém EXECUTE. O agendamento não é afetado.
+--
+-- RELAÇÃO COM CH-C11:
+--   audit_log é a única tabela na publicação supabase_realtime e está com
+--   REPLICA IDENTITY FULL. Ela é também a tabela inflada pelo gatilho de
+--   auditoria duplicado em tickets. As duas correções são independentes mas
+--   incidem sobre o mesmo dado.
+--
+-- FORA DO ESCOPO DESTA MIGRATION, mas encontrado no mesmo inventário:
+--   Outras funções SECURITY DEFINER executáveis por anon, sem checagem interna,
+--   que NÃO pertencem ao domínio de chamados e por isso não são tocadas aqui:
+--     public.cleanup_expired_invite_tokens()   -> DELETE em invite_tokens
+--     public.cleanup_monitoring_history()      -> DELETE em histórico de métricas
+--     public.count_company_active_agents(uuid) -> contagem de agentes por empresa
+--     public.check_index_health()              -> introspecção de índices
+--     public.check_table_bloat()               -> introspecção de bloat
+--   Estão registradas no relatório final como itens fora do escopo do módulo de
+--   chamados, para tratamento separado.
+--   Já public.get_all_monitoring_targets(p_secret text) e
+--   public.update_telemetry_status(jsonb, jsonb, p_secret text) exigem segredo
+--   por parâmetro, então não são acesso anônimo efetivo.
+-- =============================================================================
+
+REVOKE EXECUTE ON FUNCTION public.cleanup_audit_logs() FROM anon, authenticated;
+
+-- Verificação pós-aplicação:
+--
+--   SELECT has_function_privilege('anon', 'public.cleanup_audit_logs()', 'EXECUTE')          AS anon_exec,
+--          has_function_privilege('authenticated', 'public.cleanup_audit_logs()', 'EXECUTE') AS auth_exec,
+--          has_function_privilege('postgres', 'public.cleanup_audit_logs()', 'EXECUTE')      AS cron_exec;
+--
+-- Esperado: anon_exec = false, auth_exec = false, cron_exec = true.

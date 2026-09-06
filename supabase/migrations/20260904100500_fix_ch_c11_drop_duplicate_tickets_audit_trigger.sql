@@ -1,0 +1,63 @@
+-- =============================================================================
+-- Migration: 20260904100500_fix_ch_c11_drop_duplicate_tickets_audit_trigger.sql
+--
+-- Fix CH-C11: drop the duplicate audit trigger on tickets
+--
+-- Descrição:
+--   public.tickets carrega DOIS gatilhos de auditoria idênticos. Definições
+--   lidas de pg_get_triggerdef em produção:
+--
+--     CREATE TRIGGER audit_tickets_changes AFTER INSERT OR DELETE OR UPDATE
+--       ON public.tickets FOR EACH ROW EXECUTE FUNCTION audit_trigger_function()
+--     CREATE TRIGGER audit_tickets_trigger AFTER INSERT OR DELETE OR UPDATE
+--       ON public.tickets FOR EACH ROW EXECUTE FUNCTION audit_trigger_function()
+--
+--   Mesmo tgtype (29), sem WHEN, sem argumentos, mesma função. São duplicatas
+--   exatas. Toda mutação de chamado grava DUAS linhas idênticas em audit_log.
+--
+--   Uma varredura em todo o schema public mostra que tickets é a ÚNICA tabela
+--   com gatilho de auditoria duplicado:
+--     companies       -> audit_companies_changes
+--     profiles        -> audit_profiles_changes
+--     user_roles      -> audit_user_roles_changes
+--     ticket_updates  -> audit_ticket_updates_trigger
+--     tickets         -> audit_tickets_changes  E  audit_tickets_trigger
+--
+-- QUAL DOS DOIS É O CANÔNICO:
+--   O sufixo dominante no schema é '_changes' (companies, profiles, user_roles).
+--   Fica audit_tickets_changes, que segue esse padrão; sai audit_tickets_trigger.
+--   ticket_updates usa '_trigger' e permanece como está — renomear seria uma
+--   mudança cosmética sem benefício, fora do escopo deste achado.
+--
+-- IMPACTO ALÉM DO ARMAZENAMENTO:
+--   audit_log está na publicação supabase_realtime com REPLICA IDENTITY FULL,
+--   então cada linha duplicada também duplica o payload de realtime. Isso incide
+--   direto sobre o custo de egress que os cinco commits mais recentes do
+--   repositório vinham tentando reduzir.
+--
+-- NÃO REMOVE DADOS. As linhas duplicadas já existentes em audit_log permanecem;
+-- limpeza retroativa, se desejada, é decisão separada e não é feita aqui.
+-- =============================================================================
+
+DROP TRIGGER IF EXISTS audit_tickets_trigger ON public.tickets;
+
+-- Verificação pós-aplicação (deve devolver exatamente uma linha para tickets):
+--
+--   SELECT c.relname AS tabela, t.tgname
+--   FROM pg_trigger t
+--   JOIN pg_proc p ON p.oid = t.tgfoid
+--   JOIN pg_class c ON c.oid = t.tgrelid
+--   JOIN pg_namespace n ON n.oid = c.relnamespace
+--   WHERE n.nspname = 'public' AND NOT t.tgisinternal
+--     AND p.proname = 'audit_trigger_function'
+--   ORDER BY c.relname, t.tgname;
+--
+-- Contagem de duplicatas em audit_log criadas antes desta correção, para
+-- dimensionar uma eventual limpeza retroativa (somente leitura):
+--
+--   SELECT count(*) FROM (
+--     SELECT record_id, action, changed_at, count(*)
+--     FROM public.audit_log
+--     WHERE table_name = 'tickets'
+--     GROUP BY 1,2,3 HAVING count(*) > 1
+--   ) d;
