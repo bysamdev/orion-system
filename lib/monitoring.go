@@ -645,6 +645,14 @@ WHERE id = $1`,
 // ainda dá 20 pontos na janela de 1h do gráfico.
 const IntervaloAmostraHistorico = 3 * time.Minute
 
+// RetencaoHistoricoNaoServidor é o teto de histórico pra desktop/notebook —
+// bem mais curto que os 3 dias de RetencaoHistorico, que ficam reservados a
+// servidor. A imensa maioria das ~500 máquinas previstas é estação de
+// trabalho, então é aí que mora o volume: aparar pra 24h nelas é o que de
+// fato desafoga o banco, sem tirar do servidor a janela mais longa que faz
+// sentido pra quem monitora disponibilidade.
+const RetencaoHistoricoNaoServidor = 24 * time.Hour
+
 // AppendMetricPoint grava um ponto da série histórica de performance.
 //
 // O timestamp é arredondado pro início do slot de IntervaloAmostraHistorico
@@ -655,7 +663,15 @@ const IntervaloAmostraHistorico = 3 * time.Minute
 // Guarda percentuais em smallint em vez dos bytes brutos: é o que o gráfico
 // desenha, e economiza 26 bytes por linha em relação aos bigints de
 // ram_used/ram_total/disk_used/disk_total.
-func (d *DB) AppendMetricPoint(ctx context.Context, in InsertMetricInput) error {
+//
+// deviceType decide a retenção: servidor guarda os 3 dias inteiros via
+// DROP de partição (maintain_machine_metrics_partitions, migração
+// 20260902180000); qualquer outro tipo é aparado aqui mesmo pra
+// RetencaoHistoricoNaoServidor a cada heartbeat. Um DELETE por máquina, com
+// índice pela PK (machine_id, collected_at) — não é o DELETE em massa que a
+// tabela foi desenhada pra evitar, é o equivalente por-linha do DROP de
+// partição que já existe pra servidor.
+func (d *DB) AppendMetricPoint(ctx context.Context, in InsertMetricInput, deviceType string) error {
 	_, err := d.pool.Exec(ctx, `
 INSERT INTO public.machine_metrics_history (machine_id, collected_at, cpu_pct, ram_pct, disk_pct)
 VALUES (
@@ -672,6 +688,16 @@ ON CONFLICT (machine_id, collected_at) DO NOTHING`,
 		percentualDe(in.DiskUsed, in.DiskTotal),
 		IntervaloAmostraHistorico.Seconds(),
 	)
+	if err != nil {
+		return err
+	}
+
+	if deviceType != "server" {
+		_, err = d.pool.Exec(ctx, `
+DELETE FROM public.machine_metrics_history
+WHERE machine_id = $1 AND collected_at < now() - make_interval(secs => $2)`,
+			in.MachineID, RetencaoHistoricoNaoServidor.Seconds())
+	}
 	return err
 }
 
@@ -852,10 +878,12 @@ SELECT
 	return &s, nil
 }
 
-// RetencaoHistorico é por quanto tempo os pontos ficam no banco. Bate com o
-// retencao_dias da migração 20260902180000 (que derruba a partição do dia
-// vencido) — mudar aqui sem mudar lá faz a UI pedir janela que não existe
-// mais. Escolhido pra caber no plano free do Supabase com ~500 máquinas.
+// RetencaoHistorico é por quanto tempo os pontos de SERVIDOR ficam no banco.
+// Bate com o retencao_dias da migração 20260902180000 (que derruba a
+// partição do dia vencido) — mudar aqui sem mudar lá faz a UI pedir janela
+// que não existe mais. Desktop/notebook usam RetencaoHistoricoNaoServidor
+// (24h), aparada por máquina em AppendMetricPoint — só servidor guarda os 3
+// dias inteiros, que é quem justifica a janela mais longa.
 const RetencaoHistorico = 3 * 24 * time.Hour
 
 // JanelaHistorico traduz o período pedido pelo frontend (mesmos valores de
@@ -863,8 +891,10 @@ const RetencaoHistorico = 3 * 24 * time.Hour
 // de reamostragem. O passo cresce junto com a janela pra manter o gráfico
 // entre ~20 e ~100 pontos: mais que isso vira ruído numa área de 240px.
 //
-// Nenhuma janela passa de RetencaoHistorico — pedir 7 dias devolveria no
-// máximo os 3 que existem, então o corte é explícito aqui.
+// Nenhuma janela passa de RetencaoHistorico — pedir 3d de uma máquina que
+// não é servidor devolve no máximo as 24h que AppendMetricPoint preserva; o
+// frontend já esconde o botão "3d" fora de servidor (PerformanceChart.tsx)
+// pra não prometer uma janela que o dado nunca preenche.
 func JanelaHistorico(period string) (janela, passo time.Duration) {
 	switch period {
 	case "6h":

@@ -641,7 +641,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	// Série histórica do gráfico de performance. Best-effort de propósito: o
 	// ponto de um heartbeat perdido não vale derrubar o heartbeat inteiro,
 	// que é também o que mantém a máquina online e carrega o inventário.
-	if err := db.AppendMetricPoint(ctx, amostra); err != nil {
+	if err := db.AppendMetricPoint(ctx, amostra, deviceTypeGravado); err != nil {
 		log.Printf("[AVISO] gravar ponto histórico da máquina %s: %v", machineID, err)
 	}
 

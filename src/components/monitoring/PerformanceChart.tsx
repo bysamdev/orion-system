@@ -21,7 +21,8 @@ import type { MetricPeriod, MachineWithMetric } from '@/hooks/useMonitoring';
 
 export type MetricType = 'all' | 'cpu' | 'ram' | 'disk';
 
-const PERIODS: MetricPeriod[] = ['1h', '6h', '24h', '3d'];
+const PERIODS_PADRAO: MetricPeriod[] = ['1h', '6h', '24h'];
+const PERIODS_SERVIDOR: MetricPeriod[] = ['1h', '6h', '24h', '3d'];
 
 const METRIC_TABS: { key: MetricType; label: string; icon: any; color: string }[] = [
   { key: 'all', label: 'Todos', icon: Activity, color: 'text-primary' },
@@ -60,7 +61,7 @@ export interface PerformanceChartProps {
 
 export const PerformanceChart: React.FC<PerformanceChartProps> = ({
   machineId,
-  machine: _machine,
+  machine,
   period,
   onPeriodChange,
   selectedMetric: controlledMetric,
@@ -70,6 +71,17 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
   const [internalMetric, setInternalMetric] = useState<MetricType>('all');
   const activeMetric = controlledMetric ?? internalMetric;
 
+  // Só servidor guarda 3 dias de histórico (AppendMetricPoint, lib/monitoring.go) —
+  // estação/notebook são auto-aparados em 24h a cada heartbeat, pra desafogar o
+  // banco. Oferecer o botão "3d" pra quem não é servidor prometeria uma janela
+  // que o dado real nunca preenche.
+  const isServer = machine?.device_type === 'server';
+  const PERIODS = isServer ? PERIODS_SERVIDOR : PERIODS_PADRAO;
+  // Se o período vigente (ex.: herdado de outra máquina vista antes no mesmo
+  // drawer) não existe mais pra este tipo de máquina, cai pro maior período
+  // válido em vez de consultar/realçar um botão que já não aparece.
+  const effectivePeriod: MetricPeriod = PERIODS.includes(period) ? period : '24h';
+
   const handleMetricSelect = (m: MetricType) => {
     if (onMetricChange) {
       onMetricChange(m);
@@ -78,13 +90,13 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
     }
   };
 
-  const { data: metrics = [], isLoading } = useMachineMetricsByPeriod(machineId, period);
+  const { data: metrics = [], isLoading } = useMachineMetricsByPeriod(machineId, effectivePeriod);
 
   const chartData = metrics
     .slice()
     .reverse()
     .map((m) => ({
-      time: format(new Date(m.collected_at), period === '3d' ? 'dd/MM HH:mm' : 'HH:mm'),
+      time: format(new Date(m.collected_at), effectivePeriod === '3d' ? 'dd/MM HH:mm' : 'HH:mm'),
       CPU: m.cpu_usage != null ? Math.round(m.cpu_usage) : null,
       RAM: m.ram_pct ?? pct(m.ram_used, m.ram_total),
       Disco: m.disk_pct ?? pct(m.disk_used, m.disk_total),
@@ -128,7 +140,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
               onClick={() => onPeriodChange(p)}
               className={cn(
                 'h-full px-2.5 rounded-md text-[11px] font-medium transition-all',
-                period === p
+                effectivePeriod === p
                   ? 'bg-background text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
               )}
@@ -203,7 +215,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
       ) : chartData.length === 0 ? (
         <div className="h-60 flex flex-col items-center justify-center text-muted-foreground gap-2.5 bg-muted/10 rounded-xl border border-dashed border-border/40">
           <Info className="w-8 h-8 opacity-30 text-muted-foreground" />
-          <p className="text-xs font-medium">Sem dados históricos de telemetria para o período selecionado ({period}).</p>
+          <p className="text-xs font-medium">Sem dados históricos de telemetria para o período selecionado ({effectivePeriod}).</p>
           <span className="text-[10px] opacity-70">O agente enviará novos pontos de métricas a cada ciclo.</span>
         </div>
       ) : (
