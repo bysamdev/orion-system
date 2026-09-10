@@ -1022,31 +1022,45 @@ func monitoringForceUpdateOutdated(w http.ResponseWriter, r *http.Request) {
 var papeisComandoRemoto = map[string]bool{"admin": true, "technician": true, "developer": true}
 
 // comandosRemotosPermitidos é a allowlist de conteúdo que
-// monitoringCreateCommand aceita — levantada a partir do uso real de hoje:
-// as 4 "Ações Rápidas" do painel (TicketDetails.tsx, seção "Ações Rápidas")
-// e 'orion-start-terminal', que RemoteTerminal.tsx manda por esta mesma
-// rota pra abrir uma sessão de terminal remoto. Antes desta correção o
-// único filtro em monitoringCreateCommand era "não pode ser vazio":
-// qualquer string autenticada como admin/technician/developer virava
-// `cmd.exe /C <string>` na máquina do cliente (executeCommand,
-// orion-agent/service/windows.go), inclusive batendo direto na API sem
-// passar pela UI. papeisComandoRemoto decide QUEM pode mandar; isto decide
-// O QUÊ pode ser mandado — a UI só oferece essas 5 ações hoje, então a
-// lista não tira nenhuma ação de ninguém, só fecha o que já não era
-// alcançável pela tela.
+// monitoringCreateCommand aceita — levantada cruzando duas fontes: as 4
+// "Ações Rápidas" do painel (TicketDetails.tsx) + 'orion-start-terminal'
+// (RemoteTerminal.tsx manda por esta mesma rota), E o histórico real de
+// public.machine_commands em produção (SELECT DISTINCT command), que
+// revelou 2 comandos enviados no passado — provavelmente via chamada direta
+// à API, já que não correspondem a nenhum botão da UI atual — que a lista
+// só-por-código teria bloqueado: 'netstat -an' (lista conexões, só leitura)
+// e 'chkdsk C:' (sem /f, é só verificação — não tenta corrigir nem precisa
+// travar o volume). Os dois entram porque são leitura/diagnóstico, sem
+// escrita nem mudança de estado da máquina.
+//
+// Antes desta correção o único filtro em monitoringCreateCommand era "não
+// pode ser vazio": qualquer string autenticada como admin/technician/
+// developer virava `cmd.exe /C <string>` na máquina do cliente
+// (executeCommand, orion-agent/service/windows.go), inclusive batendo
+// direto na API sem passar pela UI. papeisComandoRemoto decide QUEM pode
+// mandar; isto decide O QUÊ pode ser mandado.
 //
 // 'orion-install' (auto-atualização) fica de fora de propósito: carrega
 // URL/hash assinados por requisição, nunca o mesmo texto duas vezes, e
 // enfileirarAutoUpdateSeNecessario chama db.CreateCommand direto — nunca
-// passa por este handler. Colocar aqui só abriria uma allowlist por
-// prefixo (frouxa: "orion-installer-qualquer-coisa" bateria) pra um
-// caminho que não existe.
+// passa por este handler (confirmado no mesmo levantamento: são 2.635
+// linhas históricas com esse prefixo, todas gravadas por esse caminho
+// interno, nenhuma via monitoringCreateCommand). Colocar aqui só abriria
+// uma allowlist por prefixo (frouxa: "orion-installer-qualquer-coisa"
+// bateria) pra um caminho que não existe.
+//
+// Pra adicionar um comando novo: confirmar que é só leitura/diagnóstico
+// (nunca escreve, apaga ou muda configuração sem supervisão), adicionar a
+// entrada aqui com um comentário citando de onde veio o pedido, e cobrir
+// com um caso em TestComandoRemotoPermitido.
 var comandosRemotosPermitidos = map[string]bool{
 	"ping 8.8.8.8":                         true,
 	"ipconfig /flushdns":                   true,
 	"net stop spooler & net start spooler": true,
 	`del /q /f /s %temp%\*`:                true,
 	"orion-start-terminal":                 true,
+	"netstat -an":                          true, // achado no histórico real de machine_commands
+	"chkdsk C:":                            true, // achado no histórico real de machine_commands
 }
 
 // comandoRemotoPermitido checa a allowlist de conteúdo. Chamada só por

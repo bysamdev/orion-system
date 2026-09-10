@@ -153,6 +153,8 @@ func TestComandoRemotoPermitido(t *testing.T) {
 		{"reset do spooler das ações rápidas", "net stop spooler & net start spooler", true},
 		{"limpar temp das ações rápidas", `del /q /f /s %temp%\*`, true},
 		{"orion-start-terminal (RemoteTerminal.tsx manda por esta rota)", "orion-start-terminal", true},
+		{"netstat -an (achado no histórico real de machine_commands)", "netstat -an", true},
+		{"chkdsk C: (achado no histórico real de machine_commands)", "chkdsk C:", true},
 		{"espaço em volta não escapa a allowlist", "  ping 8.8.8.8  ", true},
 		{"comando arbitrário é negado", "net user hacker Senha123! /add", false},
 		{"tentativa de esconder comando dentro de um permitido é negada", "ping 8.8.8.8 & net user hacker Senha123! /add", false},
