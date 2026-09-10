@@ -2,6 +2,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // Configuration
+//
+// supabaseKey: hoje ainda é a anon key em produção (achado da auditoria de
+// autorização, correcao-autorizacao-p0.md item 1.5) — get_all_monitoring_targets
+// e update_telemetry_status são SECURITY DEFINER com EXECUTE concedido a
+// anon/authenticated (20260818040001_secure_bridge_rpc_functions.sql), e o
+// único portão de verdade hoje é o bridgeSecret checado dentro da própria
+// função. Migrar esta variável pra uma chave service_role permite revogar
+// esse GRANT de anon/authenticated (migration preparada, não aplicada:
+// 20260910190000_revoke_anon_bridge_rpc_grants.sql) — service_role já
+// contorna RLS e não precisa de GRANT explícito em SECURITY DEFINER, então
+// nenhuma mudança de código é necessária além de trocar o valor da env var
+// no .env do servidor Debian (deploy manual, fora do escopo automatizável
+// daqui). checkSupabaseKeyRole() abaixo só ajuda a confirmar que a troca
+// foi feita certa, sem travar o processo se não conseguir decidir.
 const CONFIG = {
   supabaseUrl: (process.env.SUPABASE_URL || 'https://kcxwealimsfxqstoprdg.supabase.co').replace(/\/$/, ''),
   supabaseKey: process.env.SUPABASE_KEY || '',
@@ -10,6 +24,23 @@ const CONFIG = {
   targetsDir: process.env.TARGETS_DIR || '/home/samuel/monitoramento/targets',
   syncIntervalMs: parseInt(process.env.SYNC_INTERVAL_MS || '15000', 10),
 };
+
+// Lê o claim "role" de uma chave Supabase no formato JWT clássico (as
+// chaves novas sb_publishable_.../sb_secret_... não são JWT e não têm esse
+// claim — devolve null nesse caso, de propósito best-effort: isto é só um
+// aviso de operação, nunca deveria derrubar o bridge por não conseguir
+// decidir o formato da chave).
+function decodeSupabaseKeyRole(key) {
+  try {
+    const payload = key.split('.')[1];
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const json = Buffer.from(base64, 'base64').toString('utf-8');
+    return JSON.parse(json)?.role ?? null;
+  } catch {
+    return null;
+  }
+}
 
 // Endpoints cujo site fica atras de um WAF (Cloudflare Bot Fight Mode e
 // afins) que devolve 403 pro probe do blackbox mesmo o site estando no ar
@@ -40,6 +71,20 @@ if (!CONFIG.supabaseKey) {
 if (!CONFIG.bridgeSecret) {
   log('error', 'BRIDGE_SECRET não configurada — as RPCs get_all_monitoring_targets/update_telemetry_status agora exigem esse segredo. Encerrando.');
   process.exit(1);
+}
+
+// Aviso, não bloqueio: enquanto a migration que revoga o GRANT de
+// anon/authenticated não for aplicada (ver comentário de CONFIG acima), o
+// bridge continua funcionando com anon key. Isto só ajuda a confirmar, no
+// log de start, se a troca pra service_role já foi feita no .env do
+// servidor Debian.
+const supabaseKeyRole = decodeSupabaseKeyRole(CONFIG.supabaseKey);
+if (supabaseKeyRole === 'service_role') {
+  log('info', 'SUPABASE_KEY é service_role — pronta para o GRANT anônimo das RPCs de telemetria ser revogado.');
+} else if (supabaseKeyRole) {
+  log('warn', `SUPABASE_KEY é '${supabaseKeyRole}', não service_role — bridge ainda depende do GRANT anônimo em get_all_monitoring_targets/update_telemetry_status (migração pendente: revogar depois de trocar para service_role).`);
+} else {
+  log('info', 'Não foi possível determinar o papel de SUPABASE_KEY (formato de chave não é o JWT clássico) — siga com a troca manual para a chave service_role de qualquer forma.');
 }
 
 /**
