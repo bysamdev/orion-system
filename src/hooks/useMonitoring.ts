@@ -185,7 +185,7 @@ export interface CommandRow {
   id: string;
   machine_id: string;
   command: string;
-  status: 'pending' | 'sent' | 'completed' | 'failed';
+  status: 'pending' | 'dispatched' | 'sent' | 'completed' | 'failed' | 'expired';
   output: string | null;
   executed_by_user_id: string | null;
   executed_by_name: string | null;

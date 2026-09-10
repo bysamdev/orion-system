@@ -1217,6 +1217,16 @@ SELECT EXISTS(
 	return existe, err
 }
 
+// TTLComandoPendente é por quanto tempo um comando fica válido pra entrega
+// depois de enfileirado. Sem isso, uma máquina que passa dias offline volta
+// e recebe em rajada tudo que se acumulou nesse tempo — reboot, mudança de
+// config — de uma vez e fora de hora (achado da auditoria do agente:
+// "Máquina Offline por Vários Dias"). 4h cobre qualquer intervalo normal
+// (máquina reiniciada, notebook fechado num almoço/reunião, viagem curta)
+// sem deixar um comando de segunda-feira disparar de surpresa na
+// quinta-feira quando alguém volta de licença.
+const TTLComandoPendente = 4 * time.Hour
+
 // GetPendingCommands busca os comandos pendentes de uma máquina e já os
 // marca como 'dispatched' na mesma query (UPDATE...RETURNING, atômico) —
 // antes era um SELECT puro deixando status='pending', então dois polls
@@ -1226,12 +1236,31 @@ SELECT EXISTS(
 // arriscado; pra auto-atualização do próprio agente (que pode passar de
 // 30s: download + parar serviço + trocar exe + subir de novo) virava dois
 // instaladores mexendo no mesmo serviço/arquivo ao mesmo tempo.
+//
+// Comando mais velho que TTLComandoPendente vira 'expired' em vez de
+// 'dispatched' — não é entregue ao agente. As duas UPDATEs abaixo usam o
+// mesmo corte de tempo (now() é estável dentro da transação) em predicados
+// mutuamente exclusivos (< corte / >= corte), então nenhuma linha pode
+// bater nas duas CTEs — evita o comportamento não especificado de duas
+// data-modifying CTEs tentando escrever a mesma linha na mesma query.
 func (d *DB) GetPendingCommands(ctx context.Context, machineID string) ([]CommandRow, error) {
 	rows, err := d.pool.Query(ctx, `
-UPDATE public.machine_commands
-SET status = 'dispatched', updated_at = now()
-WHERE machine_id = $1 AND status = 'pending'
-RETURNING id::text, machine_id::text, command, status, output, created_at, updated_at`, machineID)
+WITH expiradas AS (
+  UPDATE public.machine_commands
+  SET status = 'expired', updated_at = now()
+  WHERE machine_id = $1 AND status = 'pending'
+    AND created_at < now() - make_interval(secs => $2)
+  RETURNING id
+),
+despachadas AS (
+  UPDATE public.machine_commands
+  SET status = 'dispatched', updated_at = now()
+  WHERE machine_id = $1 AND status = 'pending'
+    AND created_at >= now() - make_interval(secs => $2)
+  RETURNING id::text, machine_id::text, command, status, output, created_at, updated_at
+)
+SELECT id, machine_id, command, status, output, created_at, updated_at FROM despachadas`,
+		machineID, TTLComandoPendente.Seconds())
 	if err != nil {
 		return nil, err
 	}
