@@ -1021,6 +1021,42 @@ func monitoringForceUpdateOutdated(w http.ResponseWriter, r *http.Request) {
 // remotos (orion-install, terminal, etc.) — nunca customer.
 var papeisComandoRemoto = map[string]bool{"admin": true, "technician": true, "developer": true}
 
+// comandosRemotosPermitidos é a allowlist de conteúdo que
+// monitoringCreateCommand aceita — levantada a partir do uso real de hoje:
+// as 4 "Ações Rápidas" do painel (TicketDetails.tsx, seção "Ações Rápidas")
+// e 'orion-start-terminal', que RemoteTerminal.tsx manda por esta mesma
+// rota pra abrir uma sessão de terminal remoto. Antes desta correção o
+// único filtro em monitoringCreateCommand era "não pode ser vazio":
+// qualquer string autenticada como admin/technician/developer virava
+// `cmd.exe /C <string>` na máquina do cliente (executeCommand,
+// orion-agent/service/windows.go), inclusive batendo direto na API sem
+// passar pela UI. papeisComandoRemoto decide QUEM pode mandar; isto decide
+// O QUÊ pode ser mandado — a UI só oferece essas 5 ações hoje, então a
+// lista não tira nenhuma ação de ninguém, só fecha o que já não era
+// alcançável pela tela.
+//
+// 'orion-install' (auto-atualização) fica de fora de propósito: carrega
+// URL/hash assinados por requisição, nunca o mesmo texto duas vezes, e
+// enfileirarAutoUpdateSeNecessario chama db.CreateCommand direto — nunca
+// passa por este handler. Colocar aqui só abriria uma allowlist por
+// prefixo (frouxa: "orion-installer-qualquer-coisa" bateria) pra um
+// caminho que não existe.
+var comandosRemotosPermitidos = map[string]bool{
+	"ping 8.8.8.8":                         true,
+	"ipconfig /flushdns":                   true,
+	"net stop spooler & net start spooler": true,
+	`del /q /f /s %temp%\*`:                true,
+	"orion-start-terminal":                 true,
+}
+
+// comandoRemotoPermitido checa a allowlist de conteúdo. Chamada só por
+// monitoringCreateCommand — comandos enfileirados por código interno do
+// backend (auto-atualização) usam db.CreateCommand diretamente e não
+// passam por aqui.
+func comandoRemotoPermitido(command string) bool {
+	return comandosRemotosPermitidos[strings.TrimSpace(command)]
+}
+
 // autorizarComandoRemoto decide se o escopo do chamador pode enviar um
 // comando remoto pra uma máquina de uma dada empresa. Extraída de
 // monitoringCreateCommand pra poder ser testada sem precisar de banco nem
@@ -1086,6 +1122,11 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 	// Validação mínima: command não pode ser vazio
 	if req.Command == "" {
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "campo 'command' é obrigatório"})
+		return
+	}
+
+	if !comandoRemotoPermitido(req.Command) {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "comando não permitido"})
 		return
 	}
 

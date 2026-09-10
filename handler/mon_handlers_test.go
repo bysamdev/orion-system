@@ -136,3 +136,34 @@ func TestAutorizarComandoRemoto(t *testing.T) {
 		})
 	}
 }
+
+// TestComandoRemotoPermitido cobre a allowlist de conteúdo de
+// monitoringCreateCommand: antes desta correção, qualquer papel autorizado
+// (papeisComandoRemoto) podia mandar qualquer string não-vazia, que virava
+// `cmd.exe /C <string>` na máquina do cliente — alcançável direto pela API,
+// sem depender da UI só oferecer os 4 botões fixos de "Ações Rápidas".
+func TestComandoRemotoPermitido(t *testing.T) {
+	casos := []struct {
+		nome      string
+		command   string
+		permitido bool
+	}{
+		{"ping das ações rápidas", "ping 8.8.8.8", true},
+		{"flush dns das ações rápidas", "ipconfig /flushdns", true},
+		{"reset do spooler das ações rápidas", "net stop spooler & net start spooler", true},
+		{"limpar temp das ações rápidas", `del /q /f /s %temp%\*`, true},
+		{"orion-start-terminal (RemoteTerminal.tsx manda por esta rota)", "orion-start-terminal", true},
+		{"espaço em volta não escapa a allowlist", "  ping 8.8.8.8  ", true},
+		{"comando arbitrário é negado", "net user hacker Senha123! /add", false},
+		{"tentativa de esconder comando dentro de um permitido é negada", "ping 8.8.8.8 & net user hacker Senha123! /add", false},
+		{"orion-install não é aceito por esta rota (só db.CreateCommand direto)", `orion-install --url="https://x" --hash="abc"`, false},
+		{"string vazia é negada", "", false},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			if got := comandoRemotoPermitido(c.command); got != c.permitido {
+				t.Errorf("comandoRemotoPermitido(%q) = %v, esperado %v", c.command, got, c.permitido)
+			}
+		})
+	}
+}
