@@ -1043,10 +1043,62 @@ func (d *DB) InsertAlertIfNotExists(ctx context.Context, in InsertAlertInput) er
 INSERT INTO public.machine_alerts (machine_id, type, severity, message)
 SELECT $1, $2, $3, $4
 WHERE NOT EXISTS (
-    SELECT 1 FROM public.machine_alerts 
+    SELECT 1 FROM public.machine_alerts
     WHERE machine_id = $1 AND type = $2 AND resolved = false
 )`, in.MachineID, in.Type, in.Severity, in.Message)
 	return err
+}
+
+// PersistenciaMinimaAlertaServidor é por quanto tempo um alerta crítico de
+// servidor precisa ficar aberto, sem normalizar, antes de virar chamado
+// automático (ver AlertaPersisteHaPeloMenos/AbrirChamadoAlertaServidor).
+// Sem essa espera, um pico transitório — backup enchendo o disco por um
+// minuto, antivírus reiniciando o serviço — abriria chamado no primeiro
+// heartbeat que visse a condição, o oposto de "crítico persistente".
+// Calibrado pelo heartbeat real de servidor: 60s (collectionIntervalSeconds
+// em handler/mon_handlers.go), então 5 minutos são ~5 amostras seguidas —
+// mesma janela que cronMarkOffline já usa pra só considerar a máquina
+// offline "de verdade" e não uma falha de rede pontual.
+//
+// Só vale pro caminho de heartbeat (disk/antivirus em mon_handlers.go). O
+// alerta de servidor-offline via webhook do Grafana já tem histerese própria
+// (cláusula `for: 5m` na regra, grafana/provisioning/alerting/rules.yaml) —
+// aplicar esta espera de novo ali só atrasaria a detecção em dobro.
+const PersistenciaMinimaAlertaServidor = 5 * time.Minute
+
+// AlertaPersisteHaPeloMenos decide se um alerta, aberto desde persisteDesde,
+// já durou o suficiente pra justificar abrir chamado automático. Extraída
+// como função pura (sem tocar banco) só pra a lógica de limiar ser testável
+// sem depender de Postgres.
+func AlertaPersisteHaPeloMenos(persisteDesde, agora time.Time, minimo time.Duration) bool {
+	if persisteDesde.IsZero() {
+		return false
+	}
+	return agora.Sub(persisteDesde) >= minimo
+}
+
+// InsertAlertEObtemPersistencia grava o alerta (se não houver um aberto do
+// mesmo tipo) e devolve, na mesma ida ao banco, desde quando ele está
+// aberto — created_at da linha existente, ou da que acabou de ser inserida.
+// CTE em vez de SELECT seguido de INSERT: o heartbeat já é sensível a
+// round-trip extra (ver comentário de ResolveAlertTypes), e aqui precisamos
+// do timestamp de qualquer forma pra decidir sobre chamado automático.
+func (d *DB) InsertAlertEObtemPersistencia(ctx context.Context, in InsertAlertInput) (time.Time, error) {
+	var persisteDesde time.Time
+	err := d.pool.QueryRow(ctx, `
+WITH existente AS (
+  SELECT created_at FROM public.machine_alerts
+  WHERE machine_id = $1 AND type = $2 AND resolved = false
+),
+inserida AS (
+  INSERT INTO public.machine_alerts (machine_id, type, severity, message)
+  SELECT $1, $2, $3, $4
+  WHERE NOT EXISTS (SELECT 1 FROM existente)
+  RETURNING created_at
+)
+SELECT COALESCE((SELECT created_at FROM existente), (SELECT created_at FROM inserida))`,
+		in.MachineID, in.Type, in.Severity, in.Message).Scan(&persisteDesde)
+	return persisteDesde, err
 }
 
 func (d *DB) ResolveAlertsByType(ctx context.Context, machineID, alertType string) error {

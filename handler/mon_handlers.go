@@ -701,13 +701,15 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if req.DiskTotal > 0 {
 		diskUsage := float64(req.DiskUsed) / float64(req.DiskTotal)
 		if diskUsage > 0.90 {
-			_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
+			persisteDesde, _ := db.InsertAlertEObtemPersistencia(ctx, lib.InsertAlertInput{
 				MachineID: machineID, Type: "disk", Severity: "critical",
 				Message: fmt.Sprintf("Uso de disco crítico: %.1f%% (%d/%d bytes)", diskUsage*100, req.DiskUsed, req.DiskTotal),
 			})
 			hasAlert = true
-			// Apenas servidores abrem chamados automaticamente por alerta de disco crítico
-			if deviceTypeGravado == "server" {
+			// Apenas servidores abrem chamados automaticamente, e só depois do
+			// alerta persistir (não no primeiro heartbeat que vir a condição) —
+			// ver PersistenciaMinimaAlertaServidor.
+			if deviceTypeGravado == "server" && lib.AlertaPersisteHaPeloMenos(persisteDesde, time.Now(), lib.PersistenciaMinimaAlertaServidor) {
 				_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, req.MachineToken, req.Hostname, "disk", "critical", fmt.Sprintf("Uso de disco crítico no servidor: %.1f%%", diskUsage*100))
 			}
 		} else {
@@ -730,15 +732,16 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if !hasActiveAV {
-				_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
+				persisteDesde, _ := db.InsertAlertEObtemPersistencia(ctx, lib.InsertAlertInput{
 					MachineID: machineID,
 					Type:      "antivirus",
 					Severity:  "critical",
 					Message:   "Antivírus desativado ou ausente",
 				})
 				hasAlert = true
-				// Apenas servidores abrem chamados automaticamente por antivírus inativo
-				if deviceTypeGravado == "server" {
+				// Apenas servidores abrem chamados automaticamente, e só depois do
+				// alerta persistir — ver PersistenciaMinimaAlertaServidor.
+				if deviceTypeGravado == "server" && lib.AlertaPersisteHaPeloMenos(persisteDesde, time.Now(), lib.PersistenciaMinimaAlertaServidor) {
 					_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, req.MachineToken, req.Hostname, "antivirus", "critical", "Antivírus desativado ou ausente no servidor")
 				}
 			} else {

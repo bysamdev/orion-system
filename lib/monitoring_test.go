@@ -64,3 +64,32 @@ func TestJanelaAutoUpdateEmTransito_Limites(t *testing.T) {
 			"rollout por um dia inteiro", JanelaAutoUpdateEmTransito)
 	}
 }
+
+// TestAlertaPersisteHaPeloMenos cobre a histerese da abertura automática de
+// chamado por alerta crítico de servidor (disco/antivírus, ver
+// PersistenciaMinimaAlertaServidor em handler/mon_handlers.go): sem ela, o
+// primeiro heartbeat que visse a condição já abriria chamado, mesmo pra um
+// pico transitório de um minuto.
+func TestAlertaPersisteHaPeloMenos(t *testing.T) {
+	agora := time.Now()
+
+	casos := []struct {
+		nome          string
+		persisteDesde time.Time
+		minimo        time.Duration
+		esperado      bool
+	}{
+		{"alerta zero-value (nunca existiu) nunca abre chamado", time.Time{}, PersistenciaMinimaAlertaServidor, false},
+		{"acabou de abrir, ainda não persistiu", agora.Add(-1 * time.Minute), PersistenciaMinimaAlertaServidor, false},
+		{"exatamente no limiar já conta", agora.Add(-PersistenciaMinimaAlertaServidor), PersistenciaMinimaAlertaServidor, true},
+		{"bem além do limiar", agora.Add(-1 * time.Hour), PersistenciaMinimaAlertaServidor, true},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			if got := AlertaPersisteHaPeloMenos(c.persisteDesde, agora, c.minimo); got != c.esperado {
+				t.Errorf("AlertaPersisteHaPeloMenos(%v, agora, %v) = %v, esperado %v",
+					c.persisteDesde, c.minimo, got, c.esperado)
+			}
+		})
+	}
+}
