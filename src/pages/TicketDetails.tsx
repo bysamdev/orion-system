@@ -714,7 +714,7 @@ const TicketDetails: React.FC = () => {
         )}
 
         {/* Banner de Acesso Remoto em Destaque no Topo */}
-        {canManageTickets && (ticket.remote_id || ticket.remote_password) && (
+        {canManageTickets && ticket.remote_id && (
           <div className="mb-2 bg-gradient-to-r from-indigo-500/10 via-primary/5 to-transparent border border-indigo-500/30 dark:border-indigo-500/20 rounded-2xl p-4 sm:p-5 shadow-sm">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -754,9 +754,6 @@ const TicketDetails: React.FC = () => {
                     </Button>
                   </div>
                 )}
-
-                {/* Senha de sessão fica oculta: o valor armazenado é ciphertext e ainda não há
-                    caminho autorizado de descriptografia acessível ao frontend. */}
               </div>
             </div>
           </div>

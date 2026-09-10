@@ -52,7 +52,7 @@ export const MOCK_TICKETS: Ticket[] = [
     resolved_at: null,
     sla_status: "breached",
     remote_id: "123 456 789",
-    remote_password: "abc",
+    remote_password: null,
     sla_paused_at: null,
     sla_accumulated_pause_minutes: null,
     contract_id: null,

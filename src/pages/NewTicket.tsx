@@ -145,7 +145,6 @@ const NewTicket = () => {
   const isSubmittingRef = useRef(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [remoteId, setRemoteId] = useState('');
-  const [remotePassword, setRemotePassword] = useState('');
   const [selectedContractId, setSelectedContractId] = useState<string>('');
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [anyDropdownOpen, setAnyDropdownOpen] = useState(false);
@@ -347,7 +346,6 @@ const NewTicket = () => {
         user_id: user.id,
         company_id: profile.company_id,
         remote_id: remoteId.trim() || null,
-        remote_password: remotePassword.trim() || null,
         contract_id: selectedContractId || null,
         asset_id: selectedAssetId || null,
         metadata: {
@@ -463,7 +461,6 @@ const NewTicket = () => {
                 form.reset({ title: '', category: '', priority: 'medium', description: '', department: 'Geral' });
                 setPendingFiles([]);
                 setRemoteId('');
-                setRemotePassword('');
                 setSelectedContractId('');
                 setSelectedAssetId('');
               }} className="h-12 w-full font-bold">
@@ -783,10 +780,7 @@ const NewTicket = () => {
                         <ShieldCheck className="w-5 h-5 text-primary" />
                         <h4 className="text-sm font-bold">Acesso Remoto (Opcional)</h4>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input placeholder="ID (TeamViewer / AnyDesk)" value={remoteId} onChange={(e) => setRemoteId(e.target.value)} className="bg-background border-border/40" />
-                        <Input placeholder="Senha temporária" value={remotePassword} onChange={(e) => setRemotePassword(e.target.value)} className="bg-background border-border/40" />
-                      </div>
+                      <Input placeholder="ID (TeamViewer / AnyDesk)" value={remoteId} onChange={(e) => setRemoteId(e.target.value)} className="bg-background border-border/40" />
                     </section>
 
                     {/* Dica de Cola Rápida (Ctrl + V) */}
