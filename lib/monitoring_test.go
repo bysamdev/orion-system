@@ -93,3 +93,31 @@ func TestAlertaPersisteHaPeloMenos(t *testing.T) {
 		})
 	}
 }
+
+// TestParseTTLComandoPendente cobre a leitura de TTL_COMANDO_PENDENTE_SEGUNDOS
+// (ver TTLComandoPendente e GetPendingCommands): configurável, mas nunca
+// deve deixar o TTL em zero/negativo por um valor mal formado na env var —
+// isso desativaria a proteção contra rajada de comando ao reconectar
+// (achado "Máquina Offline por Vários Dias") sem ninguém perceber.
+func TestParseTTLComandoPendente(t *testing.T) {
+	padrao := time.Hour
+
+	casos := []struct {
+		nome     string
+		valorEnv string
+		esperado time.Duration
+	}{
+		{"env vazia usa o padrão", "", padrao},
+		{"valor numérico válido em segundos", "1800", 30 * time.Minute},
+		{"valor não numérico cai no padrão", "uma-hora", padrao},
+		{"zero cai no padrão (não desativa a proteção)", "0", padrao},
+		{"negativo cai no padrão (não desativa a proteção)", "-100", padrao},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			if got := parseTTLComandoPendente(c.valorEnv, padrao); got != c.esperado {
+				t.Errorf("parseTTLComandoPendente(%q, %v) = %v, esperado %v", c.valorEnv, padrao, got, c.esperado)
+			}
+		})
+	}
+}

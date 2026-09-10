@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1217,15 +1219,38 @@ SELECT EXISTS(
 	return existe, err
 }
 
+// TTLComandoPendentePadrao é o valor de TTLComandoPendente quando
+// TTL_COMANDO_PENDENTE_SEGUNDOS não está configurada. 1h alinha com a TTL
+// da URL assinada de auto-atualização (installer_handlers.go,
+// AssinarInstalador(..., 3600)) — mesma ordem de grandeza pro "comando de
+// rotina" que a correção pediu, exposta como env var pra dar espaço de
+// ajuste sem precisar de novo build caso 1h se prove curta ou longa demais
+// na operação real.
+const TTLComandoPendentePadrao = time.Hour
+
+// parseTTLComandoPendente decide o TTL a partir do valor bruto da env var
+// TTL_COMANDO_PENDENTE_SEGUNDOS — extraída à parte (em vez de embutida
+// direto no var abaixo) só pra poder testar as regras de fallback (vazia,
+// não numérica, zero/negativa) sem precisar manipular env var de verdade.
+func parseTTLComandoPendente(valorEnv string, padrao time.Duration) time.Duration {
+	if valorEnv == "" {
+		return padrao
+	}
+	segundos, err := strconv.Atoi(valorEnv)
+	if err != nil || segundos <= 0 {
+		return padrao
+	}
+	return time.Duration(segundos) * time.Second
+}
+
 // TTLComandoPendente é por quanto tempo um comando fica válido pra entrega
 // depois de enfileirado. Sem isso, uma máquina que passa dias offline volta
 // e recebe em rajada tudo que se acumulou nesse tempo — reboot, mudança de
 // config — de uma vez e fora de hora (achado da auditoria do agente:
-// "Máquina Offline por Vários Dias"). 4h cobre qualquer intervalo normal
-// (máquina reiniciada, notebook fechado num almoço/reunião, viagem curta)
-// sem deixar um comando de segunda-feira disparar de surpresa na
-// quinta-feira quando alguém volta de licença.
-const TTLComandoPendente = 4 * time.Hour
+// "Máquina Offline por Vários Dias"). Lido uma vez no import do pacote:
+// TTL não muda em runtime, não há motivo pra reler a env var a cada poll
+// (chega a cada 30s por máquina).
+var TTLComandoPendente = parseTTLComandoPendente(os.Getenv("TTL_COMANDO_PENDENTE_SEGUNDOS"), TTLComandoPendentePadrao)
 
 // GetPendingCommands busca os comandos pendentes de uma máquina e já os
 // marca como 'dispatched' na mesma query (UPDATE...RETURNING, atômico) —
@@ -1238,11 +1263,16 @@ const TTLComandoPendente = 4 * time.Hour
 // instaladores mexendo no mesmo serviço/arquivo ao mesmo tempo.
 //
 // Comando mais velho que TTLComandoPendente vira 'expired' em vez de
-// 'dispatched' — não é entregue ao agente. As duas UPDATEs abaixo usam o
-// mesmo corte de tempo (now() é estável dentro da transação) em predicados
-// mutuamente exclusivos (< corte / >= corte), então nenhuma linha pode
-// bater nas duas CTEs — evita o comportamento não especificado de duas
-// data-modifying CTEs tentando escrever a mesma linha na mesma query.
+// 'dispatched' — não é entregue ao agente, e fica registrado como tal (não
+// desaparece, não vira 'completed'/'failed' silenciosamente) pra quem olhar
+// o histórico depois entender que ele nunca chegou a rodar. As duas UPDATEs
+// abaixo usam o mesmo corte de tempo (now() é estável dentro da transação)
+// em predicados mutuamente exclusivos (< corte / >= corte), então nenhuma
+// linha pode bater nas duas CTEs — evita o comportamento não especificado
+// de duas data-modifying CTEs tentando escrever a mesma linha na mesma
+// query. As duas RETURNING têm as mesmas 7 colunas de propósito: dá pra
+// UNIR num SELECT só e discriminar por status já vindo do banco, sem round
+// trip extra só pra contar quantas expiraram.
 func (d *DB) GetPendingCommands(ctx context.Context, machineID string) ([]CommandRow, error) {
 	rows, err := d.pool.Query(ctx, `
 WITH expiradas AS (
@@ -1250,7 +1280,7 @@ WITH expiradas AS (
   SET status = 'expired', updated_at = now()
   WHERE machine_id = $1 AND status = 'pending'
     AND created_at < now() - make_interval(secs => $2)
-  RETURNING id
+  RETURNING id::text, machine_id::text, command, status, output, created_at, updated_at
 ),
 despachadas AS (
   UPDATE public.machine_commands
@@ -1259,7 +1289,9 @@ despachadas AS (
     AND created_at >= now() - make_interval(secs => $2)
   RETURNING id::text, machine_id::text, command, status, output, created_at, updated_at
 )
-SELECT id, machine_id, command, status, output, created_at, updated_at FROM despachadas`,
+SELECT * FROM despachadas
+UNION ALL
+SELECT * FROM expiradas`,
 		machineID, TTLComandoPendente.Seconds())
 	if err != nil {
 		return nil, err
@@ -1270,6 +1302,16 @@ SELECT id, machine_id, command, status, output, created_at, updated_at FROM desp
 		var r CommandRow
 		if err := rows.Scan(&r.ID, &r.MachineID, &r.Command, &r.Status, &r.Output, &r.CreatedAt, &r.UpdatedAt); err != nil {
 			return nil, err
+		}
+		if r.Status == "expired" {
+			// Log de auditoria: só o ID e há quanto tempo estava na fila, nunca
+			// o texto do comando — mesma cautela de service/windows.go ao
+			// executar (um comando pode ter segredo embutido, ex. "net use"
+			// com credencial na linha; o texto já fica registrado em
+			// machine_commands.command sob controle de acesso por role).
+			log.Printf("[RMM] comando expirado sem entrega (id=%s, máquina=%s, na fila há %s, TTL=%s)",
+				r.ID, r.MachineID, time.Since(r.CreatedAt).Round(time.Second), TTLComandoPendente)
+			continue
 		}
 		out = append(out, r)
 	}
