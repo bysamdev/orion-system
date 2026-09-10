@@ -69,7 +69,13 @@ export function suggestCategory(text: string): string | null {
 }
 
 /**
- * Category display names for the suggestion badge.
+ * Category display names para o badge de sugestão e pra qualquer outro
+ * ponto que precise de um rótulo amigável a partir do slug salvo em
+ * tickets.category. 'infraestrutura' não aparece no formulário de abertura
+ * (NewTicket.tsx) — só chamados abertos automaticamente pelo RMM usam esse
+ * valor (ver AbrirChamadoAlertaServidor, lib/monitoring.go) — mas precisa
+ * estar aqui pra ter rótulo e pra bater com a opção correspondente em
+ * ResolutionChecklistManagement.tsx.
  */
 export const CATEGORY_LABELS: Record<string, string> = {
   hardware: 'Hardware',
@@ -78,6 +84,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   erp: 'ERP',
   software: 'Software',
   outros: 'Outros',
+  infraestrutura: 'Infraestrutura',
 };
 
 /**

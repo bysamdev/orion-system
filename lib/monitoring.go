@@ -1521,6 +1521,16 @@ func (d *DB) DeleteMachineGroup(ctx context.Context, id string) error {
 // AbrirChamadoAlertaServidor cria um chamado na tabela public.tickets exclusivamente
 // para alertas críticos em servidores (device_type == 'server'), com deduplicação estrita:
 // se já houver chamado aberto para (machine_id, alert_type), nenhum novo é gerado.
+// CategoriaChamadoInfraestrutura é o valor de tickets.category usado por todo
+// chamado aberto automaticamente pelo RMM (autocura falhada, alerta crítico
+// persistente — ver AbrirChamadoAlertaServidor/AbrirChamadoAlertaCritico).
+// Minúsculo de propósito: bate com o slug que NewTicket.tsx grava pros
+// chamados abertos por humano (erp/email/hardware/software/rede/outros) —
+// era 'Infraestrutura' com maiúscula até esta correção, um vocabulário
+// paralelo que nunca batia com o de resolution_checklists.category (achado
+// CH-A04/DC-016 da auditoria de chamados).
+const CategoriaChamadoInfraestrutura = "infraestrutura"
+
 func (d *DB) AbrirChamadoAlertaServidor(ctx context.Context, machineID, companyID, machineToken, hostname, alertType, severity, alertMessage string) error {
 	if companyID == "" || machineID == "" {
 		return nil
@@ -1583,8 +1593,8 @@ ORDER BY created_at ASC LIMIT 1`, companyID).Scan(&userID)
 
 	_, err = d.pool.Exec(ctx, `
 INSERT INTO public.tickets (title, description, category, priority, status, user_id, company_id, requester_name, metadata)
-VALUES ($1, $2, 'Infraestrutura', $3, 'open', $4::uuid, $5::uuid, $6, $7::jsonb)`,
-		title, description, priority, userID, companyID, requesterName, metaJSON)
+VALUES ($1, $2, $3, $4, 'open', $5::uuid, $6::uuid, $7, $8::jsonb)`,
+		title, description, CategoriaChamadoInfraestrutura, priority, userID, companyID, requesterName, metaJSON)
 	if err != nil {
 		return fmt.Errorf("inserir ticket automático de servidor: %w", err)
 	}

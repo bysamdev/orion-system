@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { CATEGORY_LABELS } from '@/lib/ticket-helpers';
 
 export const ResolutionChecklistManagement = () => {
   const { user } = useAuth();
@@ -146,10 +147,15 @@ export const ResolutionChecklistManagement = () => {
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Sistema">Sistemas Corporativos</SelectItem>
-                    <SelectItem value="Hardware">Hardware / Equipamentos</SelectItem>
-                    <SelectItem value="Acesso">Acessos e Contas</SelectItem>
-                    <SelectItem value="Dúvida">Dúvidas Técnicas</SelectItem>
+                    {/* Mesmo slug de tickets.category (ver NewTicket.tsx e
+                        CATEGORY_LABELS) — o checklist só aparece em
+                        TicketDetails.tsx quando category bate exatamente
+                        com a do chamado (.eq('category', ticket.category)).
+                        Antes daqui usar 'Sistema'/'Hardware'/'Acesso'/'Dúvida',
+                        nenhum checklist batia com chamado nenhum. */}
+                    {Object.entries(CATEGORY_LABELS).map(([slug, label]) => (
+                      <SelectItem key={slug} value={slug}>{label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -247,7 +253,7 @@ export const ResolutionChecklistManagement = () => {
             ) : (
               checklists.map((checklist: { id: string; category: string; items: string[]; is_active: boolean }) => (
                 <TableRow key={checklist.id}>
-                  <TableCell className="pl-6 font-bold">{checklist.category}</TableCell>
+                  <TableCell className="pl-6 font-bold">{CATEGORY_LABELS[checklist.category] || checklist.category}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       <span className="text-xs text-muted-foreground truncate max-w-[300px]">
