@@ -338,6 +338,40 @@ func TestInterfaceVirtual_ClassificaAdaptadores(t *testing.T) {
 	}
 }
 
+// TestInterfaceVirtual_VPNSemMACOuPontoAPonto cobre o caso que o filtro por
+// nome/MAC/OUI não pega: o cliente VPN nativo do Windows (IKEv2/L2TP/SSTP/
+// PPTP) cria um adaptador RAS sem MAC, com um nome livre — escolhido por
+// quem configurou a conexão, não necessariamente contendo "vpn" — e a pilha
+// de rede marca o enlace como ponto-a-ponto. Achado num caso real: máquina
+// reportando 10.43.1.121 (endereço da VPN corporativa) como se fosse a LAN.
+func TestInterfaceVirtual_VPNSemMACOuPontoAPonto(t *testing.T) {
+	casos := []struct {
+		nome     string
+		flags    net.Flags
+		mac      string // "" para adaptador sem MAC (típico de PPP/RAS)
+		esperado bool
+	}{
+		{"Conexão de Rede Corporativa", net.FlagUp | net.FlagPointToPoint, "", true},
+		{"Acesso Remoto TI", net.FlagUp | net.FlagPointToPoint, "aa:bb:cc:dd:ee:ff", true},
+		{"Rede sem nome óbvio de VPN", net.FlagUp, "", true},
+		{"Ethernet", net.FlagUp | net.FlagBroadcast | net.FlagMulticast, "3c:7c:3f:79:79:51", false},
+	}
+	for _, c := range casos {
+		var mac net.HardwareAddr
+		if c.mac != "" {
+			parsed, err := net.ParseMAC(c.mac)
+			if err != nil {
+				t.Fatalf("MAC de teste inválido %q: %v", c.mac, err)
+			}
+			mac = parsed
+		}
+		got := interfaceVirtual(net.Interface{Name: c.nome, Flags: c.flags, HardwareAddr: mac})
+		if got != c.esperado {
+			t.Errorf("interfaceVirtual(%q, flags=%v, mac=%q) = %v, esperado %v", c.nome, c.flags, c.mac, got, c.esperado)
+		}
+	}
+}
+
 // TestIPInternoValido_RejeitaOverlayELinkLocal garante que endereços de VPN
 // peer-to-peer, CGNAT e APIPA nunca sejam reportados como IP interno.
 func TestIPInternoValido_RejeitaOverlayELinkLocal(t *testing.T) {

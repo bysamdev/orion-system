@@ -220,14 +220,31 @@ var ouisVirtuais = []string{
 	"00:ff",    // adaptadores TAP/tunnel da Microsoft
 }
 
-// interfaceVirtual decide se um adaptador é virtual olhando nome E MAC.
+// interfaceVirtual decide se um adaptador é virtual olhando nome, MAC e o
+// tipo de enlace.
 func interfaceVirtual(iface net.Interface) bool {
 	if isVirtualInterface(iface.Name) {
 		return true
 	}
+	// Ponto-a-ponto: assinatura de todo cliente VPN, terceiro ou nativo do
+	// Windows. O cliente VPN embutido do Windows (IKEv2/L2TP/SSTP/PPTP) cria
+	// um adaptador RAS sem endereço MAC — o nome é o que a pessoa ou o TI deu
+	// à conexão ao configurá-la (não necessariamente contém "vpn"), então o
+	// filtro por palavra-chave sozinho não pega. Foi o que aconteceu com uma
+	// máquina em 10.43.1.121: IP de VPN corporativa reportado como se fosse a
+	// LAN, porque nem o nome nem o MAC (ausente) bateram em nenhum filtro
+	// anterior e a checagem de MAC vazio abaixo, sozinha, deixava passar como
+	// "não virtual". Wi-Fi e Ethernet nunca são ponto-a-ponto.
+	if iface.Flags&net.FlagPointToPoint != 0 {
+		return true
+	}
 	mac := strings.ToLower(iface.HardwareAddr.String())
 	if mac == "" {
-		return false
+		// Mesma lacuna do ponto-a-ponto por outro ângulo: adaptador físico de
+		// verdade (Ethernet, Wi-Fi) sempre expõe MAC. Sem um, não tem como
+		// ser a placa que estamos procurando — mesmo que o SO não tenha
+		// marcado a interface como ponto-a-ponto.
+		return true
 	}
 	for _, oui := range ouisVirtuais {
 		if strings.HasPrefix(mac, oui) {
