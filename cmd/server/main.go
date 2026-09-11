@@ -32,6 +32,11 @@ func main() {
 		MaxHeaderBytes:    1 << 20, // 1MB
 	}
 
+	// Só o servidor local roda o worker de probe. Na Vercel o processo é
+	// serverless e pode congelar ou se multiplicar sem eleição de líder, e lá
+	// quem mantém network_links atualizado é o caminho Prometheus/bridge.
+	handler.StartNetworkPingWorker()
+
 	// Canal para captura de sinais de encerramento do SO
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
