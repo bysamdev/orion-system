@@ -1415,6 +1415,55 @@ export type Database = {
         }
         Returns: boolean
       }
+      alterar_prioridade_chamado: {
+        Args: {
+          p_ticket_id: string
+          p_priority: string
+          p_update_content?: string | null
+          p_expected_updated_at?: string | null
+        }
+        Returns: Database["public"]["Tables"]["tickets"]["Row"]
+      }
+      alterar_status_chamado: {
+        Args: {
+          p_ticket_id: string
+          p_status: string
+          p_update_content?: string | null
+          p_update_type?: string
+          p_is_internal?: boolean
+          p_expected_updated_at?: string | null
+        }
+        Returns: Database["public"]["Tables"]["tickets"]["Row"]
+      }
+      assumir_chamado: {
+        Args: {
+          p_ticket_id: string
+          p_user_name: string
+          p_expected_updated_at?: string | null
+        }
+        Returns: Database["public"]["Tables"]["tickets"]["Row"]
+      }
+      atribuir_chamado: {
+        Args: {
+          p_ticket_id: string
+          p_assigned_to: string | null
+          p_assigned_to_user_id?: string | null
+          p_update_content?: string | null
+          p_expected_updated_at?: string | null
+        }
+        Returns: Database["public"]["Tables"]["tickets"]["Row"]
+      }
+      escalar_chamado: {
+        Args: {
+          p_ticket_id: string
+          p_technician_name: string
+          p_technician_user_id: string | null
+          p_new_priority: string
+          p_reason: string
+          p_expected_updated_at?: string | null
+        }
+        Returns: Database["public"]["Tables"]["tickets"]["Row"]
+      }
       is_master_company_user: { Args: { _user_id: string }; Returns: boolean }
       resolver_chamado: {
         Args: {
