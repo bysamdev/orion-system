@@ -421,7 +421,18 @@ func autorizarCron(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-// cronMarkOffline is called by Vercel Cron every 5 minutes.
+// cronMarkOffline expõe a marcação de offline por HTTP para acionamento
+// manual. O agendamento NÃO vive mais aqui: desde
+// 20260911040000_mark_offline_via_pg_cron.sql quem roda isto de minuto em
+// minuto é o pg_cron (job 'mark-machines-offline', chamando
+// public.marcar_maquinas_offline()).
+//
+// O comentário anterior dizia "every 5 minutes", mas o vercel.json agendava
+// '0 0 * * *' — uma vez por dia, contra os 3 minutos de silêncio que
+// public.silencio_tolerado() declara tolerar para servidor. Como é UPDATE
+// puro, sem rede nem storage, não há motivo para depender de uma instância
+// serverless estar viva.
+//
 // Vercel sets Authorization: Bearer <CRON_SECRET>.
 func cronMarkOffline(w http.ResponseWriter, r *http.Request) {
 	if !autorizarCron(w, r) {

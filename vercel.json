@@ -55,10 +55,6 @@
   ],
   "crons": [
     {
-      "path": "/api/monitoring/cron/mark-offline",
-      "schedule": "0 0 * * *"
-    },
-    {
       "path": "/api/monitoring/cron/probe-network-links",
       "schedule": "0 1 * * *"
     },
