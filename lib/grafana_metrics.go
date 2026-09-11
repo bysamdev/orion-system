@@ -132,6 +132,71 @@ func queryPrometheusRange(ctx context.Context, grafanaURL, apiToken, datasourceU
 	return out, nil
 }
 
+// webEndpointProbeCacheTTL amortiza reaberturas da tela de Monitoramento Web
+// (refetch de 15s do frontend, várias abas abertas) sem bater no Grafana toda
+// vez — cada carregamento da lista já dispara 2 consultas de range por
+// endpoint monitorado.
+const webEndpointProbeCacheTTL = 30 * time.Second
+
+type webEndpointProbeCacheEntry struct {
+	success    map[int64]float64
+	durationMs map[int64]float64
+	expiresAt  time.Time
+}
+
+var (
+	webEndpointProbeCacheMu sync.Mutex
+	webEndpointProbeCache   = map[string]webEndpointProbeCacheEntry{}
+)
+
+// QueryWebEndpointProbeSeries busca, para um monitor de public.monitored_endpoints,
+// as séries brutas das últimas 24h de probe_success (0/1) e
+// probe_duration_seconds convertido pra ms — exatamente as métricas que o
+// blackbox_exporter do servidor de monitoramento já produz e que
+// monitoring/bridge.mjs usa pra manter monitored_endpoints.status em dia
+// (ver monitoring/prometheus.yml, job "blackbox_http", label endpoint_id
+// vindo de monitoring/bridge.mjs). Não fala com nenhuma API de terceiro
+// (UptimeRobot etc.) — é o mesmo Prometheus, consultado via proxy do
+// Grafana pelo mesmo motivo do QueryMachineMetricsHistory acima: o
+// Prometheus do servidor Debian só escuta em 127.0.0.1, o Grafana (com o
+// mesmo datasource dos dashboards) é o único caminho alcançável de fora.
+func QueryWebEndpointProbeSeries(ctx context.Context, grafanaURL, apiToken, datasourceUID, bypassSecret, endpointID string) (success map[int64]float64, durationMs map[int64]float64, err error) {
+	if !isSafePromLabelValue(endpointID) {
+		return nil, nil, fmt.Errorf("endpoint_id inválido")
+	}
+	if apiToken == "" {
+		return nil, nil, fmt.Errorf("GRAFANA_API_TOKEN não configurado")
+	}
+
+	now := time.Now()
+	cacheKey := endpointID
+
+	webEndpointProbeCacheMu.Lock()
+	if entry, ok := webEndpointProbeCache[cacheKey]; ok && now.Before(entry.expiresAt) {
+		webEndpointProbeCacheMu.Unlock()
+		return entry.success, entry.durationMs, nil
+	}
+	webEndpointProbeCacheMu.Unlock()
+
+	start := now.Add(-24 * time.Hour)
+	sel := fmt.Sprintf(`{endpoint_id="%s"}`, endpointID)
+
+	success, err = queryPrometheusRange(ctx, grafanaURL, apiToken, datasourceUID, bypassSecret, "probe_success"+sel, start, now, time.Minute)
+	if err != nil {
+		return nil, nil, fmt.Errorf("consultar probe_success: %w", err)
+	}
+	durationMs, err = queryPrometheusRange(ctx, grafanaURL, apiToken, datasourceUID, bypassSecret, "probe_duration_seconds"+sel+" * 1000", start, now, time.Minute)
+	if err != nil {
+		return nil, nil, fmt.Errorf("consultar probe_duration_seconds: %w", err)
+	}
+
+	webEndpointProbeCacheMu.Lock()
+	webEndpointProbeCache[cacheKey] = webEndpointProbeCacheEntry{success: success, durationMs: durationMs, expiresAt: now.Add(webEndpointProbeCacheTTL)}
+	webEndpointProbeCacheMu.Unlock()
+
+	return success, durationMs, nil
+}
+
 // escapeLabelValue evita quebrar a query PromQL se um machine_id (UUID,
 // sempre) viesse com aspas — machine_id é sempre gerado por uuid_generate_v4()
 // no banco, então isso nunca deveria disparar, mas a query é montada por
