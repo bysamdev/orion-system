@@ -1416,6 +1416,15 @@ export type Database = {
         Returns: boolean
       }
       is_master_company_user: { Args: { _user_id: string }; Returns: boolean }
+      resolver_chamado: {
+        Args: {
+          p_ticket_id: string
+          p_notes: string
+          p_resolution_content: string
+          p_expected_updated_at?: string | null
+        }
+        Returns: Database["public"]["Tables"]["tickets"]["Row"]
+      }
       search_tickets: {
         Args: { search_query: string }
         Returns: {

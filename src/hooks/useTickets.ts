@@ -651,83 +651,43 @@ export interface ResolveTicketParams {
   notes: string;
   resolutionContent: string;
   last_updated_at?: string | null;
-  previousStatus?: string;
 }
 
 export const useResolveTicket = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    // Uma transação só, no banco (resolver_chamado, migration
+    // 20260911150000). Antes eram duas requisições: atualizava o ticket,
+    // depois inseria a timeline, e se a segunda falhasse o cliente tentava
+    // desfazer a primeira com um UPDATE sem precondição de versão — que
+    // sobrescrevia a alteração de qualquer técnico que tivesse mexido no
+    // chamado nesse intervalo. Agora ou as duas escritas valem, ou nenhuma,
+    // e não há mais nada para compensar.
     mutationFn: async ({
       id,
       notes,
       resolutionContent,
       last_updated_at,
-      previousStatus = 'in-progress'
     }: ResolveTicketParams) => {
-      let query = supabase
-        .from('tickets')
-        .update({
-          status: 'resolved',
-          resolution_notes: notes,
-          resolved_at: new Date().toISOString()
-        })
-        .eq('id', id);
+      const { data, error } = await supabase.rpc('resolver_chamado', {
+        p_ticket_id: id,
+        p_notes: notes,
+        p_resolution_content: resolutionContent,
+        p_expected_updated_at: last_updated_at ?? null,
+      });
 
-      if (last_updated_at) {
-        query = query.eq('updated_at', last_updated_at);
-      }
-
-      const { data: updatedTicket, error: updateError } = await query
-        .select()
-        .single();
-
-      if (updateError) {
-        if (updateError.code === 'PGRST116') {
+      if (error) {
+        // 40001 é levantado pela função quando updated_at não bate com a
+        // versão que esta aba carregou; 42501 quando o chamado não existe
+        // ou a RLS não deixa este usuário resolvê-lo.
+        if (error.code === '40001') {
           throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
         }
-        throw updateError;
+        throw error;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
-
-      const updatesToInsert = [
-        {
-          ticket_id: id,
-          content: 'Status alterado para: Resolvido',
-          type: 'status_change' as const,
-          author: '',
-          author_id: user.id,
-          is_internal: false
-        },
-        {
-          ticket_id: id,
-          content: resolutionContent,
-          type: 'comment' as const,
-          author: '',
-          author_id: user.id,
-          is_internal: false
-        }
-      ];
-
-      const { error: timelineError } = await supabase
-        .from('ticket_updates')
-        .insert(updatesToInsert);
-
-      if (timelineError) {
-        try {
-          await supabase
-            .from('tickets')
-            .update({ status: previousStatus, resolution_notes: null, resolved_at: null })
-            .eq('id', id);
-        } catch (revertErr) {
-          console.error('[useResolveTicket] Falha ao reverter resolução:', revertErr);
-        }
-        throw new Error(`Falha ao registrar histórico de resolução: ${timelineError.message}. Resolução cancelada e revertida.`);
-      }
-
-      return updatedTicket;
+      return data as unknown as Ticket;
     },
     onSuccess: (data) => {
       invalidateTicketQueries(queryClient, data.id);

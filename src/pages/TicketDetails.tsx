@@ -601,7 +601,6 @@ const TicketDetails: React.FC = () => {
         notes,
         resolutionContent,
         last_updated_at: ticket.updated_at,
-        previousStatus: ticket.status,
       });
       setResolveDialogOpen(false);
       setResolutionNotes('');
