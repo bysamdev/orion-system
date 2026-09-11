@@ -26,7 +26,12 @@ interface Ticket {
   company_id: string;
   user_id: string;
   category?: string | null;
-  status: 'resolved' | 'closed' | 'cancelled' | string;
+  // Esta página é a lista geral de chamados, não só o arquivo morto:
+  // /tickets, /chamados e /meus-chamados redirecionam todos para cá, e o
+  // filtro de status abre em "Todos". O union antigo enumerava só
+  // resolved/closed/cancelled — e como terminava em `| string`, colapsava
+  // para string e não checava nada, só documentava uma suposição errada.
+  status: 'open' | 'in-progress' | 'awaiting-customer' | 'resolved' | 'closed' | 'cancelled' | string;
   priority: 'urgent' | 'high' | 'medium' | 'low' | string;
   updated_at: string;
   company_name?: string; // Added for the joined data
@@ -93,7 +98,7 @@ export default function TicketHistory() {
         icon={History}
         badge="AUDITORIA & REGISTROS"
         title="Histórico"
-        description="Consulte chamados resolvidos, fechados ou cancelados com filtros avançados."
+        description="Consulte todos os chamados com filtros avançados por status, prioridade e busca."
       />
 
         <Card className="border-border/40 shadow-xl shadow-primary/5 overflow-visible bg-card/50 backdrop-blur-sm">
@@ -136,11 +141,12 @@ export default function TicketHistory() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos os Status</SelectItem>
+                      <SelectItem value="open">Abertos</SelectItem>
+                      <SelectItem value="in-progress">Em Atendimento</SelectItem>
+                      <SelectItem value="awaiting-customer">Aguardando Cliente</SelectItem>
                       <SelectItem value="resolved">Resolvidos</SelectItem>
                       <SelectItem value="closed">Fechados</SelectItem>
                       <SelectItem value="cancelled">Cancelados</SelectItem>
-                      <SelectItem value="open">Abertos</SelectItem>
-                      <SelectItem value="in-progress">Em Atendimento</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
