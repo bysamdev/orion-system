@@ -34,12 +34,36 @@ async function apiRequest<T>(path: string, method: string = 'GET', body?: any): 
   return res.json();
 }
 
+export interface EndpointRecentCheck {
+  time: number; // unix seconds
+  ms: number;
+}
+
+export interface EndpointRecentEvent {
+  type: number; // 1=down, 2=up
+  time: number; // unix seconds
+  duration: number; // seconds
+}
+
+export interface EndpointDiagnostics {
+  uptime_24h_pct: number | null;
+  response_min_ms: number | null;
+  response_avg_ms: number | null;
+  response_max_ms: number | null;
+  jitter_ms: number | null;
+  downtime_events_24h: number;
+  recent_checks: EndpointRecentCheck[] | null;
+  recent_events: EndpointRecentEvent[] | null;
+  has_diagnostics: boolean;
+}
+
 export interface MonitoredEndpoint {
   id: string;
   name: string;
   url_or_ip: string;
   uptimerobot_monitor_id: string;
   status: string; // "pending", "online", "offline", "paused"
+  diagnostics?: EndpointDiagnostics;
 }
 
 export function useWebEndpoints() {
