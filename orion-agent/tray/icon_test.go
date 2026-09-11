@@ -13,7 +13,7 @@ import (
 // imagem decodificável de verdade para os testes de envelope .ico.
 func pngMinimo(largura, altura uint32) []byte {
 	png := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a} // assinatura
-	png = append(png, 0x00, 0x00, 0x00, 0x0d)                      // tamanho do chunk IHDR (13, não usado por dimensoesPNG)
+	png = append(png, 0x00, 0x00, 0x00, 0x0d)                     // tamanho do chunk IHDR (13, não usado por dimensoesPNG)
 	png = append(png, 'I', 'H', 'D', 'R')
 	larguraBytes := make([]byte, 4)
 	alturaBytes := make([]byte, 4)

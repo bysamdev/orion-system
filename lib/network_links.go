@@ -338,7 +338,7 @@ func ProbeNetworkTarget(target string) (status string, pingMs int, err error) {
 
 	// If explicit port was supplied, try TCP connection first
 	if port != "" {
-		conn, err := newSafeDialer(4 * time.Second).Dial("tcp", target)
+		conn, err := newSafeDialer(4*time.Second).Dial("tcp", target)
 		if err == nil {
 			conn.Close()
 			return "online", int(time.Since(start).Milliseconds()), nil
@@ -362,7 +362,7 @@ func ProbeNetworkTarget(target string) (status string, pingMs int, err error) {
 		tcpPorts = append([]string{port}, tcpPorts...)
 	}
 	for _, p := range tcpPorts {
-		conn, err := newSafeDialer(2 * time.Second).Dial("tcp", net.JoinHostPort(host, p))
+		conn, err := newSafeDialer(2*time.Second).Dial("tcp", net.JoinHostPort(host, p))
 		if err == nil {
 			conn.Close()
 			return "online", int(time.Since(start).Milliseconds()), nil

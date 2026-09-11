@@ -57,13 +57,13 @@ func (s *Svc) StartRemoteTerminalSession() {
 	defer conn.Close()
 
 	cmd := exec.Command("cmd.exe")
-	
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		s.logger.Printf("[TERMINAL] Erro ao obter StdinPipe: %v", err)
 		return
 	}
-	
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		s.logger.Printf("[TERMINAL] Erro ao obter StdoutPipe: %v", err)

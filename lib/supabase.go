@@ -127,9 +127,9 @@ func (c *SupabaseClient) AdminDeleteUserByID(ctx context.Context, userID string)
 }
 
 type GenerateLinkInput struct {
-	Type          string `json:"type"`
-	Email         string `json:"email"`
-	RedirectTo    string `json:"redirect_to,omitempty"`
+	Type       string `json:"type"`
+	Email      string `json:"email"`
+	RedirectTo string `json:"redirect_to,omitempty"`
 }
 
 type GenerateLinkOutput struct {
