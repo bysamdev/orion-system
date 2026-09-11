@@ -222,19 +222,17 @@ export const invalidateTicketQueries = (queryClient: any, ticketId?: string) => 
   }
 };
 
+// expected_status, assigned_to, assigned_to_user_id, sla_paused_at,
+// sla_accumulated_pause_minutes, resolution_notes e previousStatus saíram:
+// nenhum chamador passava nenhum deles. O SLA é pausado pelo trigger
+// tr_ticket_sla_pause no banco, e previousStatus só servia ao rollback
+// compensatório que deixou de existir.
 export interface UpdateTicketStatusParams {
   id: string;
   status: string;
   last_updated_at?: string | null;
-  expected_status?: string | null;
-  assigned_to?: string | null;
-  assigned_to_user_id?: string | null;
-  sla_paused_at?: string | null;
-  sla_accumulated_pause_minutes?: number | null;
-  resolution_notes?: string | null;
   updateContent?: string;
   updateType?: 'comment' | 'status_change' | 'assignment' | 'priority_change';
-  previousStatus?: string;
   is_internal?: boolean;
 }
 
@@ -242,102 +240,41 @@ export const useUpdateTicketStatus = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      id, 
-      status, 
+    // Uma transação só (alterar_status_chamado, migration 20260911160000).
+    // Antes o UPDATE e o INSERT da timeline eram requisições separadas, e a
+    // falha da segunda disparava um UPDATE de reversão sem precondição de
+    // versão — que apagava a alteração de quem tivesse mexido no chamado no
+    // intervalo.
+    mutationFn: async ({
+      id,
+      status,
       last_updated_at,
-      expected_status,
-      assigned_to, 
-      assigned_to_user_id,
-      sla_paused_at,
-      sla_accumulated_pause_minutes,
-      resolution_notes,
       updateContent,
       updateType = 'status_change',
-      previousStatus,
       is_internal = false,
     }: UpdateTicketStatusParams) => {
-      // Validate status before sending to database
       const validationResult = ticketStatusSchema.safeParse(status);
-      
       if (!validationResult.success) {
         throw new Error(validationResult.error.errors[0].message);
       }
 
-      // Build update object
-      const updateData: Database['public']['Tables']['tickets']['Update'] = { 
-        status: validationResult.data as Database['public']['Tables']['tickets']['Update']['status'] 
-      };
-      
-      if (assigned_to !== undefined) {
-        updateData.assigned_to = assigned_to;
-      }
-      if (assigned_to_user_id !== undefined) {
-        updateData.assigned_to_user_id = assigned_to_user_id;
-      }
-      if (sla_paused_at !== undefined) {
-        updateData.sla_paused_at = sla_paused_at;
-      }
-      if (sla_accumulated_pause_minutes !== undefined) {
-        updateData.sla_accumulated_pause_minutes = sla_accumulated_pause_minutes;
-      }
-      if (resolution_notes !== undefined) {
-        updateData.resolution_notes = resolution_notes;
-      }
+      const { data, error } = await supabase.rpc('alterar_status_chamado', {
+        p_ticket_id: id,
+        p_status: validationResult.data,
+        p_update_content: updateContent ?? null,
+        p_update_type: updateType,
+        p_is_internal: is_internal,
+        p_expected_updated_at: last_updated_at ?? null,
+      });
 
-      let query = supabase
-        .from('tickets')
-        .update(updateData)
-        .eq('id', id);
-
-      if (last_updated_at) {
-        query = query.eq('updated_at', last_updated_at);
-      }
-      if (expected_status) {
-        query = query.eq('status', expected_status);
-      }
-
-      const { data: ticketData, error: updateError } = await query
-        .select()
-        .single();
-
-      if (updateError) {
-        if (updateError.code === 'PGRST116') {
+      if (error) {
+        if (error.code === '40001') {
           throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
         }
-        throw updateError;
+        throw error;
       }
 
-      // Safe timeline update
-      if (updateContent) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Usuário não autenticado');
-
-        const { error: timelineError } = await supabase
-          .from('ticket_updates')
-          .insert([{
-            ticket_id: id,
-            content: updateContent,
-            type: updateType,
-            author: '',
-            author_id: user.id,
-            is_internal
-          }]);
-
-        if (timelineError) {
-          // Revert status on tickets table if timeline update fails
-          if (previousStatus) {
-            try {
-              await supabase.from('tickets').update({ status: previousStatus }).eq('id', id);
-            } catch (revertErr) {
-              console.error('[useUpdateTicketStatus] Falha ao reverter status:', revertErr);
-            }
-          }
-          throw new Error(`Falha ao registrar histórico na timeline: ${timelineError.message}. Operação cancelada e revertida.`);
-        }
-      }
-
-      return ticketData;
+      return data as unknown as Ticket;
     },
     onSuccess: (data) => {
       invalidateTicketQueries(queryClient, data.id);
@@ -371,7 +308,6 @@ export interface UpdateAssignmentParams {
   assigned_to: string | null;
   assigned_to_user_id?: string | null;
   last_updated_at?: string | null;
-  previousAssignedTo?: string | null;
   updateContent?: string;
 }
 
@@ -379,72 +315,30 @@ export const useUpdateTicketAssignment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      id, 
+    // Uma transação só (atribuir_chamado, migration 20260911160000).
+    mutationFn: async ({
+      id,
       assigned_to,
       assigned_to_user_id,
       last_updated_at,
-      previousAssignedTo,
-      updateContent
+      updateContent,
     }: UpdateAssignmentParams) => {
-      const updateData: Database['public']['Tables']['tickets']['Update'] = { assigned_to };
-      // Mesmo invariante do useEscalateTicket: desatribuir (assigned_to
-      // null) sempre limpa assigned_to_user_id junto, mesmo que o chamador
-      // não tenha passado o campo explicitamente.
-      if (assigned_to === null) {
-        updateData.assigned_to_user_id = null;
-      } else if (assigned_to_user_id !== undefined) {
-        updateData.assigned_to_user_id = assigned_to_user_id;
-      }
-
-      let query = supabase
-        .from('tickets')
-        .update(updateData)
-        .eq('id', id);
-
-      if (last_updated_at) {
-        query = query.eq('updated_at', last_updated_at);
-      }
-
-      const { data, error } = await query
-        .select()
-        .single();
+      const { data, error } = await supabase.rpc('atribuir_chamado', {
+        p_ticket_id: id,
+        p_assigned_to: assigned_to,
+        p_assigned_to_user_id: assigned_to_user_id ?? null,
+        p_update_content: updateContent ?? null,
+        p_expected_updated_at: last_updated_at ?? null,
+      });
 
       if (error) {
-        if (error.code === 'PGRST116') {
+        if (error.code === '40001') {
           throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
         }
         throw error;
       }
 
-      if (updateContent) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Usuário não autenticado');
-
-        const { error: timelineError } = await supabase
-          .from('ticket_updates')
-          .insert([{
-            ticket_id: id,
-            content: updateContent,
-            type: 'assignment',
-            author: '',
-            author_id: user.id,
-            is_internal: false
-          }]);
-
-        if (timelineError) {
-          if (previousAssignedTo !== undefined) {
-            try {
-              await supabase.from('tickets').update({ assigned_to: previousAssignedTo }).eq('id', id);
-            } catch (revertErr) {
-              console.error('[useUpdateTicketAssignment] Falha ao reverter atribuição:', revertErr);
-            }
-          }
-          throw new Error(`Falha ao registrar histórico de atribuição: ${timelineError.message}. Operação cancelada.`);
-        }
-      }
-
-      return data;
+      return data as unknown as Ticket;
     },
     onSuccess: (data) => {
       invalidateTicketQueries(queryClient, data.id);
@@ -465,9 +359,11 @@ export const useUpdateTicketAssignment = () => {
   });
 };
 
+// userId saiu: assumir_chamado resolve o responsável por auth.uid(), então
+// mandar o id pela rede só criava a chance de divergir de quem realmente está
+// autenticado.
 export interface AssumeTicketParams {
   id: string;
-  userId: string;
   userName: string;
   last_updated_at?: string | null;
 }
@@ -476,64 +372,28 @@ export const useAssumeTicket = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    // Uma transação só (assumir_chamado, migration 20260911160000). O id do
+    // técnico não vai mais pela rede: a função usa auth.uid(), já que quem
+    // assume é sempre quem está chamando.
     mutationFn: async ({
       id,
-      userId,
       userName,
       last_updated_at,
     }: AssumeTicketParams) => {
-      let query = supabase
-        .from('tickets')
-        .update({
-          assigned_to: userName,
-          assigned_to_user_id: userId,
-          status: 'in-progress'
-        })
-        .eq('id', id);
+      const { data, error } = await supabase.rpc('assumir_chamado', {
+        p_ticket_id: id,
+        p_user_name: userName,
+        p_expected_updated_at: last_updated_at ?? null,
+      });
 
-      if (last_updated_at) {
-        query = query.eq('updated_at', last_updated_at);
-      }
-
-      const { data: ticketData, error: updateError } = await query
-        .select()
-        .single();
-
-      if (updateError) {
-        if (updateError.code === 'PGRST116') {
+      if (error) {
+        if (error.code === '40001') {
           throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
         }
-        throw updateError;
+        throw error;
       }
 
-      // Safe timeline update
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { error: timelineError } = await supabase
-          .from('ticket_updates')
-          .insert([{
-            ticket_id: id,
-            content: `Chamado assumido por ${userName} (Status alterado para: Em Atendimento)`,
-            type: 'assignment',
-            author: '',
-            author_id: user.id,
-            is_internal: false
-          }]);
-
-        if (timelineError) {
-          // A atribuição/status já foi gravada -- não desfazemos (o
-          // técnico já assumiu de fato). Mas sem essa linha em
-          // ticket_updates, create_notification_on_ticket_update() nunca
-          // dispara: o dono do chamado não é avisado, e não sobra registro
-          // na timeline/auditoria. Lançar aqui garante que o onError
-          // avise o técnico em vez do toast de sucesso mentir sobre o que
-          // aconteceu de fato.
-          console.error('[useAssumeTicket] Falha ao registrar timeline:', timelineError);
-          throw new Error('Chamado assumido, mas falhou ao registrar na timeline -- o dono do chamado pode não ser notificado. Adicione um comentário manualmente.');
-        }
-      }
-
-      return ticketData;
+      return data as unknown as Ticket;
     },
     onSuccess: (data) => {
       invalidateTicketQueries(queryClient, data?.id);
@@ -558,7 +418,6 @@ export interface UpdatePriorityParams {
   id: string;
   priority: string;
   last_updated_at?: string | null;
-  previousPriority?: string;
   updateContent?: string;
 }
 
@@ -566,66 +425,33 @@ export const useUpdateTicketPriority = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    // Uma transação só (alterar_prioridade_chamado, migration 20260911160000).
     mutationFn: async ({
       id,
       priority,
       last_updated_at,
-      previousPriority,
-      updateContent
+      updateContent,
     }: UpdatePriorityParams) => {
       const validated = ticketPrioritySchema.safeParse(priority);
       if (!validated.success) {
         throw new Error(validated.error.errors[0].message);
       }
 
-      let query = supabase
-        .from('tickets')
-        .update({ priority: validated.data })
-        .eq('id', id);
-
-      if (last_updated_at) {
-        query = query.eq('updated_at', last_updated_at);
-      }
-
-      const { data, error } = await query
-        .select()
-        .single();
+      const { data, error } = await supabase.rpc('alterar_prioridade_chamado', {
+        p_ticket_id: id,
+        p_priority: validated.data,
+        p_update_content: updateContent ?? null,
+        p_expected_updated_at: last_updated_at ?? null,
+      });
 
       if (error) {
-        if (error.code === 'PGRST116') {
+        if (error.code === '40001') {
           throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
         }
         throw error;
       }
 
-      if (updateContent) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Usuário não autenticado');
-
-        const { error: timelineError } = await supabase
-          .from('ticket_updates')
-          .insert([{
-            ticket_id: id,
-            content: updateContent,
-            type: 'priority_change',
-            author: '',
-            author_id: user.id,
-            is_internal: false
-          }]);
-
-        if (timelineError) {
-          if (previousPriority) {
-            try {
-              await supabase.from('tickets').update({ priority: previousPriority }).eq('id', id);
-            } catch (revertErr) {
-              console.error('[useUpdateTicketPriority] Revert failed:', revertErr);
-            }
-          }
-          throw new Error(`Falha ao registrar histórico de prioridade: ${timelineError.message}. Operação cancelada.`);
-        }
-      }
-
-      return data;
+      return data as unknown as Ticket;
     },
     onSuccess: (data) => {
       invalidateTicketQueries(queryClient, data.id);
@@ -651,83 +477,43 @@ export interface ResolveTicketParams {
   notes: string;
   resolutionContent: string;
   last_updated_at?: string | null;
-  previousStatus?: string;
 }
 
 export const useResolveTicket = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    // Uma transação só, no banco (resolver_chamado, migration
+    // 20260911150000). Antes eram duas requisições: atualizava o ticket,
+    // depois inseria a timeline, e se a segunda falhasse o cliente tentava
+    // desfazer a primeira com um UPDATE sem precondição de versão — que
+    // sobrescrevia a alteração de qualquer técnico que tivesse mexido no
+    // chamado nesse intervalo. Agora ou as duas escritas valem, ou nenhuma,
+    // e não há mais nada para compensar.
     mutationFn: async ({
       id,
       notes,
       resolutionContent,
       last_updated_at,
-      previousStatus = 'in-progress'
     }: ResolveTicketParams) => {
-      let query = supabase
-        .from('tickets')
-        .update({
-          status: 'resolved',
-          resolution_notes: notes,
-          resolved_at: new Date().toISOString()
-        })
-        .eq('id', id);
+      const { data, error } = await supabase.rpc('resolver_chamado', {
+        p_ticket_id: id,
+        p_notes: notes,
+        p_resolution_content: resolutionContent,
+        p_expected_updated_at: last_updated_at ?? null,
+      });
 
-      if (last_updated_at) {
-        query = query.eq('updated_at', last_updated_at);
-      }
-
-      const { data: updatedTicket, error: updateError } = await query
-        .select()
-        .single();
-
-      if (updateError) {
-        if (updateError.code === 'PGRST116') {
+      if (error) {
+        // 40001 é levantado pela função quando updated_at não bate com a
+        // versão que esta aba carregou; 42501 quando o chamado não existe
+        // ou a RLS não deixa este usuário resolvê-lo.
+        if (error.code === '40001') {
           throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
         }
-        throw updateError;
+        throw error;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
-
-      const updatesToInsert = [
-        {
-          ticket_id: id,
-          content: 'Status alterado para: Resolvido',
-          type: 'status_change' as const,
-          author: '',
-          author_id: user.id,
-          is_internal: false
-        },
-        {
-          ticket_id: id,
-          content: resolutionContent,
-          type: 'comment' as const,
-          author: '',
-          author_id: user.id,
-          is_internal: false
-        }
-      ];
-
-      const { error: timelineError } = await supabase
-        .from('ticket_updates')
-        .insert(updatesToInsert);
-
-      if (timelineError) {
-        try {
-          await supabase
-            .from('tickets')
-            .update({ status: previousStatus, resolution_notes: null, resolved_at: null })
-            .eq('id', id);
-        } catch (revertErr) {
-          console.error('[useResolveTicket] Falha ao reverter resolução:', revertErr);
-        }
-        throw new Error(`Falha ao registrar histórico de resolução: ${timelineError.message}. Resolução cancelada e revertida.`);
-      }
-
-      return updatedTicket;
+      return data as unknown as Ticket;
     },
     onSuccess: (data) => {
       invalidateTicketQueries(queryClient, data.id);
@@ -748,6 +534,9 @@ export const useResolveTicket = () => {
   });
 };
 
+// currentPriority/currentAssignedTo/currentAssignedToUserId saíram: quem
+// decide o que mudou é escalar_chamado, comparando com a linha travada por
+// FOR UPDATE. Os valores da tela podiam estar defasados.
 export interface EscalateTicketParams {
   id: string;
   technicianName: string;
@@ -755,15 +544,17 @@ export interface EscalateTicketParams {
   newPriority: string;
   reason: string;
   last_updated_at?: string | null;
-  currentPriority?: string;
-  currentAssignedTo?: string | null;
-  currentAssignedToUserId?: string | null;
 }
 
 export const useEscalateTicket = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    // Uma transação só (escalar_chamado, migration 20260911160000). O que
+    // mudou passa a ser decidido no banco, comparando com a linha travada por
+    // FOR UPDATE, e não pelos valores currentPriority/currentAssignedTo que a
+    // tela enviava — aqueles podiam estar defasados e fazer a timeline
+    // descrever uma transição que não aconteceu.
     mutationFn: async ({
       id,
       technicianName,
@@ -771,114 +562,24 @@ export const useEscalateTicket = () => {
       newPriority,
       reason,
       last_updated_at,
-      currentPriority,
-      currentAssignedTo,
-      currentAssignedToUserId,
     }: EscalateTicketParams) => {
-      const targetAssignedTo = technicianName === 'unassigned' ? null : technicianName;
-      const priorityChanged = newPriority !== currentPriority;
-      const assignmentChanged = targetAssignedTo !== currentAssignedTo;
-
-      const updateData: Database['public']['Tables']['tickets']['Update'] = {};
-      if (priorityChanged) updateData.priority = newPriority;
-      if (assignmentChanged) {
-        updateData.assigned_to = targetAssignedTo;
-        // targetAssignedTo === null significa "voltar pra Fila Geral" --
-        // limpa assigned_to_user_id junto, sempre. Sem isso, escalar pra
-        // "unassigned" zera o nome textual mas deixa o UUID antigo órfão
-        // (technicianUserId vem undefined nesse caso, já que a busca por
-        // full_name não acha nada pra 'unassigned').
-        if (targetAssignedTo === null) {
-          updateData.assigned_to_user_id = null;
-        } else if (technicianUserId !== undefined) {
-          updateData.assigned_to_user_id = technicianUserId;
-        }
-      }
-
-      let updatedTicket = null;
-      if (Object.keys(updateData).length > 0) {
-        let query = supabase
-          .from('tickets')
-          .update(updateData)
-          .eq('id', id);
-
-        if (last_updated_at) {
-          query = query.eq('updated_at', last_updated_at);
-        }
-
-        const { data, error } = await query
-          .select()
-          .single();
-
-        if (error) {
-          if (error.code === 'PGRST116') {
-            throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
-          }
-          throw error;
-        }
-        updatedTicket = data;
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
-
-      const updatesToInsert = [];
-
-      if (priorityChanged) {
-        updatesToInsert.push({
-          ticket_id: id,
-          content: `Prioridade escalada para: ${newPriority}`,
-          type: 'priority_change' as const,
-          author: '',
-          author_id: user.id,
-          is_internal: false,
-        });
-      }
-
-      if (assignmentChanged) {
-        updatesToInsert.push({
-          ticket_id: id,
-          content: `Chamado escalado para: ${technicianName === 'unassigned' ? 'Fila Geral' : technicianName}`,
-          type: 'assignment' as const,
-          author: '',
-          author_id: user.id,
-          is_internal: false,
-        });
-      }
-
-      updatesToInsert.push({
-        ticket_id: id,
-        content: `[ESCALAÇÃO] Motivo: ${reason}`,
-        type: 'comment' as const,
-        author: '',
-        author_id: user.id,
-        is_internal: true,
+      const { data, error } = await supabase.rpc('escalar_chamado', {
+        p_ticket_id: id,
+        p_technician_name: technicianName,
+        p_technician_user_id: technicianUserId ?? null,
+        p_new_priority: newPriority,
+        p_reason: reason,
+        p_expected_updated_at: last_updated_at ?? null,
       });
 
-      const { error: timelineError } = await supabase
-        .from('ticket_updates')
-        .insert(updatesToInsert);
-
-      if (timelineError) {
-        if (Object.keys(updateData).length > 0) {
-          try {
-            const revertData: Database['public']['Tables']['tickets']['Update'] = {};
-            if (priorityChanged && currentPriority) revertData.priority = currentPriority;
-            if (assignmentChanged) {
-              revertData.assigned_to = currentAssignedTo;
-              if (currentAssignedToUserId !== undefined) {
-                revertData.assigned_to_user_id = currentAssignedToUserId;
-              }
-            }
-            await supabase.from('tickets').update(revertData).eq('id', id);
-          } catch (revertErr) {
-            console.error('[useEscalateTicket] Falha ao reverter escalação:', revertErr);
-          }
+      if (error) {
+        if (error.code === '40001') {
+          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
         }
-        throw new Error(`Falha ao registrar histórico de escalação: ${timelineError.message}. Escalação cancelada e revertida.`);
+        throw error;
       }
 
-      return updatedTicket;
+      return data as unknown as Ticket;
     },
     onSuccess: (data, variables) => {
       const ticketId = data?.id || variables.id;

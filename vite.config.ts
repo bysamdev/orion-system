@@ -41,8 +41,15 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-slot', 'class-variance-authority', 'tailwind-merge', 'clsx', 'lucide-react', 'sonner'],
+          // '@tanstack/react-query' fica junto do vendor-ui, não num
+          // 'vendor-query' próprio: separados, o Rollup avisava
+          // "Circular chunk: vendor-query -> vendor-ui -> vendor-query".
+          // Ciclo entre chunks é artefato de chunking manual — a saída certa
+          // é pôr no mesmo chunk os módulos que dependem um do outro, e não
+          // largar os dois para divisão automática (aí o react-query cai no
+          // chunk de entrada e deixa de ter cache separado do código do app,
+          // que muda muito mais vezes que a biblioteca).
+          'vendor-ui': ['@tanstack/react-query', '@radix-ui/react-dialog', '@radix-ui/react-slot', 'class-variance-authority', 'tailwind-merge', 'clsx', 'lucide-react', 'sonner'],
           'vendor-supabase': ['@supabase/supabase-js'],
           // 'recharts' NÃO entra mais aqui: um manualChunks nomeado faz o Vite
           // injetar <link rel="modulepreload"> desse chunk em todo carregamento

@@ -351,7 +351,6 @@ export const TechnicianDashboard: React.FC = () => {
     try {
       await assumeTicket.mutateAsync({
         id: ticketId,
-        userId: technicianId,
         userName: technicianName
       });
     } catch {

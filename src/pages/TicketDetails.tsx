@@ -483,7 +483,6 @@ const TicketDetails: React.FC = () => {
     try {
       await assumeTicket.mutateAsync({
         id: ticket.id,
-        userId: user.id,
         userName,
         last_updated_at: ticket.updated_at,
       });
@@ -516,7 +515,6 @@ const TicketDetails: React.FC = () => {
         id: ticket.id, 
         status: newStatus,
         last_updated_at: ticket.updated_at,
-        previousStatus: ticket.status,
         updateContent: `Status alterado para: ${statusLabels[newStatus] || newStatus}`,
         updateType: 'status_change',
       });
@@ -547,7 +545,6 @@ const TicketDetails: React.FC = () => {
         assigned_to: targetAssignedTo,
         assigned_to_user_id: selectedTech?.id,
         last_updated_at: ticket.updated_at,
-        previousAssignedTo: ticket.assigned_to,
         updateContent: `Chamado atribuído para: ${targetAssignedTo || 'Fila Geral'}`,
       });
     } catch {
@@ -566,8 +563,6 @@ const TicketDetails: React.FC = () => {
         newPriority,
         reason,
         last_updated_at: ticket.updated_at,
-        currentPriority: ticket.priority,
-        currentAssignedTo: ticket.assigned_to,
       });
       setEscalateDialogOpen(false);
     } catch {
@@ -601,7 +596,6 @@ const TicketDetails: React.FC = () => {
         notes,
         resolutionContent,
         last_updated_at: ticket.updated_at,
-        previousStatus: ticket.status,
       });
       setResolveDialogOpen(false);
       setResolutionNotes('');
@@ -618,7 +612,6 @@ const TicketDetails: React.FC = () => {
         id: ticket.id, 
         status: 'reopened',
         last_updated_at: ticket.updated_at,
-        previousStatus: ticket.status,
         updateContent: 'Chamado reaberto pelo usuário',
         updateType: 'status_change',
       });
