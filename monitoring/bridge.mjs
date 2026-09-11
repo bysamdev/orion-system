@@ -3,19 +3,18 @@ import path from 'node:path';
 
 // Configuration
 //
-// supabaseKey: hoje ainda é a anon key em produção (achado da auditoria de
-// autorização, correcao-autorizacao-p0.md item 1.5) — get_all_monitoring_targets
-// e update_telemetry_status são SECURITY DEFINER com EXECUTE concedido a
-// anon/authenticated (20260818040001_secure_bridge_rpc_functions.sql), e o
-// único portão de verdade hoje é o bridgeSecret checado dentro da própria
-// função. Migrar esta variável pra uma chave service_role permite revogar
-// esse GRANT de anon/authenticated (migration preparada, não aplicada:
-// 20260910190000_revoke_anon_bridge_rpc_grants.sql) — service_role já
-// contorna RLS e não precisa de GRANT explícito em SECURITY DEFINER, então
-// nenhuma mudança de código é necessária além de trocar o valor da env var
-// no .env do servidor Debian (deploy manual, fora do escopo automatizável
-// daqui). checkSupabaseKeyRole() abaixo só ajuda a confirmar que a troca
-// foi feita certa, sem travar o processo se não conseguir decidir.
+// supabaseKey: é a chave service_role desde 2026-09-11 (achado da auditoria
+// de autorização, correcao-autorizacao-p0.md item 1.5 — fechado).
+// get_all_monitoring_targets e update_telemetry_status são SECURITY DEFINER
+// e tinham EXECUTE concedido a anon/authenticated
+// (20260818040001_secure_bridge_rpc_functions.sql), com o bridgeSecret como
+// único portão real; 20260910190000_revoke_anon_bridge_rpc_grants.sql
+// revogou esse GRANT depois que o cutover foi confirmado em produção.
+// service_role contorna RLS e não precisa de GRANT explícito em SECURITY
+// DEFINER, então não houve mudança de código além do valor da env var no
+// .env do servidor Debian. decodeSupabaseKeyRole() abaixo continua logando
+// o papel no start: se alguém reverter pro anon key, o log avisa antes de a
+// telemetria começar a tomar 403.
 const CONFIG = {
   supabaseUrl: (process.env.SUPABASE_URL || 'https://kcxwealimsfxqstoprdg.supabase.co').replace(/\/$/, ''),
   supabaseKey: process.env.SUPABASE_KEY || '',
@@ -73,16 +72,15 @@ if (!CONFIG.bridgeSecret) {
   process.exit(1);
 }
 
-// Aviso, não bloqueio: enquanto a migration que revoga o GRANT de
-// anon/authenticated não for aplicada (ver comentário de CONFIG acima), o
-// bridge continua funcionando com anon key. Isto só ajuda a confirmar, no
-// log de start, se a troca pra service_role já foi feita no .env do
-// servidor Debian.
+// Aviso, não bloqueio: o GRANT de anon/authenticated nas duas RPCs já foi
+// revogado (ver comentário de CONFIG acima), então uma chave anon aqui não
+// funciona mais — mas quem diagnostica isso é o 403 na primeira chamada, e
+// este log de start diz o porquê antes disso acontecer.
 const supabaseKeyRole = decodeSupabaseKeyRole(CONFIG.supabaseKey);
 if (supabaseKeyRole === 'service_role') {
-  log('info', 'SUPABASE_KEY é service_role — pronta para o GRANT anônimo das RPCs de telemetria ser revogado.');
+  log('info', 'SUPABASE_KEY é service_role — GRANT anônimo das RPCs de telemetria já revogado, credencial correta.');
 } else if (supabaseKeyRole) {
-  log('warn', `SUPABASE_KEY é '${supabaseKeyRole}', não service_role — bridge ainda depende do GRANT anônimo em get_all_monitoring_targets/update_telemetry_status (migração pendente: revogar depois de trocar para service_role).`);
+  log('warn', `SUPABASE_KEY é '${supabaseKeyRole}', não service_role — o EXECUTE de anon/authenticated em get_all_monitoring_targets/update_telemetry_status já foi revogado (20260910190000), então a telemetria vai falhar com 403 até a chave voltar a ser service_role.`);
 } else {
   log('info', 'Não foi possível determinar o papel de SUPABASE_KEY (formato de chave não é o JWT clássico) — siga com a troca manual para a chave service_role de qualquer forma.');
 }

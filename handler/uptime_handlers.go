@@ -21,7 +21,6 @@ func getUptimeRobotKey() string {
 	return cfg.UptimeRobotKey
 }
 
-
 type createEndpointReq struct {
 	Name      string `json:"name"`
 	URL       string `json:"url"`
@@ -139,7 +138,6 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 		"monitor_id": monitorID,
 	})
 }
-
 
 type MonitoredEndpoint struct {
 	ID                   string     `json:"id"`
@@ -374,4 +372,3 @@ func monitoringDeleteWebEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
-

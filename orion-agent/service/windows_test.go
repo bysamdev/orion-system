@@ -863,7 +863,6 @@ func TestMetricsServerDesabilitadoNaoSobe(t *testing.T) {
 	s.startMetricsServer(ctx)
 }
 
-
 // ─────────────────────────────────────────────────────────────
 // (H) Buffer de heartbeats represados (Fase 8 do plano de escalabilidade)
 // ─────────────────────────────────────────────────────────────

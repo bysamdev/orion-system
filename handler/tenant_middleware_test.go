@@ -108,7 +108,7 @@ func TestRotasDeUsuarioExigemEscopo(t *testing.T) {
 	mockarEscopo(t, nil, errors.New("token ausente"), lib.UserScope{}, nil)
 
 	rotas := []struct {
-		metodo string
+		metodo  string
 		caminho string
 	}{
 		{http.MethodGet, "/api/monitoring/dashboard"},

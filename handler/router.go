@@ -108,12 +108,23 @@ func init() {
 		}
 
 		router = buildRouter()
-		startNetworkPingWorker()
 	})
 }
 
-// startNetworkPingWorker runs a background ticker every 5 minutes to probe network_links targets.
-func startNetworkPingWorker() {
+// StartNetworkPingWorker faz probe dos alvos de network_links a cada 5
+// minutos. Precisa ser chamado explicitamente por um processo de vida longa
+// (cmd/server) — antes era disparado dentro de init(), o que o fazia rodar
+// também em cada instância serverless da Vercel, sem eleição de líder: sob
+// pico, várias instâncias sondavam os mesmos alvos em paralelo; sem tráfego,
+// a instância congelava e ninguém sondava.
+//
+// Em produção quem mantém network_links atualizado não é este worker e sim o
+// caminho Prometheus/Blackbox: o bridge lê probe_success/probe_duration do
+// Prometheus e chama update_telemetry_status, que escreve exatamente as
+// mesmas colunas (status, last_ping_ms, last_checked_at) a cada 15 segundos,
+// a partir de um host estável. Este worker é conveniência de
+// desenvolvimento local, não a fonte de verdade.
+func StartNetworkPingWorker() {
 	go func() {
 		time.Sleep(10 * time.Second)
 		ticker := time.NewTicker(300 * time.Second)
@@ -421,7 +432,18 @@ func autorizarCron(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-// cronMarkOffline is called by Vercel Cron every 5 minutes.
+// cronMarkOffline expõe a marcação de offline por HTTP para acionamento
+// manual. O agendamento NÃO vive mais aqui: desde
+// 20260911040000_mark_offline_via_pg_cron.sql quem roda isto de minuto em
+// minuto é o pg_cron (job 'mark-machines-offline', chamando
+// public.marcar_maquinas_offline()).
+//
+// O comentário anterior dizia "every 5 minutes", mas o vercel.json agendava
+// '0 0 * * *' — uma vez por dia, contra os 3 minutos de silêncio que
+// public.silencio_tolerado() declara tolerar para servidor. Como é UPDATE
+// puro, sem rede nem storage, não há motivo para depender de uma instância
+// serverless estar viva.
+//
 // Vercel sets Authorization: Bearer <CRON_SECRET>.
 func cronMarkOffline(w http.ResponseWriter, r *http.Request) {
 	if !autorizarCron(w, r) {

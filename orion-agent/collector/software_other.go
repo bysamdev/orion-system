@@ -10,14 +10,14 @@ import (
 )
 
 var knownRemoteProcessNames = map[string]string{
-	"teamviewer":      "TeamViewer",
-	"anydesk":         "AnyDesk",
-	"rustdesk":        "RustDesk",
-	"logmein":         "LogMeIn",
-	"x11vnc":          "VNC",
-	"vncserver":       "RealVNC",
-	"tightvnc":        "TightVNC",
-	"screenconnect":   "ScreenConnect",
+	"teamviewer":    "TeamViewer",
+	"anydesk":       "AnyDesk",
+	"rustdesk":      "RustDesk",
+	"logmein":       "LogMeIn",
+	"x11vnc":        "VNC",
+	"vncserver":     "RealVNC",
+	"tightvnc":      "TightVNC",
+	"screenconnect": "ScreenConnect",
 }
 
 // coletarSoftwaresRemotos retorna lista de softwares de acesso remoto em execução em sistemas não-Windows.

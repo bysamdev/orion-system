@@ -41,7 +41,7 @@ func NewDB(databaseURL string) (*DB, error) {
 		}
 		return dialer.DialContext(ctx, "tcp4", addr)
 	}
-	
+
 	// Dimensionamento dinâmico de conexões com suporte a PgBouncer.
 	//
 	// O default de 25 é alto demais pra função serverless: cada instância da

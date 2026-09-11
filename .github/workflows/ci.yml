@@ -1,0 +1,150 @@
+name: CI
+
+# Achado ORI-P1-04 da auditoria de 2026-09-11: não havia nenhum gate
+# automatizado, então regressão, migration inválida e dependência vulnerável
+# chegavam direto em produção.
+#
+# Todo gate aqui foi medido como verde antes de ser ligado — CI que nasce
+# vermelha é ruído e as pessoas aprendem a ignorar. A dívida herdada de lint
+# (207 erros) entra por catraca, não por gate absoluto.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend (typecheck, lint, testes, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Lint (catraca)
+        run: node scripts/lint-ratchet.mjs
+
+      - name: Testes
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  api:
+    name: API Go (build, vet, testes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Formatação
+        run: |
+          nao_formatados=$(gofmt -l . | grep -v node_modules || true)
+          if [ -n "$nao_formatados" ]; then
+            echo "✗ Arquivos fora do gofmt:"
+            echo "$nao_formatados"
+            echo ""
+            echo "Rode: gofmt -w <arquivos>"
+            exit 1
+          fi
+
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test ./...
+
+  agent:
+    name: Orion Agent (build Windows, testes multiplataforma)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: orion-agent
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: orion-agent/go.mod
+          cache-dependency-path: orion-agent/go.sum
+
+      # O agente é um serviço Windows: os pacotes service/ e cmd/installer
+      # importam golang.org/x/sys/windows e não compilam em Linux. O
+      # cross-compile cobre a compilação de todos eles para o alvo real,
+      # incluindo os arquivos _test.go (go vet type-checka os testes também).
+      - name: Build cruzado para Windows
+        run: GOOS=windows go build ./...
+
+      - name: Vet para Windows
+        run: GOOS=windows go vet ./...
+
+      # Execução de teste só para os pacotes que rodam fora do Windows.
+      # service/windows_test.go fica sem execução aqui — ver comentário no fim
+      # deste arquivo.
+      - name: Testes multiplataforma
+        run: go test ./collector/... ./config/... ./sender/... ./shortcut/... ./token/... ./tray/...
+
+  migrations:
+    name: Migrations (sanidade)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Timestamps duplicados
+        run: node scripts/check-migrations.mjs
+
+  dependencias:
+    name: Dependências (vulnerabilidades de produção)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Só produção: o bundle que vai para o navegador. As vulnerabilidades de
+      # devDependency (5 em 2026-09-11, achado ORI-P2-04) são reais mas não
+      # expõem o cliente, e gatear nelas travaria todo PR até a atualização do
+      # Vitest — que é trabalho próprio, não deste gate.
+      - name: npm audit (produção)
+        run: npm audit --omit=dev --audit-level=high
+
+# Lacunas conhecidas, deliberadas, a fechar em incrementos próprios:
+#
+# 1. Replay das migrations em banco descartável. 102 das 190 migrations
+#    dependem de schemas auth/vault/cron/storage e não rodam num Postgres
+#    puro; exige a CLI do Supabase em container. É o gate de maior valor que
+#    ainda falta, porque é o que pega migration inválida antes de produção.
+#
+# 2. Testes do agente em Windows. service/windows_test.go cobre justamente a
+#    execução de comando remoto, a parte mais sensível do agente, e hoje só é
+#    compilado, nunca executado. Exige runner windows-latest.
+#
+# 3. Teste cross-tenant de RLS. Depende de (1) mais duas empresas de teste.

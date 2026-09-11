@@ -13,12 +13,12 @@ import (
 // antigos sem suporte a VT100 (ENABLE_VIRTUAL_TERMINAL_PROCESSING
 // indisponível), preferimos texto plano a lixo de escape codes na tela.
 const (
-	corMarca  = "\x1b[38;2;148;47;188m"
-	corVerde  = "\x1b[32m"
-	corAmarela = "\x1b[33m"
+	corMarca    = "\x1b[38;2;148;47;188m"
+	corVerde    = "\x1b[32m"
+	corAmarela  = "\x1b[33m"
 	corVermelha = "\x1b[31m"
-	corReset  = "\x1b[0m"
-	corNegrito = "\x1b[1m"
+	corReset    = "\x1b[0m"
+	corNegrito  = "\x1b[1m"
 )
 
 var ansiOK = habilitarANSI()

@@ -421,8 +421,8 @@ func TestSaveTokenTo_RestringeACLDoDiretorio(t *testing.T) {
 
 	sids := strings.Fields(strings.TrimSpace(string(out)))
 	esperados := map[string]string{
-		"S-1-5-18":                        "SYSTEM",
-		"S-1-5-32-544":                    "Administradores",
+		"S-1-5-18":     "SYSTEM",
+		"S-1-5-32-544": "Administradores",
 		strings.TrimSpace(string(sidUsuarioAtual)): "usuário atual (criador do diretório)",
 	}
 

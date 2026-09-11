@@ -76,8 +76,8 @@ func TestRateLimiter_ConcorrenciaRespeitaOLimiteExatamente(t *testing.T) {
 	rl := NewRateLimiter(time.Minute, limite)
 
 	var (
-		wg        sync.WaitGroup
-		mu        sync.Mutex
+		wg         sync.WaitGroup
+		mu         sync.Mutex
 		permitidos int
 	)
 

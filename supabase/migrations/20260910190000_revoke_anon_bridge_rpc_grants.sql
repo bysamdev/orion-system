@@ -1,14 +1,13 @@
 -- =================================================================================
 -- Migration: 20260910190000_revoke_anon_bridge_rpc_grants.sql
 --
--- PREPARADA PARA REVISÃO — NÃO APLICADA NESTA RODADA. Só aplicar depois de
--- confirmar que o servidor Debian (orion-bridge, monitoring/bridge.mjs) já
--- está rodando com a chave service_role no lugar da anon key — troca manual
--- no .env do servidor, fora do escopo automatizável daqui (ver comentário
--- de CONFIG em bridge.mjs). Aplicar isto ANTES da troca derruba a
--- telemetria em produção: get_all_monitoring_targets e
+-- APLICADA EM 2026-09-11, depois de confirmar em runtime que o servidor
+-- Debian (orion-bridge, monitoring/bridge.mjs) já roda com a chave
+-- service_role: o log de start do container passou a imprimir
+-- "SUPABASE_KEY é service_role". Essa ordem importa — aplicar isto antes da
+-- troca derrubaria a telemetria, já que get_all_monitoring_targets e
 -- update_telemetry_status ficariam sem nenhum papel autorizado a chamá-las
--- enquanto o bridge ainda usa anon.
+-- enquanto o bridge ainda usasse anon.
 --
 -- Achado correcao-autorizacao-p0.md item 1.5: as duas RPCs são SECURITY
 -- DEFINER com EXECUTE concedido a anon/authenticated

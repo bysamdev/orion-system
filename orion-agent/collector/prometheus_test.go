@@ -271,4 +271,3 @@ func TestGetHardwareInfoEExportPrometheusMetrics(t *testing.T) {
 		t.Errorf("ExportPrometheusMetrics não contém orion_network_status:\n%s", metrics)
 	}
 }
-

@@ -61,3 +61,38 @@ func TestProbeNetworkTarget_Empty(t *testing.T) {
 		t.Errorf("Expected status 'offline', got '%s'", status)
 	}
 }
+
+// TestIsBlockedIP_NaoGlobalUnicast cobre o achado ORI-P2-05: 255.255.255.255
+// (broadcast limitado) passava pela lista explícita anterior de checagens e
+// respondia a ping em rede local, fazendo um link cadastrado com esse alvo
+// aparecer como online. A troca por !IsGlobalUnicast() fecha essa e as
+// outras faixas não-roteáveis de uma vez.
+func TestIsBlockedIP_NaoGlobalUnicast(t *testing.T) {
+	casos := []struct {
+		nome     string
+		ip       string
+		bloqueia bool
+	}{
+		{"broadcast limitado", "255.255.255.255", true},
+		{"loopback", "127.0.0.1", true},
+		{"link-local (metadados de nuvem)", "169.254.169.254", true},
+		{"unspecified", "0.0.0.0", true},
+		{"multicast", "224.0.0.1", true},
+		{"RFC 1918", "192.168.1.1", true},
+		{"RFC 1918 classe A", "10.0.0.1", true},
+		{"loopback IPv6", "::1", true},
+		{"público IPv4 continua permitido", "8.8.8.8", false},
+		{"público IPv6 continua permitido", "2001:4860:4860::8888", false},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			ip := net.ParseIP(c.ip)
+			if ip == nil {
+				t.Fatalf("IP de teste inválido: %q", c.ip)
+			}
+			if got := isBlockedIP(ip); got != c.bloqueia {
+				t.Errorf("isBlockedIP(%s) = %v, esperado %v", c.ip, got, c.bloqueia)
+			}
+		})
+	}
+}
