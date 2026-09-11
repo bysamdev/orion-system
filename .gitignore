@@ -44,3 +44,6 @@ graphify-out/
 scratch/
 __pycache__/
 *.pyc
+
+# Artefatos incrementais do tsc -b (regenerados a cada build)
+*.tsbuildinfo

@@ -127,10 +127,11 @@ services:
     container_name: orion-bridge
     restart: always
     # SUPABASE_KEY e BRIDGE_SECRET vêm do .env (fora do repo, de propósito).
-    # SUPABASE_KEY deve ser a chave service_role, não a anon key — ver
-    # comentário de CONFIG em bridge.mjs e a migration preparada
-    # supabase/migrations/20260910190000_revoke_anon_bridge_rpc_grants.sql,
-    # que só deve ser aplicada DEPOIS de trocar a chave aqui.
+    # SUPABASE_KEY é a chave service_role (confirmado em produção em
+    # 2026-09-11 pelo log de start de bridge.mjs). Não voltar pra anon key:
+    # 20260910190000_revoke_anon_bridge_rpc_grants.sql já revogou o EXECUTE
+    # de anon/authenticated nas RPCs de telemetria, então com anon o bridge
+    # passa a tomar 403.
     env_file:
       - .env
     volumes:

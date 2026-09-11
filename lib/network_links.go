@@ -20,12 +20,17 @@ import (
 // link-local -- inclui 169.254.169.254, metadados de nuvem) como alvo de
 // probe. Usado tanto na validação de DNS resolvido quanto no Control do
 // dialer, pra fechar a janela de DNS rebinding entre resolver e conectar.
+//
+// !IsGlobalUnicast() cobre de uma vez loopback, link-local (unicast e
+// multicast), unspecified, multicast e broadcast limitado (255.255.255.255)
+// -- este último passava pela lista explícita anterior e respondia a ping
+// em rede local, marcando o link como online. IsPrivate fica separado
+// porque RFC 1918 É global unicast pro Go.
 func isBlockedIP(ip net.IP) bool {
 	if ip == nil {
 		return true
 	}
-	return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
-		ip.IsUnspecified() || ip.IsPrivate() || ip.IsMulticast()
+	return !ip.IsGlobalUnicast() || ip.IsPrivate()
 }
 
 // safeDialControl roda depois da resolução de DNS e antes do connect() de
