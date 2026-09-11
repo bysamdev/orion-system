@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration: 20260904100600_fix_ch_c15_c17_revoke_public_execute.sql
+-- Migration: 20260911120000_fix_ch_c15_c17_revoke_public_execute.sql
 --
 -- Complemento de CH-C15/CH-C16/CH-C17: revogar EXECUTE também de PUBLIC
 --

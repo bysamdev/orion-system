@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration: 20260904100700_fix_ch_c06b_lock_ticket_update_metadata.sql
+-- Migration: 20260911120100_fix_ch_c06b_lock_ticket_update_metadata.sql
 --
 -- Complemento de CH-C06: travar created_at, autor, tipo e visibilidade na
 -- edição de comentário

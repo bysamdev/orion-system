@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration: 20260904100800_fix_ch_c04b_customer_ticket_update_allowlist.sql
+-- Migration: 20260911120200_fix_ch_c04b_customer_ticket_update_allowlist.sql
 --
 -- Complemento de CH-C04: trocar a lista negra de colunas por lista branca
 --
