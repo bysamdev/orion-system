@@ -12,37 +12,137 @@ import (
 	"orion-agent/tray"
 )
 
-// CreatePortalShortcut cria o atalho "Abrir Chamado Orion" na Área de Trabalho com o ícone do Orion.
+const (
+	nomeAtalho       = "Abrir Chamado Orion.url"
+	nomeAtalhoLegado = "Abrir Portal de Chamados.url"
+)
+
+// CreatePortalShortcut garante UM atalho "Abrir Chamado Orion" visível na Área
+// de Trabalho, com o ícone do Orion.
+//
+// Antes, o atalho era gravado ao mesmo tempo na Área de Trabalho pública e na
+// do usuário (por dois caminhos diferentes — %USERPROFILE%\Desktop e a pasta
+// registrada em User Shell Folders, que com OneDrive é outra). O Explorer
+// mostra a pública e a pessoal juntas, então o usuário via o ícone duplicado.
+//
+// Regra agora: a pública é o lugar certo (vale para todos que usam a
+// máquina). Se o atalho existe lá — gravado agora ou já presente e só sem
+// permissão para reescrever, caso da bandeja rodando sem elevação —, as cópias
+// pessoais são removidas. Só quando não há como tê-lo na pública ele vai para a
+// Área de Trabalho do usuário, em uma única pasta.
 func CreatePortalShortcut(apiURL string, machineToken string) error {
 	if runtime.GOOS != "windows" {
 		return nil
 	}
+	return garantirAtalhoUnico(desktopPublico(), desktopsDoUsuario(), apiURL, machineToken)
+}
 
-	// 1. Grava no Desktop Público (para aparecer na área de trabalho de todos os usuários)
-	publicDesktop := filepath.Join(os.Getenv("PUBLIC"), "Desktop")
-	if publicDesktop != "Desktop" && publicDesktop != "" {
-		_ = criarAtalhoEm(filepath.Join(publicDesktop, "Abrir Chamado Orion.url"), apiURL, machineToken)
-		_ = os.Remove(filepath.Join(publicDesktop, "Abrir Portal de Chamados.url"))
+// RemoverAtalhos apaga o atalho (e o nome legado) de todas as Áreas de
+// Trabalho onde alguma versão do agente pode tê-lo gravado. Usado no uninstall.
+func RemoverAtalhos() {
+	pastas := append([]string{desktopPublico()}, desktopsDoUsuario()...)
+	for _, pasta := range pastas {
+		removerAtalhosEm(pasta)
+	}
+}
+
+// garantirAtalhoUnico é a regra de CreatePortalShortcut com as pastas
+// injetadas, para ser testável sem tocar nas Áreas de Trabalho reais.
+// pessoais vem em ordem de preferência: a primeira é onde o atalho fica
+// quando não pode ir para a pública.
+func garantirAtalhoUnico(publica string, pessoais []string, apiURL, machineToken string) error {
+	if publica != "" {
+		_ = os.Remove(filepath.Join(publica, nomeAtalhoLegado))
+		caminhoPublico := filepath.Join(publica, nomeAtalho)
+		errPublico := criarAtalhoEm(caminhoPublico, apiURL, machineToken)
+		if _, err := os.Stat(caminhoPublico); err == nil {
+			for _, pasta := range pessoais {
+				if !mesmaPasta(pasta, publica) {
+					removerAtalhosEm(pasta)
+				}
+			}
+			return nil
+		}
+		_ = errPublico // sem atalho na pública: segue para a pessoal abaixo
 	}
 
-	// 2. Grava no Desktop do usuário atual via UserHomeDir
-	if home, err := os.UserHomeDir(); err == nil && home != "" {
-		userDesktop := filepath.Join(home, "Desktop")
-		_ = criarAtalhoEm(filepath.Join(userDesktop, "Abrir Chamado Orion.url"), apiURL, machineToken)
-		_ = os.Remove(filepath.Join(userDesktop, "Abrir Portal de Chamados.url"))
+	if len(pessoais) == 0 {
+		return fmt.Errorf("nenhuma Área de Trabalho disponível para o atalho")
 	}
-
-	// 3. Grava no Desktop do usuário atual via Registro do Windows (User Shell Folders)
-	if k, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders`, registry.QUERY_VALUE); err == nil {
-		defer k.Close()
-		if regDesktop, _, err := k.GetStringValue("Desktop"); err == nil && regDesktop != "" {
-			regDesktop = os.ExpandEnv(regDesktop)
-			_ = criarAtalhoEm(filepath.Join(regDesktop, "Abrir Chamado Orion.url"), apiURL, machineToken)
-			_ = os.Remove(filepath.Join(regDesktop, "Abrir Portal de Chamados.url"))
+	principal := pessoais[0]
+	_ = os.Remove(filepath.Join(principal, nomeAtalhoLegado))
+	if err := criarAtalhoEm(filepath.Join(principal, nomeAtalho), apiURL, machineToken); err != nil {
+		return err
+	}
+	for _, pasta := range pessoais[1:] {
+		if !mesmaPasta(pasta, principal) {
+			removerAtalhosEm(pasta)
 		}
 	}
-
 	return nil
+}
+
+func removerAtalhosEm(pasta string) {
+	if pasta == "" {
+		return
+	}
+	_ = os.Remove(filepath.Join(pasta, nomeAtalho))
+	_ = os.Remove(filepath.Join(pasta, nomeAtalhoLegado))
+}
+
+func desktopPublico() string {
+	publico := os.Getenv("PUBLIC")
+	if publico == "" {
+		return ""
+	}
+	return filepath.Join(publico, "Desktop")
+}
+
+// desktopsDoUsuario lista as pastas de Área de Trabalho do usuário atual, na
+// ordem de preferência: primeiro a registrada em User Shell Folders (é a que o
+// Explorer realmente mostra — com OneDrive, C:\Users\x\OneDrive\Desktop), depois
+// %USERPROFILE%\Desktop. Sem repetições.
+func desktopsDoUsuario() []string {
+	var candidatas []string
+	if k, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders`, registry.QUERY_VALUE); err == nil {
+		if valor, _, err := k.GetStringValue("Desktop"); err == nil && valor != "" {
+			// O valor costuma ser REG_EXPAND_SZ ("%USERPROFILE%\Desktop");
+			// os.ExpandEnv, usado antes, só entende $VAR e deixava o texto cru.
+			if expandido, err := registry.ExpandString(valor); err == nil {
+				valor = expandido
+			}
+			candidatas = append(candidatas, valor)
+		}
+		k.Close()
+	}
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		candidatas = append(candidatas, filepath.Join(home, "Desktop"))
+	}
+	return semPastasRepetidas(candidatas)
+}
+
+func semPastasRepetidas(pastas []string) []string {
+	var unicas []string
+	for _, p := range pastas {
+		if p == "" {
+			continue
+		}
+		repetida := false
+		for _, u := range unicas {
+			if mesmaPasta(p, u) {
+				repetida = true
+				break
+			}
+		}
+		if !repetida {
+			unicas = append(unicas, p)
+		}
+	}
+	return unicas
+}
+
+func mesmaPasta(a, b string) bool {
+	return strings.EqualFold(filepath.Clean(a), filepath.Clean(b))
 }
 
 // criarAtalhoEm grava o atalho num caminho arbitrário com o ícone real do
@@ -117,12 +217,4 @@ func gravarIconeEm(pasta string) (string, error) {
 		return "", fmt.Errorf("gravar orion.ico: %w", err)
 	}
 	return caminhoIco, nil
-}
-
-func getDesktopPath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, "Desktop"), nil
 }

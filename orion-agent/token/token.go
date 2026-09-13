@@ -55,6 +55,87 @@ func GenerateRandomIdentity() (string, error) {
 	return hex.EncodeToString(buf), nil
 }
 
+// ErrIdentidadeJaExiste indica que SaveNewToken encontrou uma identidade já
+// gravada por outro processo do agente.
+var ErrIdentidadeJaExiste = errors.New("identidade da máquina já existe em disco")
+
+// SaveNewToken grava uma identidade RECÉM-GERADA só se ainda não houver
+// nenhuma em disco (criação exclusiva, O_EXCL).
+//
+// SaveToken sobrescreve, e isso duplicava máquinas no inventário: na
+// instalação, serviço e bandeja sobem juntos, os dois não acham arquivo,
+// cada um gera uma identidade aleatória e o último a gravar vence — mas os
+// dois já tinham feito check-in com a sua. Foi o que criou três registros
+// WIN-AGM431 no mesmo segundo. Com criação exclusiva, quem perde a corrida
+// recebe ErrIdentidadeJaExiste e passa a usar a identidade do vencedor.
+func SaveNewToken(token string) error {
+	return saveNewTokenTo(GetTokenPath(), token)
+}
+
+// GarantirPermissoesDoDiretorio reaplica a ACL do diretório de identidade
+// quando ele já existe. O serviço chama a cada start: instalações anteriores
+// a esta correção criaram o diretório sem a leitura para usuários
+// interativos (ver endurecerACLDoDiretorio), e SaveToken — o único ponto que
+// aplicava a ACL — não roda mais depois que a identidade existe.
+func GarantirPermissoesDoDiretorio() error {
+	dir := filepath.Dir(GetTokenPath())
+	if _, err := os.Stat(dir); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return endurecerACLDoDiretorio(dir)
+}
+
+// prepararDiretorioDeIdentidade cria o diretório se preciso e aplica a ACL.
+func prepararDiretorioDeIdentidade(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create token directory: %w", err)
+		}
+	}
+	// Reaplicada em toda gravação, não só na criação (correção A.4): a conta
+	// sob a qual o serviço roda pode mudar entre versões do agente — por
+	// exemplo, ao reduzir de LocalSystem para uma conta de serviço virtual
+	// (NT SERVICE\OrionAgent, ver ServiceConfig em service/windows.go). Uma
+	// instalação já existente, com o diretório criado sob a conta antiga,
+	// ficaria sem acesso ao próprio token se a ACL só fosse aplicada na
+	// criação. icacls /inheritance:r /grant:r é idempotente.
+	if err := endurecerACLDoDiretorio(dir); err != nil {
+		return fmt.Errorf("endurecer permissões do diretório de identidade: %w", err)
+	}
+	return nil
+}
+
+func saveNewTokenTo(path, token string) error {
+	if strings.TrimSpace(token) == "" {
+		return errors.New("identidade vazia não pode ser gravada")
+	}
+	if err := prepararDiretorioDeIdentidade(filepath.Dir(path)); err != nil {
+		return err
+	}
+
+	protegido, err := protect([]byte(token))
+	if err != nil {
+		return fmt.Errorf("proteger token antes de gravar: %w", err)
+	}
+
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		if os.IsExist(err) {
+			return ErrIdentidadeJaExiste
+		}
+		return fmt.Errorf("write token file: %w", err)
+	}
+	if _, err := f.Write(protegido); err != nil {
+		f.Close()
+		_ = os.Remove(path)
+		return fmt.Errorf("write token file: %w", err)
+	}
+	return f.Close()
+}
+
 // loadTokenFrom lê e decifra o token de um caminho arbitrário.
 //
 // Existe separada de LoadToken para que os testes exercitem esta lógica real sem
@@ -92,24 +173,8 @@ func loadTokenFrom(path string) (string, error) {
 // saveTokenTo cifra e grava o token em um caminho arbitrário. Ver comentário de
 // loadTokenFrom sobre por que a lógica é separada da função pública.
 func saveTokenTo(path, token string) error {
-	dir := filepath.Dir(path)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("create token directory: %w", err)
-		}
-	}
-
-	// Reaplicada em toda gravação, não só na criação (correção A.4): a conta
-	// sob a qual o serviço roda pode mudar entre versões do agente — por
-	// exemplo, ao reduzir de LocalSystem para uma conta de serviço virtual
-	// (NT SERVICE\OrionAgent, ver ServiceConfig em service/windows.go). Uma
-	// instalação já existente, com o diretório criado sob a conta antiga,
-	// ficaria sem acesso ao próprio token se a ACL só fosse aplicada na
-	// criação. icacls /inheritance:r /grant:r é idempotente — reaplicar o
-	// mesmo estado não tem custo real (SaveToken só roda ~1x por processo,
-	// não é caminho quente).
-	if err := endurecerACLDoDiretorio(dir); err != nil {
-		return fmt.Errorf("endurecer permissões do diretório de identidade: %w", err)
+	if err := prepararDiretorioDeIdentidade(filepath.Dir(path)); err != nil {
+		return err
 	}
 
 	if token == "" {

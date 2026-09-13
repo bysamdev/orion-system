@@ -511,21 +511,52 @@ WHERE id = $1 AND ($2::uuid IS NULL OR company_id = $2::uuid)`,
 // um heartbeat, numa transação: além do id, devolve o device_type
 // efetivamente gravado (já considerando um eventual override travado — ver
 // device_type_locked) e o approval_status atual.
-func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, osVersion, agentVersion, machineToken, machineUUID, currentUser, currentUserSID, companyID, deviceType, macAddress, domain, deviceTypeReason string) (id, resolvedDeviceType, approvalStatus string, err error) {
+// UpsertMachineInput é o que o heartbeat grava em public.machines.
+type UpsertMachineInput struct {
+	GroupID, Hostname, IP, OS, OSVersion, AgentVersion string
+	MachineToken, MachineUUID                          string
+	// HardwareUUID e BoardMAC identificam o computador físico e sobrevivem à
+	// formatação — ver mesclarIdentidadeReinstalada.
+	HardwareUUID, BoardMAC                           string
+	CurrentUser, CurrentUserSID, CompanyID           string
+	DeviceType, DeviceTypeReason, MACAddress, Domain string
+}
+
+// UpsertMachineResult é o que o heartbeat precisa saber depois do upsert.
+type UpsertMachineResult struct {
+	ID             string
+	DeviceType     string
+	ApprovalStatus string
+	// TokenAnterior só vem preenchido quando este heartbeat reaproveitou o
+	// registro de uma instalação anterior do mesmo computador; o chamador usa
+	// para migrar o usuário-fantasma do portal, derivado do token
+	// (ver MachineGhostEmail). CriterioMesclagem diz qual chave casou.
+	TokenAnterior     string
+	CriterioMesclagem string
+}
+
+func (d *DB) UpsertMachine(ctx context.Context, in UpsertMachineInput) (res UpsertMachineResult, err error) {
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
-		return "", "", "", err
+		return res, err
 	}
 	defer tx.Rollback(ctx)
 
 	// Salva apenas o Hostname puro da máquina (sem IP ou usuário concatenados)
-	cleanHostname := strings.TrimSpace(hostname)
+	cleanHostname := strings.TrimSpace(in.Hostname)
 	if idx := strings.Index(cleanHostname, " - "); idx != -1 {
 		cleanHostname = strings.TrimSpace(cleanHostname[:idx])
 	}
 
+	deviceType := in.DeviceType
 	if deviceType == "" {
 		deviceType = "desktop"
+	}
+
+	chaves := montarChavesDeIdentidade(in.HardwareUUID, in.BoardMAC, in.MACAddress)
+	res.TokenAnterior, res.CriterioMesclagem, err = mesclarIdentidadeReinstalada(ctx, tx, in, chaves, cleanHostname)
+	if err != nil {
+		return res, err
 	}
 
 	var deviceTypeAntes *string
@@ -533,8 +564,8 @@ func (d *DB) UpsertMachine(ctx context.Context, groupID, hostname, ip, osName, o
 WITH machine_antes AS (
   SELECT device_type, approval_status FROM public.machines WHERE machine_token = $7
 )
-INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type, device_type_reason, domain)
-VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $15, $14)
+INSERT INTO public.machines (group_id, hostname, ip_address, os, os_version, status, last_seen, agent_version, machine_token, machine_uuid, "current_user", current_user_sid, company_id, local_ip, logged_in_user, mac_address, device_type, device_type_reason, domain, hardware_uuid, board_mac)
+VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8, $9, $10, $11, $3, $9, $12, $13, $15, $14, $16, $17)
 ON CONFLICT (machine_token) DO UPDATE
   SET group_id = CASE WHEN machines.approval_status = 'rejected' THEN machines.group_id ELSE $1 END,
       hostname = CASE WHEN machines.approval_status = 'rejected' THEN machines.hostname ELSE $2 END,
@@ -552,13 +583,16 @@ ON CONFLICT (machine_token) DO UPDATE
       mac_address = CASE WHEN machines.approval_status = 'rejected' THEN machines.mac_address ELSE $12 END,
       device_type = CASE WHEN machines.device_type_locked THEN machines.device_type ELSE EXCLUDED.device_type END,
       device_type_reason = CASE WHEN machines.device_type_locked THEN machines.device_type_reason ELSE EXCLUDED.device_type_reason END,
-      domain = CASE WHEN machines.approval_status = 'rejected' THEN machines.domain ELSE $14 END
+      domain = CASE WHEN machines.approval_status = 'rejected' THEN machines.domain ELSE $14 END,
+      hardware_uuid = COALESCE(EXCLUDED.hardware_uuid, machines.hardware_uuid),
+      board_mac = COALESCE(EXCLUDED.board_mac, machines.board_mac)
 RETURNING id::text, (SELECT device_type FROM machine_antes), device_type, approval_status::text`,
-		groupID, cleanHostname, ip, osName, osVersion, agentVersion, machineToken, NilIfEmpty(machineUUID), currentUser, NilIfEmpty(currentUserSID), NilIfEmpty(companyID), NilIfEmpty(macAddress), deviceType, NilIfEmpty(domain), NilIfEmpty(deviceTypeReason),
-	).Scan(&id, &deviceTypeAntes, &resolvedDeviceType, &approvalStatus)
+		in.GroupID, cleanHostname, in.IP, in.OS, in.OSVersion, in.AgentVersion, in.MachineToken, NilIfEmpty(in.MachineUUID), in.CurrentUser, NilIfEmpty(in.CurrentUserSID), NilIfEmpty(in.CompanyID), NilIfEmpty(in.MACAddress), deviceType, NilIfEmpty(in.Domain), NilIfEmpty(in.DeviceTypeReason), NilIfEmpty(chaves.hardwareUUID), NilIfEmpty(chaves.boardMAC),
+	).Scan(&res.ID, &deviceTypeAntes, &res.DeviceType, &res.ApprovalStatus)
 	if err != nil {
-		return "", "", "", err
+		return res, err
 	}
+	id, resolvedDeviceType := res.ID, res.DeviceType
 
 	// Registra a mudança só quando o device_type efetivamente gravado (já
 	// considerando o lock acima) difere do que havia antes — cobre tanto a
@@ -571,15 +605,15 @@ RETURNING id::text, (SELECT device_type FROM machine_antes), device_type, approv
 		if _, err = tx.Exec(ctx, `
 INSERT INTO public.machine_device_type_history (machine_id, old_type, new_type, reason, changed_by)
 VALUES ($1, $2, $3, $4, 'agent')`,
-			id, deviceTypeAntes, resolvedDeviceType, NilIfEmpty(deviceTypeReason)); err != nil {
-			return "", "", "", err
+			id, deviceTypeAntes, resolvedDeviceType, NilIfEmpty(in.DeviceTypeReason)); err != nil {
+			return res, err
 		}
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return "", "", "", err
+		return res, err
 	}
-	return id, resolvedDeviceType, approvalStatus, nil
+	return res, nil
 }
 
 // SetDeviceTypeOverride aplica uma correção manual de classificação de

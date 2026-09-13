@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"orion-api/lib"
 )
 
 func getUptimeRobotKey() string {
@@ -50,6 +54,161 @@ type uptimeResponse struct {
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error,omitempty"`
+}
+
+// endpointDiagnostics carrega as métricas reais de uptime/latência exibidas
+// no painel de diagnóstico expandido de cada monitor no front — substitui os
+// números que antes eram fabricados a partir só do status atual (isOnline),
+// o que fazia o histórico "resetar" pra 100% assim que o site voltava a
+// ficar online.
+//
+// Fonte: Prometheus (blackbox_exporter), consultado via proxy do Grafana —
+// o mesmo Prometheus que já roda no servidor de monitoramento (Debian,
+// docker-compose em ~/monitoramento) e que o orion-bridge usa pra manter
+// monitored_endpoints.status em dia (ver monitoring/bridge.mjs e
+// monitoring/prometheus.yml, job "blackbox_http", label endpoint_id). Não
+// usa a API do UptimeRobot: aquele monitor é de terceiro, com resolução
+// diferente do que o próprio servidor de monitoramento já mede.
+type endpointDiagnostics struct {
+	Uptime24hPct     *float64          `json:"uptime_24h_pct"`
+	ResponseMinMs    *int              `json:"response_min_ms"`
+	ResponseAvgMs    *int              `json:"response_avg_ms"`
+	ResponseMaxMs    *int              `json:"response_max_ms"`
+	JitterMs         *int              `json:"jitter_ms"`
+	DowntimeEvents24 int               `json:"downtime_events_24h"`
+	RecentChecks     []recentCheckJSON `json:"recent_checks"`
+	RecentEvents     []recentEventJSON `json:"recent_events"`
+	HasDiagnostics   bool              `json:"has_diagnostics"`
+}
+
+type recentCheckJSON struct {
+	Time int64 `json:"time"` // unix seconds
+	Ms   int   `json:"ms"`
+}
+
+type recentEventJSON struct {
+	Type     int   `json:"type"` // 1=down, 2=up
+	Time     int64 `json:"time"` // unix seconds
+	Duration int   `json:"duration"`
+}
+
+// buildEndpointDiagnostics recebe as séries brutas de probe_success (0/1) e
+// probe_duration_seconds*1000 (ms) devolvidas pelo Prometheus (mesmo
+// timestamp unix como chave nos dois mapas) e calcula uptime real,
+// latência min/média/máx, jitter e os eventos de queda das últimas 24h.
+func buildEndpointDiagnostics(success, durationMs map[int64]float64) endpointDiagnostics {
+	diag := endpointDiagnostics{HasDiagnostics: true}
+	if len(success) == 0 {
+		return diag
+	}
+
+	timestamps := make([]int64, 0, len(success))
+	for ts := range success {
+		timestamps = append(timestamps, ts)
+	}
+	sort.Slice(timestamps, func(i, j int) bool { return timestamps[i] < timestamps[j] })
+
+	upCount := 0
+	for _, ts := range timestamps {
+		if success[ts] == 1 {
+			upCount++
+		}
+	}
+	uptime := (float64(upCount) / float64(len(timestamps))) * 100
+	diag.Uptime24hPct = &uptime
+
+	// Latência só faz sentido para pontos em que o probe teve sucesso —
+	// quando falha, probe_duration_seconds mede o tempo até o timeout, não
+	// uma resposta real do servidor.
+	var okValues []int
+	for _, ts := range timestamps {
+		if success[ts] != 1 {
+			continue
+		}
+		if v, ok := durationMs[ts]; ok {
+			okValues = append(okValues, int(math.Round(v)))
+		}
+	}
+	if len(okValues) > 0 {
+		sum, minV, maxV := 0, okValues[0], okValues[0]
+		for _, v := range okValues {
+			sum += v
+			if v < minV {
+				minV = v
+			}
+			if v > maxV {
+				maxV = v
+			}
+		}
+		avg := sum / len(okValues)
+		var variance float64
+		for _, v := range okValues {
+			d := float64(v - avg)
+			variance += d * d
+		}
+		variance /= float64(len(okValues))
+		jitter := int(math.Round(math.Sqrt(variance)))
+
+		diag.ResponseMinMs = &minV
+		diag.ResponseAvgMs = &avg
+		diag.ResponseMaxMs = &maxV
+		diag.JitterMs = &jitter
+
+		// Sondas mais recentes primeiro, pra alimentar a barra de
+		// "verificações contínuas" e o log de checagens no front.
+		type check struct {
+			ts int64
+			ms int
+		}
+		var checks []check
+		for _, ts := range timestamps {
+			if success[ts] != 1 {
+				continue
+			}
+			if v, ok := durationMs[ts]; ok {
+				checks = append(checks, check{ts, int(math.Round(v))})
+			}
+		}
+		sort.Slice(checks, func(i, j int) bool { return checks[i].ts > checks[j].ts })
+		limit := 24
+		if len(checks) < limit {
+			limit = len(checks)
+		}
+		diag.RecentChecks = make([]recentCheckJSON, limit)
+		for i := 0; i < limit; i++ {
+			diag.RecentChecks[i] = recentCheckJSON{Time: checks[i].ts, Ms: checks[i].ms}
+		}
+	}
+
+	// Eventos de queda: cada transição 1→0 (ou início da janela já em 0)
+	// abre um evento; a transição seguinte pra 1 (ou o fim da janela, se a
+	// queda ainda está em andamento) fecha ele.
+	var events []recentEventJSON
+	var downStart int64 = 0
+	wasDown := false
+	for _, ts := range timestamps {
+		isDown := success[ts] != 1
+		if isDown && !wasDown {
+			downStart = ts
+		} else if !isDown && wasDown {
+			events = append(events, recentEventJSON{Type: 1, Time: downStart, Duration: int(ts - downStart)})
+		}
+		wasDown = isDown
+	}
+	if wasDown {
+		lastTs := timestamps[len(timestamps)-1]
+		events = append(events, recentEventJSON{Type: 1, Time: downStart, Duration: int(lastTs - downStart)})
+	}
+	diag.DowntimeEvents24 = len(events)
+
+	sort.Slice(events, func(i, j int) bool { return events[i].Time > events[j].Time })
+	limit := 5
+	if len(events) < limit {
+		limit = len(events)
+	}
+	diag.RecentEvents = events[:limit]
+
+	return diag
 }
 
 func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -281,6 +440,40 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+	}
+
+	// 3. Diagnóstico real (uptime, latência, quedas) vem do Prometheus do
+	// próprio servidor de monitoramento, via proxy do Grafana — o mesmo
+	// dado que já alimenta o status ao vivo através do orion-bridge (ver
+	// comentário de endpointDiagnostics acima). Sem GRAFANA_API_TOKEN
+	// configurado ou sem série no Prometheus pra esse endpoint_id (ex:
+	// monitor criado há poucos segundos), fica has_diagnostics=false — o
+	// front mostra "sem dados" em vez de inventar número.
+	//
+	// Em paralelo (não sequencial): cada endpoint dispara 2 chamadas HTTP
+	// pro Grafana (probe_success + probe_duration_seconds), e o número de
+	// monitores por empresa é sempre pequeno o bastante pra não precisar de
+	// um limite de concorrência (diferente da frota de máquinas).
+	diagnosticsByIndex := make([]endpointDiagnostics, len(endpoints))
+	var wg sync.WaitGroup
+	for i, ep := range endpoints {
+		i, id := i, ep["id"].(string)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			success, durationMs, err := lib.QueryWebEndpointProbeSeries(
+				r.Context(), cfg.GrafanaURL, cfg.GrafanaAPIToken, cfg.GrafanaPromDSUID, cfg.GrafanaBypassSecret, id,
+			)
+			if err != nil {
+				diagnosticsByIndex[i] = endpointDiagnostics{HasDiagnostics: false}
+				return
+			}
+			diagnosticsByIndex[i] = buildEndpointDiagnostics(success, durationMs)
+		}()
+	}
+	wg.Wait()
+	for i := range endpoints {
+		endpoints[i]["diagnostics"] = diagnosticsByIndex[i]
 	}
 
 	if endpoints == nil {

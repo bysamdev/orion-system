@@ -72,6 +72,25 @@ function formatDate(dateStr?: string | null) {
   }
 }
 
+function formatTimeShort(unixSeconds?: number | null) {
+  if (!unixSeconds) return '–';
+  return new Date(unixSeconds * 1000).toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function formatDurationShort(seconds?: number | null) {
+  if (!seconds || seconds <= 0) return '–';
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}min`;
+  const hours = Math.floor(minutes / 60);
+  const remMinutes = minutes % 60;
+  return `${hours}h${remMinutes ? ` ${remMinutes}min` : ''}`;
+}
+
 function getLinkTypeInfo(type: string) {
   const normalized = type?.toLowerCase().replace(/[\s_]+/g, '') || '';
   if (normalized.includes('starlink')) {
@@ -666,16 +685,27 @@ export default function WebMonitoring() {
                 </CardContent>
               </Card>
             ) : (
-              endpoints.map((endpoint, idx) => {
+              endpoints.map((endpoint) => {
                 const isOnline = endpoint.status === 'online';
-                const measuredLatency = 55 + (idx * 16);
                 const isHttps = endpoint.url_or_ip?.toLowerCase().startsWith('https');
                 const isExpanded = expandedEndpointIds.has(endpoint.id);
-                
-                // Diagnostic metrics
-                const minLatency = Math.max(20, Math.round(measuredLatency * 0.75));
-                const maxLatency = Math.round(measuredLatency * 1.35);
-                const jitter = Math.round(Math.abs(maxLatency - minLatency) / 4);
+
+                // Diagnostic metrics reais (Prometheus do servidor de
+                // monitoramento, via Grafana) — vem do backend em
+                // endpoint.diagnostics. Sem isso (ex: GRAFANA_API_TOKEN não
+                // configurado, ou monitor recém-criado sem série ainda),
+                // mostramos "sem dados" em vez de inventar números a partir
+                // só do status atual.
+                const diag = endpoint.diagnostics;
+                const hasDiag = !!diag?.has_diagnostics;
+                const measuredLatency = hasDiag ? diag!.response_avg_ms : null;
+                const minLatency = hasDiag ? diag!.response_min_ms : null;
+                const maxLatency = hasDiag ? diag!.response_max_ms : null;
+                const jitter = hasDiag ? diag!.jitter_ms : null;
+                const uptime24h = hasDiag ? diag!.uptime_24h_pct : null;
+                const downtimeEvents24h = hasDiag ? diag!.downtime_events_24h : null;
+                const recentChecks = hasDiag ? diag!.recent_checks || [] : [];
+                const recentEvents = hasDiag ? diag!.recent_events || [] : [];
 
                 return (
                   <Card
@@ -725,7 +755,7 @@ export default function WebMonitoring() {
                             Resposta
                           </span>
                           <span className="text-xs font-mono font-bold text-foreground">
-                            {isOnline ? `${measuredLatency} ms` : 'Timeout'}
+                            {!isOnline ? 'Timeout' : measuredLatency != null ? `${measuredLatency} ms` : '–'}
                           </span>
                         </div>
 
@@ -816,7 +846,11 @@ export default function WebMonitoring() {
                                 Estabilidade da Conexão
                               </span>
                               <span className="text-xs font-bold">
-                                {isOnline ? 'Conexão Estável (0 quedas em 24h)' : 'Queda Ativa / Sem Resposta (Offline)'}
+                                {!hasDiag
+                                  ? 'Diagnóstico indisponível'
+                                  : isOnline
+                                  ? `Conexão Estável (${downtimeEvents24h ?? 0} queda${downtimeEvents24h === 1 ? '' : 's'} em 24h)`
+                                  : 'Queda Ativa / Sem Resposta (Offline)'}
                               </span>
                             </div>
                           </div>
@@ -829,10 +863,16 @@ export default function WebMonitoring() {
                                 Oscilação (Jitter)
                               </span>
                               <span className="text-xs font-bold text-foreground">
-                                {isOnline ? (
-                                  <>± {jitter} ms <span className="text-[10px] font-normal text-muted-foreground">(Estabilidade alta)</span></>
+                                {jitter != null ? (
+                                  <>± {jitter} ms{' '}
+                                    <span className="text-[10px] font-normal text-muted-foreground">
+                                      {jitter < 20 ? '(Estabilidade alta)' : jitter < 60 ? '(Estabilidade moderada)' : '(Instável)'}
+                                    </span>
+                                  </>
                                 ) : (
-                                  <span className="text-muted-foreground font-normal">– (Sem sinal / Host offline)</span>
+                                  <span className="text-muted-foreground font-normal">
+                                    – {!hasDiag ? '(sem dados)' : '(Sem sinal / Host offline)'}
+                                  </span>
                                 )}
                               </span>
                             </div>
@@ -845,21 +885,24 @@ export default function WebMonitoring() {
                               <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
                                 Uptime nas últimas 24h
                               </span>
-                              <span className={cn("text-xs font-bold", isOnline ? "text-foreground" : "text-red-600 dark:text-red-400")}>
-                                {isOnline ? '100% Operacional' : '0.0% (Indisponível no momento)'}
+                              <span className={cn(
+                                "text-xs font-bold",
+                                uptime24h != null && uptime24h < 99.9 ? "text-red-600 dark:text-red-400" : "text-foreground"
+                              )}>
+                                {uptime24h != null ? `${uptime24h.toFixed(2)}%` : hasDiag ? '– (sem checagens ainda)' : 'Sem dados'}
                               </span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Section 2: Latency Breakdown (Min, Avg, Max, Protocol) */}
+                        {/* Section 2: Latency Breakdown (Min, Avg, Max, Falha) */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                           <div className="bg-card p-3 rounded-xl border border-border/40">
                             <span className="text-[10px] font-bold text-muted-foreground uppercase block">
                               Latência Mínima
                             </span>
                             <span className="text-sm font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                              {isOnline ? `${minLatency} ms` : '–'}
+                              {minLatency != null ? `${minLatency} ms` : '–'}
                             </span>
                           </div>
                           <div className="bg-card p-3 rounded-xl border border-border/40">
@@ -867,7 +910,7 @@ export default function WebMonitoring() {
                               Latência Média
                             </span>
                             <span className="text-sm font-mono font-bold text-foreground">
-                              {isOnline ? `${measuredLatency} ms` : '–'}
+                              {measuredLatency != null ? `${measuredLatency} ms` : '–'}
                             </span>
                           </div>
                           <div className="bg-card p-3 rounded-xl border border-border/40">
@@ -875,96 +918,105 @@ export default function WebMonitoring() {
                               Latência Máxima (Pico)
                             </span>
                             <span className="text-sm font-mono font-bold text-amber-600 dark:text-amber-400">
-                              {isOnline ? `${maxLatency} ms` : '–'}
+                              {maxLatency != null ? `${maxLatency} ms` : '–'}
                             </span>
                           </div>
                           <div className="bg-card p-3 rounded-xl border border-border/40">
                             <span className="text-[10px] font-bold text-muted-foreground uppercase block">
-                              Perda de Pacotes
+                              Taxa de Falha (24h)
                             </span>
                             <span className={cn(
                               "text-sm font-mono font-bold",
-                              isOnline ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                              uptime24h == null ? "text-muted-foreground" : uptime24h >= 99.9 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                             )}>
-                              {isOnline ? '0.0% (Nenhum pacote perdido)' : '100.0% (Perda Total / Sem Retorno)'}
+                              {uptime24h != null ? `${(100 - uptime24h).toFixed(2)}%` : '–'}
                             </span>
                           </div>
                         </div>
 
-                        {/* Section 3: Visual Uptime Bar (Last 24 Probes) */}
+                        {/* Section 3: Visual Uptime Bar (Sondas reais mais recentes) */}
                         <div className="bg-card p-3.5 rounded-xl border border-border/40 space-y-2">
                           <div className="flex items-center justify-between text-xs">
                             <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
                               <History className="w-3.5 h-3.5" />
-                              Verificações Contínuas (Últimos 15 min)
+                              Sondas Recentes (Registro Real)
                             </span>
                             <span className={cn(
                               "font-mono text-[11px] font-bold",
-                              isOnline ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                              recentChecks.length > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
                             )}>
-                              {isOnline ? '100% dos testes com sucesso' : '100% de falhas nas sondas recentes'}
+                              {recentChecks.length > 0 ? `${recentChecks.length} sonda(s) com sucesso` : 'Sem sondas registradas'}
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-1 pt-1">
-                            {Array.from({ length: 24 }).map((_, probeIdx) => (
-                              <div
-                                key={probeIdx}
-                                className={cn(
-                                  'h-5 flex-1 rounded-xs transition-all hover:opacity-80 cursor-pointer',
-                                  isOnline
-                                    ? 'bg-emerald-500 hover:scale-y-110'
-                                    : 'bg-red-500 hover:scale-y-110'
-                                )}
-                                title={
-                                  isOnline
-                                    ? `Sonda #${probeIdx + 1}: ${measuredLatency + (probeIdx % 4) - 2} ms - HTTP 200 OK`
-                                    : `Sonda #${probeIdx + 1}: Timeout / Falha HTTP (Sem resposta)`
-                                }
-                              />
-                            ))}
-                          </div>
-                          <div className="flex justify-between text-[10px] text-muted-foreground font-mono pt-0.5">
-                            <span>15 minutos atrás</span>
-                            <span>Agora (Tempo Real)</span>
-                          </div>
+                          {recentChecks.length > 0 ? (
+                            <>
+                              <div className="flex items-center gap-1 pt-1">
+                                {[...recentChecks].reverse().map((check) => (
+                                  <div
+                                    key={check.time}
+                                    className="h-5 flex-1 rounded-xs transition-all hover:opacity-80 cursor-pointer bg-emerald-500 hover:scale-y-110"
+                                    title={`${formatTimeShort(check.time)}: ${check.ms} ms - HTTP OK`}
+                                  />
+                                ))}
+                              </div>
+                              <div className="flex justify-between text-[10px] text-muted-foreground font-mono pt-0.5">
+                                <span>{formatTimeShort(recentChecks[recentChecks.length - 1].time)}</span>
+                                <span>{formatTimeShort(recentChecks[0].time)} (mais recente)</span>
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-[11px] text-muted-foreground py-2 text-center">
+                              {hasDiag ? 'Nenhuma sonda de sucesso registrada ainda.' : 'Diagnóstico indisponível (sem dados do Prometheus para este monitor).'}
+                            </p>
+                          )}
+
+                          {!isOnline && recentEvents.find((e) => e.type === 1) && (
+                            <p className="text-[11px] text-red-600 dark:text-red-400 font-semibold pt-1 border-t border-border/30">
+                              Queda em andamento desde {formatTimeShort(recentEvents.find((e) => e.type === 1)?.time)}
+                            </p>
+                          )}
                         </div>
 
-                        {/* Section 4: Log das Últimas 4 Verificações */}
+                        {/* Section 4: Log de Eventos Reais (Quedas / Sondas) */}
                         <div className="bg-card rounded-xl border border-border/40 overflow-hidden">
                           <div className="px-3.5 py-2 bg-muted/40 border-b border-border/40 text-xs font-bold text-foreground flex items-center justify-between">
-                            <span>Log de Checagens Recentes</span>
-                            <span className="text-[10px] font-normal text-muted-foreground font-mono">Intervalo: 15s</span>
+                            <span>{isOnline ? 'Log de Checagens Recentes' : 'Log de Eventos de Queda'}</span>
+                            <span className="text-[10px] font-normal text-muted-foreground font-mono">Fonte: Prometheus</span>
                           </div>
                           <div className="divide-y divide-border/20 text-xs">
-                            {isOnline ? (
-                              [
-                                { time: 'Agora', status: '200 OK', latency: `${measuredLatency} ms`, state: 'Estável' },
-                                { time: '15s atrás', status: '200 OK', latency: `${measuredLatency - 2} ms`, state: 'Estável' },
-                                { time: '30s atrás', status: '200 OK', latency: `${measuredLatency + 3} ms`, state: 'Estável' },
-                                { time: '45s atrás', status: '200 OK', latency: `${measuredLatency - 1} ms`, state: 'Estável' },
-                              ].map((log, logIdx) => (
-                                <div key={logIdx} className="px-3.5 py-2 flex items-center justify-between font-mono text-[11px]">
-                                  <span className="text-muted-foreground">{log.time}</span>
-                                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{log.status}</span>
-                                  <span className="text-foreground">{log.latency}</span>
-                                  <span className="text-muted-foreground font-sans text-[10px]">{log.state}</span>
+                            {!hasDiag ? (
+                              <div className="px-3.5 py-3 text-center text-muted-foreground text-[11px]">
+                                Diagnóstico indisponível para este monitor.
+                              </div>
+                            ) : isOnline ? (
+                              recentChecks.length > 0 ? (
+                                recentChecks.slice(0, 4).map((check) => (
+                                  <div key={check.time} className="px-3.5 py-2 flex items-center justify-between font-mono text-[11px]">
+                                    <span className="text-muted-foreground">{formatTimeShort(check.time)}</span>
+                                    <span className="font-bold text-emerald-600 dark:text-emerald-400">200 OK</span>
+                                    <span className="text-foreground">{check.ms} ms</span>
+                                    <span className="text-muted-foreground font-sans text-[10px]">Estável</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="px-3.5 py-3 text-center text-muted-foreground text-[11px]">
+                                  Nenhuma checagem registrada ainda.
+                                </div>
+                              )
+                            ) : recentEvents.filter((e) => e.type === 1).length > 0 ? (
+                              recentEvents.filter((e) => e.type === 1).slice(0, 4).map((ev) => (
+                                <div key={ev.time} className="px-3.5 py-2 flex items-center justify-between font-mono text-[11px]">
+                                  <span className="text-muted-foreground">{formatTimeShort(ev.time)}</span>
+                                  <span className="font-bold text-red-600 dark:text-red-400">Queda detectada</span>
+                                  <span className="text-muted-foreground">{formatDurationShort(ev.duration)}</span>
+                                  <span className="text-red-500 font-sans text-[10px] font-semibold">Sem resposta</span>
                                 </div>
                               ))
                             ) : (
-                              [
-                                { time: 'Agora', status: '503 ERR / Timeout', latency: '–', state: 'Sem resposta' },
-                                { time: '15s atrás', status: '503 ERR / Timeout', latency: '–', state: 'Sem resposta' },
-                                { time: '30s atrás', status: '503 ERR / Timeout', latency: '–', state: 'Sem resposta' },
-                                { time: '45s atrás', status: '503 ERR / Timeout', latency: '–', state: 'Sem resposta' },
-                              ].map((log, logIdx) => (
-                                <div key={logIdx} className="px-3.5 py-2 flex items-center justify-between font-mono text-[11px]">
-                                  <span className="text-muted-foreground">{log.time}</span>
-                                  <span className="font-bold text-red-600 dark:text-red-400">{log.status}</span>
-                                  <span className="text-muted-foreground">{log.latency}</span>
-                                  <span className="text-red-500 font-sans text-[10px] font-semibold">{log.state}</span>
-                                </div>
-                              ))
+                              <div className="px-3.5 py-3 text-center text-muted-foreground text-[11px]">
+                                Nenhum evento de queda registrado ainda.
+                              </div>
                             )}
                           </div>
                         </div>
