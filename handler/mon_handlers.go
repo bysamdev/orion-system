@@ -5,6 +5,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -492,6 +493,8 @@ type heartbeatReq struct {
 	Interfaces       json.RawMessage `json:"interfaces"`
 	Domain           string          `json:"domain"`
 	MACAddress       string          `json:"mac_address"`
+	HardwareUUID     string          `json:"hardware_uuid"`
+	BoardMAC         string          `json:"board_mac"`
 	DeviceType       string          `json:"device_type"`
 	DeviceTypeReason string          `json:"device_type_reason"`
 	Security         json.RawMessage `json:"security"`
@@ -610,11 +613,30 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	machineID, deviceTypeGravado, approvalStatus, err := db.UpsertMachine(ctx, groupID, req.Hostname, req.IP, req.OS, req.OSVersion, req.AgentVersion, req.MachineToken, req.MachineUUID, req.CurrentUser, req.CurrentUserSID, targetCompanyID, req.DeviceType, req.MACAddress, req.Domain, req.DeviceTypeReason)
+	gravada, err := db.UpsertMachine(ctx, lib.UpsertMachineInput{
+		GroupID: groupID, Hostname: req.Hostname, IP: req.IP, OS: req.OS, OSVersion: req.OSVersion,
+		AgentVersion: req.AgentVersion, MachineToken: req.MachineToken, MachineUUID: req.MachineUUID,
+		HardwareUUID: req.HardwareUUID, BoardMAC: req.BoardMAC,
+		CurrentUser: req.CurrentUser, CurrentUserSID: req.CurrentUserSID, CompanyID: targetCompanyID,
+		DeviceType: req.DeviceType, DeviceTypeReason: req.DeviceTypeReason, MACAddress: req.MACAddress, Domain: req.Domain,
+	})
 	if err != nil {
 		fmt.Println("Erro UpsertMachine:", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar máquina: %v", err)})
 		return
+	}
+	machineID, deviceTypeGravado, approvalStatus := gravada.ID, gravada.DeviceType, gravada.ApprovalStatus
+
+	// Reinstalação reconhecida (formatação): o registro antigo recebeu o token
+	// novo. O usuário-fantasma do portal é derivado do token, então é migrado
+	// junto — senão o próximo "Abrir Chamado" criaria outro usuário e o
+	// histórico de chamados da máquina ficaria para trás. Best-effort: a
+	// mesclagem já foi gravada e não pode derrubar o heartbeat.
+	if gravada.TokenAnterior != "" {
+		log.Printf("[INFO] heartbeat: %s reinstalada — identidade nova reaproveitou a máquina %s (critério: %s)", req.Hostname, machineID, gravada.CriterioMesclagem)
+		if err := migrarUsuarioFantasmaDaMaquina(ctx, gravada.TokenAnterior, req.MachineToken); err != nil {
+			log.Printf("[AVISO] heartbeat: máquina %s mesclada, mas o usuário do portal não foi migrado: %v", machineID, err)
+		}
 	}
 
 	if approvalStatus == "rejected" {
@@ -834,6 +856,39 @@ func collectionIntervalSeconds(deviceType string) int {
 		return 60
 	}
 	return 300
+}
+
+// migrarUsuarioFantasmaDaMaquina troca o e-mail do usuário-fantasma do portal
+// (auth.users + profiles) do derivado do token antigo para o do token novo,
+// preservando o mesmo user_id — e com ele os chamados já abertos pela máquina.
+// Sem usuário antigo (máquina que nunca abriu o portal), não há o que migrar.
+func migrarUsuarioFantasmaDaMaquina(ctx context.Context, tokenAnterior, tokenNovo string) error {
+	emailAntigo := lib.MachineGhostEmail(tokenAnterior)
+	emailNovo := lib.MachineGhostEmail(tokenNovo)
+	if emailAntigo == emailNovo {
+		return nil
+	}
+
+	userID, err := db.AuthUserIDByEmail(ctx, emailAntigo)
+	if err != nil {
+		if errors.Is(err, lib.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("buscar usuário do token anterior: %w", err)
+	}
+	if _, err := db.AuthUserIDByEmail(ctx, emailNovo); err == nil {
+		return fmt.Errorf("já existe usuário do portal para o token novo")
+	} else if !errors.Is(err, lib.ErrNoRows) {
+		return fmt.Errorf("buscar usuário do token novo: %w", err)
+	}
+	if sb == nil {
+		return fmt.Errorf("cliente do Supabase não inicializado")
+	}
+
+	if err := sb.AdminUpdateUserByID(ctx, userID, lib.AdminUpdateUserInput{Email: &emailNovo}); err != nil {
+		return fmt.Errorf("atualizar e-mail no Auth: %w", err)
+	}
+	return db.UpdateProfile(ctx, userID, lib.ProfileUpdate{Email: &emailNovo})
 }
 
 // enfileirarAutoUpdateSeNecessario prepara o instalador mais recente da
