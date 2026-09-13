@@ -28,6 +28,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ArticleMarkdownRenderer } from '@/components/knowledge/ArticleMarkdownRenderer';
+import { normalizarTituloChamado, normalizarDescricaoChamado } from '@/lib/normalizaTextoChamado';
 import { useAvaliacaoPendente } from '@/hooks/useAvaliacaoPendente';
 import { AvaliacaoPendenteDialog } from '@/components/ticket/AvaliacaoPendenteDialog';
 import { FileUpload } from '@/components/ticket/FileUpload';
@@ -362,11 +363,13 @@ const NewTicket = () => {
         return;
       }
 
+      // Normalização na gravação, uma vez só. Ver src/lib/normalizaTextoChamado.ts
+      // para por que aqui e não no trigger validate_ticket_input.
       const { data: ticket, error: ticketError } = await supabase.from('tickets').insert({
-        title: data.title,
+        title: normalizarTituloChamado(data.title),
         category: data.category,
         priority: data.priority,
-        description: data.description,
+        description: normalizarDescricaoChamado(data.description),
         requester_name: userInfo.name,
         department: data.department || profile?.department || 'Geral',
         status: 'open',
