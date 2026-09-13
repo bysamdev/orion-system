@@ -36,16 +36,16 @@ export default function Avaliacao() {
   const [comment, setComment] = useState('');
   const [hoveredRating, setHoveredRating] = useState<number>(0);
 
+  const handlePular = async () => {
+    if (!user || !id) return;
+    await addRating.mutateAsync({ ticketId: id, skipped: true });
+  };
+
   const handleSubmit = async () => {
     // Se não estiver logado, não consegue avaliar no formato atual (RLS exige auth.uid()). 
     // Em uma versão sem login, precisaríamos de uma edge function com service role.
     if (rating === 0 || !user || !id) return;
-    await addRating.mutateAsync({
-      ticketId: id,
-      rating,
-      comment,
-      userId: user.id
-    });
+    await addRating.mutateAsync({ ticketId: id, rating, comment });
   };
 
   if (authLoading || ticketLoading || loadingRating) {
@@ -87,11 +87,17 @@ export default function Avaliacao() {
                 <CheckCircle2 className="w-8 h-8 text-emerald-500" />
               </div>
               <div>
-                <h4 className="font-bold text-lg text-emerald-800 dark:text-emerald-400">Obrigado pela sua avaliação!</h4>
-                <p className="text-xs text-emerald-700/80 dark:text-emerald-500 mt-1 mb-4">Seu feedback nos ajuda a melhorar constantemente.</p>
+                <h4 className="font-bold text-lg text-emerald-800 dark:text-emerald-400">
+                  {existingRating.skipped ? 'Avaliação dispensada' : 'Obrigado pela sua avaliação!'}
+                </h4>
+                <p className="text-xs text-emerald-700/80 dark:text-emerald-500 mt-1 mb-4">
+                  {existingRating.skipped
+                    ? 'Você optou por não avaliar este atendimento.'
+                    : 'Seu feedback nos ajuda a melhorar constantemente.'}
+                </p>
                 <div className="flex justify-center gap-1">
                   {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} className={cn("w-5 h-5", s <= existingRating.rating ? "fill-emerald-500 text-emerald-500" : "text-muted-foreground/30")} />
+                    <Star key={s} className={cn("w-5 h-5", s <= (existingRating.rating ?? 0) ? "fill-emerald-500 text-emerald-500" : "text-muted-foreground/30")} />
                   ))}
                 </div>
               </div>
@@ -154,6 +160,17 @@ export default function Avaliacao() {
                     <Send className="w-5 h-5" />
                   </Button>
                 </div>
+              )}
+
+              {user && (
+                <Button
+                  variant="ghost"
+                  onClick={handlePular}
+                  disabled={addRating.isPending}
+                  className="w-full text-muted-foreground font-medium"
+                >
+                  Prefiro não avaliar
+                </Button>
               )}
             </CardContent>
           </Card>

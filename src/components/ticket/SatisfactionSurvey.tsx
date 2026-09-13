@@ -22,15 +22,22 @@ export const SatisfactionSurvey: React.FC<SatisfactionSurveyProps> = ({ ticketId
 
   const handleSubmit = async () => {
     if (rating === 0 || !user) return;
-    await addRating.mutateAsync({
-      ticketId,
-      rating,
-      comment,
-      userId: user.id
-    });
+    await addRating.mutateAsync({ ticketId, rating, comment });
   };
 
   if (loadingRating) return null;
+  if (existingRating?.skipped) {
+    return (
+      <Card className="border-border/40 bg-muted/20 shadow-none overflow-hidden">
+        <CardContent className="p-6">
+          <h4 className="font-bold text-sm text-foreground">Avaliação dispensada</h4>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Você optou por não avaliar este atendimento.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
   if (existingRating) {
     return (
       <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-none overflow-hidden">
@@ -42,7 +49,7 @@ export const SatisfactionSurvey: React.FC<SatisfactionSurveyProps> = ({ ticketId
             <h4 className="font-bold text-sm text-emerald-800 dark:text-emerald-400">Obrigado pela sua avaliação!</h4>
             <div className="flex gap-1 mt-1">
               {[1, 2, 3, 4, 5].map((s) => (
-                <Star key={s} className={cn("w-3 h-3", s <= existingRating.rating ? "fill-emerald-500 text-emerald-500" : "text-muted-foreground/30")} />
+                <Star key={s} className={cn("w-3 h-3", s <= (existingRating.rating ?? 0) ? "fill-emerald-500 text-emerald-500" : "text-muted-foreground/30")} />
               ))}
             </div>
             {existingRating.comment && <p className="text-[10px] text-muted-foreground mt-1 italic">"{existingRating.comment}"</p>}

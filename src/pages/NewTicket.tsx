@@ -28,6 +28,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ArticleMarkdownRenderer } from '@/components/knowledge/ArticleMarkdownRenderer';
+import { useAvaliacaoPendente } from '@/hooks/useAvaliacaoPendente';
+import { AvaliacaoPendenteDialog } from '@/components/ticket/AvaliacaoPendenteDialog';
 import { FileUpload } from '@/components/ticket/FileUpload';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { useToast } from '@/hooks/use-toast';
@@ -145,6 +147,19 @@ const NewTicket = () => {
   const isSubmittingRef = useRef(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [remoteId, setRemoteId] = useState('');
+  const [avaliacaoDialogAberto, setAvaliacaoDialogAberto] = useState(false);
+
+  // Só cliente é bloqueado por avaliação pendente. Técnico abrindo chamado em
+  // nome de alguém, e abertura automática por alerta crítico, não passam por
+  // aqui -- e não deveriam: a regra existe para fechar o ciclo de feedback do
+  // cliente, não para atrapalhar quem atende.
+  // Marcado quando a pendência é resolvida no diálogo. É um ref, e não o
+  // resultado da query, porque o reenvio acontece imediatamente depois do
+  // insert -- antes de a invalidação do react-query voltar. Sem isso, o
+  // usuário avalia e o mesmo diálogo reabre.
+  const avaliacaoResolvidaRef = useRef(false);
+  const ehCliente = userRole === 'customer';
+  const { data: avaliacaoPendente } = useAvaliacaoPendente(ehCliente ? user?.id : undefined);
   const [selectedContractId, setSelectedContractId] = useState<string>('');
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [anyDropdownOpen, setAnyDropdownOpen] = useState(false);
@@ -316,6 +331,18 @@ const NewTicket = () => {
   const onSubmit = async (data: TicketFormValues) => {
     if (!user || !profile) return;
     if (isSubmittingRef.current) return;
+
+    // Avaliação pendente barra a abertura -- exceto em urgent. Incidente
+    // crítico não pode ficar refém de formulário de satisfação.
+    //
+    // A checagem é no envio, não na entrada da tela, justamente por causa
+    // dessa exceção: bloqueando na entrada, o usuário nunca chegaria a
+    // escolher urgent.
+    if (avaliacaoPendente && !avaliacaoResolvidaRef.current && data.priority !== 'urgent') {
+      setAvaliacaoDialogAberto(true);
+      return;
+    }
+
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
@@ -1056,6 +1083,20 @@ const NewTicket = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {avaliacaoPendente && (
+          <AvaliacaoPendenteDialog
+            open={avaliacaoDialogAberto}
+            onOpenChange={setAvaliacaoDialogAberto}
+            chamado={avaliacaoPendente}
+            onResolvido={() => {
+              avaliacaoResolvidaRef.current = true;
+              setAvaliacaoDialogAberto(false);
+              // Retoma a abertura de onde parou, com o formulário intacto.
+              void form.handleSubmit(onSubmit)();
+            }}
+          />
+        )}
     </div>
   );
 };
