@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Star, Send, CheckCircle2, Ticket as TicketIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAddTicketRating, useTicketRating } from '@/hooks/useTicketRating';
+import { useAddTicketRating, useTicketRating, useUpdateTicketRating } from '@/hooks/useTicketRating';
+import { dentroDaJanelaDeEdicao, minutosRestantesDeEdicao } from '@/lib/avaliacaoEdicao';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Avaliacao() {
@@ -31,10 +32,21 @@ export default function Avaliacao() {
 
   const { data: existingRating, isLoading: loadingRating } = useTicketRating(id || '');
   const addRating = useAddTicketRating();
+  const updateRating = useUpdateTicketRating();
+  const [corrigindo, setCorrigindo] = useState(false);
   
   const [rating, setRating] = useState<number>(0);
   const [comment, setComment] = useState('');
   const [hoveredRating, setHoveredRating] = useState<number>(0);
+
+  const podeCorrigir = !!existingRating && dentroDaJanelaDeEdicao(existingRating.created_at);
+  const enviando = addRating.isPending || updateRating.isPending;
+
+  const abrirCorrecao = () => {
+    setRating(existingRating?.rating ?? 0);
+    setComment(existingRating?.comment ?? '');
+    setCorrigindo(true);
+  };
 
   const handlePular = async () => {
     if (!user || !id) return;
@@ -45,6 +57,11 @@ export default function Avaliacao() {
     // Se não estiver logado, não consegue avaliar no formato atual (RLS exige auth.uid()). 
     // Em uma versão sem login, precisaríamos de uma edge function com service role.
     if (rating === 0 || !user || !id) return;
+    if (corrigindo && existingRating) {
+      await updateRating.mutateAsync({ id: existingRating.id, ticketId: id, rating, comment });
+      setCorrigindo(false);
+      return;
+    }
     await addRating.mutateAsync({ ticketId: id, rating, comment });
   };
 
@@ -80,7 +97,7 @@ export default function Avaliacao() {
           </p>
         </div>
 
-        {existingRating ? (
+        {existingRating && !corrigindo ? (
           <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-xl shadow-emerald-500/5 overflow-hidden">
             <CardContent className="p-8 flex flex-col items-center text-center gap-4">
               <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
@@ -101,6 +118,11 @@ export default function Avaliacao() {
                   ))}
                 </div>
               </div>
+              {podeCorrigir && (
+                <Button variant="link" onClick={abrirCorrecao} className="mt-2 h-auto p-0 text-xs font-semibold">
+                  Corrigir avaliação ({minutosRestantesDeEdicao(existingRating.created_at)} min)
+                </Button>
+              )}
               <Button variant="outline" className="mt-4 w-full" onClick={() => navigate('/')}>
                 Voltar à tela inicial
               </Button>
@@ -153,20 +175,20 @@ export default function Avaliacao() {
                   />
                   <Button 
                     onClick={handleSubmit} 
-                    disabled={addRating.isPending}
+                    disabled={enviando}
                     className="w-full h-12 font-bold gap-2 rounded-xl shadow-lg shadow-primary/20 text-base"
                   >
-                    {addRating.isPending ? "Enviando..." : "Enviar Avaliação"}
+                    {enviando ? "Enviando..." : corrigindo ? "Salvar correção" : "Enviar Avaliação"}
                     <Send className="w-5 h-5" />
                   </Button>
                 </div>
               )}
 
-              {user && (
+              {user && !corrigindo && (
                 <Button
                   variant="ghost"
                   onClick={handlePular}
-                  disabled={addRating.isPending}
+                  disabled={enviando}
                   className="w-full text-muted-foreground font-medium"
                 >
                   Prefiro não avaliar

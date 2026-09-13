@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Star, Send, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAddTicketRating, useTicketRating } from '@/hooks/useTicketRating';
+import { useAddTicketRating, useTicketRating, useUpdateTicketRating } from '@/hooks/useTicketRating';
+import { dentroDaJanelaDeEdicao, minutosRestantesDeEdicao } from '@/lib/avaliacaoEdicao';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SatisfactionSurveyProps {
@@ -15,18 +16,36 @@ export const SatisfactionSurvey: React.FC<SatisfactionSurveyProps> = ({ ticketId
   const { user } = useAuth();
   const { data: existingRating, isLoading: loadingRating } = useTicketRating(ticketId);
   const addRating = useAddTicketRating();
-  
+  const updateRating = useUpdateTicketRating();
+
   const [rating, setRating] = useState<number>(0);
   const [comment, setComment] = useState('');
   const [hoveredRating, setHoveredRating] = useState<number>(0);
+  const [corrigindo, setCorrigindo] = useState(false);
+
+  // O botão de corrigir some sozinho quando a janela fecha; quem decide de
+  // verdade é a policy, que fora dela nega sem erro.
+  const podeCorrigir = !!existingRating && dentroDaJanelaDeEdicao(existingRating.created_at);
+  const enviando = addRating.isPending || updateRating.isPending;
+
+  const abrirCorrecao = () => {
+    setRating(existingRating?.rating ?? 0);
+    setComment(existingRating?.comment ?? '');
+    setCorrigindo(true);
+  };
 
   const handleSubmit = async () => {
     if (rating === 0 || !user) return;
+    if (corrigindo && existingRating) {
+      await updateRating.mutateAsync({ id: existingRating.id, ticketId, rating, comment });
+      setCorrigindo(false);
+      return;
+    }
     await addRating.mutateAsync({ ticketId, rating, comment });
   };
 
   if (loadingRating) return null;
-  if (existingRating?.skipped) {
+  if (existingRating?.skipped && !corrigindo) {
     return (
       <Card className="border-border/40 bg-muted/20 shadow-none overflow-hidden">
         <CardContent className="p-6">
@@ -34,11 +53,16 @@ export const SatisfactionSurvey: React.FC<SatisfactionSurveyProps> = ({ ticketId
           <p className="text-xs text-muted-foreground mt-0.5">
             Você optou por não avaliar este atendimento.
           </p>
+          {podeCorrigir && (
+            <Button variant="link" onClick={abrirCorrecao} className="h-auto p-0 mt-2 text-xs font-semibold">
+              Mudei de ideia, quero avaliar ({minutosRestantesDeEdicao(existingRating!.created_at)} min)
+            </Button>
+          )}
         </CardContent>
       </Card>
     );
   }
-  if (existingRating) {
+  if (existingRating && !corrigindo) {
     return (
       <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-none overflow-hidden">
         <CardContent className="p-6 flex items-center gap-4">
@@ -53,6 +77,11 @@ export const SatisfactionSurvey: React.FC<SatisfactionSurveyProps> = ({ ticketId
               ))}
             </div>
             {existingRating.comment && <p className="text-[10px] text-muted-foreground mt-1 italic">"{existingRating.comment}"</p>}
+            {podeCorrigir && (
+              <Button variant="link" onClick={abrirCorrecao} className="h-auto p-0 mt-1.5 text-xs font-semibold">
+                Corrigir ({minutosRestantesDeEdicao(existingRating.created_at)} min)
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -62,8 +91,14 @@ export const SatisfactionSurvey: React.FC<SatisfactionSurveyProps> = ({ ticketId
   return (
     <Card className="border-primary/20 bg-primary/5 shadow-xl shadow-primary/5 overflow-hidden">
       <CardHeader className="pb-4">
-        <CardTitle className="text-base font-black tracking-tight">Como foi seu atendimento?</CardTitle>
-        <CardDescription className="text-xs">Sua opinião é fundamental para melhorarmos nossos serviços.</CardDescription>
+        <CardTitle className="text-base font-black tracking-tight">
+          {corrigindo ? 'Corrigir sua avaliação' : 'Como foi seu atendimento?'}
+        </CardTitle>
+        <CardDescription className="text-xs">
+          {corrigindo
+            ? 'Você pode ajustar a nota e o comentário nos primeiros 15 minutos.'
+            : 'Sua opinião é fundamental para melhorarmos nossos serviços.'}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex justify-center gap-3">
@@ -97,12 +132,22 @@ export const SatisfactionSurvey: React.FC<SatisfactionSurveyProps> = ({ ticketId
             />
             <Button 
               onClick={handleSubmit} 
-              disabled={addRating.isPending}
+              disabled={enviando}
               className="w-full h-11 font-bold gap-2 rounded-xl shadow-lg shadow-primary/20"
             >
-              {addRating.isPending ? "Enviando..." : "Enviar Avaliação"}
+              {enviando ? "Enviando..." : corrigindo ? "Salvar correção" : "Enviar Avaliação"}
               <Send className="w-4 h-4" />
             </Button>
+            {corrigindo && (
+              <Button
+                variant="ghost"
+                onClick={() => setCorrigindo(false)}
+                disabled={enviando}
+                className="w-full text-muted-foreground"
+              >
+                Cancelar
+              </Button>
+            )}
           </div>
         )}
       </CardContent>
