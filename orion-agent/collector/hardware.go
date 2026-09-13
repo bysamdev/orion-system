@@ -114,7 +114,11 @@ type Payload struct {
 	CurrentUser    string             `json:"current_user"`
 	CurrentUserSID string             `json:"current_user_sid"`
 	MACAddress     string             `json:"mac_address"`
-	DeviceType     string             `json:"device_type"`
+	// HardwareUUID (SMBIOS) e BoardMAC (placa de rede integrada) identificam o
+	// computador físico e sobrevivem à formatação — ver board_identity.go.
+	HardwareUUID string `json:"hardware_uuid"`
+	BoardMAC     string `json:"board_mac"`
+	DeviceType   string `json:"device_type"`
 	// DeviceTypeReason documenta qual sinal decidiu DeviceType (Fase 3 do
 	// plano de escalabilidade) — ver tipoEMotivoDoDispositivo().
 	DeviceTypeReason string `json:"device_type_reason"`
@@ -632,6 +636,7 @@ func Collect() (*Payload, error) {
 		fallbackReason = identidadeFallbackMotivo.Error()
 	}
 	deviceType, deviceTypeReason := tipoEMotivoDoDispositivo()
+	hardwareUUID, boardMAC := identidadeDeHardware()
 
 	// Montamos o relatório final (Payload)
 	return &Payload{
@@ -655,6 +660,8 @@ func Collect() (*Payload, error) {
 		CurrentUserSID:         currentUserSID,
 		IdentityFallbackReason: fallbackReason,
 		MACAddress:             macAddress,
+		HardwareUUID:           hardwareUUID,
+		BoardMAC:               boardMAC,
 		DeviceType:             deviceType,
 		DeviceTypeReason:       deviceTypeReason,
 		Security:               segurancaComCache(),
