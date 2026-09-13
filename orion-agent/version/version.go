@@ -17,4 +17,4 @@ package version
 //
 // (ver installer-msi/build.ps1). Sem -ldflags, o binário reporta o valor
 // abaixo — mantenha-o em sincronia com o release real ao dar bump.
-var Version = "1.1.28"
+var Version = "1.1.29"
