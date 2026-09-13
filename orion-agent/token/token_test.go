@@ -1,6 +1,7 @@
 package token
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -92,8 +93,12 @@ func TestGetTokenPathEhDeterministicoENaoInjetavel(t *testing.T) {
 func TestLoadTokenComArquivoAusenteRetornaErro(t *testing.T) {
 	caminho := GetTokenPath()
 
-	if _, err := os.Stat(caminho); err == nil {
-		t.Skipf("token real existe em %q nesta maquina; nao vamos alterar o estado do sistema", caminho)
+	// Pula sempre que a ausência não está comprovada: com o agente instalado, a
+	// pasta pode existir sem permissão de leitura para quem roda a suíte, e aí
+	// Stat falha com "Acesso negado" (não IsNotExist) — antes o teste seguia e
+	// falhava espuriamente.
+	if _, err := os.Stat(caminho); !os.IsNotExist(err) {
+		t.Skipf("token real existe (ou não pode ser inspecionado) em %q nesta maquina; nao vamos alterar o estado do sistema", caminho)
 	}
 
 	tok, err := LoadToken()
@@ -128,6 +133,38 @@ func TestLoadTokenComArquivoAusenteRetornaErro(t *testing.T) {
 // introduzido em token.go, os testes agora cobrem o codigo de producao de verdade.
 func salvarTokenEm(caminho, tok string) error {
 	return saveTokenTo(caminho, tok)
+}
+
+// TestSaveNewTokenTo_NaoSobrescreveIdentidadeExistente cobre a corrida da
+// instalação (serviço e bandeja gerando identidade ao mesmo tempo): a segunda
+// gravação precisa falhar com ErrIdentidadeJaExiste e preservar a primeira.
+func TestSaveNewTokenTo_NaoSobrescreveIdentidadeExistente(t *testing.T) {
+	caminho := filepath.Join(t.TempDir(), "OrionAgent", "machine.token")
+
+	if err := saveNewTokenTo(caminho, "primeira"); err != nil {
+		t.Fatalf("primeira gravação falhou: %v", err)
+	}
+	if err := saveNewTokenTo(caminho, "segunda"); !errors.Is(err, ErrIdentidadeJaExiste) {
+		t.Fatalf("segunda gravação = %v, esperado ErrIdentidadeJaExiste", err)
+	}
+
+	lido, err := loadTokenFrom(caminho)
+	if err != nil {
+		t.Fatalf("releitura falhou: %v", err)
+	}
+	if lido != "primeira" {
+		t.Fatalf("identidade em disco = %q, esperado a primeira gravada", lido)
+	}
+}
+
+func TestSaveNewTokenTo_RecusaIdentidadeVazia(t *testing.T) {
+	caminho := filepath.Join(t.TempDir(), "OrionAgent", "machine.token")
+	if err := saveNewTokenTo(caminho, "  "); err == nil {
+		t.Fatal("esperado erro ao gravar identidade vazia")
+	}
+	if _, err := os.Stat(caminho); !os.IsNotExist(err) {
+		t.Fatalf("nenhum arquivo deveria ter sido criado, stat = %v", err)
+	}
 }
 
 func carregarTokenDe(caminho string) (string, error) {
@@ -423,6 +460,7 @@ func TestSaveTokenTo_RestringeACLDoDiretorio(t *testing.T) {
 	esperados := map[string]string{
 		"S-1-5-18":     "SYSTEM",
 		"S-1-5-32-544": "Administradores",
+		"S-1-5-4":      "INTERACTIVE (leitura para a bandeja)",
 		strings.TrimSpace(string(sidUsuarioAtual)): "usuário atual (criador do diretório)",
 	}
 

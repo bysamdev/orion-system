@@ -42,6 +42,15 @@ import (
 // (serviço Windows via GPO, sempre como SYSTEM) não é afetado por essa
 // limitação.
 //
+// Leitura para INTERACTIVE (S-1-5-4, quem está logado na tela): o serviço roda
+// como NT SERVICE\OrionAgent e é ele quem cria o diretório, então a bandeja —
+// processo do usuário, sem elevação — ficava com "Acesso negado" ao ler a
+// identidade e presa em "conectando…" para sempre, com os botões do portal
+// sem efeito. Isso não amplia a exposição que o desenho já tem: a bandeja
+// existe justamente para abrir no navegador desse usuário a URL de login com
+// este token. Contas de rede, de serviço e processos em lote seguem sem acesso.
+// Só leitura: gravar a identidade continua restrito a quem já tinha.
+//
 // O grupo Administradores é referenciado pelo SID bem-conhecido S-1-5-32-544 em
 // vez do nome ("Administradores"/"Administrators"), porque o nome muda conforme o
 // idioma de instalação do Windows e um icacls com o nome errado falharia
@@ -52,6 +61,7 @@ func endurecerACLDoDiretorio(dir string) error {
 	concessoes := []string{
 		`SYSTEM:(OI)(CI)F`,
 		`*S-1-5-32-544:(OI)(CI)F`, // BUILTIN\Administrators
+		`*S-1-5-4:(OI)(CI)RX`,     // NT AUTHORITY\INTERACTIVE — só leitura, para a bandeja
 	}
 
 	if u, err := user.Current(); err == nil && u.Username != "" {

@@ -22,3 +22,6 @@ package shortcut
 func CreatePortalShortcut(apiURL string, machineToken string) error {
 	return nil
 }
+
+// RemoverAtalhos não tem operação real fora do Windows.
+func RemoverAtalhos() {}

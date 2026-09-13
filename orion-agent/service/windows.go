@@ -29,7 +29,6 @@ import (
 	"orion-agent/collector"
 	"orion-agent/config"
 	"orion-agent/sender"
-	"orion-agent/shortcut"
 	"orion-agent/token"
 	"orion-agent/version"
 )
@@ -114,6 +113,13 @@ type Svc struct {
 	// (interval_seconds, 30s) quanto a cada scrape (15s), quase triplicando a
 	// frequência real de coleta.
 	lastPayload *collector.Payload
+
+	// estado é o último resultado de check-in publicado para a bandeja (ver
+	// status.go). Protegido por mu: escrito por tick(), lido pela bandeja.
+	estado estadoDoAgente
+	// falhaAoGravarEstadoLogada evita repetir o mesmo aviso a cada ciclo
+	// quando o arquivo de status não pode ser gravado. Só usado dentro de tick().
+	falhaAoGravarEstadoLogada bool
 }
 
 // intervaloMinimoSegundos e intervaloMaximoSegundos limitam o que o agente
@@ -298,6 +304,14 @@ func (s *Svc) GetTicketURL() string {
 	return portal + "&redirect_to=/novo-ticket"
 }
 
+// TokenDaMaquina devolve a identidade da máquina já carregada (ou "" se ainda
+// não houver), para o atalho da Área de Trabalho — que precisa do token cru,
+// não da URL do portal (main.go passava GetTicketURL() no lugar do token e o
+// atalho saía com a URL inteira aninhada dentro de ?token=).
+func (s *Svc) TokenDaMaquina() string {
+	return strings.TrimSpace(s.getMachineToken())
+}
+
 // anexarUsuarioAtual acrescenta requester_user=<usuário Windows/AD da sessão
 // ativa AGORA> à URL de login por máquina — resolvido na hora do clique
 // (collector.ResolverUsuarioAtual), não o valor de machines.current_user do
@@ -328,6 +342,9 @@ func anexarUsuarioAtualVia(u string, resolver func() string) string {
 // run é o loop principal do agente: coleta dados → envia para o servidor → aguarda o próximo intervalo.
 func (s *Svc) run(ctx context.Context) {
 	s.logger.Println("🚀 Orion Agent iniciado com sucesso")
+	if err := token.GarantirPermissoesDoDiretorio(); err != nil {
+		s.logger.Printf("[AVISO] Não foi possível ajustar as permissões da pasta de identidade — a bandeja pode não enxergar o status: %v", err)
+	}
 	s.startMetricsServer(ctx)
 
 	// Jitter inicial no boot (0 a 3s) para desincronizar agentes ligando juntos
@@ -445,22 +462,39 @@ func (s *Svc) tick() {
 				s.logger.Println("[INFO] Ambiente de VM de análise detectado (VirtualBox/VMware/QEMU/Xen) — pulando registro nesta execução.")
 				return
 			}
-			s.logger.Printf("[INFO] Identidade local não encontrada, gerando nova identidade de máquina.")
-			t, err = token.GenerateRandomIdentity()
+			s.logger.Printf("[INFO] Identidade local indisponível (%v), gerando nova identidade de máquina.", err)
+			novo, err := token.GenerateRandomIdentity()
 			if err != nil {
 				s.logger.Printf("[ERRO] Falha ao gerar identidade da máquina: %v", err)
 				return
 			}
-			if err := token.SaveToken(t); err != nil {
+			switch err := token.SaveNewToken(novo); {
+			case err == nil:
+				t = novo
+			case errors.Is(err, token.ErrIdentidadeJaExiste):
+				// Já existe identidade em disco: outro processo do agente
+				// gravou antes (serviço e bandeja subindo juntos), ou o arquivo
+				// existe mas não pôde ser lido. Nos dois casos, gerar e usar a
+				// nossa registraria uma segunda máquina no backend para o mesmo
+				// computador — pulamos o ciclo e o próximo LoadToken usa a que
+				// está em disco.
+				s.logger.Println("[AVISO] Já existe identidade da máquina em disco — não será criada outra; tentando ler de novo no próximo ciclo.")
+				return
+			default:
 				// Não seguimos com uma identidade gerada mas não persistida: se o
 				// processo reiniciar antes de uma gravação bem-sucedida, uma NOVA
 				// identidade aleatória seria gerada no próximo start, registrando
 				// uma segunda máquina no backend para o mesmo computador físico.
-				// Preferimos pular o check-in deste ciclo e tentar de novo no
-				// próximo — LoadToken continuará falhando até SaveToken funcionar.
 				s.logger.Printf("[ERRO] Falha ao salvar identidade local, tentando novamente no próximo ciclo: %v", err)
 				return
 			}
+		}
+		if strings.TrimSpace(t) == "" {
+			// Arquivo existe e está vazio — por exemplo, lido no instante em que
+			// outro processo acabou de criá-lo. Check-in sem machine_token criaria
+			// um registro inválido no backend.
+			s.logger.Println("[AVISO] Arquivo de identidade vazio — aguardando o próximo ciclo.")
+			return
 		}
 		s.setMachineToken(t)
 	}
@@ -472,20 +506,24 @@ func (s *Svc) tick() {
 	// então NewMetricsHandler não precisa repetir essa montagem.
 	s.setLastPayload(payload)
 
-	// Garantimos que o atalho de "Abrir Portal" esteja sempre presente no Desktop do usuário.
-	if err := shortcut.CreatePortalShortcut(s.cfg.APIURL, machineToken); err != nil {
-		s.logger.Printf("[AVISO] Não foi possível atualizar o atalho no Desktop: %v", err)
-	}
+	// O atalho da Área de Trabalho NÃO é mais criado aqui. Rodando como
+	// NT SERVICE\OrionAgent, este processo não tem permissão na Área de
+	// Trabalho pública e o "Desktop do usuário" dele é o perfil da conta de
+	// serviço — a gravação nunca chegava a quem usa a máquina. Quem cuida do
+	// atalho é o instalador (elevado) e a bandeja (sessão do usuário), ver
+	// shortcut.CreatePortalShortcut.
 
 	// Enviamos o relatório para o servidor.
 	mID, proximoIntervalo, err := sender.Send(s.cfg, payload)
 	if err != nil {
 		s.logger.Printf("[ERRO] Falha no check-in (Heartbeat): %v", err)
 		s.bufferizarFalha(payload)
+		s.registrarCheckin(false)
 		return
 	}
 	s.setMachineID(mID)
 	s.proximoIntervaloSegundos = intervaloValido(proximoIntervalo)
+	s.registrarCheckin(true)
 
 	// Backend confirmadamente alcançável de novo — aproveita para tentar
 	// entregar heartbeats represados de ciclos anteriores (ver bufferFalhas).

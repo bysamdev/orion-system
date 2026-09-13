@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -83,17 +84,10 @@ func main() {
 		_ = startup.Disable()
 		_ = addremove.Remover()
 
-		// Remove atalhos da Área de Trabalho
-		publicDesktop := filepath.Join(os.Getenv("PUBLIC"), "Desktop")
-		if publicDesktop != "Desktop" && publicDesktop != "" {
-			_ = os.Remove(filepath.Join(publicDesktop, "Abrir Chamado Orion.url"))
-			_ = os.Remove(filepath.Join(publicDesktop, "Abrir Portal de Chamados.url"))
-		}
-		if home, err := os.UserHomeDir(); err == nil {
-			userDesktop := filepath.Join(home, "Desktop")
-			_ = os.Remove(filepath.Join(userDesktop, "Abrir Chamado Orion.url"))
-			_ = os.Remove(filepath.Join(userDesktop, "Abrir Portal de Chamados.url"))
-		}
+		// Remove atalhos de todas as Áreas de Trabalho (pública, perfil e a
+		// registrada no Explorer — com OneDrive é outra pasta, que antes ficava
+		// para trás).
+		shortcut.RemoverAtalhos()
 		logger.Println("🗑️ Serviço, início automático, atalhos e entrada em Aplicativos Instalados removidos.")
 
 		// Apaga a pasta de instalação inteira (C:\Orion)
@@ -119,30 +113,37 @@ func main() {
 			return
 		}
 
-		// Verifica se o serviço Windows OrionAgent já está ativo em segundo plano
-		servicoAtivo := false
-		queryCmd := exec.Command("sc", "query", "OrionAgent")
-		esconderJanela(queryCmd)
-		if out, err := queryCmd.CombinedOutput(); err == nil && strings.Contains(string(out), "RUNNING") {
-			servicoAtivo = true
-		}
-
-		if !servicoAtivo {
+		// A bandeja só roda laço de heartbeat próprio quando o serviço NÃO
+		// existe. Antes bastava ele não estar RUNNING — e na instalação e no
+		// login a bandeja costuma subir com o serviço ainda em START_PENDING:
+		// os dois geravam identidade ao mesmo tempo e a máquina aparecia
+		// duplicada no inventário. Serviço instalado mas parado não é motivo
+		// para a bandeja assumir o papel dele; o status mostra "serviço parado".
+		servicoInstalado, servicoRodando := estadoDoServico()
+		switch {
+		case !servicoInstalado:
 			go func() {
-				logger.Printf("Iniciando monitoramento em background — Servidor: %s", cfg.APIURL)
+				logger.Printf("Serviço OrionAgent não instalado — iniciando monitoramento na própria bandeja. Servidor: %s", cfg.APIURL)
 				if err := s.Run(); err != nil {
 					logger.Printf("[ERRO] Falha na execução de background: %v", err)
 				}
 			}()
-		} else {
+		case !servicoRodando:
+			logger.Println("[AVISO] Serviço OrionAgent instalado, mas parado — a bandeja sobe só como interface.")
+		default:
 			logger.Println("Serviço OrionAgent já está ativo em segundo plano — bandeja sobe só como interface, sem laço de heartbeat próprio.")
+		}
+		if servicoInstalado {
 			if err := svc.PreloadMachineToken(); err != nil {
 				logger.Printf("[AVISO] Não foi possível ler a identidade da máquina salva em disco: %v", err)
 			}
 		}
 
-		// Garante que o atalho "Abrir Chamado Orion" com o ícone do sistema exista no Desktop
-		_ = shortcut.CreatePortalShortcut(cfg.APIURL, svc.GetTicketURL())
+		// Garante um único atalho "Abrir Chamado Orion" na Área de Trabalho.
+		atalhoComIdentidade := svc.TokenDaMaquina() != ""
+		if err := shortcut.CreatePortalShortcut(cfg.APIURL, svc.TokenDaMaquina()); err != nil {
+			logger.Printf("[AVISO] Não foi possível criar o atalho na Área de Trabalho: %v", err)
+		}
 
 		// Gerenciador da bandeja do sistema (perto do relógio).
 		// Este bloco é bloqueante e mantém o processo vivo.
@@ -166,7 +167,6 @@ func main() {
 			// A URL carrega o machine_token na query string; logá-la inteira gravava
 			// uma credencial de longa duração em texto plano no agent.log a cada clique.
 			logger.Printf("[TRAY] Abrindo %s: %s", destino, redigirQuery(url))
-			t.SetStatus("conectado")
 		}
 
 		t = tray.New(
@@ -200,30 +200,33 @@ func main() {
 			},
 		)
 
-		// Define status inicial correto antes de abrir o loop da bandeja
-		if svc.GetPortalURL() != "" {
-			t.SetStatus("conectado")
-		} else {
-			if err := svc.PreloadMachineToken(); err == nil && svc.GetPortalURL() != "" {
-				t.SetStatus("conectado")
-			} else {
-				t.SetStatus("conectando…")
+		// Status real: último check-in publicado pelo laço de heartbeat (ver
+		// service/status.go) e estado do serviço no SCM — não mais "consegui
+		// ler a identidade", que ficava em "conectando…" para sempre quando a
+		// leitura era negada, mesmo com o serviço fazendo check-in normalmente.
+		atualizarStatus := func() {
+			instalado, rodando := false, true // sem serviço, o laço roda nesta bandeja
+			if servicoInstalado {
+				instalado, rodando = estadoDoServico()
 			}
-		}
+			t.SetStatus(svc.StatusParaBandeja(instalado, rodando))
 
-		// Mantém o status sincronizado periodicamente
-		go func() {
-			for {
-				time.Sleep(5 * time.Second)
-				if svc.GetPortalURL() != "" {
-					t.SetStatus("conectado")
-				} else {
-					if err := svc.PreloadMachineToken(); err == nil && svc.GetPortalURL() != "" {
-						t.SetStatus("conectado")
-					} else {
-						t.SetStatus("conectando…")
+			// Primeira vez que a identidade fica disponível (bandeja sem serviço
+			// acabou de fazer o primeiro check-in): atualiza o atalho com o link
+			// autenticado.
+			if !atalhoComIdentidade {
+				if tok := svc.TokenDaMaquina(); tok != "" {
+					if err := shortcut.CreatePortalShortcut(cfg.APIURL, tok); err == nil {
+						atalhoComIdentidade = true
 					}
 				}
+			}
+		}
+		atualizarStatus()
+		go func() {
+			for {
+				time.Sleep(10 * time.Second)
+				atualizarStatus()
 			}
 		}()
 
@@ -287,6 +290,26 @@ func main() {
 // Extraída pra ser testável sem precisar de um os.Stat de verdade.
 func binarioFoiAtualizado(mtimeInicial, mtimeAtual time.Time) bool {
 	return mtimeAtual.After(mtimeInicial)
+}
+
+// estadoDoServico consulta o SCM pelo serviço OrionAgent. "Rodando" inclui
+// START_PENDING: no login a bandeja costuma subir antes do serviço terminar de
+// iniciar, e isso não é serviço parado. sc devolve código de saída 1060 quando
+// o serviço não existe; qualquer outra falha sem saída (sc indisponível fora do
+// Windows) também conta como não instalado.
+func estadoDoServico() (instalado, rodando bool) {
+	cmd := exec.Command("sc", "query", "OrionAgent")
+	esconderJanela(cmd)
+	out, err := cmd.CombinedOutput()
+	var saida *exec.ExitError
+	if errors.As(err, &saida) && saida.ExitCode() == 1060 {
+		return false, false
+	}
+	if err != nil && len(out) == 0 {
+		return false, false
+	}
+	texto := string(out)
+	return true, strings.Contains(texto, "RUNNING") || strings.Contains(texto, "START_PENDING")
 }
 
 func redigirQuery(bruta string) string {
