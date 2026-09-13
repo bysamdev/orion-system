@@ -53,9 +53,15 @@ describe('regra de CAPS', () => {
     expect(normalizarTituloChamado('backup do PDV falhou')).toBe('Backup do PDV falhou');
   });
 
-  it('palavra isolada com 4 letras ou mais é baixada', () => {
+  it('palavra isolada com 5 letras ou mais é baixada', () => {
     expect(normalizarTituloChamado('impressora TRAVOU de novo'))
       .toBe('Impressora travou de novo');
+  });
+
+  it('código de 4 letras é preservado — é o caso que motivou o mínimo de 5', () => {
+    // "QSGR 01" apareceu no dry-run dos chamados reais e virava "Qsgr 01".
+    expect(normalizarTituloChamado('QSGR 01 parou')).toBe('QSGR 01 parou');
+    expect(normalizarTituloChamado('trocar peça ABCD hoje')).toBe('Trocar peça ABCD hoje');
   });
 
   it('palavra com dígito nunca é baixada', () => {

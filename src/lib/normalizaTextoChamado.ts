@@ -48,8 +48,17 @@ export const SIGLAS_PRESERVADAS: readonly string[] = [
   'TeamViewer', 'AnyDesk', 'Windows', 'Linux', 'Office', 'Outlook', 'Excel',
 ];
 
-/** Mínimo de letras para uma palavra isolada em CAPS virar minúscula. */
-const MIN_LETRAS_PARA_BAIXAR = 4;
+/**
+ * Mínimo de letras para uma palavra isolada em CAPS virar minúscula.
+ *
+ * Cinco, e não quatro como no plano original: o dry-run sobre os chamados
+ * reais transformou "QSGR 01" em "Qsgr 01". Código de equipamento e etiqueta
+ * de patrimônio costumam ter quatro letras, não estão em allowlist nenhuma, e
+ * seriam destruídos em silêncio. O custo de subir para cinco é deixar passar
+ * um punhado de palavras curtas gritadas; o de manter quatro é corromper
+ * identificador.
+ */
+const MIN_LETRAS_PARA_BAIXAR = 5;
 
 /** Palavras consecutivas em CAPS a partir das quais a frase toda é convertida. */
 const PALAVRAS_PARA_FRASE_EM_CAPS = 3;
