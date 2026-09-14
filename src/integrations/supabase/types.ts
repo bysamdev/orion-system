@@ -1173,6 +1173,7 @@ export type Database = {
           operator_name: string | null
           priority: string
           remote_id: string | null
+          remote_password: string | null
           remote_tool: string | null
           requester_name: string
           resolution_notes: string | null
@@ -1211,6 +1212,7 @@ export type Database = {
           operator_name?: string | null
           priority?: string
           remote_id?: string | null
+          remote_password?: string | null
           remote_tool?: string | null
           requester_name: string
           resolution_notes?: string | null
@@ -1249,6 +1251,7 @@ export type Database = {
           operator_name?: string | null
           priority?: string
           remote_id?: string | null
+          remote_password?: string | null
           remote_tool?: string | null
           requester_name?: string
           resolution_notes?: string | null

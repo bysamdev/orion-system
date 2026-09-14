@@ -17,6 +17,10 @@ interface DescricaoDeFerramenta {
   /** Rótulo do campo de ID quando esta ferramenta está escolhida. */
   rotuloDoId: string;
   placeholder: string;
+  /** Cor da marca — bolinha do rádio e realce do chip, com e sem seleção. */
+  corPonto: string;
+  corSelecionada: string;
+  corNaoSelecionada: string;
 }
 
 export const FERRAMENTAS_REMOTAS: DescricaoDeFerramenta[] = [
@@ -25,12 +29,20 @@ export const FERRAMENTAS_REMOTAS: DescricaoDeFerramenta[] = [
     rotulo: 'TeamViewer',
     rotuloDoId: 'ID TeamViewer',
     placeholder: 'Ex: 123 456 789',
+    // Azul da marca TeamViewer.
+    corPonto: 'accent-sky-500',
+    corSelecionada: 'border-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-400',
+    corNaoSelecionada: 'border-sky-500/30 bg-background text-sky-700 dark:text-sky-400 hover:bg-sky-500/5',
   },
   {
     valor: 'anydesk',
     rotulo: 'AnyDesk',
     rotuloDoId: 'Endereço AnyDesk',
     placeholder: 'Ex: 123 456 789',
+    // Vermelho da marca AnyDesk.
+    corPonto: 'accent-red-500',
+    corSelecionada: 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-400',
+    corNaoSelecionada: 'border-red-500/30 bg-background text-red-700 dark:text-red-400 hover:bg-red-500/5',
   },
 ];
 

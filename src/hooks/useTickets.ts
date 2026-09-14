@@ -37,6 +37,9 @@ export interface Ticket {
   // todo chamado anterior a 2026-09-14. Ver a migration
   // 20260914120000_ferramenta_de_acesso_remoto.sql.
   remote_tool: string | null;
+  // Senha de sessão do AnyDesk/TeamViewer, texto simples. Ver a migration
+  // 20260914140000_senha_de_acesso_remoto.sql.
+  remote_password: string | null;
   sla_paused_at: string | null;
   sla_accumulated_pause_minutes: number | null;
   contract_id: string | null;

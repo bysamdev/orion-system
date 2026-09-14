@@ -754,6 +754,25 @@ const TicketDetails: React.FC = () => {
                     </Button>
                   </div>
                 )}
+                {ticket.remote_password && (
+                  <div className="flex items-center justify-between gap-3 bg-background/90 dark:bg-background/60 backdrop-blur border border-border/60 hover:border-indigo-500/40 rounded-xl px-3.5 py-2 transition-all min-w-[160px]">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-wider">
+                        Senha
+                      </p>
+                      <p className="font-mono text-sm font-black text-foreground tracking-wider">{ticket.remote_password}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Copiar senha de acesso remoto"
+                      className="h-7 w-7 rounded-lg hover:bg-muted shrink-0"
+                      onClick={() => copyToClipboard(ticket.remote_password!, 'Senha')}
+                    >
+                      <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

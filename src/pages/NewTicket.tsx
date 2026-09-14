@@ -10,6 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import {
   ArrowLeft, Send, Loader2, Paperclip, CheckCircle2, Sparkles,
@@ -31,20 +32,28 @@ import { ticketCreationSchema } from '@/lib/validation';
 import { useErrorHandler } from '@/lib/useErrorHandler';
 import { invokeOrionFunction } from '@/lib/orion-functions';
 import { cn } from '@/lib/utils';
-import { suggestCategory } from '@/lib/ticket-helpers';
+import { suggestCategory, CATEGORY_LABELS } from '@/lib/ticket-helpers';
 import { FERRAMENTAS_REMOTAS, campoDeIdRemoto } from '@/lib/ferramentaRemota';
 import { useKBSuggestions } from '@/hooks/useKBSuggestions';
 
-// A tela pede só título e descrição. Categoria, prioridade e departamento
-// são derivados no envio -- ver onSubmit. Validar aqui campos que a tela não
-// mostra travaria o formulário num erro que o usuário não teria como corrigir.
-const ticketSchema = ticketCreationSchema.pick({ title: true, description: true });
+// A tela pede título, descrição e categoria. Prioridade e departamento
+// continuam derivados no envio -- ver onSubmit. Validar aqui campos que a
+// tela não mostra travaria o formulário num erro que o usuário não teria
+// como corrigir.
+const ticketSchema = ticketCreationSchema.pick({ title: true, description: true, category: true });
 type TicketFormValues = z.infer<typeof ticketSchema>;
 
 /** Prioridade de toda abertura pelo cliente. A equipe reclassifica depois. */
 const PRIORIDADE_PADRAO = 'medium';
 /** Categoria quando o texto não casa com nenhuma regra de suggestCategory. */
 const CATEGORIA_PADRAO = 'outros';
+
+// 'infraestrutura' não aparece aqui de propósito -- só chamados abertos
+// automaticamente pelo RMM usam esse valor (ver CATEGORY_LABELS em
+// ticket-helpers.ts), nunca uma escolha manual do cliente.
+const CATEGORIAS_DO_FORMULARIO = Object.entries(CATEGORY_LABELS).filter(
+  ([valor]) => valor !== 'infraestrutura'
+);
 
 const NewTicket = () => {
   const navigate = useNavigate();
@@ -72,6 +81,13 @@ const NewTicket = () => {
   // ferramenta errada não é.
   const [remoteTool, setRemoteTool] = useState<'teamviewer' | 'anydesk' | null>(null);
   const [erroFerramenta, setErroFerramenta] = useState(false);
+  const [remotePassword, setRemotePassword] = useState('');
+  // Enquanto o cliente não mexe no seletor, a categoria segue a sugestão
+  // automática (suggestCategory, calculada a partir do que ele digita).
+  // Assim que ele escolhe manualmente, a sugestão para de sobrescrever --
+  // sem isso, digitar mais uma palavra depois de escolher "Rede" na mão
+  // trocaria a categoria de volta sem o cliente perceber.
+  const [categoriaTocada, setCategoriaTocada] = useState(false);
   const [avaliacaoDialogAberto, setAvaliacaoDialogAberto] = useState(false);
 
   // Só cliente é bloqueado por avaliação pendente. Técnico abrindo chamado em
@@ -116,7 +132,7 @@ const NewTicket = () => {
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketSchema),
     mode: 'onChange',
-    defaultValues: { title: '', description: '' },
+    defaultValues: { title: '', description: '', category: CATEGORIA_PADRAO },
   });
 
   // ── Paste (Ctrl + V) Image Handler ──────────────────────────
@@ -183,9 +199,9 @@ const NewTicket = () => {
   const watchedTitle = form.watch('title');
   const watchedDescription = form.watch('description');
 
-  // Categoria deduzida do que o cliente escreveu. A mesma dedução alimenta as
-  // sugestões da base de conhecimento e o INSERT, para a tela e o registro não
-  // discordarem entre si.
+  // Categoria deduzida do que o cliente escreveu. Vira o valor pré-selecionado
+  // do campo (ver useEffect abaixo) até o cliente escolher outra na mão --
+  // dali em diante, categoriaTocada trava a escolha dele.
   const { rotulo: rotuloDoCampoRemoto, placeholder: placeholderDoCampoRemoto } =
     campoDeIdRemoto(remoteTool);
 
@@ -194,7 +210,14 @@ const NewTicket = () => {
     [watchedTitle, watchedDescription]
   );
 
-  const { suggestions, isLoading: isSuggestionsLoading } = useKBSuggestions(watchedTitle, categoriaDeduzida);
+  useEffect(() => {
+    if (!categoriaTocada) {
+      form.setValue('category', categoriaDeduzida);
+    }
+  }, [categoriaDeduzida, categoriaTocada, form]);
+
+  const watchedCategory = form.watch('category');
+  const { suggestions, isLoading: isSuggestionsLoading } = useKBSuggestions(watchedTitle, watchedCategory);
 
 
 
@@ -248,7 +271,7 @@ const NewTicket = () => {
       // para por que aqui e não no trigger validate_ticket_input.
       const { data: ticket, error: ticketError } = await supabase.from('tickets').insert({
         title: normalizarTituloChamado(data.title),
-        category: categoriaDeduzida,
+        category: data.category,
         priority: prioridadeDerivada,
         description: normalizarDescricaoChamado(data.description),
         requester_name: userInfo.name,
@@ -261,6 +284,8 @@ const NewTicket = () => {
         // tickets_remote_tool_valid é sensível a caixa -- 'TeamViewer' é
         // rejeitado com 23514.
         remote_tool: remoteId.trim() ? remoteTool : null,
+        // Senha sem ID não serve para conectar em nada.
+        remote_password: remoteId.trim() ? remotePassword.trim() || null : null,
         metadata: {
           ...(urlMachineId ? { machine_id: urlMachineId } : {}),
         },
@@ -353,9 +378,11 @@ const NewTicket = () => {
               </Button>
               <Button variant="outline" onClick={() => {
                 setCreatedTicket(null);
-                form.reset({ title: '', description: '' });
+                form.reset({ title: '', description: '', category: CATEGORIA_PADRAO });
+                setCategoriaTocada(false);
                 setPendingFiles([]);
                 setRemoteId('');
+                setRemotePassword('');
               }} className="h-12 w-full font-bold">
                 Abrir Outro Chamado
               </Button>
@@ -377,7 +404,7 @@ const NewTicket = () => {
         <div className="space-y-1">
           <h1 ref={stepHeadingRef} tabIndex={-1} className="text-3xl font-black tracking-tighter text-foreground outline-none">Abrir Novo Chamado</h1>
           <p className="text-muted-foreground font-medium">
-            Conte o que está acontecendo. A classificação e a prioridade ficam com a nossa equipe.
+            Conte o que está acontecendo. A prioridade fica com a nossa equipe.
           </p>
         </div>
 
@@ -455,6 +482,40 @@ const NewTicket = () => {
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem className="space-y-4">
+                      <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Categoria</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            setCategoriaTocada(true);
+                          }}
+                        >
+                          <SelectTrigger className="h-14 text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl">
+                            <SelectValue placeholder="Selecione uma categoria" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CATEGORIAS_DO_FORMULARIO.map(([valor, rotulo]) => (
+                              <SelectItem key={valor} value={valor}>{rotulo}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      {!categoriaTocada && (
+                        <p className="text-xs text-muted-foreground -mt-2">
+                          Sugerimos "{CATEGORY_LABELS[field.value] ?? field.value}" com base no que você escreveu — pode trocar se quiser.
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <section className="p-6 bg-muted/10 border border-border/40 rounded-lg space-y-4">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-5 h-5 text-primary" />
@@ -474,8 +535,8 @@ const NewTicket = () => {
                             className={cn(
                               'flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors text-sm font-medium',
                               escolhida
-                                ? 'border-primary bg-primary/10 text-foreground'
-                                : 'border-border/60 bg-background hover:bg-muted/40'
+                                ? ferramenta.corSelecionada
+                                : ferramenta.corNaoSelecionada
                             )}
                           >
                             <input
@@ -487,7 +548,7 @@ const NewTicket = () => {
                                 setRemoteTool(ferramenta.valor);
                                 setErroFerramenta(false);
                               }}
-                              className="accent-primary"
+                              className={ferramenta.corPonto}
                             />
                             {ferramenta.rotulo}
                           </label>
@@ -517,6 +578,20 @@ const NewTicket = () => {
                         Escolha acima se esse ID é do TeamViewer ou do AnyDesk.
                       </p>
                     )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="remote-password" className="text-xs font-semibold text-muted-foreground">
+                      Senha de acesso
+                    </Label>
+                    <Input
+                      id="remote-password"
+                      placeholder="Senha mostrada no programa"
+                      value={remotePassword}
+                      onChange={(e) => setRemotePassword(e.target.value)}
+                      autoComplete="off"
+                      className="bg-background border-border/40"
+                    />
                   </div>
                 </section>
 
