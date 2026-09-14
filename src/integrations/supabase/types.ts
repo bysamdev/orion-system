@@ -1502,6 +1502,10 @@ export type Database = {
         }
         Returns: Database["public"]["Tables"]["tickets"]["Row"]
       }
+      fn_merge_tickets: {
+        Args: { primary_id: string; duplicate_ids: string[] }
+        Returns: undefined
+      }
       is_master_company_user: { Args: { _user_id: string }; Returns: boolean }
       resolver_chamado: {
         Args: {

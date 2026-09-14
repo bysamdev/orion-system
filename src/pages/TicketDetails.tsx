@@ -1244,6 +1244,7 @@ const TicketDetails: React.FC = () => {
         open={mergeDialogOpen}
         onOpenChange={setMergeDialogOpen}
         primaryTicketId={ticket.id}
+        primaryUserId={ticket.user_id}
         companyId={ticket.company_id}
         onMergeComplete={() => {
           queryClient.invalidateQueries({ queryKey: ['ticket', ticket.id] });
