@@ -23,6 +23,11 @@
  *   - `metadata.merged_into`: duplicado fechado por mesclagem. O cliente seria
  *     cobrado a avaliar um chamado absorvido por outro, que ele talvez nem
  *     reconheça. Ver 20260913100000_conserta_merge_de_chamados.sql.
+ *   - `metadata.fechado_por_inatividade`: chamado que fechou sozinho porque o
+ *     cliente não respondeu em 3 dias úteis. Sem esta exclusão a regra vira um
+ *     laço perverso: o cliente ignora o chamado, ele fecha, e agora ele não
+ *     abre chamado novo enquanto não avaliar o atendimento que ele mesmo
+ *     abandonou. Ver 20260914100000_pausa_fecha_sozinha_e_reabre_na_resposta.sql.
  */
 
 
@@ -64,6 +69,7 @@ export function selecionarChamadoPendente(
   const { linha, encerradoEm } = ultimo;
   if ((linha.ticket_ratings?.length ?? 0) > 0) return null;
   if (linha.metadata && linha.metadata['merged_into']) return null;
+  if (linha.metadata && linha.metadata['fechado_por_inatividade']) return null;
   if (Date.parse(encerradoEm) < limite) return null;
 
   return {
