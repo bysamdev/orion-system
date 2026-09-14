@@ -67,6 +67,17 @@ describe('selecionarChamadoPendente', () => {
     expect(r!.encerradoEm).toBe(diasAtras(2));
   });
 
+  it('não bloqueia chamado que fechou sozinho por falta de resposta', () => {
+    // Senão: o cliente ignora o chamado, ele fecha em 3 dias úteis, e ele
+    // fica impedido de abrir outro até avaliar o que abandonou.
+    expect(
+      selecionarChamadoPendente(
+        [chamado({ metadata: { fechado_por_inatividade: true } })],
+        AGORA
+      )
+    ).toBeNull();
+  });
+
   it('não bloqueia duplicado fechado por mesclagem', () => {
     expect(
       selecionarChamadoPendente(
