@@ -32,6 +32,7 @@ import { useErrorHandler } from '@/lib/useErrorHandler';
 import { invokeOrionFunction } from '@/lib/orion-functions';
 import { cn } from '@/lib/utils';
 import { suggestCategory } from '@/lib/ticket-helpers';
+import { FERRAMENTAS_REMOTAS, campoDeIdRemoto } from '@/lib/ferramentaRemota';
 import { useKBSuggestions } from '@/hooks/useKBSuggestions';
 
 // A tela pede só título e descrição. Categoria, prioridade e departamento
@@ -64,6 +65,13 @@ const NewTicket = () => {
   const isSubmittingRef = useRef(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [remoteId, setRemoteId] = useState('');
+  // Sem valor inicial de propósito. Um default silencioso (TeamViewer, por
+  // ser o que a base de conhecimento ensina primeiro) gravaria 'teamviewer'
+  // em quem colou um endereço de AnyDesk sem olhar o seletor, e o técnico
+  // abriria o programa errado. Ferramenta não informada é um dado honesto;
+  // ferramenta errada não é.
+  const [remoteTool, setRemoteTool] = useState<'teamviewer' | 'anydesk' | null>(null);
+  const [erroFerramenta, setErroFerramenta] = useState(false);
   const [avaliacaoDialogAberto, setAvaliacaoDialogAberto] = useState(false);
 
   // Só cliente é bloqueado por avaliação pendente. Técnico abrindo chamado em
@@ -178,6 +186,9 @@ const NewTicket = () => {
   // Categoria deduzida do que o cliente escreveu. A mesma dedução alimenta as
   // sugestões da base de conhecimento e o INSERT, para a tela e o registro não
   // discordarem entre si.
+  const { rotulo: rotuloDoCampoRemoto, placeholder: placeholderDoCampoRemoto } =
+    campoDeIdRemoto(remoteTool);
+
   const categoriaDeduzida = React.useMemo(
     () => suggestCategory(`${watchedTitle} ${watchedDescription}`) ?? CATEGORIA_PADRAO,
     [watchedTitle, watchedDescription]
@@ -197,6 +208,20 @@ const NewTicket = () => {
     // que é o que garante que ninguém fica preso.
     if (avaliacaoPendente && !avaliacaoResolvidaRef.current) {
       setAvaliacaoDialogAberto(true);
+      return;
+    }
+
+    // Informar o ID sem dizer a ferramenta deixa o técnico com um número e
+    // duas opções. ID de TeamViewer e endereço de AnyDesk são ambos
+    // numéricos e do mesmo tamanho, então não dá para deduzir pelo formato.
+    // Só cobra quem de fato preencheu o ID -- o bloco inteiro é opcional.
+    if (remoteId.trim() && !remoteTool) {
+      setErroFerramenta(true);
+      toast({
+        title: 'Escolha a ferramenta',
+        description: 'Diga se o ID informado é do TeamViewer ou do AnyDesk.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -232,6 +257,10 @@ const NewTicket = () => {
         user_id: user.id,
         company_id: profile.company_id,
         remote_id: remoteId.trim() || null,
+        // Sem ID não existe ferramenta a registrar. Minúsculo porque o CHECK
+        // tickets_remote_tool_valid é sensível a caixa -- 'TeamViewer' é
+        // rejeitado com 23514.
+        remote_tool: remoteId.trim() ? remoteTool : null,
         metadata: {
           ...(urlMachineId ? { machine_id: urlMachineId } : {}),
         },
@@ -431,7 +460,64 @@ const NewTicket = () => {
                     <ShieldCheck className="w-5 h-5 text-primary" />
                     <h4 className="text-sm font-bold">Acesso Remoto (Opcional)</h4>
                   </div>
-                  <Input placeholder="ID (TeamViewer / AnyDesk)" value={remoteId} onChange={(e) => setRemoteId(e.target.value)} className="bg-background border-border/40" />
+
+                  <fieldset className="space-y-2">
+                    <legend className="text-xs font-semibold text-muted-foreground mb-2">
+                      Qual programa você usa?
+                    </legend>
+                    <div className="flex flex-wrap gap-2">
+                      {FERRAMENTAS_REMOTAS.map((ferramenta) => {
+                        const escolhida = remoteTool === ferramenta.valor;
+                        return (
+                          <label
+                            key={ferramenta.valor}
+                            className={cn(
+                              'flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors text-sm font-medium',
+                              escolhida
+                                ? 'border-primary bg-primary/10 text-foreground'
+                                : 'border-border/60 bg-background hover:bg-muted/40'
+                            )}
+                          >
+                            <input
+                              type="radio"
+                              name="remote_tool"
+                              value={ferramenta.valor}
+                              checked={escolhida}
+                              onChange={() => {
+                                setRemoteTool(ferramenta.valor);
+                                setErroFerramenta(false);
+                              }}
+                              className="accent-primary"
+                            />
+                            {ferramenta.rotulo}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="remote-id" className="text-xs font-semibold text-muted-foreground">
+                      {rotuloDoCampoRemoto}
+                    </Label>
+                    <Input
+                      id="remote-id"
+                      placeholder={placeholderDoCampoRemoto}
+                      value={remoteId}
+                      onChange={(e) => {
+                        setRemoteId(e.target.value);
+                        if (!e.target.value.trim()) setErroFerramenta(false);
+                      }}
+                      className="bg-background border-border/40"
+                      aria-invalid={erroFerramenta}
+                      aria-describedby={erroFerramenta ? 'remote-tool-erro' : undefined}
+                    />
+                    {erroFerramenta && (
+                      <p id="remote-tool-erro" className="text-xs font-medium text-destructive">
+                        Escolha acima se esse ID é do TeamViewer ou do AnyDesk.
+                      </p>
+                    )}
+                  </div>
                 </section>
 
                 <section className="space-y-4">

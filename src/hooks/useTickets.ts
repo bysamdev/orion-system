@@ -33,7 +33,10 @@ export interface Ticket {
   sla_status: 'ok' | 'warning' | 'attention' | 'breached' | null;
   // Campos de Acesso Remoto
   remote_id: string | null;
-  remote_password: string | null;
+  // 'teamviewer' | 'anydesk' | null. NULL = não informada, que é o caso de
+  // todo chamado anterior a 2026-09-14. Ver a migration
+  // 20260914120000_ferramenta_de_acesso_remoto.sql.
+  remote_tool: string | null;
   sla_paused_at: string | null;
   sla_accumulated_pause_minutes: number | null;
   contract_id: string | null;

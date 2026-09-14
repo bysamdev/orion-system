@@ -22,6 +22,7 @@ import { ptBR } from 'date-fns/locale';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TicketDescriptionPreview } from '@/components/shared/TicketDescriptionPreview';
 
 interface PortalTicket {
   id: string;
@@ -229,7 +230,9 @@ export default function ClientPortal() {
                               {ticket.title}
                             </h3>
                           </div>
-                          
+
+                          <TicketDescriptionPreview description={ticket.description} />
+
                           <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                             <StatusBadge status={ticket.status as any} />
                             <PriorityBadge priority={ticket.priority as any} />

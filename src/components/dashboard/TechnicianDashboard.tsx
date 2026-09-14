@@ -30,6 +30,7 @@ import { SLABadge } from './SLABadge';
 import { cn } from '@/lib/utils';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { Ticket, useAssumeTicket } from '@/hooks/useTickets';
+import { TicketDescriptionPreview } from '@/components/shared/TicketDescriptionPreview';
 
 // Carregado sob demanda: recharts só entra no bundle quando este
 // widget é de fato renderizado, não no chunk padrão do dashboard.
@@ -133,6 +134,7 @@ const TicketRow: React.FC<{ ticket: Ticket }> = React.memo(({ ticket }) => {
           <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
             {ticket.title}
           </p>
+          <TicketDescriptionPreview description={ticket.description} className="max-w-[44ch]" />
           <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
             <span className="text-primary/70">{ticket.requester_name}</span>
             <span>·</span>
@@ -178,6 +180,7 @@ const UnassignedTicketRow: React.FC<{ ticket: Ticket; onAssume: (id: string) => 
           <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
             {t.title}
           </p>
+          <TicketDescriptionPreview description={t.description} className="max-w-[44ch]" />
           <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
             <span className="text-primary/70">{t.requester_name}</span>
             <span>·</span>

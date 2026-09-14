@@ -39,7 +39,7 @@ describe('filterTickets x construirFiltroPeriodoRelatorio (paridade de critério
     first_response_at: null,
     sla_status: null,
     remote_id: null,
-    remote_password: null,
+    remote_tool: null,
     sla_paused_at: null,
     sla_accumulated_pause_minutes: null,
     contract_id: null,
