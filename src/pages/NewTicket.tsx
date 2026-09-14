@@ -10,122 +10,40 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { 
+import {
   ArrowLeft, Send, Loader2, Paperclip, CheckCircle2, Sparkles,
-  Cpu, Mail, HardDrive, Globe, MoreHorizontal, Layout,
-  ChevronRight, ChevronLeft, ShieldCheck, AlertCircle, BookOpen, ExternalLink,
-  X, Clipboard, Image as ImageIcon, Crown
+  ShieldCheck, BookOpen, ExternalLink, X, Clipboard
 } from 'lucide-react';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
 } from '@/components/ui/dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { ArticleMarkdownRenderer } from '@/components/knowledge/ArticleMarkdownRenderer';
 import { normalizarTituloChamado, normalizarDescricaoChamado } from '@/lib/normalizaTextoChamado';
 import { useAvaliacaoPendente } from '@/hooks/useAvaliacaoPendente';
 import { AvaliacaoPendenteDialog } from '@/components/ticket/AvaliacaoPendenteDialog';
 import { FileUpload } from '@/components/ticket/FileUpload';
-import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
 import { ticketCreationSchema } from '@/lib/validation';
 import { useErrorHandler } from '@/lib/useErrorHandler';
-import { useActiveContracts } from '@/hooks/useContracts';
 import { invokeOrionFunction } from '@/lib/orion-functions';
 import { cn } from '@/lib/utils';
-import { suggestCategory, CATEGORY_LABELS } from '@/lib/ticket-helpers';
+import { suggestCategory } from '@/lib/ticket-helpers';
 import { useKBSuggestions } from '@/hooks/useKBSuggestions';
 
-const ticketSchema = ticketCreationSchema;
+// A tela pede só título e descrição. Categoria, prioridade e departamento
+// são derivados no envio -- ver onSubmit. Validar aqui campos que a tela não
+// mostra travaria o formulário num erro que o usuário não teria como corrigir.
+const ticketSchema = ticketCreationSchema.pick({ title: true, description: true });
 type TicketFormValues = z.infer<typeof ticketSchema>;
 
-const categories = [
-  { 
-    id: 'erp', 
-    name: 'ERP', 
-    icon: Layout, 
-    color: 'text-blue-500', 
-    bg: 'bg-blue-500/10',
-    description: 'Sistema Senior (Sapiens, Vetorh, Ronda, emissão de notas fiscais, faturamento, financeiro e relatórios).',
-    examples: ['Senior Sapiens (Gestão Empresarial)', 'Senior Vetorh / Ronda (RH e Acesso)', 'Emissão de NF-e / Danfe / Boletos', 'Rotinas de faturamento e relatórios']
-  },
-  { 
-    id: 'email', 
-    name: 'E-mail', 
-    icon: Mail, 
-    color: 'text-primary', 
-    bg: 'bg-primary/10',
-    description: 'Contas de correio eletrônico, problemas no Outlook ou Webmail, envio/recebimento e configuração de contas.',
-    examples: ['Outlook travando ou não abre', 'Não envia ou não recebe mensagens', 'Configuração de nova conta / senha', 'Caixa de entrada cheia']
-  },
-  { 
-    id: 'hardware', 
-    name: 'Hardware', 
-    icon: HardDrive, 
-    color: 'text-orange-500', 
-    bg: 'bg-orange-500/10',
-    description: 'Diagnóstico de problemas físicos no computador, máquina que não liga, travamentos graves ou lentidão de hardware.',
-    examples: ['Computador ou notebook não liga / desliga sozinho', 'Lentidão severa ou congelamentos do sistema', 'Upgrade ou solicitação de memória RAM / SSD', 'Superaquecimento ou barulho anormal no equipamento']
-  },
-  { 
-    id: 'software', 
-    name: 'Software', 
-    icon: Cpu, 
-    color: 'text-emerald-500', 
-    bg: 'bg-emerald-500/10',
-    description: 'Instalação, atualização ou erros em programas, pacote Microsoft Office, Excel travando, Adobe e antivírus.',
-    examples: ['Instalação / Atualização de programas', 'Excel, Word ou PowerPoint com erro', 'Adobe Acrobat / Leitor de PDF', 'Navegadores e antivírus']
-  },
-  { 
-    id: 'rede', 
-    name: 'Rede', 
-    icon: Globe, 
-    color: 'text-sky-500', 
-    bg: 'bg-sky-500/10',
-    description: 'Sem conexão com a internet, Wi-Fi instável ou lento, falha ao acessar pastas na rede e impressoras conectadas.',
-    examples: ['Sem acesso à internet ou Wi-Fi instável', 'Pasta compartilhada do servidor não abre', 'Impressora de rede inacessível', 'Site ou sistema web fora do ar']
-  },
-  { 
-    id: 'outros', 
-    name: 'Outros', 
-    icon: MoreHorizontal, 
-    color: 'text-muted-foreground', 
-    bg: 'bg-muted/40',
-    description: 'Solicitações gerais, dúvidas de informática, liberação de novos acessos ou assuntos não listados nas outras opções.',
-    examples: ['Criação ou liberação de novos acessos', 'Dúvidas de uso em geral', 'Telefonia / Ramal', 'Outras solicitações de TI']
-  },
-];
-
-const CATEGORY_PLACEHOLDERS: Record<string, string> = {
-  hardware: "Equipamento: (ex: Notebook Dell XPS)\nPatrimônio/Nº de série: \nProblema observado: \nDesde quando ocorre: ",
-  software: "Software/Sistema: \nVersão (se souber): \nMensagem de erro exibida: \nPassos para reproduzir: ",
-  rede: "Local/Setor: \nDispositivos afetados (Wi-Fi, Cabo, todos?): \nProblema: ",
-  erp: "Módulo do ERP: \nTela/Rotina: \nUsuário afetado: \nDescrição do erro: ",
-  email: "E-mail afetado: \nProblema (Não envia, não recebe, senha?): \nUsa Outlook ou Webmail?: ",
-  outros: "Descreva o problema com detalhes:\nQuando começou: \nO que você já tentou: ",
-};
-
-const DEFAULT_DEPARTMENTS = [
-  'Geral',
-  'TI / Suporte',
-  'Administrativo',
-  'Financeiro / Contábil',
-  'Comercial / Vendas',
-  'Recursos Humanos / DP',
-  'Diretoria / Gestão',
-  'Operações / Logística',
-  'Marketing',
-  'Atendimento / SAC',
-];
+/** Prioridade de toda abertura pelo cliente. A equipe reclassifica depois. */
+const PRIORIDADE_PADRAO = 'medium';
+/** Categoria quando o texto não casa com nenhuma regra de suggestCategory. */
+const CATEGORIA_PADRAO = 'outros';
 
 const NewTicket = () => {
   const navigate = useNavigate();
@@ -135,11 +53,9 @@ const NewTicket = () => {
   const { data: profile } = useUserProfile();
   const { data: userRole } = useUserRole();
   const { handleError } = useErrorHandler();
-  const { data: activeContracts } = useActiveContracts(profile?.company_id);
   const [searchParams] = useSearchParams();
   const urlMachineId = searchParams.get('machine_id');
   
-  const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Guarda síncrona contra double-submit -- o estado isSubmitting é
   // assíncrono (commit de render), e um key-repeat do SO pode disparar
@@ -161,9 +77,9 @@ const NewTicket = () => {
   const avaliacaoResolvidaRef = useRef(false);
   const ehCliente = userRole === 'customer';
   const { data: avaliacaoPendente } = useAvaliacaoPendente(ehCliente ? user?.id : undefined);
-  const [selectedContractId, setSelectedContractId] = useState<string>('');
-  const [selectedAssetId, setSelectedAssetId] = useState<string>('');
-  const [anyDropdownOpen, setAnyDropdownOpen] = useState(false);
+  // Usado só na tela de confirmação, para dizer ao cliente em quanto tempo
+  // o chamado será atendido.
+  const { data: activeSla } = useSLAConfigs();
   const [createdTicket, setCreatedTicket] = useState<{ id: string; number: number; priority: string } | null>(null);
   const [previewArticle, setPreviewArticle] = useState<any | null>(null);
 
@@ -183,50 +99,6 @@ const NewTicket = () => {
 
   const isVIP = companyInfo?.is_vip === true;
 
-  const { data: companyAssets } = useQuery({
-    queryKey: ['company-assets', profile?.company_id],
-    queryFn: async () => {
-      if (!profile?.company_id) return [];
-      const { data, error } = await supabase
-        .from('assets')
-        .select('*')
-        .eq('company_id', profile.company_id)
-        .eq('status', 'active');
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!profile?.company_id
-  });
-
-  const { data: departments } = useQuery({
-    queryKey: ['company-departments', profile?.company_id],
-    queryFn: async () => {
-      if (!profile?.company_id) return [];
-      const { data, error } = await supabase
-        .from('departments')
-        .select('*')
-        .eq('company_id', profile.company_id)
-        .order('name');
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!profile?.company_id
-  });
-
-  const availableDepartments = React.useMemo(() => {
-    const list = new Set<string>();
-    if (profile?.department) list.add(profile.department);
-    if (departments && departments.length > 0) {
-      departments.forEach((d: { name: string }) => {
-        if (d.name) list.add(d.name);
-      });
-    }
-    DEFAULT_DEPARTMENTS.forEach(d => list.add(d));
-    return Array.from(list);
-  }, [departments, profile?.department]);
-
-  const { data: activeSla, isLoading: isSLALoading } = useSLAConfigs();
-
   const userInfo = {
     name: profile?.full_name || '',
     email: profile?.email || user?.email || '',
@@ -236,7 +108,7 @@ const NewTicket = () => {
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketSchema),
     mode: 'onChange',
-    defaultValues: { title: '', category: '', priority: 'medium', description: '', department: 'Geral' },
+    defaultValues: { title: '', description: '' },
   });
 
   // ── Paste (Ctrl + V) Image Handler ──────────────────────────
@@ -296,50 +168,34 @@ const NewTicket = () => {
     setPendingFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  // ── Smart: VIP clients default to high priority ─────────────
-  useEffect(() => {
-    if (isVIP && form.getValues('priority') === 'medium') {
-      form.setValue('priority', 'high');
-    }
-  }, [isVIP, form]);
+  // Cliente VIP continua entrando como alta, como antes de a prioridade sair
+  // da tela. Era um seletor pré-preenchido; virou derivação.
+  const prioridadeDerivada = isVIP ? 'high' : PRIORIDADE_PADRAO;
 
-  // ── Sync: Default to user's profile department ──────────────
-  useEffect(() => {
-    if (profile?.department && form.getValues('department') === 'Geral') {
-      form.setValue('department', profile.department);
-    }
-  }, [profile?.department, form]);
-
-  const currentCategory = form.watch('category');
-  const isCategorySelected = Boolean(currentCategory);
   const watchedTitle = form.watch('title');
   const watchedDescription = form.watch('description');
 
-  const { suggestions, isLoading: isSuggestionsLoading } = useKBSuggestions(watchedTitle, currentCategory || '');
+  // Categoria deduzida do que o cliente escreveu. A mesma dedução alimenta as
+  // sugestões da base de conhecimento e o INSERT, para a tela e o registro não
+  // discordarem entre si.
+  const categoriaDeduzida = React.useMemo(
+    () => suggestCategory(`${watchedTitle} ${watchedDescription}`) ?? CATEGORIA_PADRAO,
+    [watchedTitle, watchedDescription]
+  );
 
-  // ── Smart: Auto-suggest category from title/description ─────
-  const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
+  const { suggestions, isLoading: isSuggestionsLoading } = useKBSuggestions(watchedTitle, categoriaDeduzida);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const text = `${watchedTitle} ${watchedDescription}`;
-      const suggestion = suggestCategory(text);
-      setSuggestedCategory(suggestion);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [watchedTitle, watchedDescription]);
+
 
   const onSubmit = async (data: TicketFormValues) => {
     if (!user || !profile) return;
     if (isSubmittingRef.current) return;
 
-    // Avaliação pendente barra a abertura -- exceto em urgent. Incidente
-    // crítico não pode ficar refém de formulário de satisfação.
-    //
-    // A checagem é no envio, não na entrada da tela, justamente por causa
-    // dessa exceção: bloqueando na entrada, o usuário nunca chegaria a
-    // escolher urgent.
-    if (avaliacaoPendente && !avaliacaoResolvidaRef.current && data.priority !== 'urgent') {
+    // Avaliação pendente barra a abertura. A válvula de escape original era a
+    // prioridade urgent, que o cliente não escolhe mais desde que o formulário
+    // virou tela única -- sobra o botão "pular avaliação" no próprio diálogo,
+    // que é o que garante que ninguém fica preso.
+    if (avaliacaoPendente && !avaliacaoResolvidaRef.current) {
       setAvaliacaoDialogAberto(true);
       return;
     }
@@ -367,17 +223,15 @@ const NewTicket = () => {
       // para por que aqui e não no trigger validate_ticket_input.
       const { data: ticket, error: ticketError } = await supabase.from('tickets').insert({
         title: normalizarTituloChamado(data.title),
-        category: data.category,
-        priority: data.priority,
+        category: categoriaDeduzida,
+        priority: prioridadeDerivada,
         description: normalizarDescricaoChamado(data.description),
         requester_name: userInfo.name,
-        department: data.department || profile?.department || 'Geral',
+        department: profile?.department || 'Geral',
         status: 'open',
         user_id: user.id,
         company_id: profile.company_id,
         remote_id: remoteId.trim() || null,
-        contract_id: selectedContractId || null,
-        asset_id: selectedAssetId || null,
         metadata: {
           ...(urlMachineId ? { machine_id: urlMachineId } : {}),
         },
@@ -448,23 +302,6 @@ const NewTicket = () => {
   };
 
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
-  const isFirstRender = useRef(true);
-
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    stepHeadingRef.current?.focus();
-  }, [step]);
-
-  const nextStep = async () => {
-    const fieldsToValidate = step === 1 ? ['category', 'title'] : ['description', 'priority', 'department'];
-    const isValid = await form.trigger(fieldsToValidate as (keyof TicketFormValues)[]);
-    if (isValid) setStep(s => s + 1);
-  };
-
-  const prevStep = () => setStep(s => s - 1);
 
   if (createdTicket) {
     const slaHours = activeSla ? activeSla[`${createdTicket.priority}_hours` as keyof typeof activeSla] : 24;
@@ -487,12 +324,9 @@ const NewTicket = () => {
               </Button>
               <Button variant="outline" onClick={() => {
                 setCreatedTicket(null);
-                setStep(1);
-                form.reset({ title: '', category: '', priority: 'medium', description: '', department: 'Geral' });
+                form.reset({ title: '', description: '' });
                 setPendingFiles([]);
                 setRemoteId('');
-                setSelectedContractId('');
-                setSelectedAssetId('');
               }} className="h-12 w-full font-bold">
                 Abrir Outro Chamado
               </Button>
@@ -509,27 +343,13 @@ const NewTicket = () => {
           <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="hover:bg-primary/5 transition-colors gap-2 text-muted-foreground">
             <ArrowLeft className="w-4 h-4" /> Voltar
           </Button>
-          
-          <div className="flex items-center gap-2">
-            {[1, 2, 3].map((s) => (
-              <div 
-                key={s} 
-                className={cn(
-                  "h-1.5 w-8 rounded-full transition-all duration-500",
-                  step >= s ? "bg-primary" : "bg-muted"
-                )} 
-              />
-            ))}
-          </div>
         </div>
 
         <div className="space-y-1">
           <h1 ref={stepHeadingRef} tabIndex={-1} className="text-3xl font-black tracking-tighter text-foreground outline-none">Abrir Novo Chamado</h1>
-          <p className="text-muted-foreground font-medium" aria-live="polite">Passo {step} de 3: {
-            step === 1 ? "Identificação do problema" :
-            step === 2 ? "Detalhes e priorização" :
-            "Anexos e finalização"
-          }</p>
+          <p className="text-muted-foreground font-medium">
+            Conte o que está acontecendo. A classificação e a prioridade ficam com a nossa equipe.
+          </p>
         </div>
 
         <div className={cn(
@@ -545,7 +365,7 @@ const NewTicket = () => {
             <Card className="border-border/70 shadow-sm overflow-hidden bg-card">
               <CardContent className="p-4 md:p-8">
             <Form {...form}>
-              <form 
+              <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   // Handled explicitly on the submit button
@@ -553,429 +373,115 @@ const NewTicket = () => {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
                     e.preventDefault();
-                    if (step < 3) {
-                      nextStep();
-                    } else {
-                      form.handleSubmit(onSubmit)(e);
-                    }
+                    form.handleSubmit(onSubmit)(e);
                   }
                 }}
                 className="space-y-8"
               >
-                
-                {step === 1 && (
-                  <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
-                    <section className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">O que está acontecendo?</Label>
-                        <span className="text-xs text-muted-foreground hidden sm:inline-block">Passe o mouse para ver detalhes</span>
-                      </div>
-                      <TooltipProvider delayDuration={150}>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
-                          {categories.map((cat) => (
-                            <Tooltip key={cat.id}>
-                              <TooltipTrigger asChild>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    form.setValue('category', cat.id, { shouldValidate: true });
-                                    form.clearErrors('category');
-                                  }}
-                                  aria-label={`${cat.name}: ${cat.description}`}
-                                  className={cn(
-                                    "relative group p-4 md:p-6 rounded-lg border-2 transition-all flex flex-col items-center gap-3 md:gap-4 text-center h-32 md:h-40 justify-center overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                                    currentCategory === cat.id 
-                                      ? "border-primary bg-primary/5 shadow-xl shadow-primary/10" 
-                                      : "border-border/40 bg-muted/20 hover:border-primary/20 hover:bg-muted/30"
-                                  )}
-                                >
-                                  <div className={cn("p-3 rounded-xl transition-all group-hover:scale-110", cat.bg, cat.color)}>
-                                    <cat.icon className="w-6 h-6" />
-                                  </div>
-                                  <span className="font-bold text-sm tracking-tight">{cat.name}</span>
-                                  {currentCategory === cat.id && (
-                                    <div className="absolute top-2 right-2">
-                                      <CheckCircle2 className="w-5 h-5 text-primary fill-background" />
-                                    </div>
-                                  )}
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent 
-                                side="top" 
-                                sideOffset={8}
-                                className="max-w-xs p-3 space-y-2 bg-popover/95 backdrop-blur border border-border shadow-xl text-left"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <div className={cn("p-1 rounded-md", cat.bg, cat.color)}>
-                                    <cat.icon className="w-4 h-4" />
-                                  </div>
-                                  <span className="font-bold text-sm text-foreground">{cat.name}</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                  {cat.description}
-                                </p>
-                                <div className="pt-1.5 border-t border-border/50">
-                                  <span className="text-[11px] font-semibold text-foreground/80 block mb-1">Exemplos comuns:</span>
-                                  <ul className="text-[11px] text-muted-foreground space-y-0.5 list-disc list-inside">
-                                    {cat.examples.map((ex, idx) => (
-                                      <li key={idx} className="truncate">{ex}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          ))}
-                        </div>
-                      </TooltipProvider>
-
-                      {/* Helper explicativo da categoria selecionada */}
-                      {currentCategory && (
-                        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-primary/5 border border-primary/15 text-xs text-foreground/90 animate-in fade-in slide-in-from-top-1 duration-200">
-                          {(() => {
-                            const selected = categories.find(c => c.id === currentCategory);
-                            if (!selected) return null;
-                            const IconComponent = selected.icon;
-                            return (
-                              <>
-                                <IconComponent className={cn("w-4 h-4 shrink-0 mt-0.5", selected.color)} />
-                                <div className="space-y-0.5">
-                                  <span className="font-semibold text-foreground">{selected.name}: </span>
-                                  <span className="text-muted-foreground">{selected.description}</span>
-                                </div>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      )}
-
-                      {/* Smart: Auto Category Suggestion */}
-                      {suggestedCategory && !isCategorySelected && (
-                        <button
-                          type="button"
-                          onClick={() => form.setValue('category', suggestedCategory)}
-                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all text-sm font-bold animate-in fade-in slide-in-from-top-2 duration-300"
-                        >
-                          <Sparkles className="w-4 h-4" />
-                          Sugestão: <span className="underline">{CATEGORY_LABELS[suggestedCategory] || suggestedCategory}</span>
-                          <span className="text-xs opacity-70 ml-1">— clique para aplicar</span>
-                        </button>
-                      )}
-
-                      {/* Smart: VIP Badge */}
-                      {isVIP && (
-                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-sm font-bold animate-in fade-in duration-500">
-                          <Crown className="w-4 h-4 text-amber-500 shrink-0" />
-                          Cliente VIP — prioridade automática: <span className="uppercase">Alta</span>
-                        </div>
-                      )}
-
-                      <FormField control={form.control} name="category" render={() => <FormMessage />} />
-                    </section>
-
-                    <FormField
-                      control={form.control}
-                      name="title"
-                      render={({ field }) => (
-                        <FormItem className="space-y-4">
-                          <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Título do chamado</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Resuma em poucas palavras" 
-                              {...field} 
-                              onChange={(e) => {
-                                field.onChange(e);
-                                if (e.target.value.trim().length >= 5) {
-                                  form.clearErrors('title');
-                                }
-                              }}
-                              className="h-14 text-lg bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-
-                {step === 2 && (
-                  <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-                    <FormField
-                      control={form.control}
-                      name="description"
-                      render={({ field }) => {
-                        const hasUnfilledMarker = field.value?.includes('[preencher]');
-                        const categoryPlaceholder = currentCategory && CATEGORY_PLACEHOLDERS[currentCategory]
-                          ? CATEGORY_PLACEHOLDERS[currentCategory]
-                          : 'Conte-nos o que aconteceu, erros exibidos e o que você já tentou...';
-                        return (
-                          <FormItem className="space-y-4">
-                            <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Descrição detalhada</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder={categoryPlaceholder}
-                                className="min-h-[180px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-none leading-relaxed"
-                                {...field}
-                                onChange={(e) => {
-                                  field.onChange(e);
-                                  if (e.target.value.trim().length >= 20) {
-                                    form.clearErrors('description');
-                                  }
-                                }}
-                              />
-                            </FormControl>
-                            {hasUnfilledMarker && (
-                              <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm animate-in fade-in slide-in-from-top-1 duration-200">
-                                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                                <span>Parece que você não preencheu todos os campos do template — confirme antes de enviar.</span>
-                              </div>
-                            )}
-                            <FormMessage />
-                          </FormItem>
-                        );
-                      }}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <FormField
-                        control={form.control}
-                        name="priority"
-                        render={({ field }) => (
-                          <FormItem className="space-y-4">
-                            <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Qual a urgência?</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} onOpenChange={setAnyDropdownOpen}>
-                              <FormControl>
-                                <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="urgent">
-                                  <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-destructive shrink-0" />
-                                    <span>Urgente {isSLALoading || !activeSla ? '(SLA: 4h)' : `(SLA: ${activeSla.urgent_hours}h)`}</span>
-                                  </span>
-                                </SelectItem>
-                                <SelectItem value="high">
-                                  <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
-                                    <span>Alta {isSLALoading || !activeSla ? '(SLA: 12h)' : `(SLA: ${activeSla.high_hours}h)`}</span>
-                                  </span>
-                                </SelectItem>
-                                <SelectItem value="medium">
-                                  <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                                    <span>Média {isSLALoading || !activeSla ? '(SLA: 24h)' : `(SLA: ${activeSla.medium_hours}h)`}</span>
-                                  </span>
-                                </SelectItem>
-                                <SelectItem value="low">
-                                  <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-muted-foreground shrink-0" />
-                                    <span>Baixa {isSLALoading || !activeSla ? '(SLA: 48h)' : `(SLA: ${activeSla.low_hours}h)`}</span>
-                                  </span>
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="department"
-                        render={({ field }) => (
-                          <FormItem className="space-y-4">
-                            <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Seu Departamento / Setor</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || profile?.department || 'Geral'} onOpenChange={setAnyDropdownOpen}>
-                              <FormControl>
-                                <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
-                                  <SelectValue placeholder="Selecione seu departamento" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {availableDepartments.map((deptName) => (
-                                  <SelectItem key={deptName} value={deptName}>{deptName}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <section className="p-6 bg-muted/10 border border-border/40 rounded-lg space-y-4">
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck className="w-5 h-5 text-primary" />
-                        <h4 className="text-sm font-bold">Acesso Remoto (Opcional)</h4>
-                      </div>
-                      <Input placeholder="ID (TeamViewer / AnyDesk)" value={remoteId} onChange={(e) => setRemoteId(e.target.value)} className="bg-background border-border/40" />
-                    </section>
-
-                    {/* Dica de Cola Rápida (Ctrl + V) */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-muted/20 border border-border/40 rounded-lg text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Clipboard className="w-4 h-4 text-primary shrink-0" />
-                        <span>Você pode colar capturas de tela (<kbd className="px-1.5 py-0.5 bg-background font-mono rounded border text-[11px] font-bold text-foreground">Ctrl + V</kbd>) diretamente para anexar.</span>
-                      </div>
-                      {pendingFiles.length > 0 && (
-                        <span className="font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-md shrink-0">
-                          {pendingFiles.length} {pendingFiles.length === 1 ? 'imagem anexada' : 'imagens anexadas'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {step === 3 && (
-                  <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-                    <section className="space-y-4">
-                      <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Anexar evidências</Label>
-                      <div className="bg-muted/10 border-2 border-dashed border-border/60 rounded-lg p-6 transition-all hover:bg-muted/20 hover:border-primary/20">
-                        <FileUpload
-                          onFilesSelected={(files) => setPendingFiles(prev => [...prev, ...files])}
-                          isUploading={isSubmitting}
-                          maxFiles={5}
-                          maxSizeMB={10}
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem className="space-y-4">
+                      <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Título do chamado</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Resuma em poucas palavras"
+                          {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            if (e.target.value.trim().length >= 5) {
+                              form.clearErrors('title');
+                            }
+                          }}
+                          className="h-14 text-lg bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl"
                         />
-                      </div>
-                      {pendingFiles.length > 0 && (
-                        <div className="flex gap-2 flex-wrap pt-2">
-                          {pendingFiles.map((f, i) => (
-                            <div key={`${f.name}-${f.size}-${f.lastModified}`} className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border/60 rounded-lg text-xs font-medium group">
-                              <Paperclip className="w-3.5 h-3.5 text-primary shrink-0" />
-                              <span className="truncate max-w-[180px]">{f.name}</span>
-                              <button
-                                type="button"
-                                onClick={() => removePendingFile(i)}
-                                className="text-muted-foreground hover:text-destructive transition-colors ml-1 p-0.5 rounded"
-                                title="Remover anexo"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </section>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                    {activeContracts && activeContracts.length > 0 && (
-                      <section className="space-y-4">
-                        <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Vincular a Contrato</Label>
-                        <Select value={selectedContractId} onValueChange={setSelectedContractId} onOpenChange={setAnyDropdownOpen}>
-                          <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
-                            <SelectValue placeholder="Selecione um contrato" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {activeContracts.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </section>
-                    )}
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem className="space-y-4">
+                      <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Descrição detalhada</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Conte-nos o que aconteceu, erros exibidos e o que você já tentou..."
+                          className="min-h-[180px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-none leading-relaxed"
+                          {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            if (e.target.value.trim().length >= 20) {
+                              form.clearErrors('description');
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                    {companyAssets && companyAssets.length > 0 && (
-                      <section className="space-y-4">
-                        <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Vincular Ativo (CMDB)</Label>
-                        <Select value={selectedAssetId} onValueChange={setSelectedAssetId} onOpenChange={setAnyDropdownOpen}>
-                          <SelectTrigger className="h-12 bg-background border-border/60 rounded-xl">
-                            <SelectValue placeholder="Selecione um ativo (Equipamento/Software)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {companyAssets.map((a) => (
-                              <SelectItem key={a.id} value={a.id}>
-                                {a.name} {a.serial_number ? `(SN: ${a.serial_number})` : ''}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </section>
-                    )}
+                <section className="p-6 bg-muted/10 border border-border/40 rounded-lg space-y-4">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                    <h4 className="text-sm font-bold">Acesso Remoto (Opcional)</h4>
+                  </div>
+                  <Input placeholder="ID (TeamViewer / AnyDesk)" value={remoteId} onChange={(e) => setRemoteId(e.target.value)} className="bg-background border-border/40" />
+                </section>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 flex flex-col gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-primary/10 rounded-full">
-                            <AlertCircle className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="space-y-1">
-                            <h4 className="text-sm font-bold text-primary">Resumo do Chamado</h4>
-                            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Confira os dados antes de enviar</p>
-                          </div>
+                <section className="space-y-4">
+                  <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Anexar evidências (opcional)</Label>
+                  <div className="bg-muted/10 border-2 border-dashed border-border/60 rounded-lg p-6 transition-all hover:bg-muted/20 hover:border-primary/20">
+                    <FileUpload
+                      onFilesSelected={(files) => setPendingFiles(prev => [...prev, ...files])}
+                      isUploading={isSubmitting}
+                      maxFiles={5}
+                      maxSizeMB={10}
+                    />
+                  </div>
+                  {pendingFiles.length > 0 && (
+                    <div className="flex gap-2 flex-wrap pt-2">
+                      {pendingFiles.map((f, i) => (
+                        <div key={`${f.name}-${f.size}-${f.lastModified}`} className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border/60 rounded-lg text-xs font-medium group">
+                          <Paperclip className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="truncate max-w-[180px]">{f.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removePendingFile(i)}
+                            className="text-muted-foreground hover:text-destructive transition-colors ml-1 p-0.5 rounded"
+                            title="Remover anexo"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                        
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-muted-foreground font-bold uppercase tracking-tighter">Categoria:</span>
-                            <span className="font-bold text-foreground bg-background px-2 py-0.5 rounded-md border border-border/40">
-                              {categories.find(c => c.id === form.getValues('category'))?.name || 'Não selecionada'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-muted-foreground font-bold uppercase tracking-tighter">Prioridade:</span>
-                            <PriorityBadge priority={form.getValues('priority')} size="sm" />
-                          </div>
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-muted-foreground font-bold uppercase tracking-tighter">Depto:</span>
-                            <span className="font-bold text-foreground">{form.getValues('department') || '---'}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-muted/10 border border-border/40 rounded-lg p-6 flex items-start gap-4">
-                        <div className="p-2 bg-muted/20 rounded-full">
-                          <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="text-sm font-bold text-foreground">Título do Chamado</h4>
-                          <p className="text-xs text-muted-foreground line-clamp-2 italic">"{form.getValues('title') || 'Sem título'}"</p>
-                          <p className="text-[10px] text-muted-foreground leading-relaxed mt-2">
-                            Seu chamado será analisado pela nossa equipe técnica em breve.
-                          </p>
-                        </div>
-                      </div>
+                      ))}
                     </div>
+                  )}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Clipboard className="w-4 h-4 text-primary shrink-0" />
+                    <span>Você também pode colar capturas de tela com <kbd className="px-1.5 py-0.5 bg-background font-mono rounded border text-[11px] font-bold text-foreground">Ctrl + V</kbd>.</span>
                   </div>
-                )}
+                </section>
 
-                <div className="flex items-center justify-between pt-8 border-t border-border/40">
-                  <div className="flex items-center gap-4">
-                    {step > 1 && (
-                      <Button type="button" variant="outline" onClick={prevStep} className="h-12 px-6 rounded-xl gap-2 font-bold decoration-transparent tracking-tight">
-                        <ChevronLeft className="w-4 h-4" /> Anterior
-                      </Button>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    {step < 3 ? (
-                      <Button 
-                        key="btn-next"
-                        type="button" 
-                        onClick={nextStep} 
-                        disabled={anyDropdownOpen}
-                        className="h-12 px-8 rounded-xl font-bold gap-2 shadow-lg shadow-primary/20 tracking-tight"
-                      >
-                        Próximo <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    ) : (
-                      <Button 
-                        key="btn-submit"
-                        type="button" 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          form.handleSubmit(onSubmit)();
-                        }}
-                        disabled={isSubmitting} 
-                        className="h-12 px-10 rounded-xl font-bold gap-2 shadow-xl shadow-primary/25 tracking-tight"
-                      >
-                        {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                        {isSubmitting ? "Confirmar e Abrir Chamado" : "Abrir Chamado"}
-                      </Button>
-                    )}
-                  </div>
+                <div className="flex items-center justify-end pt-8 border-t border-border/40">
+                  <Button
+                    key="btn-submit"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      form.handleSubmit(onSubmit)();
+                    }}
+                    disabled={isSubmitting}
+                    className="h-12 px-10 rounded-xl font-bold gap-2 shadow-xl shadow-primary/25 tracking-tight"
+                  >
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                    {isSubmitting ? "Abrindo..." : "Abrir Chamado"}
+                  </Button>
                 </div>
 
               </form>
