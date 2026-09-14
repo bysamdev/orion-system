@@ -16,12 +16,14 @@ import { formatDate } from '@/lib/utils';
 import { useMeusTickets } from '@/hooks/useMyTickets';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
+import { TicketDescriptionPreview } from '@/components/shared/TicketDescriptionPreview';
 
 // Define types for tickets to avoid 'unknown' property errors
 interface Ticket {
   id: string;
   ticket_number: number;
   title: string;
+  description?: string | null;
   requester_name: string;
   company_id: string;
   user_id: string;
@@ -195,6 +197,7 @@ export default function TicketHistory() {
                           <PriorityBadge priority={t.priority} size="sm" />
                         </div>
                         <p className="text-sm font-bold text-foreground truncate">{t.title}</p>
+                        <TicketDescriptionPreview description={t.description} />
                         <p className="text-[10px] text-muted-foreground">{resolveUserDisplayName(t.requester_name, profilesMap, { fallback: 'Cliente' })} · {formatDate(t.updated_at, "dd/MM/yy", { locale: ptBR })}</p>
                       </div>
                       <ArrowRight className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-1" />
@@ -289,6 +292,7 @@ const TicketHistoryRow = React.memo(({ ticket, profilesMap, onClick }: TicketHis
       </TableCell>
       <TableCell className="py-4">
         <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{ticket.title}</p>
+        <TicketDescriptionPreview description={ticket.description} className="mt-0.5 max-w-[46ch]" />
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
           <span className="font-semibold text-foreground/80">{requesterDisplay}</span>
           {ticket.company_name && <span>· {ticket.company_name}</span>}

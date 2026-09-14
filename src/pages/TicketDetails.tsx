@@ -23,6 +23,7 @@ import { CannedResponseSelector } from '@/components/ticket/CannedResponseSelect
 import { AttachmentList } from '@/components/ticket/AttachmentList';
 import { ImagePasteHandler } from '@/components/ticket/ImagePasteHandler';
 import { MergeTicketDialog } from '@/components/tickets/MergeTicketDialog';
+import { rotuloDaFerramentaRemota } from '@/lib/ferramentaRemota';
 import { TimeTracker } from '@/components/ticket/TimeTracker';
 import { SatisfactionSurvey } from '@/components/ticket/SatisfactionSurvey';
 import { useTicketCopilot } from '@/hooks/useTicketCopilot';
@@ -733,7 +734,13 @@ const TicketDetails: React.FC = () => {
                 {ticket.remote_id && (
                   <div className="flex items-center justify-between gap-3 bg-background/90 dark:bg-background/60 backdrop-blur border border-border/60 hover:border-indigo-500/40 rounded-xl px-3.5 py-2 transition-all min-w-[160px]">
                     <div className="min-w-0">
-                      <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-wider">ID da Máquina</p>
+                      {/* O rótulo diz a ferramenta porque ID de TeamViewer e
+                          endereço de AnyDesk são indistinguíveis pelo formato.
+                          Chamado anterior a 2026-09-14 não tem o dado e cai em
+                          "Ferramenta não informada" -- ausência, não erro. */}
+                      <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-wider">
+                        {rotuloDaFerramentaRemota(ticket.remote_tool)}
+                      </p>
                       <p className="font-mono text-sm font-black text-foreground tracking-wider">{ticket.remote_id}</p>
                     </div>
                     <Button 
@@ -1244,6 +1251,7 @@ const TicketDetails: React.FC = () => {
         open={mergeDialogOpen}
         onOpenChange={setMergeDialogOpen}
         primaryTicketId={ticket.id}
+        primaryUserId={ticket.user_id}
         companyId={ticket.company_id}
         onMergeComplete={() => {
           queryClient.invalidateQueries({ queryKey: ['ticket', ticket.id] });

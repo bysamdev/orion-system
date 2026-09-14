@@ -1,16 +1,55 @@
-import React, { useState } from 'react';
-import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel } from '@/components/ui/alert-dialog';
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Merge, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { formatDate } from '@/lib/utils';
+import { mensagemDeErroDeMesclagem } from '@/lib/errosDeMesclagem';
+
+/**
+ * Antes daqui se digitava "#1024, #1025" num campo de texto. O campo aceitava
+ * qualquer número, inclusive de chamados de outro solicitante — e o banco
+ * recusava depois, com ORI12, já com o diálogo fechado em cima do usuário.
+ * Pior: número de chamado é fácil de errar por um dígito, e o erro só
+ * aparecia no fim.
+ *
+ * O seletor mostra exatamente o conjunto que fn_merge_tickets aceita: mesmo
+ * solicitante, mesma empresa, chamado ainda aberto. O que não está na lista
+ * não é mesclável, e a lista vazia diz por quê.
+ *
+ * A tela continua sendo só conveniência: a regra mora no banco, porque a RPC
+ * é chamável direto do browser.
+ */
+
+/** Status que não entram na lista de duplicados. */
+const STATUS_ENCERRADOS = ['resolved', 'closed', 'cancelled'];
+
+interface ChamadoCandidato {
+  id: string;
+  ticket_number: number;
+  title: string;
+  status: string;
+  created_at: string;
+}
 
 interface MergeTicketDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   primaryTicketId: string;
+  primaryUserId: string;
   companyId: string;
   onMergeComplete: () => void;
 }
@@ -19,89 +58,75 @@ export const MergeTicketDialog: React.FC<MergeTicketDialogProps> = ({
   open,
   onOpenChange,
   primaryTicketId,
+  primaryUserId,
   companyId,
-  onMergeComplete
+  onMergeComplete,
 }) => {
-  const [duplicateInput, setDuplicateInput] = useState<string>('');
+  const [selecionados, setSelecionados] = useState<string[]>([]);
   const [isPending, setIsPending] = useState(false);
   const { toast } = useToast();
 
-  const handleMerge = async () => {
-    if (!duplicateInput.trim()) {
-      toast({
-        title: "Erro",
-        description: "Informe pelo menos um número ou ID de chamado para mesclar.",
-        variant: "destructive"
-      });
-      return;
-    }
+  // Fechar o diálogo descarta a seleção: reabrir e encontrar caixas já
+  // marcadas de uma tentativa anterior é como se mescla sem querer.
+  useEffect(() => {
+    if (!open) setSelecionados([]);
+  }, [open]);
 
-    const rawTokens = duplicateInput.split(',').map(id => id.trim().replace(/^#/, '')).filter(Boolean);
-    if (rawTokens.length === 0) return;
+  const { data: candidatos, isLoading, error: erroDaBusca } = useQuery({
+    queryKey: ['chamadosMesclaveis', primaryTicketId, primaryUserId, companyId],
+    enabled: open && Boolean(primaryUserId && companyId),
+    // Sem cache: entre uma mesclagem e outra a lista muda, e oferecer um
+    // chamado já mesclado gera um ORI11 que o usuário não tem como explicar.
+    staleTime: 0,
+    queryFn: async (): Promise<ChamadoCandidato[]> => {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('id, ticket_number, title, status, created_at')
+        .eq('user_id', primaryUserId)
+        .eq('company_id', companyId)
+        .neq('id', primaryTicketId)
+        .not('status', 'in', `(${STATUS_ENCERRADOS.join(',')})`)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const alternar = (id: string) => {
+    setSelecionados((atual) =>
+      atual.includes(id) ? atual.filter((outro) => outro !== id) : [...atual, id]
+    );
+  };
+
+  const handleMerge = async () => {
+    if (selecionados.length === 0) return;
 
     setIsPending(true);
     try {
-      // Separa UUIDs de Números sequenciais
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const targetUuids: string[] = [];
-      const ticketNumbers: number[] = [];
-
-      for (const token of rawTokens) {
-        if (uuidRegex.test(token)) {
-          targetUuids.push(token);
-        } else if (/^\d+$/.test(token)) {
-          ticketNumbers.push(parseInt(token, 10));
-        } else {
-          throw new Error(`Identificador inválido: "${token}". Use números (#1024) ou UUIDs.`);
-        }
-      }
-
-      // Se houver números sequenciais, busca os respectivos UUIDs no banco
-      if (ticketNumbers.length > 0) {
-        const { data: tickets, error: fetchErr } = await supabase
-          .from('tickets')
-          .select('id, ticket_number')
-          .in('ticket_number', ticketNumbers);
-
-        if (fetchErr) throw fetchErr;
-
-        if (!tickets || tickets.length !== ticketNumbers.length) {
-          const foundNumbers = (tickets || []).map(t => t.ticket_number);
-          const missing = ticketNumbers.filter(n => !foundNumbers.includes(n));
-          throw new Error(`Chamado(s) não encontrado(s): #${missing.join(', #')}`);
-        }
-
-        tickets.forEach(t => targetUuids.push(t.id));
-      }
-
-      // Garante IDs únicos e que o ticket primário não seja mesclado em si mesmo
-      const finalIds = Array.from(new Set(targetUuids)).filter(id => id !== primaryTicketId);
-
-      if (finalIds.length === 0) {
-        throw new Error("Nenhum ticket duplicado válido para mesclagem.");
-      }
-
-      const { error } = await (supabase.rpc as any)('fn_merge_tickets', {
+      const { error } = await supabase.rpc('fn_merge_tickets', {
         primary_id: primaryTicketId,
-        duplicate_ids: finalIds
+        duplicate_ids: selecionados,
       });
 
       if (error) throw error;
 
       toast({
-        title: "Sucesso",
-        description: `${finalIds.length} chamado(s) mesclado(s) com sucesso.`,
+        title: 'Chamados mesclados',
+        description:
+          selecionados.length === 1
+            ? '1 chamado foi unificado neste e encerrado.'
+            : `${selecionados.length} chamados foram unificados neste e encerrados.`,
       });
-      
+
       onMergeComplete();
       onOpenChange(false);
-      setDuplicateInput('');
-    } catch (err: any) {
-      console.error(err);
+    } catch (err) {
       toast({
-        title: "Erro ao mesclar",
-        description: err.message || "Não foi possível mesclar os tickets.",
-        variant: "destructive"
+        title: 'Erro ao mesclar',
+        description: mensagemDeErroDeMesclagem(err),
+        variant: 'destructive',
       });
     } finally {
       setIsPending(false);
@@ -110,33 +135,79 @@ export const MergeTicketDialog: React.FC<MergeTicketDialogProps> = ({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-[420px]">
+      <AlertDialogContent className="sm:max-w-[520px]">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Merge className="w-5 h-5 text-primary" />
             Mesclar Chamados
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Informe os números dos chamados (ex: <code>#1024, #1025</code>) que serão unificados e encerrados neste chamado principal.
+            Os chamados marcados serão unificados neste e encerrados. O histórico
+            e os anexos deles passam para cá.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div>
-            <Label htmlFor="duplicate-numbers" className="text-sm font-medium">
-              Números dos Chamados Duplicados
-            </Label>
-            <Input
-              id="duplicate-numbers"
-              placeholder="Ex: #1024, #1025 ou 1024"
-              value={duplicateInput}
-              onChange={e => setDuplicateInput(e.target.value)}
-              className="mt-1.5 font-mono"
-            />
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Separe múltiplos números por vírgula.
+        <div className="py-2">
+          {isLoading && (
+            <div className="flex items-center gap-2 py-6 justify-center text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Buscando chamados do mesmo solicitante...
+            </div>
+          )}
+
+          {!isLoading && erroDaBusca && (
+            <p className="py-6 text-center text-sm text-destructive">
+              Não foi possível carregar os chamados. Tente novamente.
             </p>
-          </div>
+          )}
+
+          {!isLoading && !erroDaBusca && candidatos?.length === 0 && (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Nenhum outro chamado aberto deste solicitante nesta empresa.
+              <br />
+              <span className="text-xs">
+                Só é possível mesclar chamados da mesma pessoa e da mesma empresa.
+              </span>
+            </p>
+          )}
+
+          {!isLoading && !erroDaBusca && candidatos && candidatos.length > 0 && (
+            <ScrollArea className="max-h-[280px] pr-3">
+              <ul className="space-y-1">
+                {candidatos.map((chamado) => {
+                  const marcado = selecionados.includes(chamado.id);
+                  return (
+                    <li key={chamado.id}>
+                      <label
+                        className="flex items-start gap-3 rounded-lg border border-border/60 p-3 cursor-pointer hover:bg-muted/50 transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5"
+                      >
+                        <Checkbox
+                          checked={marcado}
+                          onCheckedChange={() => alternar(chamado.id)}
+                          disabled={isPending}
+                          className="mt-0.5"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs font-bold text-muted-foreground">
+                              #{chamado.ticket_number}
+                            </span>
+                            <StatusBadge status={chamado.status} />
+                          </span>
+                          <span className="block text-sm font-medium mt-1 break-words">
+                            {chamado.title}
+                          </span>
+                          <span className="block text-[11px] text-muted-foreground mt-0.5">
+                            Aberto em {formatDate(chamado.created_at)}
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </ScrollArea>
+          )}
         </div>
 
         <AlertDialogFooter>
@@ -145,11 +216,15 @@ export const MergeTicketDialog: React.FC<MergeTicketDialogProps> = ({
           </AlertDialogCancel>
           <Button
             onClick={handleMerge}
-            disabled={!duplicateInput.trim() || isPending}
+            disabled={selecionados.length === 0 || isPending}
             className="gap-2 font-bold"
           >
             {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Merge className="w-4 h-4" />}
-            {isPending ? "Mesclando..." : "Confirmar Mesclagem"}
+            {isPending
+              ? 'Mesclando...'
+              : selecionados.length === 0
+                ? 'Selecione os duplicados'
+                : `Mesclar ${selecionados.length} chamado${selecionados.length > 1 ? 's' : ''}`}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
