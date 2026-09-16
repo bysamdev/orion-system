@@ -10,11 +10,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  ArrowLeft, Send, Loader2, Paperclip, CheckCircle2, Sparkles,
-  ShieldCheck, BookOpen, ExternalLink, X, Clipboard
+  ArrowLeft, ArrowRight, Send, Loader2, Paperclip, CheckCircle2,
+  ShieldCheck, BookOpen, ExternalLink, X, Clipboard,
+  Layout, Mail, HardDrive, Cpu, Globe, MoreHorizontal, Crown
 } from 'lucide-react';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
@@ -32,28 +33,79 @@ import { ticketCreationSchema } from '@/lib/validation';
 import { useErrorHandler } from '@/lib/useErrorHandler';
 import { invokeOrionFunction } from '@/lib/orion-functions';
 import { cn } from '@/lib/utils';
-import { suggestCategory, CATEGORY_LABELS } from '@/lib/ticket-helpers';
 import { FERRAMENTAS_REMOTAS, campoDeIdRemoto } from '@/lib/ferramentaRemota';
 import { useKBSuggestions } from '@/hooks/useKBSuggestions';
 
-// A tela pede título, descrição e categoria. Prioridade e departamento
-// continuam derivados no envio -- ver onSubmit. Validar aqui campos que a
-// tela não mostra travaria o formulário num erro que o usuário não teria
-// como corrigir.
+// A abertura tem dois passos: o passo 1 é só a escolha da categoria, o passo
+// 2 traz todo o resto num formulário só. Prioridade e departamento continuam
+// derivados no envio -- ver onSubmit. Validar aqui campos que a tela não
+// mostra travaria o formulário num erro que o usuário não teria como
+// corrigir.
 const ticketSchema = ticketCreationSchema.pick({ title: true, description: true, category: true });
 type TicketFormValues = z.infer<typeof ticketSchema>;
 
 /** Prioridade de toda abertura pelo cliente. A equipe reclassifica depois. */
 const PRIORIDADE_PADRAO = 'medium';
-/** Categoria quando o texto não casa com nenhuma regra de suggestCategory. */
-const CATEGORIA_PADRAO = 'outros';
 
-// 'infraestrutura' não aparece aqui de propósito -- só chamados abertos
+// 'infraestrutura' não está aqui de propósito -- só chamados abertos
 // automaticamente pelo RMM usam esse valor (ver CATEGORY_LABELS em
 // ticket-helpers.ts), nunca uma escolha manual do cliente.
-const CATEGORIAS_DO_FORMULARIO = Object.entries(CATEGORY_LABELS).filter(
-  ([valor]) => valor !== 'infraestrutura'
-);
+const categories = [
+  {
+    id: 'erp',
+    name: 'ERP',
+    icon: Layout,
+    color: 'text-blue-500',
+    bg: 'bg-blue-500/10',
+    description: 'Sistema Senior (Sapiens, Vetorh, Ronda, emissão de notas fiscais, faturamento, financeiro e relatórios).',
+    examples: ['Senior Sapiens (Gestão Empresarial)', 'Senior Vetorh / Ronda (RH e Acesso)', 'Emissão de NF-e / Danfe / Boletos', 'Rotinas de faturamento e relatórios']
+  },
+  {
+    id: 'email',
+    name: 'E-mail',
+    icon: Mail,
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+    description: 'Contas de correio eletrônico, problemas no Outlook ou Webmail, envio/recebimento e configuração de contas.',
+    examples: ['Outlook travando ou não abre', 'Não envia ou não recebe mensagens', 'Configuração de nova conta / senha', 'Caixa de entrada cheia']
+  },
+  {
+    id: 'hardware',
+    name: 'Hardware',
+    icon: HardDrive,
+    color: 'text-orange-500',
+    bg: 'bg-orange-500/10',
+    description: 'Diagnóstico de problemas físicos no computador, máquina que não liga, travamentos graves ou lentidão de hardware.',
+    examples: ['Computador ou notebook não liga / desliga sozinho', 'Lentidão severa ou congelamentos do sistema', 'Upgrade ou solicitação de memória RAM / SSD', 'Superaquecimento ou barulho anormal no equipamento']
+  },
+  {
+    id: 'software',
+    name: 'Software',
+    icon: Cpu,
+    color: 'text-emerald-500',
+    bg: 'bg-emerald-500/10',
+    description: 'Instalação, atualização ou erros em programas, pacote Microsoft Office, Excel travando, Adobe e antivírus.',
+    examples: ['Instalação / Atualização de programas', 'Excel, Word ou PowerPoint com erro', 'Adobe Acrobat / Leitor de PDF', 'Navegadores e antivírus']
+  },
+  {
+    id: 'rede',
+    name: 'Rede',
+    icon: Globe,
+    color: 'text-sky-500',
+    bg: 'bg-sky-500/10',
+    description: 'Sem conexão com a internet, Wi-Fi instável ou lento, falha ao acessar pastas na rede e impressoras conectadas.',
+    examples: ['Sem acesso à internet ou Wi-Fi instável', 'Pasta compartilhada do servidor não abre', 'Impressora de rede inacessível', 'Site ou sistema web fora do ar']
+  },
+  {
+    id: 'outros',
+    name: 'Outros',
+    icon: MoreHorizontal,
+    color: 'text-muted-foreground',
+    bg: 'bg-muted/40',
+    description: 'Solicitações gerais, dúvidas de informática, liberação de novos acessos ou assuntos não listados nas outras opções.',
+    examples: ['Criação ou liberação de novos acessos', 'Dúvidas de uso em geral', 'Telefonia / Ramal', 'Outras solicitações de TI']
+  },
+];
 
 const NewTicket = () => {
   const navigate = useNavigate();
@@ -82,12 +134,8 @@ const NewTicket = () => {
   const [remoteTool, setRemoteTool] = useState<'teamviewer' | 'anydesk' | null>(null);
   const [erroFerramenta, setErroFerramenta] = useState(false);
   const [remotePassword, setRemotePassword] = useState('');
-  // Enquanto o cliente não mexe no seletor, a categoria segue a sugestão
-  // automática (suggestCategory, calculada a partir do que ele digita).
-  // Assim que ele escolhe manualmente, a sugestão para de sobrescrever --
-  // sem isso, digitar mais uma palavra depois de escolher "Rede" na mão
-  // trocaria a categoria de volta sem o cliente perceber.
-  const [categoriaTocada, setCategoriaTocada] = useState(false);
+  // Passo 1 é só a categoria; passo 2 tem todo o resto num formulário só.
+  const [step, setStep] = useState<1 | 2>(1);
   const [avaliacaoDialogAberto, setAvaliacaoDialogAberto] = useState(false);
 
   // Só cliente é bloqueado por avaliação pendente. Técnico abrindo chamado em
@@ -132,7 +180,7 @@ const NewTicket = () => {
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketSchema),
     mode: 'onChange',
-    defaultValues: { title: '', description: '', category: CATEGORIA_PADRAO },
+    defaultValues: { title: '', description: '', category: '' },
   });
 
   // ── Paste (Ctrl + V) Image Handler ──────────────────────────
@@ -197,26 +245,12 @@ const NewTicket = () => {
   const prioridadeDerivada = isVIP ? 'high' : PRIORIDADE_PADRAO;
 
   const watchedTitle = form.watch('title');
-  const watchedDescription = form.watch('description');
 
-  // Categoria deduzida do que o cliente escreveu. Vira o valor pré-selecionado
-  // do campo (ver useEffect abaixo) até o cliente escolher outra na mão --
-  // dali em diante, categoriaTocada trava a escolha dele.
   const { rotulo: rotuloDoCampoRemoto, placeholder: placeholderDoCampoRemoto } =
     campoDeIdRemoto(remoteTool);
 
-  const categoriaDeduzida = React.useMemo(
-    () => suggestCategory(`${watchedTitle} ${watchedDescription}`) ?? CATEGORIA_PADRAO,
-    [watchedTitle, watchedDescription]
-  );
-
-  useEffect(() => {
-    if (!categoriaTocada) {
-      form.setValue('category', categoriaDeduzida);
-    }
-  }, [categoriaDeduzida, categoriaTocada, form]);
-
   const watchedCategory = form.watch('category');
+  const categoriaEscolhida = categories.find((c) => c.id === watchedCategory);
   const { suggestions, isLoading: isSuggestionsLoading } = useKBSuggestions(watchedTitle, watchedCategory);
 
 
@@ -378,8 +412,8 @@ const NewTicket = () => {
               </Button>
               <Button variant="outline" onClick={() => {
                 setCreatedTicket(null);
-                form.reset({ title: '', description: '', category: CATEGORIA_PADRAO });
-                setCategoriaTocada(false);
+                form.reset({ title: '', description: '', category: '' });
+                setStep(1);
                 setPendingFiles([]);
                 setRemoteId('');
                 setRemotePassword('');
@@ -427,13 +461,126 @@ const NewTicket = () => {
                   // Handled explicitly on the submit button
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+                  if (step === 2 && e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
                     e.preventDefault();
                     form.handleSubmit(onSubmit)(e);
                   }
                 }}
                 className="space-y-8"
               >
+                {step === 1 && (
+                <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300">
+                  <section className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">O que está acontecendo?</Label>
+                      <span className="text-xs text-muted-foreground hidden sm:inline-block">Passe o mouse para ver detalhes</span>
+                    </div>
+                    <TooltipProvider delayDuration={150}>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
+                        {categories.map((cat) => (
+                          <Tooltip key={cat.id}>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  form.setValue('category', cat.id, { shouldValidate: true });
+                                  form.clearErrors('category');
+                                }}
+                                aria-label={`${cat.name}: ${cat.description}`}
+                                className={cn(
+                                  "relative group p-4 md:p-6 rounded-lg border-2 transition-all flex flex-col items-center gap-3 md:gap-4 text-center h-32 md:h-40 justify-center overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                                  watchedCategory === cat.id
+                                    ? "border-primary bg-primary/5 shadow-xl shadow-primary/10"
+                                    : "border-border/40 bg-muted/20 hover:border-primary/20 hover:bg-muted/30"
+                                )}
+                              >
+                                <div className={cn("p-3 rounded-xl transition-all group-hover:scale-110", cat.bg, cat.color)}>
+                                  <cat.icon className="w-6 h-6" />
+                                </div>
+                                <span className="font-bold text-sm tracking-tight">{cat.name}</span>
+                                {watchedCategory === cat.id && (
+                                  <div className="absolute top-2 right-2">
+                                    <CheckCircle2 className="w-5 h-5 text-primary fill-background" />
+                                  </div>
+                                )}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              sideOffset={8}
+                              className="max-w-xs p-3 space-y-2 bg-popover/95 backdrop-blur border border-border shadow-xl text-left"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={cn("p-1 rounded-md", cat.bg, cat.color)}>
+                                  <cat.icon className="w-4 h-4" />
+                                </div>
+                                <span className="font-bold text-sm text-foreground">{cat.name}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground leading-relaxed">
+                                {cat.description}
+                              </p>
+                              <div className="pt-1.5 border-t border-border/50">
+                                <span className="text-[11px] font-semibold text-foreground/80 block mb-1">Exemplos comuns:</span>
+                                <ul className="text-[11px] text-muted-foreground space-y-0.5 list-disc list-inside">
+                                  {cat.examples.map((ex, idx) => (
+                                    <li key={idx} className="truncate">{ex}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </TooltipProvider>
+
+                    {/* Helper explicativo da categoria selecionada */}
+                    {categoriaEscolhida && (
+                      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-primary/5 border border-primary/15 text-xs text-foreground/90 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <categoriaEscolhida.icon className={cn("w-4 h-4 shrink-0 mt-0.5", categoriaEscolhida.color)} />
+                        <div className="space-y-0.5">
+                          <span className="font-semibold text-foreground">{categoriaEscolhida.name}: </span>
+                          <span className="text-muted-foreground">{categoriaEscolhida.description}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {isVIP && (
+                      <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-sm font-bold animate-in fade-in duration-500">
+                        <Crown className="w-4 h-4 text-amber-500 shrink-0" />
+                        Cliente VIP — prioridade automática: <span className="uppercase">Alta</span>
+                      </div>
+                    )}
+
+                    <FormField control={form.control} name="category" render={() => <FormMessage />} />
+                  </section>
+
+                  <div className="flex items-center justify-end pt-8 border-t border-border/40">
+                    <Button
+                      type="button"
+                      onClick={async () => {
+                        const valido = await form.trigger('category');
+                        if (valido) setStep(2);
+                      }}
+                      className="h-12 px-10 rounded-xl font-bold gap-2 shadow-xl shadow-primary/25 tracking-tight"
+                    >
+                      Continuar <ArrowRight className="w-5 h-5" />
+                    </Button>
+                  </div>
+                </div>
+                )}
+
+                {step === 2 && (
+                <>
+                {categoriaEscolhida && (
+                  <div className="flex items-center gap-2.5 text-xs">
+                    <span className="text-muted-foreground font-semibold uppercase tracking-widest">Categoria</span>
+                    <span className={cn("flex items-center gap-1.5 font-bold", categoriaEscolhida.color)}>
+                      <categoriaEscolhida.icon className="w-4 h-4" />
+                      {categoriaEscolhida.name}
+                    </span>
+                  </div>
+                )}
+
                 <FormField
                   control={form.control}
                   name="title"
@@ -477,40 +624,6 @@ const NewTicket = () => {
                           }}
                         />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem className="space-y-4">
-                      <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Categoria</FormLabel>
-                      <FormControl>
-                        <Select
-                          value={field.value}
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            setCategoriaTocada(true);
-                          }}
-                        >
-                          <SelectTrigger className="h-14 text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl">
-                            <SelectValue placeholder="Selecione uma categoria" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CATEGORIAS_DO_FORMULARIO.map(([valor, rotulo]) => (
-                              <SelectItem key={valor} value={valor}>{rotulo}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      {!categoriaTocada && (
-                        <p className="text-xs text-muted-foreground -mt-2">
-                          Sugerimos "{CATEGORY_LABELS[field.value] ?? field.value}" com base no que você escreveu — pode trocar se quiser.
-                        </p>
-                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -629,7 +742,16 @@ const NewTicket = () => {
                   </div>
                 </section>
 
-                <div className="flex items-center justify-end pt-8 border-t border-border/40">
+                <div className="flex items-center justify-between pt-8 border-t border-border/40">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setStep(1)}
+                    disabled={isSubmitting}
+                    className="h-12 px-6 rounded-xl font-bold gap-2 text-muted-foreground"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Trocar categoria
+                  </Button>
                   <Button
                     key="btn-submit"
                     type="button"
@@ -644,6 +766,8 @@ const NewTicket = () => {
                     {isSubmitting ? "Abrindo..." : "Abrir Chamado"}
                   </Button>
                 </div>
+                </>
+                )}
 
               </form>
             </Form>
