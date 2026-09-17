@@ -47,3 +47,6 @@ __pycache__/
 
 # Artefatos incrementais do tsc -b (regenerados a cada build)
 *.tsbuildinfo
+
+# Instruções locais de agente — cada máquina tem as suas, não versionar
+AGENTS.md
