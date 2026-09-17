@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   ArrowLeft, ArrowRight, Send, Loader2, Paperclip, CheckCircle2,
   ShieldCheck, BookOpen, ExternalLink, X, Clipboard,
-  Layout, Mail, HardDrive, Cpu, Globe, MoreHorizontal, Crown
+  Layout, Mail, HardDrive, Cpu, Globe, MoreHorizontal, Crown, Clock
 } from 'lucide-react';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
@@ -34,6 +34,7 @@ import { useErrorHandler } from '@/lib/useErrorHandler';
 import { invokeOrionFunction } from '@/lib/orion-functions';
 import { cn } from '@/lib/utils';
 import { FERRAMENTAS_REMOTAS, campoDeIdRemoto } from '@/lib/ferramentaRemota';
+import { estaNoHorarioDeAlmoco } from '@/lib/horarioDeAlmoco';
 import { useKBSuggestions } from '@/hooks/useKBSuggestions';
 
 // A abertura tem dois passos: o passo 1 é só a escolha da categoria, o passo
@@ -136,6 +137,9 @@ const NewTicket = () => {
   const [remotePassword, setRemotePassword] = useState('');
   // Passo 1 é só a categoria; passo 2 tem todo o resto num formulário só.
   const [step, setStep] = useState<1 | 2>(1);
+  // Reavaliado de minuto em minuto: quem abre o formulário às 11h58 e demora a
+  // escrever precisa ver o aviso aparecer, não ficar com a foto da montagem.
+  const [noHorarioDeAlmoco, setNoHorarioDeAlmoco] = useState(() => estaNoHorarioDeAlmoco());
   const [avaliacaoDialogAberto, setAvaliacaoDialogAberto] = useState(false);
 
   // Só cliente é bloqueado por avaliação pendente. Técnico abrindo chamado em
@@ -399,6 +403,11 @@ const NewTicket = () => {
 
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
 
+  useEffect(() => {
+    const id = setInterval(() => setNoHorarioDeAlmoco(estaNoHorarioDeAlmoco()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   if (createdTicket) {
     const slaHours = activeSla ? activeSla[`${createdTicket.priority}_hours` as keyof typeof activeSla] : 24;
     return (
@@ -449,6 +458,22 @@ const NewTicket = () => {
             Conte o que está acontecendo. A prioridade fica com a nossa equipe.
           </p>
         </div>
+
+        {noHorarioDeAlmoco && (
+          <div
+            role="status"
+            className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-100/60 p-4 text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+          >
+            <Clock className="mt-0.5 h-5 w-5 flex-shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">Estamos no horário de almoço (12h às 14h)</p>
+              <p className="text-sm">
+                Pode abrir o chamado normalmente — ele entra na fila do mesmo jeito. Só a primeira
+                resposta tende a demorar um pouco mais neste intervalo, porque a equipe está reduzida.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className={cn(
           "gap-8 items-start",
