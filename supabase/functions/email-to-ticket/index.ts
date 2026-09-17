@@ -222,7 +222,13 @@ serve(async (req) => {
         user_id: profile.id,
         company_id: profile.company_id,
         status: 'open',
-        category: 'Suporte Geral',
+        // 'outros' e não 'Suporte Geral': a constraint tickets_category_valid
+        // só aceita os slugs minúsculos do vocabulário unificado
+        // (20260910171848). Com o texto livre, TODO insert deste canal violava
+        // o CHECK e voltava 23514 — ou seja, a abertura por e-mail estava
+        // quebrada em silêncio desde que a constraint entrou, sempre caindo no
+        // catch genérico como erro 400.
+        category: 'outros',
         priority: 'medium'
       })
       .select()
