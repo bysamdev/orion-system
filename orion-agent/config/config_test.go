@@ -163,7 +163,7 @@ func TestLogFileAusenteViraAgentLog(t *testing.T) {
 // TestAPIURLAusenteRecebeDefault cobre a regra cfg.APIURL == "" -> URL base localhost.
 //
 // CORRIGIDO (item B.15): o default costumava ser a URL COMPLETA do endpoint de
-// heartbeat, não a base — o que quebrava GetPortalURL/GetTicketURL e o atalho
+// heartbeat, não a base — o que quebrava GetPortalURL e o atalho
 // do Desktop, que concatenam "/api/auth/machine-login" direto em cima de
 // cfg.APIURL. Ver config.go.
 func TestAPIURLAusenteRecebeDefault(t *testing.T) {

@@ -86,16 +86,8 @@ func TestGetPortalURLComTokenVazioRetornaStringVazia(t *testing.T) {
 	}
 }
 
-func TestGetTicketURLComTokenVazioRetornaStringVazia(t *testing.T) {
-	s := novoSvcDeTeste("https://backend.invalido")
-
-	if got := s.GetTicketURL(); got != "" {
-		t.Fatalf("com machineToken vazio esperava \"\", obtive %q", got)
-	}
-}
-
 // Documenta a consequência do contrato acima: enquanto o primeiro tick() não
-// concluir, os cliques na bandeja viram no-op silencioso (main.go só abre o
+// concluir, o clique na bandeja vira no-op silencioso (main.go só abre o
 // navegador quando url != "", sem avisar o usuário).
 func TestBandejaViraNoOpSilenciosoAntesDoPrimeiroTick(t *testing.T) {
 	s := novoSvcDeTeste("https://backend.invalido")
@@ -109,23 +101,21 @@ func TestBandejaViraNoOpSilenciosoAntesDoPrimeiroTick(t *testing.T) {
 	}
 
 	callbackDaBandeja(s.GetPortalURL)
-	callbackDaBandeja(s.GetTicketURL)
 
 	if len(aberturas) != 0 {
 		t.Fatalf("antes do primeiro tick nenhuma URL deveria ser aberta, abriu: %v", aberturas)
 	}
 
-	// Depois que a identidade é resolvida, os mesmos cliques passam a funcionar.
+	// Depois que a identidade é resolvida, o mesmo clique passa a funcionar.
 	identidade, err := token.GenerateRandomIdentity()
 	if err != nil {
 		t.Fatalf("GenerateRandomIdentity falhou: %v", err)
 	}
 	aplicaIdentidadeComoTick(s, identidade)
 	callbackDaBandeja(s.GetPortalURL)
-	callbackDaBandeja(s.GetTicketURL)
 
-	if len(aberturas) != 2 {
-		t.Fatalf("apos a identidade resolvida esperava 2 aberturas, obtive %d (%v)", len(aberturas), aberturas)
+	if len(aberturas) != 1 {
+		t.Fatalf("apos a identidade resolvida esperava 1 abertura, obtive %d (%v)", len(aberturas), aberturas)
 	}
 }
 
@@ -155,43 +145,6 @@ func TestGetPortalURLMontaFormatoEQueryParamsCorretos(t *testing.T) {
 	}
 	if q.Get("redirect_to") != "" {
 		t.Errorf("URL de portal não deveria carregar redirect_to, obtive %q", q.Get("redirect_to"))
-	}
-}
-
-func TestGetTicketURLMontaFormatoEQueryParamsCorretos(t *testing.T) {
-	s := novoSvcDeTeste("https://orion.exemplo.test")
-	s.machineToken = "abc123token"
-
-	bruta := s.GetTicketURL()
-	u, err := url.Parse(bruta)
-	if err != nil {
-		t.Fatalf("URL de ticket não é parseável: %v (bruta=%q)", err, bruta)
-	}
-
-	if u.Path != "/api/auth/machine-login" {
-		t.Errorf("path esperado /api/auth/machine-login, obtive %q", u.Path)
-	}
-	q := u.Query()
-	if q.Get("token") != "abc123token" {
-		t.Errorf("query token esperado %q, obtive %q", "abc123token", q.Get("token"))
-	}
-	if q.Get("redirect_to") != "/novo-ticket" {
-		t.Errorf("query redirect_to esperado %q, obtive %q", "/novo-ticket", q.Get("redirect_to"))
-	}
-}
-
-// As duas URLs precisam apontar para o MESMO endpoint e carregar o MESMO token;
-// a única diferença legítima é o redirect_to.
-func TestPortalETicketCompartilhamMesmoEndpointETokens(t *testing.T) {
-	s := novoSvcDeTeste("https://orion.exemplo.test")
-	s.machineToken = "token-compartilhado"
-
-	portal, ticket := s.GetPortalURL(), s.GetTicketURL()
-	if !strings.HasPrefix(ticket, portal) {
-		t.Fatalf("URL de ticket deveria estender a de portal.\nportal=%q\nticket=%q", portal, ticket)
-	}
-	if ticket == portal {
-		t.Fatalf("URL de ticket deveria diferir da de portal (redirect_to), ambas = %q", portal)
 	}
 }
 
@@ -259,7 +212,7 @@ func TestIdentidadeDaMaquinaNaoDependeDoUsuarioColetado(t *testing.T) {
 
 // Simula dois logons em sequência rápida contra o MESMO Svc e verifica que o
 // estado compartilhado permanece coerente: um único token, uma única identidade,
-// URLs de bandeja estáveis.
+// URL de bandeja estável.
 func TestTrocaRapidaDeUsuarioMantemEstadoDoSvcCoerente(t *testing.T) {
 	s := novoSvcDeTeste("https://orion.exemplo.test")
 
@@ -271,11 +224,10 @@ func TestTrocaRapidaDeUsuarioMantemEstadoDoSvcCoerente(t *testing.T) {
 	// 1ª coleta: usuário "maria" loga e o tick resolve a identidade.
 	aplicaIdentidadeComoTick(s, identidade)
 	portalMaria := s.GetPortalURL()
-	ticketMaria := s.GetTicketURL()
 	tokenMaria := s.machineToken
 
-	if portalMaria == "" || ticketMaria == "" {
-		t.Fatal("após a 1ª coleta as URLs da bandeja não deveriam estar vazias")
+	if portalMaria == "" {
+		t.Fatal("após a 1ª coleta a URL da bandeja não deveria estar vazia")
 	}
 
 	// 2ª coleta logo em seguida: "joao" assume a sessão (troca rápida de usuário).
@@ -286,9 +238,6 @@ func TestTrocaRapidaDeUsuarioMantemEstadoDoSvcCoerente(t *testing.T) {
 	}
 	if got := s.GetPortalURL(); got != portalMaria {
 		t.Errorf("URL de portal mudou após troca de usuário:\nantes=%q\ndepois=%q", portalMaria, got)
-	}
-	if got := s.GetTicketURL(); got != ticketMaria {
-		t.Errorf("URL de ticket mudou após troca de usuário:\nantes=%q\ndepois=%q", ticketMaria, got)
 	}
 }
 
@@ -338,7 +287,7 @@ func TestColetaRealSegueUsuarioMasHardwarePermaneceEstavel(t *testing.T) {
 // (getMachineToken/setMachineToken, ver service/windows.go). Este teste
 // reproduz o cenário real de main.go pelo caminho protegido:
 //   - goroutine do serviço  (Start -> go s.run -> tick) ESCREVE via setMachineToken
-//   - goroutine do systray  (callbacks da bandeja)      LÊ via GetPortalURL/GetTicketURL
+//   - goroutine do systray  (callbacks da bandeja)      LÊ via GetPortalURL
 //
 // Antes da correção, este teste só provava ausência de PANIC/corrupção
 // observável nesta execução específica — não ausência de corrida (que exigia
@@ -360,7 +309,7 @@ func TestCorridaEntreTickEBandejaNoMachineToken(t *testing.T) {
 		}
 	}()
 
-	// Leitores: mesmo papel dos callbacks "Abrir Portal" e "Abrir Chamado".
+	// Leitores: mesmo papel do callback "Abrir Portal de Suporte".
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
@@ -371,7 +320,7 @@ func TestCorridaEntreTickEBandejaNoMachineToken(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < iteracoes; i++ {
-			_ = s.GetTicketURL()
+			_ = s.GetPortalURL()
 		}
 	}()
 
@@ -1015,7 +964,7 @@ func TestExtensaoDaURLIgnoraQueryString(t *testing.T) {
 }
 
 // Testes de anexarUsuarioAtualVia — a correção que resolve o usuário
-// Windows/AD na hora do clique em "Abrir Chamado" (não o current_user
+// Windows/AD na hora do clique em "Abrir Portal de Suporte" (não o current_user
 // gravado no último heartbeat, que pode ter até um ciclo inteiro de
 // defasagem) e o embute na URL de login por máquina como requester_user,
 // consumido em nomeRequisitante/sanitizarRequesterUser (handler/auth_handlers.go).
@@ -1054,18 +1003,15 @@ func TestAnexarUsuarioAtualVia_AparaEspacosDoResolver(t *testing.T) {
 	}
 }
 
-// TestGetTicketURLEGetPortalURL_SemTokenNaoChamaResolver garante que, sem
+// TestGetPortalURL_SemTokenNaoChamaResolver garante que, sem
 // machine_token ainda persistido (agente recém-instalado, primeiro
-// heartbeat ainda não concluído), as duas funções continuam devolvendo ""
+// heartbeat ainda não concluído), a função continua devolvendo ""
 // — comportamento pré-existente, não pode regredir com a adição do
 // requester_user.
-func TestGetTicketURLEGetPortalURL_SemTokenNaoChamaResolver(t *testing.T) {
+func TestGetPortalURL_SemTokenNaoChamaResolver(t *testing.T) {
 	s := &Svc{cfg: &config.Config{APIURL: "https://orion.exemplo.test"}}
 
 	if got := s.GetPortalURL(); got != "" {
 		t.Errorf("GetPortalURL() sem token = %q, esperado vazio", got)
-	}
-	if got := s.GetTicketURL(); got != "" {
-		t.Errorf("GetTicketURL() sem token = %q, esperado vazio", got)
 	}
 }

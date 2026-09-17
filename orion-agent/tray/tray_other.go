@@ -12,17 +12,15 @@ import (
 // TrayManager organiza as ações e o estado da bandeja do sistema vinculadas ao agente (stub para Linux/macOS).
 type TrayManager struct {
 	OnOpenPortal func()
-	OnOpenTicket func()
 	OnExit       func()
 	mu           sync.Mutex
 	status       string
 }
 
 // New constrói o gerenciador stub para compilação cruzada em sistemas não-Windows.
-func New(onOpen func(), onTicket func(), onExit func()) *TrayManager {
+func New(onOpen func(), onExit func()) *TrayManager {
 	return &TrayManager{
 		OnOpenPortal: onOpen,
-		OnOpenTicket: onTicket,
 		OnExit:       onExit,
 	}
 }

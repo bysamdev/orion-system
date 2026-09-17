@@ -35,7 +35,8 @@ persistente**, seguido de uma cadeia de dois redirects:
 ```
 1. Agente monta em memória (service/windows.go):
    https://orion.bysam.dev/api/auth/machine-login?token=<machine_token>
-   (+ &redirect_to=/novo-ticket no item "Abrir Chamado")
+   (o item "Abrir Chamado", com &redirect_to=/novo-ticket, foi REMOVIDO:
+    abertura de chamado agora exige login individual no portal)
 
 2. ShellExecute abre essa URL no navegador padrão.
 
@@ -80,7 +81,7 @@ fazem a mesma coisa na prática.
 
 Não confirmei contra o Supabase real (exigiria disparar um login de produção),
 então marco como **provável, a confirmar em homologação**. É barato de
-verificar: clicar em "Abrir Chamado" e ver onde a página aterrissa.
+verificar — mas ficou obsoleto: o item "Abrir Chamado" não existe mais.
 
 ---
 
@@ -251,9 +252,8 @@ separado de mudança de lógica de backend:
 1. **Corrigir o no-op silencioso** (§3): balão/tooltip informando "aguardando
    primeiro check-in" quando `machineToken` está vazio. Isolado, só no agente,
    sem tocar backend. É o maior ganho de percepção por menor risco.
-2. **Confirmar e corrigir o `redirect_to`** (§1): passar URL absoluta ao
-   Supabase para "Abrir Chamado" realmente abrir `/novo-ticket`. Mudança no
-   backend, precisa de teste em homologação.
+2. ~~Confirmar e corrigir o `redirect_to`~~ (§1): resolvido por remoção — o
+   item "Abrir Chamado" saiu do menu e do atalho de Desktop.
 3. **Redigir o token dos logs** (§2, já detalhado em `SECURITY.md` F7).
 4. **Token efêmero de uso único pré-emitido** (§2): mudança maior, envolve
    novo endpoint no backend + cache no agente. Merece seu próprio ciclo de

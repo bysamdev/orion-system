@@ -139,11 +139,13 @@ func main() {
 			}
 		}
 
-		// Garante um único atalho "Abrir Chamado Orion" na Área de Trabalho.
-		atalhoComIdentidade := svc.TokenDaMaquina() != ""
-		if err := shortcut.CreatePortalShortcut(cfg.APIURL, svc.TokenDaMaquina()); err != nil {
-			logger.Printf("[AVISO] Não foi possível criar o atalho na Área de Trabalho: %v", err)
-		}
+		// Remove o atalho "Abrir Chamado Orion" que versões anteriores
+		// deixaram na Área de Trabalho. A abertura de chamado passou a exigir
+		// login individual, e o machine-login recusa /novo-ticket — o ícone
+		// levaria a lugar nenhum. Roda a cada subida porque é a única forma de
+		// limpar a frota já instalada sem visitar máquina por máquina; quando
+		// não há atalho, é uma operação sem efeito.
+		shortcut.RemoverAtalhos()
 
 		// Gerenciador da bandeja do sistema (perto do relógio).
 		// Este bloco é bloqueante e mantém o processo vivo.
@@ -152,7 +154,7 @@ func main() {
 		// bandeja. Eles só executam depois de t.Run(), quando t já está atribuído.
 		var t *tray.TrayManager
 
-		// abrir centraliza o tratamento dos dois itens de menu que levam ao portal.
+		// abrir centraliza o tratamento do item de menu que leva ao portal.
 		// Quando a URL está vazia (o agente ainda não concluiu o primeiro check-in),
 		// o clique antes não fazia absolutamente nada — sem erro, sem aviso, sem log
 		// visível ao usuário. Agora o motivo aparece na própria bandeja.
@@ -173,10 +175,6 @@ func main() {
 			func() {
 				// Ação de "Abrir Portal" detecta o token e abre no navegador.
 				abrir("portal de suporte", svc.GetPortalURL)
-			},
-			func() {
-				// Ação de "Abrir Chamado" leva direto à criação de ticket.
-				abrir("página de novo chamado", svc.GetTicketURL)
 			},
 			func() {
 				// Comando de saída finaliza o agente completamente.
@@ -210,17 +208,6 @@ func main() {
 				instalado, rodando = estadoDoServico()
 			}
 			t.SetStatus(svc.StatusParaBandeja(instalado, rodando))
-
-			// Primeira vez que a identidade fica disponível (bandeja sem serviço
-			// acabou de fazer o primeiro check-in): atualiza o atalho com o link
-			// autenticado.
-			if !atalhoComIdentidade {
-				if tok := svc.TokenDaMaquina(); tok != "" {
-					if err := shortcut.CreatePortalShortcut(cfg.APIURL, tok); err == nil {
-						atalhoComIdentidade = true
-					}
-				}
-			}
 		}
 		atualizarStatus()
 		go func() {

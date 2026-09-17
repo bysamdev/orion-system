@@ -81,7 +81,7 @@ func formatarUsuarioInterativo(userDomain, userName, hostname string) string {
 // ResolverUsuarioAtual devolve só o usuário formatado (ex: "DOMINIO\fulano")
 // da sessão interativa ativa AGORA — versão exportada e enxuta de
 // resolverIdentidadeDoUsuario, pensada pra ser chamada na hora do clique em
-// "Abrir Chamado" (ver service/windows.go GetTicketURL/GetPortalURL), não
+// "Abrir Portal de Suporte" (ver service/windows.go GetPortalURL), não
 // só a cada ciclo de heartbeat (30-60s). O valor salvo em
 // machines.current_user pode estar defasado até a duração de um ciclo
 // inteiro se o usuário da máquina tiver trocado nesse meio-tempo; resolver

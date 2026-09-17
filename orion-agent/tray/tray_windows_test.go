@@ -20,7 +20,7 @@ import (
 // instalar ou auto-atualizar, com o serviço já no ar. Ou seja: o crash
 // acontecia exatamente no cenário mais comum.
 func TestSetStatusAntesDeRunNaoEntraEmPanico(t *testing.T) {
-	tm := New(func() {}, func() {}, func() {})
+	tm := New(func() {}, func() {})
 
 	// Sem Run(), mStatus é nil e o systray não foi inicializado.
 	for _, msg := range []string{"conectado", "conectando…", "aguardando primeiro check-in…"} {

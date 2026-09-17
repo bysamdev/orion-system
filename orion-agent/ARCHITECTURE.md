@@ -50,11 +50,11 @@ orion-agent/
 │   └── windows.go                # implementa service.Interface (kardianos/service):
 │                                  # Start/Stop, loop principal (run), tick() de heartbeat,
 │                                  # pollAndExecuteCommands() (executa via cmd /C),
-│                                  # GetPortalURL()/GetTicketURL() (montagem da URL de login)
+│                                  # GetPortalURL() (montagem da URL de login)
 │
 ├── shortcut/
-│   └── shortcut_windows.go       # cria/atualiza um atalho .url na Área de Trabalho
-│                                  # do usuário logado, apontando para o portal
+│   └── shortcut_windows.go       # cria/remove um atalho .url na Área de Trabalho;
+│                                  # hoje só RemoverAtalhos é usado (desinstalador)
 │
 ├── token/
 │   └── token.go                  # persiste o "machine token" em
@@ -62,7 +62,7 @@ orion-agent/
 │
 ├── tray/
 │   ├── tray.go                    # ícone de bandeja (getlantern/systray): menu
-│   │                               # "Abrir Portal", "Abrir Chamado", "Sair"
+│   │                               # "Abrir Portal de Suporte", "Sair"
 │   └── icon.go                    # ícone PNG 16x16 embutido em bytes (placeholder)
 │
 └── deploy/
@@ -198,9 +198,9 @@ Definido em `tray/tray.go`, com os callbacks vindos de `main.go`:
   padrão (`pkg/browser`). Se `machine_token` ainda estiver vazio (nenhum
   heartbeat concluído ainda), a URL retorna `""` e **nada acontece** — não há
   feedback visual para o usuário nesse caso, só uma linha de log.
-- **"Abrir Chamado"** → mesma URL de login, mas com
-  `&redirect_to=/novo-ticket`, para cair direto na criação de ticket após
-  autenticar.
+- ~~"Abrir Chamado"~~ → **removido**. A abertura de chamado passou a exigir
+  login individual no portal; o agente não oferece mais item de menu nem
+  atalho na Área de Trabalho para `redirect_to=/novo-ticket`.
 - **"Sair"** → `os.Exit(0)` imediato. Isso mata o processo *tray* mas, se o
   serviço Windows `OrionAgent` também estiver rodando separadamente
   (instalado via `install`), ele continua ativo — "Sair" só encerra a
@@ -215,7 +215,7 @@ partir do que já está em memória (`machineToken`) e delega ao navegador.
 
 O agente **não cria usuários diretamente** — ele nunca chama nenhum endpoint
 de criação de usuário. A criação acontece **como efeito colateral do backend**
-quando alguém clica em "Abrir Portal"/"Abrir Chamado" pela primeira vez para
+quando alguém clica em "Abrir Portal de Suporte" pela primeira vez para
 uma dada máquina.
 
 Fluxo (`handler/auth_handlers.go:machineLogin`, chamado via
@@ -385,7 +385,11 @@ heartbeat simplesmente não faz nada visível (seção 2.4).
 produto.
 
 ### 6.10 Atalho de desktop reescrito a cada heartbeat, sem checar sessão ativa
-`shortcut.CreatePortalShortcut` grava `Abrir Portal de Chamados.url` sempre em
+(Histórico: `main.go` não chama mais `shortcut.CreatePortalShortcut` — o
+agente deixou de criar o atalho na Área de Trabalho. `RemoverAtalhos` segue
+em uso no desinstalador.)
+
+`shortcut.CreatePortalShortcut` gravava `Abrir Chamado Orion.url` sempre em
 `os.UserHomeDir()/Desktop` a cada `tick()` — se o processo estiver rodando
 como serviço SYSTEM (não como o usuário interativo), `os.UserHomeDir()`
 resolve para o perfil do usuário SYSTEM, não para o Desktop de quem está

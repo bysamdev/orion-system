@@ -75,7 +75,7 @@ type Svc struct {
 
 	// mu protege machineID e machineToken. A corrida real e comprovada era em
 	// machineToken: escrito por tick() na goroutine do loop principal
-	// (Start -> go s.run(ctx)) e lido por GetPortalURL/GetTicketURL na
+	// (Start -> go s.run(ctx)) e lido por GetPortalURL na
 	// goroutine do systray, sem nenhuma sincronização — ver
 	// service/windows_test.go (TestCorridaMachineTokenDerrubaGetPortalURLComPanic).
 	// machineID hoje só é lido pela própria goroutine do loop
@@ -266,8 +266,8 @@ func (s *Svc) Stop(svc service.Service) error {
 // PreloadMachineToken lê a identidade da máquina já persistida em disco (sem
 // gerar uma nova, sem fazer heartbeat) — usado quando este processo é uma
 // bandeja interativa rodando ao lado do serviço, que já é quem manda
-// heartbeat de verdade (ver main.go). Sem isso, GetPortalURL/GetTicketURL
-// ficariam vazios para sempre nesta instância: token só é escrito em
+// heartbeat de verdade (ver main.go). Sem isso, GetPortalURL
+// ficaria vazio para sempre nesta instância: token só é escrito em
 // s.machineToken dentro de tick(), que aqui nunca roda.
 func (s *Svc) PreloadMachineToken() error {
 	t, err := token.LoadToken()
@@ -289,25 +289,10 @@ func (s *Svc) GetPortalURL() string {
 	return anexarUsuarioAtual(u)
 }
 
-// GetTicketURL gera a URL que leva direto à página de abertura de chamado,
-// já autenticada. Construída em cima de GetPortalURL (não duplicando a
-// montagem) por dois motivos: a URL de ticket sempre estende a de portal
-// (mesmo token, mesmo requester_user — contrato coberto por
-// TestPortalETicketCompartilhamMesmoEndpointETokens), e a resolução do
-// usuário Windows/AD ativo (anexarUsuarioAtual, uma chamada WTS) roda uma
-// única vez por clique, não duas.
-func (s *Svc) GetTicketURL() string {
-	portal := s.GetPortalURL()
-	if portal == "" {
-		return ""
-	}
-	return portal + "&redirect_to=/novo-ticket"
-}
-
 // TokenDaMaquina devolve a identidade da máquina já carregada (ou "" se ainda
 // não houver), para o atalho da Área de Trabalho — que precisa do token cru,
-// não da URL do portal (main.go passava GetTicketURL() no lugar do token e o
-// atalho saía com a URL inteira aninhada dentro de ?token=).
+// não da URL do portal (main.go já passou a URL inteira no lugar do token e o
+// atalho saía com ela aninhada dentro de ?token=).
 func (s *Svc) TokenDaMaquina() string {
 	return strings.TrimSpace(s.getMachineToken())
 }
@@ -442,7 +427,7 @@ func (s *Svc) tick() {
 	// A checagem e a escrita aqui não precisam de sincronização ENTRE SI: tick()
 	// só roda nesta goroutine (o select de run()), nunca em paralelo consigo
 	// mesma. O mutex em setMachineToken/getMachineToken protege contra os
-	// LEITORES externos (GetPortalURL/GetTicketURL, na goroutine da bandeja).
+	// LEITORES externos (GetPortalURL, na goroutine da bandeja).
 	if s.getMachineToken() == "" {
 		t, err := token.LoadToken()
 		if err != nil {
