@@ -946,9 +946,9 @@ func JanelaHistorico(period string) (janela, passo time.Duration) {
 }
 
 // MetricsHistory devolve a série histórica de uma máquina já reamostrada no
-// passo do período pedido (ver periodWindow em lib/grafana_metrics.go, que
-// define os mesmos passos). Agregar no banco em vez de mandar tudo cru
-// importa: 24h de pontos de 3 minutos são 480 linhas por máquina, e o
+// passo do período pedido (ver JanelaHistorico logo acima, que traduz o
+// período do frontend em janela e passo). Agregar no banco em vez de mandar
+// tudo cru importa: 24h de pontos de 3 minutos são 480 linhas por máquina, e o
 // gráfico não desenha mais que ~300 pontos de forma legível.
 func (d *DB) MetricsHistory(ctx context.Context, machineID string, janela, passo time.Duration) ([]MetricRow, error) {
 	rows, err := d.pool.Query(ctx, `
