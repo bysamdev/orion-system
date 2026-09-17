@@ -9,6 +9,9 @@ import { ButtonPrimary } from '@/components/ui/button-primary';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { agruparUsuariosPorEmpresa } from '@/lib/usuariosPorEmpresa';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Loader2, Plus, Trash2, Pencil, AlertTriangle, Merge, RefreshCw, Users } from 'lucide-react';
@@ -29,6 +32,10 @@ interface NewUserForm {
   email: string;
   department: string;
   role: 'customer' | 'technician' | 'admin';
+  // Vazio = a própria empresa de quem está criando. Só equipe com escopo
+  // global consegue gravar em outra: create-user-credentials recusa com 403
+  // quem tentar (ver a checagem SEC-02 na edge function).
+  company_id: string;
 }
 
 interface EditUserForm {
@@ -76,6 +83,7 @@ export const UserManagement = () => {
     email: '',
     department: '',
     role: 'customer',
+    company_id: '',
   });
   const [editFormData, setEditFormData] = useState<EditUserForm>({
     id: '',
@@ -174,6 +182,13 @@ export const UserManagement = () => {
     },
     staleTime: 10_000,
   });
+
+  // Agrupamento por empresa: a lista é multiempresa e, plana, não dá para
+  // saber de quem é cada usuário sem ler a coluna "Empresa" linha a linha.
+  // Mesma leitura visual de "Sistemas e Alertas" em modo lista (ver
+  // GroupSectionHeader em src/pages/Monitoring.tsx). A regra de ordenação e
+  // contagem mora em src/lib/usuariosPorEmpresa.ts, com teste.
+  const usuariosPorEmpresa = useMemo(() => agruparUsuariosPorEmpresa(users), [users]);
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: UserRole }) => {
@@ -343,7 +358,7 @@ export const UserManagement = () => {
         full_name: formData.full_name.trim(),
         department: formData.department || null,
         role: formData.role,
-        company_id: currentUserProfile.company_id,
+        company_id: formData.company_id || currentUserProfile.company_id,
       });
 
       if (error) {
@@ -364,6 +379,7 @@ export const UserManagement = () => {
         email: '',
         department: '',
         role: 'customer',
+        company_id: '',
       });
       setIsDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
@@ -618,6 +634,28 @@ export const UserManagement = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="company">Empresa *</Label>
+                <Select
+                  value={formData.company_id || currentUserProfile?.company_id || undefined}
+                  onValueChange={(value) => setFormData({ ...formData, company_id: value })}
+                >
+                  <SelectTrigger id="company">
+                    <SelectValue placeholder="Selecione a empresa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allCompanies?.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  É a empresa que define quais chamados esse usuário enxerga. Criar em outra
+                  empresa exige escopo global.
+                </p>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -656,18 +694,27 @@ export const UserManagement = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              users?.map((userItem) => (
-                <UserRow
-                  key={userItem.id}
-                  userItem={userItem}
-                  onUpdateRole={handleUpdateUserRole}
-                  onEdit={handleOpenEditDialog}
-                  onDelete={handleDeleteUser}
-                  onMerge={handleOpenMergeDialog}
-                  isDeleting={deletingUserId === userItem.id}
-                  isCurrentUser={userItem.id === user?.id}
-                  isUpdating={isUpdating}
-                />
+              usuariosPorEmpresa.map((grupo) => (
+                <React.Fragment key={grupo.empresa}>
+                  <CompanySectionRow
+                    empresa={grupo.empresa}
+                    total={grupo.usuarios.length}
+                    equipe={grupo.equipe}
+                  />
+                  {grupo.usuarios.map((userItem) => (
+                    <UserRow
+                      key={userItem.id}
+                      userItem={userItem}
+                      onUpdateRole={handleUpdateUserRole}
+                      onEdit={handleOpenEditDialog}
+                      onDelete={handleDeleteUser}
+                      onMerge={handleOpenMergeDialog}
+                      isDeleting={deletingUserId === userItem.id}
+                      isCurrentUser={userItem.id === user?.id}
+                      isUpdating={isUpdating}
+                    />
+                  ))}
+                </React.Fragment>
               ))
             )}
           </TableBody>
@@ -892,6 +939,37 @@ export const UserManagement = () => {
     </div>
   );
 };
+
+// Cabeçalho de seção de empresa dentro da tabela de usuários. Reaproveita a
+// leitura visual de "Sistemas e Alertas" em modo lista (GroupSectionHeader em
+// src/pages/Monitoring.tsx): barra vertical na cor primária, nome da empresa,
+// contagem num badge e a linha horizontal fechando a faixa.
+//
+// É uma TableRow de célula única (colSpan) em vez de um <div> solto porque
+// precisa viver dentro do <TableBody> — um elemento fora de tr/td ali é HTML
+// inválido e o navegador o reposiciona para fora da tabela.
+function CompanySectionRow({ empresa, total, equipe }: { empresa: string; total: number; equipe: number }) {
+  return (
+    <TableRow className="hover:bg-transparent border-none">
+      <TableCell colSpan={6} className="py-3 px-2">
+        <div className="flex items-center gap-3">
+          <div className="w-1.5 h-6 rounded-full bg-primary flex-shrink-0" />
+          <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+            <h3 className="text-base font-bold text-foreground tracking-tight truncate">{empresa}</h3>
+            <Badge variant="outline" className="text-[11px] font-semibold ml-1 gap-1.5 border-border/60 bg-muted/30">
+              <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', equipe > 0 ? 'bg-primary' : 'bg-muted-foreground')} />
+              <span>
+                {total} {total === 1 ? 'usuário' : 'usuários'}
+                {equipe > 0 && ` · ${equipe} da equipe`}
+              </span>
+            </Badge>
+          </div>
+          <div className="flex-1 border-t border-border/40 ml-2" />
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
 
 interface UserRowProps {
   userItem: UserData;
