@@ -681,12 +681,38 @@ WHERE id = $1`,
 // (collectionIntervalSeconds): sem ele seriam 1440 linhas/dia/máquina, e com
 // ele são 480, mantendo 20 pontos na janela de 1h do gráfico.
 //
-// Para estação de trabalho ele é inerte hoje, e vale saber disso antes de
-// mexer aqui achando que muda alguma coisa: o heartbeat dela é de 300s, mais
-// largo que o slot de 3 minutos, então praticamente todo heartbeat cai num
-// slot novo e vira linha. O que limita o volume de desktop é a cadência do
-// heartbeat (288 linhas/dia/máquina), não esta constante.
+// Estação de trabalho tem o seu próprio teto, mais largo — ver
+// IntervaloAmostraHistoricoEstacao.
 const IntervaloAmostraHistorico = 3 * time.Minute
+
+// IntervaloAmostraHistoricoEstacao é o espaçamento da série em desktop e
+// notebook.
+//
+// Precisa ser MAIOR que o heartbeat de 300s da estação para ter algum efeito.
+// Enquanto valeu o mesmo slot de 3 minutos do servidor, ele era inerte: o
+// heartbeat de 5 minutos é mais largo que o slot, então todo heartbeat caía
+// num slot novo e virava linha, e o volume era ditado pela cadência do
+// heartbeat (288 linhas/dia/máquina), não pelo slot.
+//
+// Com 15 minutos, um a cada três heartbeats vira linha: 96 linhas/dia/máquina,
+// um terço do anterior. Nas ~500 máquinas previstas, dentro das 24h de
+// retenção de estação, são ~48 mil linhas em vez de ~144 mil.
+//
+// A troca é resolução: o gráfico de desktop passa de 12 para 4 pontos por
+// hora. Escolhido assim de propósito — em estação de trabalho o que se olha é
+// tendência de CPU, memória e disco, e para isso 4 pontos por hora bastam. Em
+// servidor, onde se monitora disponibilidade, a resolução fina continua.
+const IntervaloAmostraHistoricoEstacao = 15 * time.Minute
+
+// intervaloAmostraDe escolhe o slot pelo tipo de equipamento. device_type
+// ausente conta como estação, igual ao resto do código: a janela generosa é
+// privilégio de quem foi classificado explicitamente como servidor.
+func intervaloAmostraDe(deviceType string) time.Duration {
+	if deviceType == "server" {
+		return IntervaloAmostraHistorico
+	}
+	return IntervaloAmostraHistoricoEstacao
+}
 
 // RetencaoHistoricoNaoServidor é o teto de histórico pra desktop/notebook —
 // bem mais curto que os 3 dias de RetencaoHistorico, que ficam reservados a
@@ -703,10 +729,13 @@ const RetencaoHistoricoNaoServidor = 24 * time.Hour
 
 // AppendMetricPoint grava um ponto da série histórica de performance.
 //
-// O timestamp é arredondado pro início do slot de IntervaloAmostraHistorico
-// (date_bin) e faz parte da PK, então os heartbeats seguintes do mesmo slot
-// caem no ON CONFLICT DO NOTHING — um INSERT por heartbeat, no máximo uma
-// linha por slot, sem precisar de SELECT antes pra saber se já gravou.
+// O timestamp é arredondado pro início do slot (date_bin) e faz parte da PK,
+// então os heartbeats seguintes do mesmo slot caem no ON CONFLICT DO NOTHING —
+// um INSERT por heartbeat, no máximo uma linha por slot, sem precisar de
+// SELECT antes pra saber se já gravou.
+//
+// O slot depende do tipo de equipamento (ver intervaloAmostraDe): servidor
+// guarda resolução fina, estação de trabalho grava um ponto a cada 15 minutos.
 //
 // Guarda percentuais em smallint em vez dos bytes brutos: é o que o gráfico
 // desenha, e economiza 26 bytes por linha em relação aos bigints de
@@ -720,7 +749,7 @@ const RetencaoHistoricoNaoServidor = 24 * time.Hour
 // máquina — 144 mil por dia nas ~500 previstas. Agora é uma varredura por
 // hora, dentro de maintain_machine_metrics_partitions, que já era a dona da
 // retenção desta tabela (migração 20260917160000).
-func (d *DB) AppendMetricPoint(ctx context.Context, in InsertMetricInput) error {
+func (d *DB) AppendMetricPoint(ctx context.Context, in InsertMetricInput, deviceType string) error {
 	_, err := d.pool.Exec(ctx, `
 INSERT INTO public.machine_metrics_history (machine_id, collected_at, cpu_pct, ram_pct, disk_pct)
 VALUES (
@@ -735,7 +764,7 @@ ON CONFLICT (machine_id, collected_at) DO NOTHING`,
 		clampPercentual(in.CPUUsage),
 		percentualDe(in.RAMUsed, in.RAMTotal),
 		percentualDe(in.DiskUsed, in.DiskTotal),
-		IntervaloAmostraHistorico.Seconds(),
+		intervaloAmostraDe(deviceType).Seconds(),
 	)
 	return err
 }
@@ -943,7 +972,11 @@ func JanelaHistorico(period string) (janela, passo time.Duration) {
 	case "7d", "3d":
 		return RetencaoHistorico, time.Hour
 	default: // "1h" e qualquer valor desconhecido
-		// Passo igual ao da coleta: na janela de 1h não há o que agregar.
+		// Passo igual ao da coleta DE SERVIDOR: na janela de 1h não há o que
+		// agregar para ele. Para estação de trabalho, que grava a cada 15
+		// minutos, o passo fica mais fino que o dado — o date_bin da consulta
+		// simplesmente devolve os 4 pontos que existem, cada um no seu balde,
+		// em vez de inventar pontos que ninguém coletou.
 		return time.Hour, IntervaloAmostraHistorico
 	}
 }
@@ -951,7 +984,7 @@ func JanelaHistorico(period string) (janela, passo time.Duration) {
 // MetricsHistory devolve a série histórica de uma máquina já reamostrada no
 // passo do período pedido (ver JanelaHistorico logo acima, que traduz o
 // período do frontend em janela e passo). Agregar no banco em vez de mandar
-// tudo cru importa: 24h de pontos de 3 minutos são 480 linhas por máquina, e o
+// tudo cru importa: 24h de pontos de 3 minutos são 480 linhas de servidor, e o
 // gráfico não desenha mais que ~300 pontos de forma legível.
 func (d *DB) MetricsHistory(ctx context.Context, machineID string, janela, passo time.Duration) ([]MetricRow, error) {
 	rows, err := d.pool.Query(ctx, `
