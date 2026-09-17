@@ -378,9 +378,17 @@ const NewTicket = () => {
       console.error('Erro completo:', err);
       console.error('Mensagem:', err.message);
       console.error('Código:', err.code);
+
+      // 42501 é a recusa da policy de INSERT em tickets. A mensagem crua do
+      // Postgres ("new row violates row-level security policy") não diz nada
+      // a quem está tentando abrir um chamado. A causa quase sempre é uma
+      // destas duas, e as duas têm saída prática.
+      const recusadoPelaPolicy = err.code === '42501' || /row-level security/i.test(err.message || '');
       toast({
-        title: 'Erro ao criar chamado',
-        description: err.message || 'Ocorreu um erro inesperado.',
+        title: recusadoPelaPolicy ? 'Não foi possível abrir o chamado' : 'Erro ao criar chamado',
+        description: recusadoPelaPolicy
+          ? 'Avalie o último chamado encerrado antes de abrir um novo. Se já avaliou, confirme com o suporte se o seu usuário está vinculado à empresa certa.'
+          : err.message || 'Ocorreu um erro inesperado.',
         variant: 'destructive',
       });
     } finally {

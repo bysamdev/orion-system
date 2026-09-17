@@ -4,8 +4,7 @@
  *
  * Mora aqui, e não dentro do componente, porque é regra de apresentação com
  * decisões que precisam de teste: a ordem das empresas, o balde "Sem empresa"
- * e a contagem de quem é equipe interna. Mesmo caminho de avaliacaoPendente.ts
- * e ferramentaRemota.ts.
+ * e a contagem de quem é equipe interna. Mesmo caminho de ferramentaRemota.ts.
  */
 
 /** Papéis globais: enxergam todas as empresas, não só a própria. */

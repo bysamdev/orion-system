@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.send-scheduled-report]
 verify_jwt = false
+
+# Quem chama é o trigger do banco (net.http_post), não um usuário logado — não
+# existe JWT para verificar. A barreira é o x-cron-secret, mesmo desenho do
+# send-scheduled-report acima.
+[functions.send-avaliacao-email]
+verify_jwt = false

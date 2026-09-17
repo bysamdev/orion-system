@@ -48,11 +48,6 @@ export default function Avaliacao() {
     setCorrigindo(true);
   };
 
-  const handlePular = async () => {
-    if (!user || !id) return;
-    await addRating.mutateAsync({ ticketId: id, skipped: true });
-  };
-
   const handleSubmit = async () => {
     // Se não estiver logado, não consegue avaliar no formato atual (RLS exige auth.uid()). 
     // Em uma versão sem login, precisaríamos de uma edge function com service role.
@@ -184,16 +179,6 @@ export default function Avaliacao() {
                 </div>
               )}
 
-              {user && !corrigindo && (
-                <Button
-                  variant="ghost"
-                  onClick={handlePular}
-                  disabled={enviando}
-                  className="w-full text-muted-foreground font-medium"
-                >
-                  Prefiro não avaliar
-                </Button>
-              )}
             </CardContent>
           </Card>
         )}

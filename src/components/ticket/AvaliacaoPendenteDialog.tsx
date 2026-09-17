@@ -40,11 +40,6 @@ export const AvaliacaoPendenteDialog: React.FC<AvaliacaoPendenteDialogProps> = (
     onResolvido();
   };
 
-  const pular = async () => {
-    await addRating.mutateAsync({ ticketId: chamado.id, skipped: true });
-    onResolvido();
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[460px]">
@@ -95,10 +90,7 @@ export const AvaliacaoPendenteDialog: React.FC<AvaliacaoPendenteDialogProps> = (
           />
         )}
 
-        <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2 pt-1">
-          <Button variant="ghost" onClick={pular} disabled={addRating.isPending} className="text-muted-foreground">
-            Pular avaliação
-          </Button>
+        <div className="flex justify-end pt-1">
           <Button onClick={enviar} disabled={rating === 0 || addRating.isPending} className="gap-2 font-bold">
             {addRating.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             Enviar e continuar
