@@ -99,8 +99,15 @@ func ComandoMsiexecPersonalizado(nomeArquivoMsi, agentKey, apiURL, companyName s
 var marcadorConfigInstalador = []byte("ORIONINSTALLERCFGv1\x00")
 
 // configInstaladorAnexada espelha orion-agent/cmd/installer/selfconfig.go:configAnexada.
+//
+// AgentKey saiu de propósito: o instalador personalizado deixou de carregar a
+// credencial da empresa. Ela vinha colada aqui para a instalação de um clique,
+// e foi assim que vazou — o .exe de uma empresa foi enviado ao VirusTotal, os
+// sandboxes o executaram, e cada análise registrou uma máquina usando a chave
+// que viajava dentro do binário (20 máquinas fantasma em setembro/2026).
+// Agora o token é digitado na instalação, ou passado em -agent-key= para
+// instalação silenciosa/GPO.
 type configInstaladorAnexada struct {
-	AgentKey    string `json:"agent_key"`
 	APIURL      string `json:"api_url,omitempty"`
 	CompanyName string `json:"company_name,omitempty"`
 }
@@ -111,9 +118,11 @@ type configInstaladorAnexada struct {
 // depois do fim de um PE válido, então o .exe resultante roda normalmente;
 // o instalador só sabe procurar esse marcador e ler o JSON que vem depois
 // (ver selfconfig.go no módulo do agente).
-func MontarInstaladorPersonalizado(agentKey, apiURL, companyName string) ([]byte, error) {
+// Não recebe mais a chave da empresa: ela deixou de ser embutida (ver o
+// comentário de configInstaladorAnexada). Quem precisa dela — a linha de
+// msiexec e a tela de onboarding — continua resolvendo por conta própria.
+func MontarInstaladorPersonalizado(apiURL, companyName string) ([]byte, error) {
 	payload, err := json.Marshal(configInstaladorAnexada{
-		AgentKey:    agentKey,
 		APIURL:      apiURL,
 		CompanyName: companyName,
 	})

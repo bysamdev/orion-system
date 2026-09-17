@@ -431,48 +431,23 @@ func (s *Svc) tick() {
 	if s.getMachineToken() == "" {
 		t, err := token.LoadToken()
 		if err != nil {
-			// Máquina nunca registrada nesta instalação — antes de gerar
-			// identidade e registrar de verdade, checa se este processo está
-			// rodando dentro de uma VM de análise dinâmica (sandbox
-			// multi-engine tipo VirusTotal). Essas ferramentas executam o
-			// .exe de verdade numa VM descartável pra observar comportamento;
-			// sem esta checagem, cada análise futura (VT redistribui a
-			// amostra pra dezenas de parceiros) registraria mais uma máquina
-			// fantasma no painel. Só roda nesta ramificação porque uma
-			// máquina já registrada e aprovada não deve mais ser
-			// reavaliada — protege contra falso positivo em VM legítima já
-			// em produção (Hyper-V/ESXi real), que passou pelo gate manual
-			// no primeiro registro.
-			if collector.DetectarAmbienteDeSandbox() {
-				s.logger.Println("[INFO] Ambiente de VM de análise detectado (VirtualBox/VMware/QEMU/Xen) — pulando registro nesta execução.")
-				return
-			}
-			s.logger.Printf("[INFO] Identidade local indisponível (%v), gerando nova identidade de máquina.", err)
-			novo, err := token.GenerateRandomIdentity()
-			if err != nil {
-				s.logger.Printf("[ERRO] Falha ao gerar identidade da máquina: %v", err)
-				return
-			}
-			switch err := token.SaveNewToken(novo); {
-			case err == nil:
-				t = novo
-			case errors.Is(err, token.ErrIdentidadeJaExiste):
-				// Já existe identidade em disco: outro processo do agente
-				// gravou antes (serviço e bandeja subindo juntos), ou o arquivo
-				// existe mas não pôde ser lido. Nos dois casos, gerar e usar a
-				// nossa registraria uma segunda máquina no backend para o mesmo
-				// computador — pulamos o ciclo e o próximo LoadToken usa a que
-				// está em disco.
-				s.logger.Println("[AVISO] Já existe identidade da máquina em disco — não será criada outra; tentando ler de novo no próximo ciclo.")
-				return
-			default:
-				// Não seguimos com uma identidade gerada mas não persistida: se o
-				// processo reiniciar antes de uma gravação bem-sucedida, uma NOVA
-				// identidade aleatória seria gerada no próximo start, registrando
-				// uma segunda máquina no backend para o mesmo computador físico.
-				s.logger.Printf("[ERRO] Falha ao salvar identidade local, tentando novamente no próximo ciclo: %v", err)
-				return
-			}
+			// O serviço NÃO cria identidade. Quem cria é o instalador, que
+			// antes disso exige o token da empresa digitado (ou -agent-key= em
+			// instalação silenciosa).
+			//
+			// Era a auto-geração daqui que fazia "sem arquivo de token" virar
+			// "máquina nova no painel": cada VM descartável de sandbox do
+			// VirusTotal subia limpa, o agente gerava identidade na hora e
+			// registrava outro fantasma — 20 deles em setembro/2026. Existia
+			// uma detecção de VM nesta ramificação como paliativo; ela deixou
+			// de ser necessária porque não há mais registro espontâneo.
+			//
+			// Consequência intencional: máquina que perde o arquivo de
+			// identidade para de reportar até alguém rodar o instalador de
+			// novo. Isso é melhor do que ela reaparecer como uma segunda
+			// máquina, com histórico partido em duas.
+			s.logger.Printf("[ERRO] Identidade da máquina indisponível (%v). O agente não gera identidade sozinho — rode o instalador novamente e informe o token da empresa para reativar esta máquina.", err)
+			return
 		}
 		if strings.TrimSpace(t) == "" {
 			// Arquivo existe e está vazio — por exemplo, lido no instante em que

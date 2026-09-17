@@ -125,7 +125,7 @@ func prepararInstaladorDaEmpresa(ctx context.Context, companyID, apiKey, apiURL,
 	pasta, nomeCache := lib.CaminhoInstaladorCache(companyID, apiKey, apiURL, companyName)
 	caminho := pasta + nomeCache
 
-	instalador, err := lib.MontarInstaladorPersonalizado(apiKey, apiURL, companyName)
+	instalador, err := lib.MontarInstaladorPersonalizado(apiURL, companyName)
 	if err != nil {
 		return "", "", "", fmt.Errorf("montar instalador personalizado: %w", err)
 	}

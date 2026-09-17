@@ -15,6 +15,7 @@ package main
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -28,6 +29,7 @@ import (
 	"orion-agent/addremove"
 	"orion-agent/shortcut"
 	"orion-agent/startup"
+	"orion-agent/token"
 	"orion-agent/version"
 )
 
@@ -328,32 +330,78 @@ func instalar() error {
 		imprimirAviso(fmt.Sprintf("configuração personalizada anexada inválida, seguindo com instalação manual: %v", errCfg))
 		cfgAnexada = nil
 	}
-	if flagAgentKey != "" {
-		cfgAnexada = &configAnexada{AgentKey: flagAgentKey, APIURL: flagAPIURL, CompanyName: flagCompanyName}
+	if flagAPIURL != "" || flagCompanyName != "" {
+		if cfgAnexada == nil {
+			cfgAnexada = &configAnexada{}
+		}
+		if flagAPIURL != "" {
+			cfgAnexada.APIURL = flagAPIURL
+		}
+		if flagCompanyName != "" {
+			cfgAnexada.CompanyName = flagCompanyName
+		}
 	}
 
 	destinoConfig := filepath.Join(pastaDestino, "agent.yaml")
-	if cfgAnexada != nil {
-		if err := os.WriteFile(destinoConfig, gerarConfigComChave(cfgAnexada), 0644); err != nil {
+
+	// Já existe chave configurada? Então esta execução é ATUALIZAÇÃO, não
+	// primeira instalação, e não se pergunta nada.
+	//
+	// Isso não é conveniência: a auto-atualização remota roda este mesmo
+	// instalador com "-silent" e SEM -agent-key= (ver lib.ComandoAutoUpdate no
+	// backend). Sem esta checagem, exigir o token em modo silencioso faria
+	// TODA atualização automática falhar — a frota inteira congelaria na
+	// versão antiga, que é o oposto do que esta mudança quer.
+	chaveJaConfigurada, errChave := agentKeyConfigurada(destinoConfig)
+	if errChave != nil && !os.IsNotExist(errChave) {
+		imprimirAviso(fmt.Sprintf("não foi possível ler a chave atual de %s: %v", destinoConfig, errChave))
+	}
+
+	if !devePedirTokenDaEmpresa(flagAgentKey, chaveJaConfigurada) {
+		imprimirOK(destinoConfig + " (chave já configurada — mantida)")
+	} else {
+		chaveDaEmpresa, err := resolverChaveDaEmpresa(cfgAnexada)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(destinoConfig, gerarConfigComChave(chaveDaEmpresa, cfgAnexada), 0644); err != nil {
 			return fmt.Errorf("gravar agent.yaml: %w", err)
 		}
-		rotulo := destinoConfig + " (chave da empresa aplicada automaticamente)"
-		if cfgAnexada.CompanyName != "" {
-			rotulo = fmt.Sprintf("%s (chave de %s aplicada automaticamente)", destinoConfig, cfgAnexada.CompanyName)
+		rotulo := destinoConfig + " (token da empresa aplicado)"
+		if cfgAnexada != nil && cfgAnexada.CompanyName != "" {
+			rotulo = fmt.Sprintf("%s (token de %s aplicado)", destinoConfig, cfgAnexada.CompanyName)
 		}
 		imprimirOK(rotulo)
+	}
+
+	// A identidade da máquina passa a nascer AQUI, na instalação, e não mais
+	// sozinha no serviço. O serviço só lê.
+	//
+	// Era a auto-geração que transformava "perdeu o arquivo de token" em "nova
+	// máquina no painel": cada VM descartável de sandbox do VirusTotal subia
+	// sem token, o serviço gerava um na hora e registrava mais um fantasma.
+	// Com a criação no instalador, reativar uma máquina que perdeu a
+	// identidade é rodar o instalador de novo — que pede o token da empresa.
+	//
+	// O DPAPI aqui usa escopo de MÁQUINA (CRYPTPROTECT_LOCAL_MACHINE, ver
+	// token/protect_windows.go) e a ACL libera SYSTEM, então o que o
+	// instalador grava como Administrador o serviço consegue ler como SYSTEM.
+	if _, err := token.LoadToken(); err == nil {
+		imprimirOK("Identidade da máquina já existente — mantida")
 	} else {
-		configJaExiste := false
-		if _, err := os.Stat(destinoConfig); err == nil {
-			configJaExiste = true
+		nova, errGerar := token.GenerateRandomIdentity()
+		if errGerar != nil {
+			return fmt.Errorf("gerar identidade da máquina: %w", errGerar)
 		}
-		if !configJaExiste {
-			if err := os.WriteFile(destinoConfig, configTemplate, 0644); err != nil {
-				return fmt.Errorf("gravar agent.yaml: %w", err)
-			}
-			imprimirOK(destinoConfig + " (novo, com valores padrão)")
-		} else {
-			imprimirOK(destinoConfig + " (já existe — mantido sem alteração)")
+		switch errSalvar := token.SaveNewToken(nova); {
+		case errSalvar == nil:
+			imprimirOK("Identidade da máquina criada")
+		case errors.Is(errSalvar, token.ErrIdentidadeJaExiste):
+			// Corrida com outra instância (bandeja subindo junto): quem gravou
+			// primeiro vale, e é essa que o serviço vai usar.
+			imprimirOK("Identidade da máquina já existente — mantida")
+		default:
+			return fmt.Errorf("salvar identidade da máquina: %w", errSalvar)
 		}
 	}
 

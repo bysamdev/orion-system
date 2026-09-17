@@ -8,7 +8,7 @@ import (
 )
 
 func TestMontarInstaladorPersonalizado_AnexaMarcadorTamanhoEJSON(t *testing.T) {
-	out, err := MontarInstaladorPersonalizado("chave-123", "https://orion.exemplo.com", "iBReady")
+	out, err := MontarInstaladorPersonalizado("https://orion.exemplo.com", "iBReady")
 	if err != nil {
 		t.Fatalf("MontarInstaladorPersonalizado: %v", err)
 	}
@@ -40,8 +40,20 @@ func TestMontarInstaladorPersonalizado_AnexaMarcadorTamanhoEJSON(t *testing.T) {
 	if err := json.Unmarshal(payload, &cfg); err != nil {
 		t.Fatalf("decodificar JSON anexado: %v", err)
 	}
-	if cfg.AgentKey != "chave-123" || cfg.APIURL != "https://orion.exemplo.com" || cfg.CompanyName != "iBReady" {
-		t.Errorf("config anexada = %+v; esperava chave-123/https://orion.exemplo.com/iBReady", cfg)
+	if cfg.APIURL != "https://orion.exemplo.com" || cfg.CompanyName != "iBReady" {
+		t.Errorf("config anexada = %+v; esperava https://orion.exemplo.com/iBReady", cfg)
+	}
+
+	// A credencial da empresa não pode entrar no bloco anexado. É o teste que
+	// impede alguém de reintroduzir o embutimento que causou o incidente do
+	// VirusTotal: um .exe distribuído carregando a chave é uma chave
+	// publicada.
+	//
+	// A checagem é no PAYLOAD, não no binário inteiro: o instalador genérico
+	// contém a string "agent_key" no template do agent.yaml que ele mesmo
+	// grava, e olhar o arquivo todo daria falso positivo eterno.
+	if bytes.Contains(payload, []byte("agent_key")) {
+		t.Errorf("o bloco anexado não pode conter agent_key: %s", payload)
 	}
 	if len(out) != inicioJSON+int(tamanho) {
 		t.Errorf("sobrou %d bytes depois do JSON — esperado nada além do payload", len(out)-(inicioJSON+int(tamanho)))
