@@ -121,9 +121,9 @@ var (
 // (ver monitoring/prometheus.yml, job "blackbox_http", label endpoint_id
 // vindo de monitoring/bridge.mjs). Não fala com nenhuma API de terceiro
 // (UptimeRobot etc.) — é o mesmo Prometheus, consultado via proxy do
-// Grafana pelo mesmo motivo do QueryMachineMetricsHistory acima: o
-// Prometheus do servidor Debian só escuta em 127.0.0.1, o Grafana (com o
-// mesmo datasource dos dashboards) é o único caminho alcançável de fora.
+// Grafana: o Prometheus do servidor Debian só escuta em 127.0.0.1, e o
+// Grafana (com o mesmo datasource dos dashboards) é o único caminho
+// alcançável de fora.
 func QueryWebEndpointProbeSeries(ctx context.Context, grafanaURL, apiToken, datasourceUID, bypassSecret, endpointID string) (success map[int64]float64, durationMs map[int64]float64, err error) {
 	if !isSafePromLabelValue(endpointID) {
 		return nil, nil, fmt.Errorf("endpoint_id inválido")
