@@ -811,6 +811,7 @@ const TicketDetails: React.FC = () => {
                 updates={updates}
                 statusHistory={statusHistory}
                 timeEntries={timeEntries}
+                solicitanteId={ticket?.user_id}
               />
             </Card>
 
