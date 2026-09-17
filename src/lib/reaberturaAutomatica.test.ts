@@ -35,6 +35,27 @@ describe('ehReaberturaPeloSolicitante', () => {
     ).toBe(false);
   });
 
+  // Resposta que chega por e-mail: a Edge Function grava com service_role, sem
+  // sessão, então não sobra ator no histórico. Sem este caso o destaque
+  // simplesmente não apareceria no canal de e-mail.
+  it('reconhece a reabertura vinda por e-mail, que não tem ator', () => {
+    expect(
+      ehReaberturaPeloSolicitante(
+        { old_status: 'awaiting-customer', new_status: 'in-progress', changed_by: null },
+        SOLICITANTE
+      )
+    ).toBe(true);
+  });
+
+  it('não marca uma mudança sem ator que não venha da pausa', () => {
+    expect(
+      ehReaberturaPeloSolicitante(
+        { old_status: 'open', new_status: 'in-progress', changed_by: null },
+        SOLICITANTE
+      )
+    ).toBe(false);
+  });
+
   it('não marca quando o chamado não vinha de uma pausa', () => {
     expect(
       ehReaberturaPeloSolicitante(

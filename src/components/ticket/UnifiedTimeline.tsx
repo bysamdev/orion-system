@@ -15,7 +15,7 @@ interface StatusHistoryEntry {
   id: string;
   old_status: string | null;
   new_status: string;
-  changed_by: string;
+  changed_by: string | null;
   reason: string | null;
   created_at: string;
 }

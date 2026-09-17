@@ -12,9 +12,13 @@
  * o status na mão. Para quem lê o histórico depois, é a diferença entre o
  * chamado ter sido retomado e ter sido esquecido.
  *
- * A assinatura da reabertura automática é o conjunto das três condições
- * abaixo, e `changed_by` é o que fecha o caso: numa mudança manual quem aparece
- * é o técnico, nunca o solicitante.
+ * A assinatura da reabertura automática é a transição (sair de
+ * `awaiting-customer` para um estado ativo) mais o ator. Numa mudança manual o
+ * ator é o técnico logado; na reabertura automática ele é o solicitante — ou
+ * ninguém, quando a resposta chegou por e-mail e quem gravou o comentário foi
+ * a Edge Function com service_role, sem sessão. Os dois casos contam, e a
+ * ausência de ator só é aceita nessa transição específica justamente porque
+ * mudança manual sempre tem alguém autenticado por trás.
  *
  * POR QUE NÃO VEIO DO BANCO: a tentativa natural seria o próprio gatilho
  * gravar um motivo na coluna `reason`. Não funciona. O gatilho que escreve o
@@ -33,7 +37,12 @@ const STATUS_DE_RETOMADA = ['in-progress', 'open'];
 export interface MudancaDeStatus {
   old_status: string | null;
   new_status: string;
-  changed_by: string;
+  /**
+   * `auth.uid()` no instante da mudança. Vem nulo quando a mudança nasceu fora
+   * de uma sessão autenticada — é o caso da resposta que chega por e-mail, em
+   * que a Edge Function email-to-ticket grava o comentário com service_role.
+   */
+  changed_by: string | null;
 }
 
 /**
@@ -47,9 +56,12 @@ export function ehReaberturaPeloSolicitante(
 ): boolean {
   if (!solicitanteId) return false;
 
-  return (
-    mudanca.old_status === STATUS_PAUSADO &&
-    STATUS_DE_RETOMADA.includes(mudanca.new_status) &&
-    mudanca.changed_by === solicitanteId
-  );
+  const veioDaPausa =
+    mudanca.old_status === STATUS_PAUSADO && STATUS_DE_RETOMADA.includes(mudanca.new_status);
+
+  if (!veioDaPausa) return false;
+
+  // Resposta pelo app: o solicitante está logado e aparece como autor.
+  // Resposta por e-mail: não há sessão, e o autor fica nulo.
+  return mudanca.changed_by === solicitanteId || mudanca.changed_by === null;
 }
