@@ -175,6 +175,13 @@ interface UseMeusTicketsOptions {
   statusIn?: string[];
   priorityFilter?: string;
   searchTerm?: string;
+  /** Intervalo de ABERTURA (created_at), já em ISO — ver intervaloEmISO. */
+  dataInicio?: string | null;
+  dataFim?: string | null;
+  /** company_id. A tela só oferece para equipe interna; cliente é preso à RLS. */
+  empresaId?: string;
+  /** E-mail (ou parte) do solicitante. Resolvido em profiles antes da consulta. */
+  contato?: string;
   page?: number;
   pageSize?: number;
   limit?: number;
@@ -210,6 +217,40 @@ export const useMeusTickets = (userId: string | undefined, role: string | undefi
 
       if (options.priorityFilter && options.priorityFilter !== 'all') {
         query = query.eq('priority', options.priorityFilter);
+      }
+
+      // Intervalo de abertura. Coberto por idx_tickets_created_at e, junto com
+      // empresa, por idx_tickets_company_created.
+      if (options.dataInicio) {
+        query = query.gte('created_at', options.dataInicio);
+      }
+      if (options.dataFim) {
+        query = query.lte('created_at', options.dataFim);
+      }
+
+      if (options.empresaId && options.empresaId !== 'all') {
+        query = query.eq('company_id', options.empresaId);
+      }
+
+      // Contato = e-mail de quem abriu. tickets não guarda e-mail (só
+      // requester_name, texto livre), então resolvemos os perfis primeiro.
+      //
+      // Sem correspondência, devolvemos vazio na hora em vez de deixar a
+      // consulta seguir sem a cláusula: um filtro que "some" silenciosamente e
+      // mostra a lista inteira é pior do que um resultado vazio honesto.
+      if (options.contato && options.contato.trim() !== '') {
+        const termoContato = options.contato.trim().replace(/[%_,()]/g, '');
+        const { data: perfis } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('email', `%${termoContato}%`)
+          .limit(50);
+
+        const ids = (perfis || []).map((p) => p.id);
+        if (ids.length === 0) {
+          return { data: [], count: 0 };
+        }
+        query = query.in('user_id', ids);
       }
 
       if (options.searchTerm) {

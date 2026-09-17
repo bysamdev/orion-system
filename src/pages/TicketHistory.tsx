@@ -16,6 +16,13 @@ import { formatDate } from '@/lib/utils';
 import { useMeusTickets } from '@/hooks/useMyTickets';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
+import { useCompanies } from '@/hooks/useCompanies';
+import {
+  FILTROS_VAZIOS,
+  contarFiltrosAtivos,
+  intervaloEmISO,
+  type FiltrosDeChamados,
+} from '@/lib/filtrosDeChamados';
 import { TicketDescriptionPreview } from '@/components/shared/TicketDescriptionPreview';
 
 // Define types for tickets to avoid 'unknown' property errors
@@ -45,10 +52,11 @@ export default function TicketHistory() {
     navigate(`/ticket/${id}`);
   }, [navigate]);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  // Um objeto só em vez de um useState por filtro: acrescentar um filtro novo
+  // não muda mais a assinatura de nada. Ver src/lib/filtrosDeChamados.ts.
+  const [filtros, setFiltros] = useState<FiltrosDeChamados>(FILTROS_VAZIOS);
+  const [buscaDebounced, setBuscaDebounced] = useState('');
+  const [contatoDebounced, setContatoDebounced] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
@@ -56,29 +64,41 @@ export default function TicketHistory() {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: profile } = useUserProfile();
   const { profilesMap } = useProfilesMap();
+  const { data: empresas } = useCompanies();
 
+  // Filtrar por empresa só faz sentido para quem enxerga mais de uma. Para o
+  // cliente o seletor prometeria o que a RLS nega — e ele já está preso à
+  // própria empresa de qualquer forma.
+  const ehEquipeInterna = role === 'admin' || role === 'technician' || role === 'developer';
+
+  // Campos de texto esperam a digitação parar; os demais aplicam na hora.
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
+      setBuscaDebounced(filtros.busca);
+      setContatoDebounced(filtros.contato);
       setPage(0);
     }, 500);
     return () => clearTimeout(handler);
-  }, [searchTerm]);
+  }, [filtros.busca, filtros.contato]);
 
-  const handleStatusFilterChange = (val: string) => {
-    setStatusFilter(val);
+  const atualizarFiltro = useCallback(<C extends keyof FiltrosDeChamados>(campo: C, valor: FiltrosDeChamados[C]) => {
+    setFiltros(anteriores => ({ ...anteriores, [campo]: valor }));
     setPage(0);
-  };
+  }, []);
 
-  const handlePriorityFilterChange = (val: string) => {
-    setPriorityFilter(val);
-    setPage(0);
-  };
+  const intervalo = useMemo(
+    () => intervaloEmISO(filtros.dataInicio, filtros.dataFim),
+    [filtros.dataInicio, filtros.dataFim]
+  );
 
   const { data: queryResult, isLoading } = useMeusTickets(profile?.id, role, {
-    statusFilter,
-    priorityFilter,
-    searchTerm: debouncedSearch,
+    statusFilter: filtros.status,
+    priorityFilter: filtros.prioridade,
+    searchTerm: buscaDebounced,
+    dataInicio: intervalo.inicio,
+    dataFim: intervalo.fim,
+    empresaId: ehEquipeInterna ? filtros.empresaId : 'all',
+    contato: contatoDebounced,
     page,
     pageSize: PAGE_SIZE
   });
@@ -87,10 +107,12 @@ export default function TicketHistory() {
   const totalCount = queryResult?.count || 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
+  const filtrosAtivos = useMemo(() => contarFiltrosAtivos(filtros), [filtros]);
+
   const clearFilters = () => {
-    setSearchTerm('');
-    setStatusFilter('all');
-    setPriorityFilter('all');
+    setFiltros(FILTROS_VAZIOS);
+    setBuscaDebounced('');
+    setContatoDebounced('');
     setPage(0);
   };
 
@@ -100,7 +122,7 @@ export default function TicketHistory() {
         icon={History}
         badge="AUDITORIA & REGISTROS"
         title="Histórico"
-        description="Consulte todos os chamados com filtros avançados por status, prioridade e busca."
+        description="Consulte todos os chamados com filtros por período, empresa, contato, status e prioridade."
       />
 
         <Card className="border-border/40 shadow-xl shadow-primary/5 overflow-visible bg-card/50 backdrop-blur-sm">
@@ -111,33 +133,38 @@ export default function TicketHistory() {
                 <Input
                   autoComplete="off"
                   placeholder="Buscar por #número, ID, usuário, título ou empresa..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
+                  value={filtros.busca}
+                  onChange={e => atualizarFiltro('busca', e.target.value)}
                   className="pl-12 h-10 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-md transition-all text-sm"
                 />
               </div>
               <div className="flex gap-2">
-                {(statusFilter !== 'all' || priorityFilter !== 'all' || searchTerm !== '') && (
+                {filtrosAtivos > 0 && (
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground h-10 rounded-md px-4 text-xs font-bold uppercase tracking-wider">
                     <X className="w-4 h-4 mr-2" /> Limpar
                   </Button>
                 )}
-                <Button 
-                  variant={advancedOpen ? "default" : "outline"} 
-                  size="sm" 
+                <Button
+                  variant={advancedOpen ? "default" : "outline"}
+                  size="sm"
                   onClick={() => setAdvancedOpen(!advancedOpen)}
                   className="h-10 rounded-md border-border/40 font-bold text-xs uppercase tracking-wider px-5 transition-colors shadow-sm"
                 >
                   <Filter className="w-4 h-4 mr-2" /> Filtros Analíticos
+                  {filtrosAtivos > 0 && (
+                    <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-primary/15 text-primary text-[10px] font-black">
+                      {filtrosAtivos}
+                    </span>
+                  )}
                 </Button>
               </div>
             </div>
 
             {advancedOpen && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 p-4 bg-muted/20 rounded-lg border border-border/40 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6 p-4 bg-muted/20 rounded-lg border border-border/40 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Status</label>
-                  <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+                  <Select value={filtros.status} onValueChange={v => atualizarFiltro('status', v)}>
                     <SelectTrigger className="h-10 bg-background border-border/40 rounded-md">
                       <SelectValue placeholder="Todos os Status" />
                     </SelectTrigger>
@@ -154,7 +181,7 @@ export default function TicketHistory() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Prioridade</label>
-                  <Select value={priorityFilter} onValueChange={handlePriorityFilterChange}>
+                  <Select value={filtros.prioridade} onValueChange={v => atualizarFiltro('prioridade', v)}>
                     <SelectTrigger className="h-10 bg-background border-border/40 rounded-md">
                       <SelectValue placeholder="Todas as Prioridades" />
                     </SelectTrigger>
@@ -166,6 +193,65 @@ export default function TicketHistory() {
                       <SelectItem value="low">Baixa</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                    Aberto de
+                  </label>
+                  <Input
+                    type="date"
+                    value={filtros.dataInicio}
+                    max={filtros.dataFim || undefined}
+                    onChange={e => atualizarFiltro('dataInicio', e.target.value)}
+                    className="h-10 bg-background border-border/40 rounded-md text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                    Até
+                  </label>
+                  <Input
+                    type="date"
+                    value={filtros.dataFim}
+                    min={filtros.dataInicio || undefined}
+                    onChange={e => atualizarFiltro('dataFim', e.target.value)}
+                    className="h-10 bg-background border-border/40 rounded-md text-sm"
+                  />
+                </div>
+
+                {ehEquipeInterna && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                      Empresa
+                    </label>
+                    <Select value={filtros.empresaId} onValueChange={v => atualizarFiltro('empresaId', v)}>
+                      <SelectTrigger className="h-10 bg-background border-border/40 rounded-md">
+                        <SelectValue placeholder="Todas as Empresas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as Empresas</SelectItem>
+                        {empresas?.map(empresa => (
+                          <SelectItem key={empresa.id} value={empresa.id}>
+                            {empresa.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                    Contato (e-mail)
+                  </label>
+                  <Input
+                    autoComplete="off"
+                    placeholder="e-mail de quem abriu"
+                    value={filtros.contato}
+                    onChange={e => atualizarFiltro('contato', e.target.value)}
+                    className="h-10 bg-background border-border/40 rounded-md text-sm"
+                  />
                 </div>
               </div>
             )}
