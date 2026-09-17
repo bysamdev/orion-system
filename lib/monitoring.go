@@ -1675,6 +1675,33 @@ func (d *DB) DeleteMachineGroup(ctx context.Context, id string) error {
 	return err
 }
 
+// StatusDeAprovacaoPorToken devolve o approval_status da máquina dona do token,
+// ou "" quando o token ainda não é conhecido (instalação nova).
+//
+// Existe para o heartbeat poder recusar uma máquina rejeitada ANTES de gravar
+// qualquer coisa. Antes, o UpsertMachine rodava primeiro e o 403 vinha depois:
+// a máquina rejeitada continuava disparando escrita, trigger de updated_at e
+// linha de auditoria a cada batida. Foi assim que 20 máquinas de sandbox do
+// VirusTotal seguiram poluindo o banco mesmo depois de rejeitadas.
+func (d *DB) StatusDeAprovacaoPorToken(ctx context.Context, machineToken string) (string, error) {
+	if strings.TrimSpace(machineToken) == "" {
+		return "", nil
+	}
+	var status string
+	err := d.pool.QueryRow(ctx, `
+SELECT COALESCE(approval_status, '')
+FROM public.machines
+WHERE machine_token = $1
+LIMIT 1`, machineToken).Scan(&status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return status, nil
+}
+
 // AbrirChamadoAlertaServidor cria um chamado na tabela public.tickets exclusivamente
 // para alertas críticos em servidores (device_type == 'server'), com deduplicação estrita:
 // se já houver chamado aberto para (machine_id, alert_type), nenhum novo é gerado.
@@ -1688,7 +1715,7 @@ func (d *DB) DeleteMachineGroup(ctx context.Context, id string) error {
 // CH-A04/DC-016 da auditoria de chamados).
 const CategoriaChamadoInfraestrutura = "infraestrutura"
 
-func (d *DB) AbrirChamadoAlertaServidor(ctx context.Context, machineID, companyID, machineToken, hostname, alertType, severity, alertMessage string) error {
+func (d *DB) AbrirChamadoAlertaServidor(ctx context.Context, machineID, companyID, donoUserID, hostname, alertType, severity, alertMessage string) error {
 	if companyID == "" || machineID == "" {
 		return nil
 	}
@@ -1710,20 +1737,19 @@ SELECT EXISTS(
 		return nil // Já existe chamado em aberto; evita flapping e tempestade de chamados
 	}
 
-	// 2. Resolve o user_id para satisfazer FK public.tickets.user_id -> auth.users(id)
-	// Tenta primeiro o e-mail fantasma da máquina; se não existir, pega o primeiro perfil da empresa.
-	var userID string
-	machineEmail := MachineGhostEmail(machineToken)
-	userID, _ = d.AuthUserIDByEmail(ctx, machineEmail)
-
+	// 2. Dono do chamado: o usuário-fantasma da PRÓPRIA máquina, resolvido (e
+	// criado, se ainda não existir) pelo chamador — ver
+	// garantirDonoDoChamadoAutomatico em handler/mon_handlers.go.
+	//
+	// Antes, quando o fantasma não existia, isto caía no PRIMEIRO perfil da
+	// empresa por data de criação: um humano arbitrário aparecia como autor de
+	// um chamado que nunca abriu — e, desde a avaliação obrigatória, herdava
+	// também a pendência de avaliar esse chamado. Sem dono legítimo agora
+	// preferimos não abrir: o alerta continua registrado em machine_alerts e
+	// visível na tela de alertas de qualquer forma.
+	userID := strings.TrimSpace(donoUserID)
 	if userID == "" {
-		_ = d.pool.QueryRow(ctx, `
-SELECT id::text FROM public.profiles
-WHERE company_id = $1::uuid
-ORDER BY created_at ASC LIMIT 1`, companyID).Scan(&userID)
-	}
-	if userID == "" {
-		return fmt.Errorf("nenhum usuário disponível para atribuir a abertura do chamado automático na empresa %s", companyID)
+		return fmt.Errorf("sem usuário-fantasma para a máquina %s; chamado automático não foi aberto", machineID)
 	}
 
 	priority := "high"

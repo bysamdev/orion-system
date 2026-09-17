@@ -600,6 +600,22 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Máquina rejeitada não escreve nada. A checagem vem ANTES de
+	// GetOrCreateMachineGroup e do UpsertMachine porque os dois gravam: antes
+	// desta guarda, a rejeitada batia, criava/atualizava linha e só então
+	// recebia 403 — foi assim que as máquinas de sandbox do VirusTotal
+	// continuaram poluindo o banco depois de rejeitadas.
+	//
+	// Token desconhecido devolve "" e segue o fluxo normal: é instalação nova,
+	// não rejeição. Erro de consulta também segue, para não derrubar a
+	// telemetria da frota legítima por causa de uma falha de leitura.
+	if status, err := db.StatusDeAprovacaoPorToken(ctx, req.MachineToken); err != nil {
+		log.Printf("[AVISO] heartbeat: não foi possível checar aprovação de %s: %v", req.Hostname, err)
+	} else if status == "rejected" {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "máquina rejeitada pela administração"})
+		return
+	}
+
 	// Tratamento do Domínio via GetOrCreateMachineGroup
 	domain := req.Domain
 	if domain == "" {
@@ -732,7 +748,11 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 			// alerta persistir (não no primeiro heartbeat que vir a condição) —
 			// ver PersistenciaMinimaAlertaServidor.
 			if deviceTypeGravado == "server" && lib.AlertaPersisteHaPeloMenos(persisteDesde, time.Now(), lib.PersistenciaMinimaAlertaServidor) {
-				_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, req.MachineToken, req.Hostname, "disk", "critical", fmt.Sprintf("Uso de disco crítico no servidor: %.1f%%", diskUsage*100))
+				if dono, errDono := garantirDonoDoChamadoAutomatico(ctx, req.MachineToken, targetCompanyID, req.Hostname); errDono != nil {
+					log.Printf("[AVISO] chamado automático de disco não aberto para %s: %v", req.Hostname, errDono)
+				} else {
+					_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, dono, req.Hostname, "disk", "critical", fmt.Sprintf("Uso de disco crítico no servidor: %.1f%%", diskUsage*100))
+				}
 			}
 		} else {
 			resolver = append(resolver, "disk")
@@ -764,7 +784,11 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 				// Apenas servidores abrem chamados automaticamente, e só depois do
 				// alerta persistir — ver PersistenciaMinimaAlertaServidor.
 				if deviceTypeGravado == "server" && lib.AlertaPersisteHaPeloMenos(persisteDesde, time.Now(), lib.PersistenciaMinimaAlertaServidor) {
-					_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, req.MachineToken, req.Hostname, "antivirus", "critical", "Antivírus desativado ou ausente no servidor")
+					if dono, errDono := garantirDonoDoChamadoAutomatico(ctx, req.MachineToken, targetCompanyID, req.Hostname); errDono != nil {
+						log.Printf("[AVISO] chamado automático de antivírus não aberto para %s: %v", req.Hostname, errDono)
+					} else {
+						_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, dono, req.Hostname, "antivirus", "critical", "Antivírus desativado ou ausente no servidor")
+					}
 				}
 			} else {
 				resolver = append(resolver, "antivirus")
@@ -856,6 +880,56 @@ func collectionIntervalSeconds(deviceType string) int {
 		return 60
 	}
 	return 300
+}
+
+// garantirDonoDoChamadoAutomatico devolve o usuário-fantasma da máquina para
+// assinar um chamado aberto pelo RMM, criando-o se ainda não existir.
+//
+// tickets.user_id é NOT NULL e aponta para auth.users, então todo chamado
+// precisa de um dono. Antes, quando a máquina nunca tinha aberto o portal (e
+// portanto não tinha fantasma), lib.AbrirChamadoAlertaServidor caía no
+// primeiro perfil da empresa: um humano arbitrário virava autor de um chamado
+// que não abriu. Criar o fantasma sob demanda mantém a autoria honesta — é a
+// máquina que está reclamando, e é ela que assina.
+//
+// O mesmo e-mail derivado do token é usado pelo machine-login, então a conta
+// criada aqui é a mesma que o portal usaria depois; não há duplicata.
+func garantirDonoDoChamadoAutomatico(ctx context.Context, machineToken, companyID, hostname string) (string, error) {
+	email := lib.MachineGhostEmail(machineToken)
+
+	userID, err := db.AuthUserIDByEmail(ctx, email)
+	if err == nil && userID != "" {
+		return userID, nil
+	}
+	if err != nil && !errors.Is(err, lib.ErrNoRows) {
+		return "", fmt.Errorf("buscar usuário-fantasma: %w", err)
+	}
+	if sb == nil {
+		return "", fmt.Errorf("cliente do Supabase não inicializado")
+	}
+
+	nome := nomeRequisitante(hostname, nil)
+	out, err := sb.AdminCreateUser(ctx, lib.CreateUserInput{
+		Email:        email,
+		Password:     lib.GenerateRandomPassword(24),
+		EmailConfirm: true,
+		UserMetadata: map[string]interface{}{"full_name": nome},
+	})
+	if err != nil {
+		return "", fmt.Errorf("criar usuário-fantasma da máquina: %w", err)
+	}
+
+	// Perfil é best-effort: o chamado já pode ser assinado sem ele, e uma
+	// falha aqui não justifica perder o alerta.
+	if errPerfil := db.UpdateProfile(ctx, out.User.ID, lib.ProfileUpdate{
+		FullName:  &nome,
+		Email:     &email,
+		CompanyID: &companyID,
+	}); errPerfil != nil {
+		log.Printf("[AVISO] fantasma de %s criado, mas o perfil não foi preenchido: %v", hostname, errPerfil)
+	}
+
+	return out.User.ID, nil
 }
 
 // migrarUsuarioFantasmaDaMaquina troca o e-mail do usuário-fantasma do portal
@@ -1690,7 +1764,11 @@ func monitoringSelfHealEvent(w http.ResponseWriter, r *http.Request) {
 		if machine.MachineToken != nil {
 			tok = *machine.MachineToken
 		}
-		_ = db.AbrirChamadoAlertaServidor(ctx, req.MachineID, *machine.CompanyID, tok, machine.Hostname, "autocura_falha", "high", fmt.Sprintf("Falha na autocura para alerta '%s': %s", req.AlertType, req.Output))
+		if dono, errDono := garantirDonoDoChamadoAutomatico(ctx, tok, *machine.CompanyID, machine.Hostname); errDono != nil {
+			log.Printf("[AVISO] chamado automático de autocura não aberto para %s: %v", machine.Hostname, errDono)
+		} else {
+			_ = db.AbrirChamadoAlertaServidor(ctx, req.MachineID, *machine.CompanyID, dono, machine.Hostname, "autocura_falha", "high", fmt.Sprintf("Falha na autocura para alerta '%s': %s", req.AlertType, req.Output))
+		}
 	}
 
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -1842,7 +1920,11 @@ func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
 					if m.MachineToken != nil {
 						tok = *m.MachineToken
 					}
-					_ = db.AbrirChamadoAlertaServidor(ctx, machineID, *m.CompanyID, tok, m.Hostname, alertaServidorOffline, "critical", "Servidor offline detectado pelo monitoramento")
+					if dono, errDono := garantirDonoDoChamadoAutomatico(ctx, tok, *m.CompanyID, m.Hostname); errDono != nil {
+						log.Printf("[AVISO] chamado automático de servidor offline não aberto para %s: %v", m.Hostname, errDono)
+					} else {
+						_ = db.AbrirChamadoAlertaServidor(ctx, machineID, *m.CompanyID, dono, m.Hostname, alertaServidorOffline, "critical", "Servidor offline detectado pelo monitoramento")
+					}
 				}
 			}
 		case "resolved":

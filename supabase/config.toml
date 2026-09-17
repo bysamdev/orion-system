@@ -32,3 +32,9 @@ verify_jwt = false
 # send-scheduled-report acima.
 [functions.send-avaliacao-email]
 verify_jwt = false
+
+# Webhook do provedor de e-mail (SendGrid/Mailgun/Postmark): quem chama é um
+# servidor externo, que não tem JWT de usuário do Supabase. A barreira é o
+# X-Webhook-Secret, validado em tempo constante dentro da função.
+[functions.email-to-ticket]
+verify_jwt = false
