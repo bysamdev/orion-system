@@ -106,9 +106,13 @@ func machineLogin(w http.ResponseWriter, r *http.Request) {
 	// com "/" e o navegador os resolve como URL absoluta para outro host
 	// (referência protocol-relative). Exigimos um caminho same-origin de verdade:
 	// uma única "/" inicial, sem barra invertida e sem "://" em nenhum ponto.
-	redirectPath := r.URL.Query().Get("redirect_to")
-	if !caminhoRelativoSeguro(redirectPath) {
-		redirectPath = "/"
+	//
+	// Além do filtro de origem, o destino passa por uma allowlist: o portal de
+	// consulta continua abrindo pelo token da máquina, mas a abertura de
+	// chamado não — ela exige login individual (decisão do dono do produto).
+	redirectPath, aviso := destinoPosLogin(r.URL.Query().Get("redirect_to"))
+	if aviso != "" {
+		log.Printf("[AVISO] machine-login: %s", aviso)
 	}
 
 	if db == nil {
@@ -283,4 +287,88 @@ func absoluteURL(r *http.Request, path string) string {
 		scheme = "http" // dev local, sem proxy nem TLS
 	}
 	return fmt.Sprintf("%s://%s%s", scheme, r.Host, path)
+}
+
+// destinosConsultaPermitidos é a allowlist de destinos pós-login aceitos em
+// ?redirect_to= no machine-login. A escolha por allowlist (e não por uma
+// denylist de "/novo-ticket") é deliberada: o front-end mantém seis apelidos
+// que caem na MESMA tela de abertura de chamado ("/novo", "/novo-chamado",
+// "/abrir-chamado", "/abrir-ticket", "/new-ticket", "/create-ticket", ver
+// src/App.tsx) e nada impede que apareça um sétimo amanhã — uma denylist
+// ficaria desatualizada em silêncio e reabriria o caminho que o dono do
+// produto acabou de fechar. Com allowlist, um destino novo só passa a valer
+// quando alguém o adiciona aqui conscientemente.
+//
+// O portal de CONSULTA continua acessível pelo token da máquina; só a
+// abertura de chamado passou a exigir login individual.
+var destinosConsultaPermitidos = map[string]bool{
+	"/":              true, // home/portal padrão (é o fallback também)
+	"/portal":        true,
+	"/historico":     true,
+	"/chamados":      true, // apelidos de /historico mantidos em src/App.tsx
+	"/meus-chamados": true,
+	"/tickets":       true,
+	"/history":       true,
+	"/conhecimento":  true,
+	"/notificacoes":  true,
+}
+
+// prefixosConsultaPermitidos cobre as rotas com parâmetro dinâmico, onde uma
+// comparação exata não serve (ex.: "/ticket/9f2c-..." — consulta de um
+// chamado específico, que é justamente o que o usuário quer ver ao voltar
+// pelo agente).
+var prefixosConsultaPermitidos = []string{"/ticket/"}
+
+// destinoPosLogin decide para onde o machine-login manda o usuário depois de
+// autenticar a máquina, e devolve junto o aviso a ser logado quando o destino
+// pedido foi recusado (string vazia = destino aceito como veio).
+//
+// São dois filtros somados, com motivos diferentes:
+//  1. caminhoRelativoSeguro — impede sair da origem (open redirect);
+//  2. allowlist de destino — impede que o token da máquina, sozinho, leve
+//     direto à abertura de chamado, que agora exige login individual.
+//
+// Em qualquer recusa o destino vira "/", mesmo comportamento que já existia
+// para caminho inseguro: o usuário cai no portal autenticado e segue dali.
+func destinoPosLogin(v string) (string, string) {
+	if !caminhoRelativoSeguro(v) {
+		if v == "" {
+			return "/", ""
+		}
+		return "/", fmt.Sprintf("destino %q não é um caminho relativo seguro", v)
+	}
+
+	rota := rotaDe(v)
+	if destinosConsultaPermitidos[rota] {
+		return v, ""
+	}
+	for _, p := range prefixosConsultaPermitidos {
+		if strings.HasPrefix(rota, p) && len(rota) > len(p) {
+			return v, ""
+		}
+	}
+
+	return "/", fmt.Sprintf(
+		"destino %q não está na allowlist de consulta — abertura de chamado pelo token da máquina foi desativada (passa a exigir login individual); redirecionando para \"/\"",
+		v,
+	)
+}
+
+// rotaDe reduz um redirect_to à rota que o front-end realmente vai casar:
+// sem query string, sem fragmento, sem barra final e em minúsculas. É o que
+// faz "/novo-ticket/", "/NOVO-TICKET" e "/novo-ticket?x=1" serem tratados
+// como a mesma coisa que "/novo-ticket" — variações que passariam por uma
+// comparação literal.
+func rotaDe(v string) string {
+	if i := strings.IndexAny(v, "?#"); i >= 0 {
+		v = v[:i]
+	}
+	v = strings.ToLower(v)
+	if len(v) > 1 {
+		v = strings.TrimRight(v, "/")
+		if v == "" {
+			v = "/"
+		}
+	}
+	return v
 }
