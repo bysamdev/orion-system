@@ -687,6 +687,11 @@ const IntervaloAmostraHistorico = 3 * time.Minute
 // trabalho, então é aí que mora o volume: aparar pra 24h nelas é o que de
 // fato desafoga o banco, sem tirar do servidor a janela mais longa que faz
 // sentido pra quem monitora disponibilidade.
+//
+// Quem aplica esta retenção é maintain_machine_metrics_partitions, de hora em
+// hora (migração 20260917160000). A constante fica aqui como documentação do
+// contrato que MetricsHistory assume ao responder por uma máquina que não é
+// servidor; o valor efetivo é o da função.
 const RetencaoHistoricoNaoServidor = 24 * time.Hour
 
 // AppendMetricPoint grava um ponto da série histórica de performance.
@@ -700,14 +705,15 @@ const RetencaoHistoricoNaoServidor = 24 * time.Hour
 // desenha, e economiza 26 bytes por linha em relação aos bigints de
 // ram_used/ram_total/disk_used/disk_total.
 //
-// deviceType decide a retenção: servidor guarda os 3 dias inteiros via
-// DROP de partição (maintain_machine_metrics_partitions, migração
-// 20260902180000); qualquer outro tipo é aparado aqui mesmo pra
-// RetencaoHistoricoNaoServidor a cada heartbeat. Um DELETE por máquina, com
-// índice pela PK (machine_id, collected_at) — não é o DELETE em massa que a
-// tabela foi desenhada pra evitar, é o equivalente por-linha do DROP de
-// partição que já existe pra servidor.
-func (d *DB) AppendMetricPoint(ctx context.Context, in InsertMetricInput, deviceType string) error {
+// A poda das linhas vencidas NÃO acontece aqui. Ela já morou neste caminho,
+// como um DELETE por heartbeat para máquina que não é servidor, e era trabalho
+// jogado fora: só havia o que apagar quando a máquina cruzava a fronteira das
+// 24h, e nas outras vezes o comando percorria o índice para não achar nada.
+// Com heartbeat de 300s em estação de trabalho, eram 288 DELETE por dia por
+// máquina — 144 mil por dia nas ~500 previstas. Agora é uma varredura por
+// hora, dentro de maintain_machine_metrics_partitions, que já era a dona da
+// retenção desta tabela (migração 20260917160000).
+func (d *DB) AppendMetricPoint(ctx context.Context, in InsertMetricInput) error {
 	_, err := d.pool.Exec(ctx, `
 INSERT INTO public.machine_metrics_history (machine_id, collected_at, cpu_pct, ram_pct, disk_pct)
 VALUES (
@@ -724,16 +730,6 @@ ON CONFLICT (machine_id, collected_at) DO NOTHING`,
 		percentualDe(in.DiskUsed, in.DiskTotal),
 		IntervaloAmostraHistorico.Seconds(),
 	)
-	if err != nil {
-		return err
-	}
-
-	if deviceType != "server" {
-		_, err = d.pool.Exec(ctx, `
-DELETE FROM public.machine_metrics_history
-WHERE machine_id = $1 AND collected_at < now() - make_interval(secs => $2)`,
-			in.MachineID, RetencaoHistoricoNaoServidor.Seconds())
-	}
 	return err
 }
 
