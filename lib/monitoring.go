@@ -673,12 +673,19 @@ WHERE id = $1`,
 	return err
 }
 
-// IntervaloAmostraHistorico é o espaçamento da série histórica. O heartbeat
-// chega a cada ~60s, mas gravar um ponto por heartbeat renderia 1440
-// linhas/dia/máquina — com as ~500 máquinas previstas, 2,1 milhões de linhas
-// dentro da retenção de 3 dias, perto demais do limite do plano free. A cada
-// 3 minutos são 480 linhas/dia/máquina (~720 mil no total), e a resolução
-// ainda dá 20 pontos na janela de 1h do gráfico.
+// IntervaloAmostraHistorico é o espaçamento da série histórica: o date_bin do
+// INSERT joga o heartbeat no início do slot, e a PK descarta os seguintes que
+// caírem no mesmo slot.
+//
+// Este teto só morde SERVIDOR, que manda heartbeat a cada 60s
+// (collectionIntervalSeconds): sem ele seriam 1440 linhas/dia/máquina, e com
+// ele são 480, mantendo 20 pontos na janela de 1h do gráfico.
+//
+// Para estação de trabalho ele é inerte hoje, e vale saber disso antes de
+// mexer aqui achando que muda alguma coisa: o heartbeat dela é de 300s, mais
+// largo que o slot de 3 minutos, então praticamente todo heartbeat cai num
+// slot novo e vira linha. O que limita o volume de desktop é a cadência do
+// heartbeat (288 linhas/dia/máquina), não esta constante.
 const IntervaloAmostraHistorico = 3 * time.Minute
 
 // RetencaoHistoricoNaoServidor é o teto de histórico pra desktop/notebook —
