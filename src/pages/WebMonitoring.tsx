@@ -52,6 +52,7 @@ function safeHref(url: string) {
 
 function statusLabel(status: string) {
   if (status === 'pending') return 'PENDENTE';
+  if (status === 'sem_dados') return 'SEM DADOS';
   return status.toUpperCase();
 }
 
@@ -293,7 +294,10 @@ export default function WebMonitoring() {
     const total = endpoints.length;
     const online = endpoints.filter(e => e.status === 'online').length;
     const offline = endpoints.filter(e => e.status === 'offline').length;
-    const pending = endpoints.filter(e => e.status === 'pending' || e.status === 'paused').length;
+    // 'sem_dados': o backend não recebe confirmação do servidor de
+    // monitoramento há mais de 15 min (ver statusComFrescor em
+    // handler/uptime_handlers.go). Não conta como online nem como offline.
+    const pending = endpoints.filter(e => e.status === 'pending' || e.status === 'paused' || e.status === 'sem_dados').length;
     const httpsCount = endpoints.filter(e => e.url_or_ip?.toLowerCase().startsWith('https')).length;
     const uptimePct = total > 0 ? ((online / total) * 100).toFixed(1) : '100.0';
     const sslPct = total > 0 ? Math.round((httpsCount / total) * 100) : 100;
@@ -687,6 +691,7 @@ export default function WebMonitoring() {
             ) : (
               endpoints.map((endpoint) => {
                 const isOnline = endpoint.status === 'online';
+                const semDados = endpoint.status === 'sem_dados';
                 const isHttps = endpoint.url_or_ip?.toLowerCase().startsWith('https');
                 const isExpanded = expandedEndpointIds.has(endpoint.id);
 
@@ -722,6 +727,8 @@ export default function WebMonitoring() {
                           'p-3 rounded-lg shrink-0 transition-colors',
                           isOnline
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : semDados
+                            ? 'bg-muted text-muted-foreground'
                             : 'bg-red-500/10 text-red-600 dark:text-red-400'
                         )}>
                           <Globe className="w-5 h-5" />
@@ -777,7 +784,8 @@ export default function WebMonitoring() {
                       {/* Right: Status Pill, Expand Diagnostics & Delete Button */}
                       <div className="flex items-center gap-2.5 self-end lg:self-auto shrink-0">
                         <Badge
-                          variant={isOnline ? 'default' : 'destructive'}
+                          variant={isOnline ? 'default' : semDados ? 'secondary' : 'destructive'}
+                          title={semDados ? 'O servidor de monitoramento não confirma o status deste site há mais de 15 minutos.' : undefined}
                           className={cn(
                             'text-xs font-bold px-3 py-1 rounded-full uppercase',
                             isOnline
@@ -785,7 +793,7 @@ export default function WebMonitoring() {
                               : ''
                           )}
                         >
-                          <span className={cn('w-2 h-2 rounded-full mr-1.5 shrink-0', isOnline ? 'bg-emerald-500' : 'bg-red-500')} />
+                          <span className={cn('w-2 h-2 rounded-full mr-1.5 shrink-0', isOnline ? 'bg-emerald-500' : semDados ? 'bg-muted-foreground' : 'bg-red-500')} />
                           {statusLabel(endpoint.status)}
                         </Badge>
 
