@@ -33,8 +33,14 @@ verify_jwt = false
 [functions.send-avaliacao-email]
 verify_jwt = false
 
-# Webhook do provedor de e-mail (SendGrid/Mailgun/Postmark): quem chama é um
-# servidor externo, que não tem JWT de usuário do Supabase. A barreira é o
-# X-Webhook-Secret, validado em tempo constante dentro da função.
+# Webhook de e-mail recebido do Resend: quem chama é um servidor externo, que
+# não tem JWT de usuário do Supabase. A barreira é a assinatura Svix, conferida
+# em tempo constante dentro da função (svix.ts).
 [functions.email-to-ticket]
+verify_jwt = false
+
+# Chamada pelo próprio banco (net.http_post, a partir do pg_cron), não por um
+# usuário — não existe JWT para verificar. A barreira é o x-cron-secret, mesmo
+# desenho do send-avaliacao-email.
+[functions.alerta-saude-banco]
 verify_jwt = false
