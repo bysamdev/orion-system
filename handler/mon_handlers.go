@@ -560,6 +560,12 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 	companyIDFromKey, err := lib.ValidateAgentKey(&http.Request{Header: http.Header{"X-Agent-Key": {key}}}, cfg.AgentKey, db)
 	if err != nil {
+		// Sem isso a máquina recusada aparece só como offline no painel, e a
+		// causa fica escondida no log da Vercel. Falha aqui não muda a
+		// resposta: a recusa é o que importa para o agente.
+		if errReg := db.RegistrarRecusaDeAutenticacao(ctx, req.MachineToken); errReg != nil {
+			log.Printf("[AVISO] heartbeat: não foi possível registrar a recusa de %s: %v", req.Hostname, errReg)
+		}
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}

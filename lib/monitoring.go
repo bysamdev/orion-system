@@ -48,6 +48,11 @@ type MachineRow struct {
 	DeviceType       *string          `json:"device_type"`
 	DeviceTypeReason *string          `json:"device_type_reason"`
 	DeviceTypeLocked bool             `json:"device_type_locked"`
+	// AuthRecusada: o último heartbeat desta máquina foi recusado por chave
+	// inválida e nenhum aceito veio depois. Distingue "recusada" (problema de
+	// configuração nosso, não se resolve sozinho) de "offline" — ver
+	// migration 20260918060000.
+	AuthRecusada bool `json:"auth_recusada"`
 	SecurityInfo     *json.RawMessage `json:"security_info,omitempty"`
 	RemoteSoftware   *json.RawMessage `json:"remote_software,omitempty"`
 	BatteryInfo      *json.RawMessage `json:"battery_info,omitempty"`
@@ -193,7 +198,8 @@ SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_versio
        END AS domain,
        m.mac_address, m.current_user,
        hw.security_info,
-       m.cpu_usage, m.ram_total, m.ram_used, m.disk_total, m.disk_used, m.uptime, m.metrics_collected_at
+       m.cpu_usage, m.ram_total, m.ram_used, m.disk_total, m.disk_used, m.uptime, m.metrics_collected_at,
+       COALESCE(m.auth_recusada_em > COALESCE(m.last_seen, '-infinity'), false)
 FROM public.machines m
 JOIN public.machine_groups mg ON mg.id = m.group_id
 LEFT JOIN public.machine_hardware hw ON hw.machine_id = m.id
@@ -220,7 +226,8 @@ ORDER BY m.hostname`, groupID, companyID)
 			&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt,
 			&r.Domain, &r.MACAddress, &r.CurrentUser,
 			&r.SecurityInfo,
-			&r.CPUUsage, &r.RAMTotal, &r.RAMUsed, &r.DiskTotal, &r.DiskUsed, &r.Uptime, &r.CollectedAt); err != nil {
+			&r.CPUUsage, &r.RAMTotal, &r.RAMUsed, &r.DiskTotal, &r.DiskUsed, &r.Uptime, &r.CollectedAt,
+			&r.AuthRecusada); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -243,7 +250,8 @@ SELECT m.id::text, m.group_id::text, m.hostname, m.ip_address, m.os, m.os_versio
        END AS domain,
        m.mac_address, m.current_user,
        hw.security_info,
-       m.cpu_usage, m.ram_total, m.ram_used, m.disk_total, m.disk_used, m.uptime, m.metrics_collected_at
+       m.cpu_usage, m.ram_total, m.ram_used, m.disk_total, m.disk_used, m.uptime, m.metrics_collected_at,
+       COALESCE(m.auth_recusada_em > COALESCE(m.last_seen, '-infinity'), false)
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 LEFT JOIN public.machine_hardware hw ON hw.machine_id = m.id
@@ -261,7 +269,8 @@ ORDER BY m.hostname`, companyID)
 			&r.Status, &r.LastSeen, &r.AgentVersion, &r.CreatedAt,
 			&r.Domain, &r.MACAddress, &r.CurrentUser,
 			&r.SecurityInfo,
-			&r.CPUUsage, &r.RAMTotal, &r.RAMUsed, &r.DiskTotal, &r.DiskUsed, &r.Uptime, &r.CollectedAt); err != nil {
+			&r.CPUUsage, &r.RAMTotal, &r.RAMUsed, &r.DiskTotal, &r.DiskUsed, &r.Uptime, &r.CollectedAt,
+			&r.AuthRecusada); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -306,13 +315,14 @@ SELECT m.id::text, m.group_id::text, m.company_id::text, m.hostname, m.ip_addres
          ELSE 'Geral'
        END AS domain,
        m.mac_address, m."current_user",
-       m.device_type, m.device_type_reason, m.device_type_locked
+       m.device_type, m.device_type_reason, m.device_type_locked,
+       COALESCE(m.auth_recusada_em > COALESCE(m.last_seen, '-infinity'), false)
 FROM public.machines m
 LEFT JOIN public.machine_groups mg ON mg.id = m.group_id
 WHERE m.id = $1`, id).Scan(
 		&r.ID, &r.GroupID, &r.CompanyID, &r.Hostname, &r.IPAddress, &r.OS, &r.OSVersion,
 		&r.Status, &r.LastSeen, &r.AgentVersion, &r.ApprovalStatus, &r.CreatedAt, &r.Domain, &r.MACAddress, &r.CurrentUser,
-		&r.DeviceType, &r.DeviceTypeReason, &r.DeviceTypeLocked)
+		&r.DeviceType, &r.DeviceTypeReason, &r.DeviceTypeLocked, &r.AuthRecusada)
 	if err != nil {
 		return nil, err
 	}
