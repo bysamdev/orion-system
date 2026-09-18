@@ -7,6 +7,7 @@ import { mapDatabaseError, logError } from '@/lib/error-handling';
 import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpers';
 import { MOCK_TICKETS, getMockTicketsByStatus } from '@/mocks/tickets';
 import { construirFiltroPeriodoRelatorio } from '@/lib/reports/aggregations';
+import { ehConflitoDeVersao, MENSAGEM_DE_CONFLITO } from '@/lib/conflitoDeVersao';
 
 export interface Ticket {
   id: string;
@@ -274,8 +275,8 @@ export const useUpdateTicketStatus = () => {
       });
 
       if (error) {
-        if (error.code === '40001') {
-          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+        if (ehConflitoDeVersao(error)) {
+          throw new Error(MENSAGEM_DE_CONFLITO);
         }
         throw error;
       }
@@ -338,8 +339,8 @@ export const useUpdateTicketAssignment = () => {
       });
 
       if (error) {
-        if (error.code === '40001') {
-          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+        if (ehConflitoDeVersao(error)) {
+          throw new Error(MENSAGEM_DE_CONFLITO);
         }
         throw error;
       }
@@ -393,8 +394,8 @@ export const useAssumeTicket = () => {
       });
 
       if (error) {
-        if (error.code === '40001') {
-          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+        if (ehConflitoDeVersao(error)) {
+          throw new Error(MENSAGEM_DE_CONFLITO);
         }
         throw error;
       }
@@ -451,8 +452,8 @@ export const useUpdateTicketPriority = () => {
       });
 
       if (error) {
-        if (error.code === '40001') {
-          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+        if (ehConflitoDeVersao(error)) {
+          throw new Error(MENSAGEM_DE_CONFLITO);
         }
         throw error;
       }
@@ -510,11 +511,12 @@ export const useResolveTicket = () => {
       });
 
       if (error) {
-        // 40001 é levantado pela função quando updated_at não bate com a
-        // versão que esta aba carregou; 42501 quando o chamado não existe
-        // ou a RLS não deixa este usuário resolvê-lo.
-        if (error.code === '40001') {
-          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+        // PT409 é levantado pela função quando updated_at não bate com a
+        // versão que esta aba carregou (ver lib/conflitoDeVersao); 42501
+        // quando o chamado não existe ou a RLS não deixa este usuário
+        // resolvê-lo.
+        if (ehConflitoDeVersao(error)) {
+          throw new Error(MENSAGEM_DE_CONFLITO);
         }
         throw error;
       }
@@ -579,8 +581,8 @@ export const useEscalateTicket = () => {
       });
 
       if (error) {
-        if (error.code === '40001') {
-          throw new Error('Conflito de concorrência: O chamado foi modificado por outro técnico. Por favor, recarregue a página.');
+        if (ehConflitoDeVersao(error)) {
+          throw new Error(MENSAGEM_DE_CONFLITO);
         }
         throw error;
       }
