@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verificarAssinaturaSvix } from './svix.ts'
+import { ehErroDefinitivo, montarDescricao, montarTitulo } from './montarChamado.ts'
 
 // =============================================================================
 // email-to-ticket — abre chamado a partir de e-mail recebido pelo Resend
@@ -339,6 +340,12 @@ serve(async (req) => {
     const email = await respostaResend.json()
     const assunto = typeof dados.subject === 'string' && dados.subject.trim() ? dados.subject : email.subject
 
+    // Título e descrição respeitam as constraints de tickets (mínimo de 3 e 10
+    // caracteres). Sem isso, um e-mail de corpo curto — como o "teste" do
+    // primeiro teste real — era recusado pelo banco.
+    const titulo = montarTitulo(assunto)
+    const descricao = montarDescricao(email.text, email.html)
+
     // -------------------------------------------------------------------------
     // 4. Chamado
     // -------------------------------------------------------------------------
@@ -349,8 +356,8 @@ serve(async (req) => {
     const { data: ticket, error: ticketError } = await supabase
       .from('tickets')
       .insert({
-        title: assunto || 'Chamado por e-mail',
-        description: email.text || email.html || 'Sem conteúdo',
+        title: titulo,
+        description: descricao,
         requester_name: profile.full_name,
         user_id: profile.id,
         company_id: profile.company_id,
@@ -376,10 +383,16 @@ serve(async (req) => {
     // valor rejeitado para qualquer um que chamasse o endpoint, e foi assim,
     // aliás, que o bug de categoria apareceu. Útil para nós, igualmente útil
     // para quem sondasse o esquema.
-    //
-    // 500 porque tudo que chega aqui é falha de banco ou de API, e reenviar
-    // pode dar certo.
     console.error('email-to-ticket: falha ao processar', emailId, '—', erro instanceof Error ? erro.message : erro)
+
+    // Erro DEFINITIVO do banco (dado inválido, constraint violada) responde 200:
+    // reenviar daria o mesmo erro para sempre, e o Resend reenvia tudo que não
+    // for 2xx. Só o transitório — rede, banco fora, timeout — responde 500 para
+    // ganhar nova tentativa.
+    const codigo = (erro as { code?: unknown } | null)?.code
+    if (ehErroDefinitivo(codigo)) {
+      return recusar('dados_invalidos', { codigo })
+    }
     return responder(500, { error: 'Falha ao processar o e-mail' })
   }
 })
