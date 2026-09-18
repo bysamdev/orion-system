@@ -116,6 +116,29 @@ jobs:
       - name: Timestamps duplicados
         run: node scripts/check-migrations.mjs
 
+  # Lacuna nº 1 abaixo, em medição. Sobe o Supabase em container, repete as
+  # migrations num banco descartável e roda a suíte pgTAP de supabase/tests
+  # (hoje: a regra de avaliação pendente). Nasce com continue-on-error porque
+  # ainda não foi medido verde — o replay das 213 migrations do zero nunca
+  # rodou. Quando passar, sai o continue-on-error e vira gate.
+  banco:
+    name: Banco (replay das migrations e pgTAP) — em medição
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Replay das migrations
+        run: supabase db start
+
+      - name: Testes pgTAP
+        run: supabase test db
+
   dependencias:
     name: Dependências (vulnerabilidades de produção)
     runs-on: ubuntu-latest
