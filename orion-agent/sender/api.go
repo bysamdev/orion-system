@@ -42,6 +42,20 @@ var httpClient = &http.Client{Timeout: httpTimeout}
 // já periódico) tentar de novo.
 var errLimiteDeTaxa = errors.New("limite de requisições do servidor (429)")
 
+// errRecusado sinaliza que o servidor recusou a chave do agente (401/403).
+// Diferente de rede ou 5xx, não é falha transitória: uma chave inválida não
+// vira válida em quatro segundos. Em 17/09/2026, depois da rotação da chave
+// de uma empresa, uma única máquina gerou 281 respostas 401 em 12 horas —
+// três por ciclo, duas delas garantidamente inúteis. Sai do laço na primeira
+// tentativa, como o 429; o próximo ciclo periódico tenta de novo, que é o
+// certo, porque a chave pode ter sido corrigida no arquivo nesse meio tempo.
+var errRecusado = errors.New("chave do agente recusada pelo servidor")
+
+// statusRecusado diz se o status HTTP é uma recusa de credencial.
+func statusRecusado(status int) bool {
+	return status == http.StatusUnauthorized || status == http.StatusForbidden
+}
+
 // retryComBackoff executa op até maxRetries vezes, com o mesmo backoff
 // exponencial e jitter de calcularEspera entre tentativas. Extraído do laço
 // que antes só existia em Send — poll/respond de comando não tinham
@@ -59,6 +73,9 @@ func retryComBackoff(op func() error) error {
 		lastErr = err
 		if errors.Is(err, errLimiteDeTaxa) {
 			return fmt.Errorf("desistindo após 1 tentativa (429): %w", lastErr)
+		}
+		if errors.Is(err, errRecusado) {
+			return fmt.Errorf("desistindo após 1 tentativa (chave recusada): %w", lastErr)
 		}
 		if attempt < maxRetries {
 			time.Sleep(calcularEspera(attempt, rng))
@@ -154,6 +171,9 @@ func doPostComIntervalo(url, agentKey string, body []byte) (string, int, error) 
 		if resp.StatusCode == http.StatusTooManyRequests {
 			return "", 0, fmt.Errorf("%w: %s", errLimiteDeTaxa, base.Error())
 		}
+		if statusRecusado(resp.StatusCode) {
+			return "", 0, fmt.Errorf("%w: %s", errRecusado, base.Error())
+		}
 		return "", 0, base
 	}
 
@@ -218,6 +238,9 @@ func PollCommands(cfg *config.Config, machineID string) ([]Command, error) {
 
 		if resp.StatusCode == http.StatusTooManyRequests {
 			return fmt.Errorf("%w: status %d", errLimiteDeTaxa, resp.StatusCode)
+		}
+		if statusRecusado(resp.StatusCode) {
+			return fmt.Errorf("%w: status %d", errRecusado, resp.StatusCode)
 		}
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("status error: %d", resp.StatusCode)

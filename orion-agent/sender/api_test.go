@@ -29,6 +29,7 @@ package sender
 // ambiente de opt-in.
 
 import (
+	"errors"
 	"encoding/json"
 	"io"
 	"math/rand"
@@ -974,5 +975,41 @@ func TestSend_PayloadChegaComOsCamposEsperados(t *testing.T) {
 	}
 	if recebido["machine_token"] != "token-fake" {
 		t.Errorf("machine_token = %v, esperado %q", recebido["machine_token"], "token-fake")
+	}
+}
+
+// Chave inválida não vira válida em segundos: 401 e 403 saem do laço na
+// primeira tentativa, no mesmo molde do 429. Medido em 17/09/2026: uma
+// máquina com chave rotacionada gerou 281 respostas 401 em 12 horas, três
+// por ciclo.
+func TestSend_ChaveRecusada_DesisteNaPrimeiraTentativa(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		comRetryBaseDelayReduzido(t, 5*time.Millisecond)
+		var capt requisicaoCapturada
+		srv := servidorQueResponde(t, status, `{"error":"chave de agente invalida"}`, &capt)
+
+		_, _, err := Send(cfgDeTeste(srv.URL), &collector.Payload{})
+		if err == nil {
+			t.Fatalf("status %d: esperado erro, veio nil", status)
+		}
+		if !errors.Is(err, errRecusado) {
+			t.Errorf("status %d: erro %v não é errRecusado", status, err)
+		}
+		if got := capt.ler(); got.chamadas != 1 {
+			t.Errorf("status %d: backend recebeu %d chamadas, esperado 1", status, got.chamadas)
+		}
+	}
+}
+
+func TestPollCommands_ChaveRecusada_DesisteNaPrimeiraTentativa(t *testing.T) {
+	comRetryBaseDelayReduzido(t, 5*time.Millisecond)
+	var capt requisicaoCapturada
+	srv := servidorQueResponde(t, http.StatusUnauthorized, `{"error":"chave de agente invalida"}`, &capt)
+
+	if _, err := PollCommands(cfgDeTeste(srv.URL), "maq-1"); !errors.Is(err, errRecusado) {
+		t.Fatalf("erro %v não é errRecusado", err)
+	}
+	if got := capt.ler(); got.chamadas != 1 {
+		t.Errorf("backend recebeu %d chamadas, esperado 1", got.chamadas)
 	}
 }
