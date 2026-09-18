@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   ArrowLeft, ArrowRight, Send, Loader2, Paperclip, CheckCircle2,
   ShieldCheck, BookOpen, ExternalLink, X, Clipboard,
-  Layout, Mail, HardDrive, Cpu, Globe, MoreHorizontal, Crown, Clock
+  Layout, Mail, HardDrive, Cpu, Globe, MoreHorizontal, Crown, Clock, UserPlus, Printer
 } from 'lucide-react';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
@@ -102,7 +102,25 @@ const categories = [
     color: 'text-sky-500',
     bg: 'bg-sky-500/10',
     description: 'Sem conexão com a internet, Wi-Fi instável ou lento, falha ao acessar pastas na rede e impressoras conectadas.',
-    examples: ['Sem acesso à internet ou Wi-Fi instável', 'Pasta compartilhada do servidor não abre', 'Impressora de rede inacessível', 'Site ou sistema web fora do ar']
+    examples: ['Sem acesso à internet ou Wi-Fi instável', 'Pasta compartilhada do servidor não abre', 'VPN não conecta', 'Site ou sistema web fora do ar']
+  },
+  {
+    id: 'criacao_usuario',
+    name: 'Criação de usuário',
+    icon: UserPlus,
+    color: 'text-violet-500',
+    bg: 'bg-violet-500/10',
+    description: 'Acesso para um novo colaborador ou acesso novo para quem já trabalha aí: Windows, Senior, e-mail, VPN.',
+    examples: ['Novo colaborador começando', 'Usuário no Windows / rede', 'Usuário no Senior', 'Acesso à VPN']
+  },
+  {
+    id: 'impressora',
+    name: 'Impressora',
+    icon: Printer,
+    color: 'text-rose-500',
+    bg: 'bg-rose-500/10',
+    description: 'Impressora que não imprime, papel atolado, falta de toner, scanner ou impressora que sumiu da lista.',
+    examples: ['Impressora não imprime', 'Papel atolado ou toner acabando', 'Scanner não digitaliza', 'Impressora não aparece no computador']
   },
   {
     id: 'outros',
@@ -541,7 +559,7 @@ const NewTicket = () => {
                       <span className="text-xs text-muted-foreground hidden sm:inline-block">Passe o mouse para ver detalhes</span>
                     </div>
                     <TooltipProvider delayDuration={150}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
                         {categories.map((cat) => (
                           <Tooltip key={cat.id}>
                             <TooltipTrigger asChild>
@@ -687,8 +705,10 @@ const NewTicket = () => {
                   {perguntasDa(watchedCategory).map((p) => {
                     const idCampo = `pergunta-${p.id}`;
                     const erro = errosRespostas[p.id];
-                    const valor = respostas[p.id] ?? '';
-                    const atualizar = (novoValor: string) => {
+                    const bruto = respostas[p.id];
+                    const valor = typeof bruto === 'string' ? bruto : '';
+                    const marcadas = Array.isArray(bruto) ? bruto : [];
+                    const atualizar = (novoValor: string | string[]) => {
                       setRespostas((prev) => ({ ...prev, [p.id]: novoValor }));
                       if (erro) {
                         setErrosRespostas((prev) => {
@@ -709,7 +729,42 @@ const NewTicket = () => {
                     const descritoPor = erro ? `${idCampo}-erro` : undefined;
                     return (
                       <div key={p.id} className="space-y-2">
-                        {p.tipo === 'opcoes' ? (
+                        {p.tipo === 'multipla' ? (
+                          <fieldset aria-invalid={!!erro} aria-describedby={descritoPor}>
+                            <legend className="text-sm font-semibold text-foreground mb-2">
+                              {rotulo}
+                              <span className="ml-1.5 text-xs font-normal text-muted-foreground">Marque quantas precisar</span>
+                            </legend>
+                            <div className="flex flex-wrap gap-2">
+                              {p.opcoes?.map((opcao, i) => {
+                                const marcada = marcadas.includes(opcao);
+                                return (
+                                  <label
+                                    key={opcao}
+                                    className={cn(
+                                      'flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors text-sm font-medium',
+                                      marcada
+                                        ? 'border-primary bg-primary/10 text-foreground'
+                                        : 'border-border/60 bg-background text-muted-foreground hover:border-primary/40'
+                                    )}
+                                  >
+                                    <input
+                                      id={i === 0 ? idCampo : undefined}
+                                      type="checkbox"
+                                      value={opcao}
+                                      checked={marcada}
+                                      onChange={() =>
+                                        atualizar(marcada ? marcadas.filter((m) => m !== opcao) : [...marcadas, opcao])
+                                      }
+                                      className="accent-primary"
+                                    />
+                                    {opcao}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </fieldset>
+                        ) : p.tipo === 'opcoes' ? (
                           <fieldset aria-invalid={!!erro} aria-describedby={descritoPor}>
                             <legend className="text-sm font-semibold text-foreground mb-2">{rotulo}</legend>
                             <div className="flex flex-wrap gap-2">

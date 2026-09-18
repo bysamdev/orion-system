@@ -10,7 +10,7 @@ import {
 describe('PERGUNTAS_POR_CATEGORIA', () => {
   it('cobre todas as categorias que o cliente pode escolher', () => {
     expect(Object.keys(PERGUNTAS_POR_CATEGORIA).sort()).toEqual(
-      ['email', 'erp', 'hardware', 'outros', 'rede', 'software'],
+      ['criacao_usuario', 'email', 'erp', 'hardware', 'impressora', 'outros', 'rede', 'software'],
     );
   });
 
@@ -83,5 +83,29 @@ describe('montarDescricao', () => {
   it('acrescenta o complemento livre no fim', () => {
     const descricao = montarDescricao([{ pergunta: 'O que você precisa?', resposta: 'Um mouse' }], ' urgente ');
     expect(descricao).toBe('O que você precisa?\nUm mouse\n\nInformações adicionais\nurgente');
+  });
+});
+
+describe('múltipla escolha', () => {
+  const basico = { nome: 'Ana Souza', setor_cargo: 'Financeiro, analista', a_partir_de: 'segunda' };
+
+  it('cobra ao menos uma opção marcada', () => {
+    expect(validarRespostas('criacao_usuario', { ...basico, sistemas: [] })).toHaveProperty('sistemas');
+  });
+
+  it('aceita várias opções, inclusive VPN', () => {
+    expect(validarRespostas('criacao_usuario', { ...basico, sistemas: ['Senior', 'Windows / rede', 'VPN'] })).toEqual({});
+  });
+
+  it('recusa opção fora da lista', () => {
+    expect(validarRespostas('criacao_usuario', { ...basico, sistemas: ['Senior', 'SAP'] })).toHaveProperty('sistemas');
+  });
+
+  it('grava as marcadas na ordem das opções, não na ordem do clique', () => {
+    const [primeira] = respostasPreenchidas('criacao_usuario', { ...basico, sistemas: ['VPN', 'Senior', 'Windows / rede'] });
+    expect(primeira).toEqual({
+      pergunta: 'Em quais sistemas o acesso precisa ser criado?',
+      resposta: 'Windows / rede, Senior, VPN',
+    });
   });
 });

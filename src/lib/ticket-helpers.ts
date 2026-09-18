@@ -39,7 +39,9 @@ export async function enrichTicketsWithCompany<T extends { user_id?: string; sla
  * Keyword map for auto-suggesting ticket category based on title/description.
  */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  hardware: ['impressora', 'toner', 'monitor', 'teclado', 'mouse', 'computador', 'notebook', 'pc', 'hd', 'ssd', 'memória', 'ram', 'placa', 'fonte', 'cabo', 'usb', 'scanner'],
+  hardware: ['monitor', 'teclado', 'mouse', 'computador', 'notebook', 'pc', 'hd', 'ssd', 'memória', 'ram', 'placa', 'fonte', 'cabo', 'usb'],
+  impressora: ['impressora', 'imprimir', 'impressão', 'toner', 'cartucho', 'scanner', 'digitalizar', 'papel atolado'],
+  criacao_usuario: ['criar usuário', 'criação de usuário', 'novo usuário', 'novo colaborador', 'criar acesso', 'liberar acesso', 'criar login', 'acesso vpn'],
   email: ['email', 'e-mail', 'outlook', 'smtp', 'imap', 'pop3', 'exchange', 'spam', 'caixa de entrada', 'thunderbird'],
   rede: ['internet', 'wifi', 'wi-fi', 'rede', 'vpn', 'firewall', 'switch', 'roteador', 'dns', 'ip', 'ping', 'proxy', 'cabeamento'],
   erp: ['nota fiscal', 'boleto', 'nf-e', 'erp', 'fiscal', 'estoque', 'financeiro', 'contábil', 'sefaz', 'danfe', 'xml', 'certificado digital'],
@@ -84,6 +86,8 @@ export const CATEGORY_LABELS: Record<string, string> = {
   erp: 'ERP',
   software: 'Software',
   outros: 'Outros',
+  criacao_usuario: 'Criação de usuário',
+  impressora: 'Impressora',
   infraestrutura: 'Infraestrutura',
 };
 
