@@ -28,35 +28,35 @@ type MachineGroupRow struct {
 }
 
 type MachineRow struct {
-	ID               string           `json:"id"`
-	GroupID          *string          `json:"group_id"`
-	CompanyID        *string          `json:"company_id"`
-	Hostname         string           `json:"hostname"`
-	IPAddress        *string          `json:"ip_address"`
-	OS               *string          `json:"os"`
-	OSVersion        *string          `json:"os_version"`
-	Status           string           `json:"status"`
-	LastSeen         *time.Time       `json:"last_seen"`
-	AgentVersion     *string          `json:"agent_version"`
-	ApprovalStatus   *string          `json:"approval_status,omitempty"`
-	CreatedAt        time.Time        `json:"created_at"`
-	MachineToken     *string          `json:"machine_token"`
-	MachineUUID      *string          `json:"machine_uuid"`
-	CurrentUser      *string          `json:"current_user"`
-	Domain           *string          `json:"domain"`
-	MACAddress       *string          `json:"mac_address"`
-	DeviceType       *string          `json:"device_type"`
-	DeviceTypeReason *string          `json:"device_type_reason"`
-	DeviceTypeLocked bool             `json:"device_type_locked"`
+	ID               string     `json:"id"`
+	GroupID          *string    `json:"group_id"`
+	CompanyID        *string    `json:"company_id"`
+	Hostname         string     `json:"hostname"`
+	IPAddress        *string    `json:"ip_address"`
+	OS               *string    `json:"os"`
+	OSVersion        *string    `json:"os_version"`
+	Status           string     `json:"status"`
+	LastSeen         *time.Time `json:"last_seen"`
+	AgentVersion     *string    `json:"agent_version"`
+	ApprovalStatus   *string    `json:"approval_status,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	MachineToken     *string    `json:"machine_token"`
+	MachineUUID      *string    `json:"machine_uuid"`
+	CurrentUser      *string    `json:"current_user"`
+	Domain           *string    `json:"domain"`
+	MACAddress       *string    `json:"mac_address"`
+	DeviceType       *string    `json:"device_type"`
+	DeviceTypeReason *string    `json:"device_type_reason"`
+	DeviceTypeLocked bool       `json:"device_type_locked"`
 	// AuthRecusada: o último heartbeat desta máquina foi recusado por chave
 	// inválida e nenhum aceito veio depois. Distingue "recusada" (problema de
 	// configuração nosso, não se resolve sozinho) de "offline" — ver
 	// migration 20260918060000.
-	AuthRecusada bool `json:"auth_recusada"`
-	SecurityInfo     *json.RawMessage `json:"security_info,omitempty"`
-	RemoteSoftware   *json.RawMessage `json:"remote_software,omitempty"`
-	BatteryInfo      *json.RawMessage `json:"battery_info,omitempty"`
-	UpdateStatus     *json.RawMessage `json:"update_status,omitempty"`
+	AuthRecusada   bool             `json:"auth_recusada"`
+	SecurityInfo   *json.RawMessage `json:"security_info,omitempty"`
+	RemoteSoftware *json.RawMessage `json:"remote_software,omitempty"`
+	BatteryInfo    *json.RawMessage `json:"battery_info,omitempty"`
+	UpdateStatus   *json.RawMessage `json:"update_status,omitempty"`
 }
 
 type MachineWithMetric struct {

@@ -29,8 +29,8 @@ package sender
 // ambiente de opt-in.
 
 import (
-	"errors"
 	"encoding/json"
+	"errors"
 	"io"
 	"math/rand"
 	"net/http"
