@@ -139,11 +139,10 @@ jobs:
 
   # A imagem do Orion Monitor só é construída no servidor de monitoramento.
   # Sem este job, um Dockerfile quebrado só apareceria na hora do deploy
-  # lá. Em medição até o primeiro verde.
+  # lá. Medido verde em 18/09/2026 antes de virar gate.
   monitor-imagem:
-    name: Orion Monitor (imagem Docker) — em medição
+    name: Orion Monitor (imagem Docker)
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Build da imagem
