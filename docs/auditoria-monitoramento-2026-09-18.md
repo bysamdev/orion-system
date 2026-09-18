@@ -155,3 +155,33 @@ Não verificáveis daqui, por falta de acesso ao Debian:
 - quais alvos `:9182` respondem de fato no scrape;
 - exposição real pelo Cloudflare Tunnel (o compose publica Grafana em
   `0.0.0.0:3000`; os demais só em `127.0.0.1`).
+
+## 7. Cortes aplicados e medição antes/depois
+
+Aplicados no mesmo dia (commits `bfc4b1b` e `77a177f`, migration
+`20260918080000`):
+
+- **P1** — `ValidateAPIKey` grava `last_used_at` no máximo a cada 5 minutos.
+- **P2** — `update_telemetry_status` só regrava site ou link quando o status
+  muda, ou a cada 5 minutos como prova de vida.
+- **P3** — a API devolve `sem_dados` para site sem confirmação há mais de 15
+  minutos, e o painel mostra "SEM DADOS" em cinza.
+- **P4** — `UpdateMachineStatus` só grava quando o status muda.
+
+Medição em produção pelos contadores de `pg_stat_user_tables`, com 1 máquina
+ativa (SAM-DESKTOP) e os 6 sites monitorados:
+
+| Tabela | Antes (escritas/min) | Depois (escritas/min) | Redução |
+|---|---|---|---|
+| `api_keys` | 2,8 | 0,14 | −95% |
+| `monitored_endpoints` | 24 (6 sites a cada 15 s) | 0,84 | −96% |
+| `machines` | 1,5 | 1,1 | −25% (sai o status repetido; ficam upsert e snapshot) |
+
+Janelas: antes 15:31–15:35 UTC; depois 15:39–15:46 UTC. A de `monitored_endpoints`
+"antes" é a taxa determinada pelo código (a janela medida já cruzou a mudança
+da RPC). `last_check` passou a avançar de 5 em 5 minutos (15:33:46 → 15:38:46
+→ 15:43:47), como esperado.
+
+Projeção para 400 estações, com os mesmos cortes: de ~1.170 para ~190
+escritas/min (−84%). O que sobra é essencialmente o upsert e o snapshot da
+máquina a cada heartbeat e a série histórica.
