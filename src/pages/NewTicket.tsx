@@ -36,13 +36,20 @@ import { cn } from '@/lib/utils';
 import { FERRAMENTAS_REMOTAS, campoDeIdRemoto } from '@/lib/ferramentaRemota';
 import { estaNoHorarioDeAlmoco } from '@/lib/horarioDeAlmoco';
 import { useKBSuggestions } from '@/hooks/useKBSuggestions';
+import {
+  perguntasDa, validarRespostas, respostasPreenchidas, montarDescricao, MAX_RESPOSTA,
+  type Respostas,
+} from '@/lib/perguntasPorCategoria';
 
 // A abertura tem dois passos: o passo 1 é só a escolha da categoria, o passo
 // 2 traz todo o resto num formulário só. Prioridade e departamento continuam
 // derivados no envio -- ver onSubmit. Validar aqui campos que a tela não
 // mostra travaria o formulário num erro que o usuário não teria como
 // corrigir.
-const ticketSchema = ticketCreationSchema.pick({ title: true, description: true, category: true });
+//
+// A descrição não é mais digitada: ela é montada a partir das perguntas da
+// categoria (ver src/lib/perguntasPorCategoria.ts), que têm validação própria.
+const ticketSchema = ticketCreationSchema.pick({ title: true, category: true });
 type TicketFormValues = z.infer<typeof ticketSchema>;
 
 /** Prioridade de toda abertura pelo cliente. A equipe reclassifica depois. */
@@ -141,6 +148,10 @@ const NewTicket = () => {
   // escrever precisa ver o aviso aparecer, não ficar com a foto da montagem.
   const [noHorarioDeAlmoco, setNoHorarioDeAlmoco] = useState(() => estaNoHorarioDeAlmoco());
   const [avaliacaoDialogAberto, setAvaliacaoDialogAberto] = useState(false);
+  // Respostas às perguntas da categoria, por id de pergunta.
+  const [respostas, setRespostas] = useState<Respostas>({});
+  const [errosRespostas, setErrosRespostas] = useState<Record<string, string>>({});
+  const [complemento, setComplemento] = useState('');
 
   // Só cliente é bloqueado por avaliação pendente. Técnico abrindo chamado em
   // nome de alguém, e abertura automática por alerta crítico, não passam por
@@ -184,7 +195,7 @@ const NewTicket = () => {
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketSchema),
     mode: 'onChange',
-    defaultValues: { title: '', description: '', category: '' },
+    defaultValues: { title: '', category: '' },
   });
 
   // ── Paste (Ctrl + V) Image Handler ──────────────────────────
@@ -286,6 +297,23 @@ const NewTicket = () => {
       return;
     }
 
+    // Perguntas obrigatórias da categoria. Validadas aqui, e não no zod do
+    // react-hook-form, porque a lista muda com a categoria escolhida.
+    const erros = validarRespostas(data.category, respostas);
+    setErrosRespostas(erros);
+    const primeiroErro = Object.keys(erros)[0];
+    if (primeiroErro) {
+      document.getElementById(`pergunta-${primeiroErro}`)?.focus();
+      toast({
+        title: 'Faltam respostas',
+        description: 'Responda as perguntas marcadas para o técnico já começar sabendo o que acontece.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const preenchidas = respostasPreenchidas(data.category, respostas, normalizarDescricaoChamado);
+    const descricao = montarDescricao(preenchidas, normalizarDescricaoChamado(complemento));
+
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
@@ -311,7 +339,7 @@ const NewTicket = () => {
         title: normalizarTituloChamado(data.title),
         category: data.category,
         priority: prioridadeDerivada,
-        description: normalizarDescricaoChamado(data.description),
+        description: descricao,
         requester_name: userInfo.name,
         department: profile?.department || 'Geral',
         status: 'open',
@@ -326,6 +354,7 @@ const NewTicket = () => {
         remote_password: remoteId.trim() ? remotePassword.trim() || null : null,
         metadata: {
           ...(urlMachineId ? { machine_id: urlMachineId } : {}),
+          formulario: { versao: 1, respostas: preenchidas },
         },
       }).select().single();
 
@@ -429,7 +458,10 @@ const NewTicket = () => {
               </Button>
               <Button variant="outline" onClick={() => {
                 setCreatedTicket(null);
-                form.reset({ title: '', description: '', category: '' });
+                form.reset({ title: '', category: '' });
+                setRespostas({});
+                setErrosRespostas({});
+                setComplemento('');
                 setStep(1);
                 setPendingFiles([]);
                 setRemoteId('');
@@ -516,6 +548,10 @@ const NewTicket = () => {
                               <button
                                 type="button"
                                 onClick={() => {
+                                  if (cat.id !== watchedCategory) {
+                                    setRespostas({});
+                                    setErrosRespostas({});
+                                  }
                                   form.setValue('category', cat.id, { shouldValidate: true });
                                   form.clearErrors('category');
                                 }}
@@ -638,29 +674,122 @@ const NewTicket = () => {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem className="space-y-4">
-                      <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">Descrição detalhada</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Conte-nos o que aconteceu, erros exibidos e o que você já tentou..."
-                          className="min-h-[180px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-none leading-relaxed"
-                          {...field}
-                          onChange={(e) => {
-                            field.onChange(e);
-                            if (e.target.value.trim().length >= 20) {
-                              form.clearErrors('description');
-                            }
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <section className="space-y-6" aria-labelledby="perguntas-titulo">
+                  <div className="space-y-1">
+                    <h2 id="perguntas-titulo" className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">
+                      Conte os detalhes
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      Essas respostas evitam que o técnico precise voltar a perguntar. As marcadas com * são obrigatórias.
+                    </p>
+                  </div>
+
+                  {perguntasDa(watchedCategory).map((p) => {
+                    const idCampo = `pergunta-${p.id}`;
+                    const erro = errosRespostas[p.id];
+                    const valor = respostas[p.id] ?? '';
+                    const atualizar = (novoValor: string) => {
+                      setRespostas((prev) => ({ ...prev, [p.id]: novoValor }));
+                      if (erro) {
+                        setErrosRespostas((prev) => {
+                          const resto = { ...prev };
+                          delete resto[p.id];
+                          return resto;
+                        });
+                      }
+                    };
+                    const rotulo = (
+                      <>
+                        {p.rotulo}
+                        {p.obrigatoria
+                          ? <span className="text-destructive ml-0.5" aria-hidden="true">*</span>
+                          : <span className="ml-1.5 text-xs font-normal italic text-muted-foreground">Opcional</span>}
+                      </>
+                    );
+                    const descritoPor = erro ? `${idCampo}-erro` : undefined;
+                    return (
+                      <div key={p.id} className="space-y-2">
+                        {p.tipo === 'opcoes' ? (
+                          <fieldset aria-invalid={!!erro} aria-describedby={descritoPor}>
+                            <legend className="text-sm font-semibold text-foreground mb-2">{rotulo}</legend>
+                            <div className="flex flex-wrap gap-2">
+                              {p.opcoes?.map((opcao, i) => (
+                                <label
+                                  key={opcao}
+                                  className={cn(
+                                    'flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors text-sm font-medium',
+                                    valor === opcao
+                                      ? 'border-primary bg-primary/10 text-foreground'
+                                      : 'border-border/60 bg-background text-muted-foreground hover:border-primary/40'
+                                  )}
+                                >
+                                  <input
+                                    id={i === 0 ? idCampo : undefined}
+                                    type="radio"
+                                    name={idCampo}
+                                    value={opcao}
+                                    checked={valor === opcao}
+                                    onChange={() => atualizar(opcao)}
+                                    required={p.obrigatoria}
+                                    className="accent-primary"
+                                  />
+                                  {opcao}
+                                </label>
+                              ))}
+                            </div>
+                          </fieldset>
+                        ) : (
+                          <>
+                            <Label htmlFor={idCampo} className="text-sm font-semibold text-foreground">{rotulo}</Label>
+                            {p.tipo === 'longa' ? (
+                              <Textarea
+                                id={idCampo}
+                                value={valor}
+                                placeholder={p.placeholder}
+                                maxLength={MAX_RESPOSTA}
+                                onChange={(e) => atualizar(e.target.value)}
+                                aria-required={p.obrigatoria}
+                                aria-invalid={!!erro}
+                                aria-describedby={descritoPor}
+                                className="min-h-[96px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-y leading-relaxed"
+                              />
+                            ) : (
+                              <Input
+                                id={idCampo}
+                                value={valor}
+                                placeholder={p.placeholder}
+                                maxLength={MAX_RESPOSTA}
+                                onChange={(e) => atualizar(e.target.value)}
+                                aria-required={p.obrigatoria}
+                                aria-invalid={!!erro}
+                                aria-describedby={descritoPor}
+                                className="h-11 bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl"
+                              />
+                            )}
+                          </>
+                        )}
+                        {erro && (
+                          <p id={`${idCampo}-erro`} className="text-xs font-medium text-destructive">{erro}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="pergunta-complemento" className="text-sm font-semibold text-foreground">
+                      Mais alguma informação?
+                      <span className="ml-1.5 text-xs font-normal italic text-muted-foreground">Opcional</span>
+                    </Label>
+                    <Textarea
+                      id="pergunta-complemento"
+                      value={complemento}
+                      maxLength={MAX_RESPOSTA}
+                      onChange={(e) => setComplemento(e.target.value)}
+                      placeholder="O que você já tentou, horários em que acontece, qualquer detalhe que ajude"
+                      className="min-h-[80px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-y leading-relaxed"
+                    />
+                  </div>
+                </section>
 
                 <section className="p-6 bg-muted/10 border border-border/40 rounded-lg space-y-4">
                   <div className="flex items-center gap-2">
