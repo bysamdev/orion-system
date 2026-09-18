@@ -74,3 +74,31 @@ func TestGrafanaWebhook_CorpoInvalidoAposSegredoCorretoRejeitaSemPanico(t *testi
 		t.Errorf("status = %d, esperado %d (corpo JSON inválido)", rec.Code, http.StatusBadRequest)
 	}
 }
+
+func TestGrafanaAutorizado(t *testing.T) {
+	original := cfg.GrafanaWebhookSecret
+	defer func() { cfg.GrafanaWebhookSecret = original }()
+
+	casos := []struct {
+		nome, configurado, header string
+		esperado                  bool
+	}{
+		{"segredo correto", "segredo-correto", "Bearer segredo-correto", true},
+		{"segredo incorreto", "segredo-correto", "Bearer segredo-errado", false},
+		{"prefixo do segredo", "segredo-correto", "Bearer segredo", false},
+		{"segredo mais longo", "segredo-correto", "Bearer segredo-correto-e-mais", false},
+		{"sem esquema Bearer", "segredo-correto", "segredo-correto", false},
+		{"sem header", "segredo-correto", "", false},
+		{"servidor sem segredo e header vazio", "", "Bearer ", false},
+	}
+	for _, c := range casos {
+		cfg.GrafanaWebhookSecret = c.configurado
+		req := httptest.NewRequest(http.MethodPost, "/api/monitoring/alerts/webhook/grafana", nil)
+		if c.header != "" {
+			req.Header.Set("Authorization", c.header)
+		}
+		if got := grafanaAutorizado(req); got != c.esperado {
+			t.Errorf("%s: grafanaAutorizado = %v, esperado %v", c.nome, got, c.esperado)
+		}
+	}
+}

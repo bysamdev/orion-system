@@ -4,6 +4,7 @@ package handler
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1836,6 +1837,21 @@ func afetaStatusDaMaquina(alertType string) bool {
 // existe entre Grafana e Orion, e não valia inventar uma segunda variável de
 // ambiente pra atravessar o mesmo caminho. Sem login de usuário: quem chama
 // é o Grafana, não uma pessoa.
+// grafanaAutorizado confere o "Authorization: Bearer <segredo>" das chamadas
+// do Grafana. A comparação é em tempo constante: um != de string sai no
+// primeiro byte diferente, e o tempo de resposta passa a dizer quantos bytes
+// iniciais o atacante acertou. É a mesma defesa que o x-cron-secret já tem nas
+// Edge Functions. Sem segredo configurado, recusa tudo.
+func grafanaAutorizado(r *http.Request) bool {
+	const esquemaEsperado = "Bearer "
+	auth := r.Header.Get("Authorization")
+	if cfg.GrafanaWebhookSecret == "" || !strings.HasPrefix(auth, esquemaEsperado) {
+		return false
+	}
+	recebido := strings.TrimPrefix(auth, esquemaEsperado)
+	return subtle.ConstantTimeCompare([]byte(recebido), []byte(cfg.GrafanaWebhookSecret)) == 1
+}
+
 func monitoringCapacity(w http.ResponseWriter, r *http.Request) {
 	ip := lib.ClientIP(r)
 	if !limiterGrafanaWebhook.Permitir(ip) {
@@ -1843,10 +1859,7 @@ func monitoringCapacity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	const esquemaEsperado = "Bearer "
-	auth := r.Header.Get("Authorization")
-	secret := strings.TrimPrefix(auth, esquemaEsperado)
-	if !strings.HasPrefix(auth, esquemaEsperado) || cfg.GrafanaWebhookSecret == "" || secret != cfg.GrafanaWebhookSecret {
+	if !grafanaAutorizado(r) {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "não autorizado"})
 		return
 	}
@@ -1870,10 +1883,7 @@ func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	const esquemaEsperado = "Bearer "
-	auth := r.Header.Get("Authorization")
-	secret := strings.TrimPrefix(auth, esquemaEsperado)
-	if !strings.HasPrefix(auth, esquemaEsperado) || cfg.GrafanaWebhookSecret == "" || secret != cfg.GrafanaWebhookSecret {
+	if !grafanaAutorizado(r) {
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "não autorizado"})
 		return
 	}
