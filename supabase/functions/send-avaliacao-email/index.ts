@@ -185,7 +185,8 @@ serve(async (req) => {
       </html>
     `;
 
-    let emailData: any = null;
+    // Só o id interessa: é ele que prova que o Resend aceitou o envio.
+    let emailData: { id?: string } | null = null;
     try {
       const emailResponse = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -224,13 +225,13 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Até erro inesperado sai como 200: ver a "REGRA GERAL DE STATUS" no topo.
     console.error('Erro geral no envio de avaliação:', error);
     return new Response(
       JSON.stringify({
         sent: false,
-        reason: error?.message || 'Erro interno ao preparar o e-mail de avaliação.',
+        reason: (error instanceof Error && error.message) || 'Erro interno ao preparar o e-mail de avaliação.',
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
