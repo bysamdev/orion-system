@@ -857,6 +857,10 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Cópia ao Orion Monitor (modo sombra). Só depois de tudo gravado, e sem
+	// afetar a resposta — ver encaminharAoMonitor.
+	encaminharAoMonitor(r.Context(), amostraDoHeartbeat(&req, machineID, targetCompanyID, deviceTypeGravado, time.Now()))
+
 	lib.WriteJSON(w, http.StatusOK, map[string]any{
 		"success": true, "machine_id": machineID,
 		"next_interval_seconds": collectionIntervalSeconds(deviceTypeGravado),

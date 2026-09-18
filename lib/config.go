@@ -25,6 +25,11 @@ type Config struct {
 	ResendFrom            string
 	LoginURL              string
 	InviteURL             string
+	// MonitorIngestURL e MonitorIngestSecret ligam o repasse dos heartbeats
+	// ao Orion Monitor (pacote monitor, no servidor de monitoramento). Vazios,
+	// o repasse fica desligado e nada muda.
+	MonitorIngestURL    string
+	MonitorIngestSecret string
 }
 
 func LoadConfig() Config {
@@ -50,6 +55,8 @@ func LoadConfig() Config {
 		ResendFrom:            envOr("RESEND_FROM", "Orion System <no-reply@orion.local>"),
 		LoginURL:              envOr("LOGIN_URL", "https://orion.bysam.dev/auth"),
 		InviteURL:             envOr("INVITE_URL", "https://orion.bysam.dev/definir-senha"),
+		MonitorIngestURL:      os.Getenv("MONITOR_INGEST_URL"),
+		MonitorIngestSecret:   os.Getenv("MONITOR_INGEST_SECRET"),
 	}
 }
 
