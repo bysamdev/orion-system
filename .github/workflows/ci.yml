@@ -116,15 +116,13 @@ jobs:
       - name: Timestamps duplicados
         run: node scripts/check-migrations.mjs
 
-  # Lacuna nº 1 abaixo, em medição. Sobe o Supabase em container, repete as
-  # migrations num banco descartável e roda a suíte pgTAP de supabase/tests
-  # (hoje: a regra de avaliação pendente). Nasce com continue-on-error porque
-  # ainda não foi medido verde — o replay das 213 migrations do zero nunca
-  # rodou. Quando passar, sai o continue-on-error e vira gate.
+  # Fecha a lacuna nº 1: sobe o Supabase em container, repete as migrations
+  # num banco descartável e roda a suíte pgTAP de supabase/tests (hoje: a
+  # regra de avaliação pendente). Medido verde em 18/09/2026, no primeiro
+  # run, antes de virar gate.
   banco:
-    name: Banco (replay das migrations e pgTAP) — em medição
+    name: Banco (replay das migrations e pgTAP)
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -161,10 +159,8 @@ jobs:
 
 # Lacunas conhecidas, deliberadas, a fechar em incrementos próprios:
 #
-# 1. Replay das migrations em banco descartável. 102 das 190 migrations
-#    dependem de schemas auth/vault/cron/storage e não rodam num Postgres
-#    puro; exige a CLI do Supabase em container. É o gate de maior valor que
-#    ainda falta, porque é o que pega migration inválida antes de produção.
+# 1. (Fechada em 18/09/2026 pelo job "banco".) Replay das migrations em banco
+#    descartável, com a CLI do Supabase em container.
 #
 # 2. Testes do agente em Windows. service/windows_test.go cobre justamente a
 #    execução de comando remoto, a parte mais sensível do agente, e hoje só é
