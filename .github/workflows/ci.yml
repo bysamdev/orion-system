@@ -137,6 +137,18 @@ jobs:
       - name: Testes pgTAP
         run: supabase test db
 
+  # A imagem do Orion Monitor só é construída no servidor de monitoramento.
+  # Sem este job, um Dockerfile quebrado só apareceria na hora do deploy
+  # lá. Em medição até o primeiro verde.
+  monitor-imagem:
+    name: Orion Monitor (imagem Docker) — em medição
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build da imagem
+        run: docker build -f monitoring/orion-monitor/Dockerfile -t orion-monitor:ci .
+
   dependencias:
     name: Dependências (vulnerabilidades de produção)
     runs-on: ubuntu-latest

@@ -24,6 +24,14 @@ scrape_configs:
           hostname: debian-server
           company_id: 61cb93f4-8e93-48f3-860d-c40f510ac55e
 
+  # Orion Monitor: estado atual de todas as máquinas, recebido pelos
+  # heartbeats. Substitui o job orion_agents abaixo, que só alcança máquina na
+  # rede local do servidor. Porta interna, fora do tunnel.
+  - job_name: orion_monitor
+    scrape_interval: 60s
+    static_configs:
+      - targets: [orion-monitor:9301]
+
   - job_name: orion_agents
     file_sd_configs:
       - files:

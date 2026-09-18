@@ -143,6 +143,75 @@ services:
     depends_on:
       - prometheus
 
+  # ── ORION MONITOR: monitoramento de máquinas fora do Supabase ───────
+  # Serviço e banco próprios (card "Separar o monitoramento em serviço
+  # próprio"). Construído a partir da raiz do repositório, então este
+  # compose espera o repositório inteiro clonado no servidor.
+  #
+  # Porta 9300 (pública pelo Cloudflare Tunnel): só o ingest com segredo e a
+  # saúde. Porta 9301 (/metrics): só na rede Docker, para o Prometheus —
+  # nunca publicada, porque lista hostname e empresa de todas as máquinas.
+  #
+  # Variáveis no .env: MONITOR_DB_PASSWORD e MONITOR_INGEST_SECRET. O mesmo
+  # MONITOR_INGEST_SECRET vai na Vercel, junto com MONITOR_INGEST_URL.
+  monitor-db:
+    image: postgres:16-alpine
+    container_name: monitor-db
+    restart: always
+    environment:
+      - POSTGRES_DB=orion_monitor
+      - POSTGRES_USER=orion_monitor
+      - POSTGRES_PASSWORD=${MONITOR_DB_PASSWORD}
+    volumes:
+      - monitor_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U orion_monitor -d orion_monitor']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  orion-monitor:
+    build:
+      context: ..
+      dockerfile: monitoring/orion-monitor/Dockerfile
+    container_name: orion-monitor
+    restart: always
+    environment:
+      - MONITOR_DATABASE_URL=postgres://orion_monitor:${MONITOR_DB_PASSWORD}@monitor-db:5432/orion_monitor?sslmode=disable
+      - MONITOR_INGEST_SECRET=${MONITOR_INGEST_SECRET}
+    ports:
+      - '127.0.0.1:9300:9300'
+    depends_on:
+      monitor-db:
+        condition: service_healthy
+
+  # Backup diário do banco do monitor, guardando os 7 mais recentes. O
+  # Supabase fazia isso sozinho; aqui é responsabilidade nossa.
+  monitor-db-backup:
+    image: postgres:16-alpine
+    container_name: monitor-db-backup
+    restart: always
+    environment:
+      - PGPASSWORD=${MONITOR_DB_PASSWORD}
+    volumes:
+      - ./backups/orion-monitor:/backups
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        while true; do
+          arquivo=/backups/orion_monitor_$$(date +%Y%m%d_%H%M).sql.gz
+          if pg_dump -h monitor-db -U orion_monitor orion_monitor | gzip > "$$arquivo"; then
+            echo "backup ok: $$arquivo"
+          else
+            echo "backup FALHOU"; rm -f "$$arquivo"
+          fi
+          ls -1t /backups/orion_monitor_*.sql.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
+          sleep 86400
+        done
+    depends_on:
+      monitor-db:
+        condition: service_healthy
+
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: cloudflare-tunnel
@@ -155,6 +224,7 @@ services:
     command: tunnel --no-autoupdate run
 
 volumes:
+  monitor_db_data:
   prometheus_data:
   grafana_data:
   loki_data:
