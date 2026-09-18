@@ -309,6 +309,25 @@ type MonitoredEndpoint struct {
 	CreatedAt            time.Time  `json:"created_at"`
 }
 
+// statusComFrescor devolve 'sem_dados' quando o status do site não é
+// confirmado há mais de 15 minutos.
+//
+// Quem grava o status é o orion-bridge, no servidor de monitoramento. Com o
+// servidor desligado, a coluna congelava no último valor e o painel seguia
+// mostrando "online" sem saber de nada (auditoria de monitoramento de
+// 18/09/2026, P3). A RPC update_telemetry_status renova last_check pelo menos
+// a cada 5 minutos enquanto o bridge roda, então 15 minutos sem renovação
+// significam três ciclos perdidos: o dado parou de chegar.
+//
+// 'pending' e 'paused' passam intactos — nesses o status não afirma nada
+// sobre o site.
+const statusComFrescor = `CASE
+				WHEN status IN ('online', 'offline')
+				 AND (last_check IS NULL OR last_check < now() - interval '15 minutes')
+				THEN 'sem_dados'
+				ELSE status
+			END`
+
 func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 	user, err := requireAuth(r)
 	if err != nil {
@@ -341,7 +360,7 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 	)
 	if companyID != "" {
 		sqlStr = `
-			SELECT id, name, url_or_ip, uptimerobot_monitor_id, status
+			SELECT id, name, url_or_ip, uptimerobot_monitor_id, ` + statusComFrescor + `
 			FROM public.monitored_endpoints
 			WHERE company_id = $1
 			ORDER BY created_at DESC
@@ -349,7 +368,7 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 		args = append(args, companyID)
 	} else {
 		sqlStr = `
-			SELECT id, name, url_or_ip, uptimerobot_monitor_id, status
+			SELECT id, name, url_or_ip, uptimerobot_monitor_id, ` + statusComFrescor + `
 			FROM public.monitored_endpoints
 			ORDER BY created_at DESC
 		`

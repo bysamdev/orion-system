@@ -395,13 +395,32 @@ func (d *DB) EnsureProfileRowExists(ctx context.Context, userID string) error {
 	return nil
 }
 
-// ValidateAPIKey checks if a key is valid and active, updating its last_used_at timestamp.
+// ValidateAPIKey confere se a chave existe e está ativa, e devolve a empresa.
+//
+// last_used_at é atualizado no máximo uma vez a cada 5 minutos. Antes era a
+// cada chamada: todo heartbeat e todo poll de comandos (a cada 30 s)
+// regravavam a linha da chave, e todas as máquinas de uma empresa usam a
+// MESMA chave. Na projeção de 400 máquinas eram ~880 escritas por minuto,
+// ~75% de todas as escritas do monitoramento, disputando o lock de uma linha
+// só (auditoria docs/auditoria-monitoramento-2026-09-18.md, P1). A tela de
+// empresas mostra só a data do último uso, então 5 minutos de precisão
+// sobram.
+//
+// Uma consulta só: a CTE de UPDATE roda mesmo sem ser referenciada no SELECT
+// final, e o SELECT lê a chave pela CTE de leitura, então a validação não
+// depende de a linha ter sido atualizada.
 func (d *DB) ValidateAPIKey(ctx context.Context, keyValue string) (companyID string, err error) {
 	err = d.pool.QueryRow(ctx, `
-		UPDATE public.api_keys 
-		SET last_used_at = now() 
-		WHERE key_value = $1 AND is_active = true 
-		RETURNING company_id::text`, keyValue).Scan(&companyID)
+		WITH chave AS (
+		  SELECT id, company_id FROM public.api_keys
+		  WHERE key_value = $1 AND is_active = true
+		), uso AS (
+		  UPDATE public.api_keys k SET last_used_at = now()
+		  FROM chave
+		  WHERE k.id = chave.id
+		    AND (k.last_used_at IS NULL OR k.last_used_at < now() - interval '5 minutes')
+		)
+		SELECT company_id::text FROM chave`, keyValue).Scan(&companyID)
 	return companyID, err
 }
 

@@ -1220,11 +1220,15 @@ WHERE machine_id = $1 AND resolved = false`, machineID).Scan(&count)
 	return count > 0, err
 }
 
+// UpdateMachineStatus grava o status só quando ele muda. O heartbeat chama
+// isto em todo ciclo, e quase sempre com o mesmo valor; sem o IS DISTINCT
+// FROM cada chamada era uma escrita e uma linha morta a mais (auditoria de
+// monitoramento de 18/09/2026, P4).
 func (d *DB) UpdateMachineStatus(ctx context.Context, machineID, status string) error {
 	_, err := d.pool.Exec(ctx, `
-UPDATE public.machines 
-SET status = $2 
-WHERE id = $1`, machineID, status)
+UPDATE public.machines
+SET status = $2
+WHERE id = $1 AND status IS DISTINCT FROM $2`, machineID, status)
 	return err
 }
 
