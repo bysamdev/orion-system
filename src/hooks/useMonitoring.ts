@@ -121,6 +121,9 @@ export interface MachineWithMetric {
   device_type?: 'desktop' | 'notebook' | 'server' | 'unknown' | string | null;
   device_type_reason?: string | null;
   device_type_locked?: boolean;
+  // Último heartbeat recusado por chave inválida, sem nenhum aceito depois.
+  // Diferente de offline: não se resolve sozinho (ver migration 20260918060000).
+  auth_recusada?: boolean;
   // last metric
   cpu_usage: number | null;
   ram_total: number | null;

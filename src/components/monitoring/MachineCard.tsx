@@ -234,6 +234,9 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
         ? Math.floor((Date.now() - new Date(machine.last_seen).getTime()) / 60000)
         : 0;
     const isOfflineLongAlert = !isOnline && offlineMinutes >= 30;
+    // Recusada parece offline, mas pede a ação oposta: a chave do agente foi
+    // rejeitada e a máquina não volta sozinha até a chave ser corrigida.
+    const isRecusada = !isOnline && machine.auth_recusada === true;
 
     const SEVEN_DAYS_SECONDS = 7 * 24 * 3600;
 
@@ -299,7 +302,7 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
         <Card
           role="button"
           tabIndex={0}
-          aria-label={`Máquina ${machine.hostname}, Status ${isOnline ? 'Online' : 'Offline'}, CPU ${cpuPct != null ? Math.round(cpuPct) : 0}%, RAM ${ramPct != null ? Math.round(ramPct) : 0}%`}
+          aria-label={`Máquina ${machine.hostname}, Status ${isOnline ? 'Online' : isRecusada ? 'Chave recusada' : 'Offline'}, CPU ${cpuPct != null ? Math.round(cpuPct) : 0}%, RAM ${ramPct != null ? Math.round(ramPct) : 0}%`}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
@@ -361,8 +364,11 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                         ? alerting
                           ? 'bg-warning/15 text-warning border border-warning/30'
                           : 'bg-success/15 text-success border border-success/30'
+                        : isRecusada
+                        ? 'bg-destructive/15 text-destructive border border-destructive/30'
                         : 'bg-muted/40 text-muted-foreground border border-border/40'
                     )}
+                    title={isRecusada ? 'O servidor está recusando a chave do agente desta máquina. Confira a chave configurada nela.' : undefined}
                   >
                     <span
                       className={cn(
@@ -371,6 +377,8 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                           ? alerting
                             ? 'bg-warning'
                             : 'bg-success'
+                          : isRecusada
+                          ? 'bg-destructive'
                           : 'bg-muted-foreground'
                       )}
                     />
@@ -379,6 +387,8 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
                         ? alerting
                           ? 'Alerta'
                           : 'Online'
+                        : isRecusada
+                        ? 'Chave recusada'
                         : offlineMinutes >= 30
                         ? `Offline ${
                             Math.floor(offlineMinutes / 60) > 0
