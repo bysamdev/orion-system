@@ -497,8 +497,17 @@ const NewTicket = () => {
   return (
     <div className="max-w-5xl mx-auto w-full space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="hover:bg-primary/5 transition-colors gap-2 text-muted-foreground">
-            <ArrowLeft className="w-4 h-4" /> Voltar
+          {/* No passo 2 o voltar do topo faz o mesmo que "Trocar categoria"
+              do rodapé: quem rola até o fim não precisa ser o único a achar
+              o caminho de volta. No passo 1 sai do formulário. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => (step === 2 ? setStep(1) : navigate('/'))}
+            disabled={isSubmitting}
+            className="hover:bg-primary/5 transition-colors gap-2 text-muted-foreground"
+          >
+            <ArrowLeft className="w-4 h-4" /> {step === 2 ? 'Trocar categoria' : 'Voltar'}
           </Button>
         </div>
 
