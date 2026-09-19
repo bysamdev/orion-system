@@ -15,7 +15,7 @@ interface AbasDeChamadosProps {
 
 // Fila de espera, meus chamados e todos os chamados, em abas.
 export const AbasDeChamados: React.FC<AbasDeChamadosProps> = ({ activeTab, setActiveTab, filtros, totalNaFila, onAssume }) => (
-  <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+  <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
     <div className="flex items-center justify-between">
       <TabsList className="inline-flex">
         <TabsTrigger value="unassigned">
@@ -31,17 +31,17 @@ export const AbasDeChamados: React.FC<AbasDeChamadosProps> = ({ activeTab, setAc
     </div>
 
     <TabsContent value="unassigned" className="mt-0">
-      <Card className="border-border/50 shadow-xs rounded-2xl overflow-hidden bg-card">
+      <Card className="border-border/50 rounded-xl overflow-hidden bg-card">
         <CardContent className="p-0 overflow-x-auto">
           <Table className="min-w-[750px]">
             <TableHeader className="bg-muted/5">
               <TableRow className="hover:bg-transparent border-b border-border/40">
-                <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Descrição</TableHead>
-                <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-12">Prioridade</TableHead>
-                <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-12">Aberto Há</TableHead>
-                <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest h-12">Prazo SLA</TableHead>
-                <TableHead className="w-[150px] h-12 text-right pr-6">Ação</TableHead>
+                <TableHead className="w-[80px] text-xs font-semibold h-10">Nº</TableHead>
+                <TableHead className="text-xs font-semibold h-10">Chamado</TableHead>
+                <TableHead className="w-[104px] text-xs font-semibold h-10">Prioridade</TableHead>
+                <TableHead className="w-[120px] text-xs font-semibold h-10">Aberto</TableHead>
+                <TableHead className="w-[130px] text-xs font-semibold h-10">SLA</TableHead>
+                <TableHead className="w-[130px] h-10 text-xs font-semibold text-right pr-6">Ação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -65,18 +65,18 @@ export const AbasDeChamados: React.FC<AbasDeChamadosProps> = ({ activeTab, setAc
     </TabsContent>
 
     <TabsContent value="my-tickets" className="mt-0">
-      <Card className="border-border/50 shadow-xs rounded-2xl overflow-hidden bg-card">
+      <Card className="border-border/50 rounded-xl overflow-hidden bg-card">
         <CardContent className="p-0 overflow-x-auto">
           <Table className="min-w-[750px]">
             <TableHeader className="bg-muted/5">
               <TableRow className="hover:bg-transparent border-b border-border/40">
-                <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Descrição</TableHead>
-                <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-12">Prioridade</TableHead>
-                <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-12 text-center">Status</TableHead>
-                <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-12">Aberto Há</TableHead>
-                <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest h-12">Prazo SLA</TableHead>
-                <TableHead className="w-[120px] h-12"></TableHead>
+                <TableHead className="w-[80px] text-xs font-semibold h-10">Nº</TableHead>
+                <TableHead className="text-xs font-semibold h-10">Chamado</TableHead>
+                <TableHead className="w-[104px] text-xs font-semibold h-10">Prioridade</TableHead>
+                <TableHead className="w-[150px] text-xs font-semibold h-10 text-center">Status</TableHead>
+                <TableHead className="w-[120px] text-xs font-semibold h-10">Aberto</TableHead>
+                <TableHead className="w-[130px] text-xs font-semibold h-10">SLA</TableHead>
+                <TableHead className="w-[48px] h-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -96,18 +96,18 @@ export const AbasDeChamados: React.FC<AbasDeChamadosProps> = ({ activeTab, setAc
     </TabsContent>
 
     <TabsContent value="all-tickets" className="mt-0">
-      <Card className="border-border/50 shadow-xs rounded-2xl overflow-hidden bg-card">
+      <Card className="border-border/50 rounded-xl overflow-hidden bg-card">
         <CardContent className="p-0 overflow-x-auto">
           <Table className="min-w-[750px]">
             <TableHeader className="bg-muted/5">
               <TableRow className="hover:bg-transparent border-b border-border/40">
-                <TableHead className="w-[100px] text-[10px] font-black uppercase tracking-widest h-12">ID</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest h-12">Descrição</TableHead>
-                <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest h-12">Prioridade</TableHead>
-                <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-12 text-center">Status</TableHead>
-                <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest h-12">Aberto Há</TableHead>
-                <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest h-12">Prazo SLA</TableHead>
-                <TableHead className="w-[120px] h-12"></TableHead>
+                <TableHead className="w-[80px] text-xs font-semibold h-10">Nº</TableHead>
+                <TableHead className="text-xs font-semibold h-10">Chamado</TableHead>
+                <TableHead className="w-[104px] text-xs font-semibold h-10">Prioridade</TableHead>
+                <TableHead className="w-[150px] text-xs font-semibold h-10 text-center">Status</TableHead>
+                <TableHead className="w-[120px] text-xs font-semibold h-10">Aberto</TableHead>
+                <TableHead className="w-[130px] text-xs font-semibold h-10">SLA</TableHead>
+                <TableHead className="w-[48px] h-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -5,9 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FiltrosDoPainel } from './useFiltrosDoPainel';
 
 export const FiltrosAvancados: React.FC<{ filtros: FiltrosDoPainel }> = ({ filtros: f }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-muted/10 rounded-2xl border border-border/40 animate-in fade-in slide-in-from-top-2">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-muted/20 rounded-xl border border-border/40 animate-in fade-in slide-in-from-top-2">
     <div className="space-y-1.5 text-left">
-      <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Prioridade</label>
+      <label className="text-xs font-medium text-muted-foreground ml-1">Prioridade</label>
       <Select value={f.priorityFilter} onValueChange={f.setPriorityFilter}>
         <SelectTrigger className="bg-background/50 border-border/40">
           <SelectValue placeholder="Todas as Prioridades" />
@@ -23,7 +23,7 @@ export const FiltrosAvancados: React.FC<{ filtros: FiltrosDoPainel }> = ({ filtr
     </div>
 
     <div className="space-y-1.5 text-left">
-      <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Status</label>
+      <label className="text-xs font-medium text-muted-foreground ml-1">Status</label>
       <Select value={f.statusFilter} onValueChange={f.setStatusFilter}>
         <SelectTrigger className="bg-background/50 border-border/40">
           <SelectValue placeholder="Todos os Status" />
@@ -40,7 +40,7 @@ export const FiltrosAvancados: React.FC<{ filtros: FiltrosDoPainel }> = ({ filtr
     </div>
 
     <div className="space-y-1.5 text-left">
-      <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Categoria</label>
+      <label className="text-xs font-medium text-muted-foreground ml-1">Categoria</label>
       <Select value={f.categoryFilter} onValueChange={f.setCategoryFilter}>
         <SelectTrigger className="bg-background/50 border-border/40">
           <SelectValue placeholder="Todas as Categorias" />
@@ -56,7 +56,7 @@ export const FiltrosAvancados: React.FC<{ filtros: FiltrosDoPainel }> = ({ filtr
     </div>
 
     <div className="space-y-1.5 text-left">
-      <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Status SLA</label>
+      <label className="text-xs font-medium text-muted-foreground ml-1">Status SLA</label>
       <Select value={f.slaFilter} onValueChange={f.setSlaFilter}>
         <SelectTrigger className="bg-background/50 border-border/40">
           <SelectValue placeholder="Todos os SLAs" />
@@ -71,7 +71,7 @@ export const FiltrosAvancados: React.FC<{ filtros: FiltrosDoPainel }> = ({ filtr
     </div>
 
     <div className="space-y-1.5 text-left lg:col-span-2">
-      <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Cliente / Empresa</label>
+      <label className="text-xs font-medium text-muted-foreground ml-1">Cliente / Empresa</label>
       <div className="relative">
         <Input
           placeholder="Filtrar por nome da empresa..."
@@ -87,7 +87,7 @@ export const FiltrosAvancados: React.FC<{ filtros: FiltrosDoPainel }> = ({ filtr
         variant="ghost"
         size="sm"
         onClick={f.limparFiltros}
-        className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary"
+        className="text-xs font-medium text-muted-foreground hover:text-primary"
       >
         Limpar Filtros
       </Button>

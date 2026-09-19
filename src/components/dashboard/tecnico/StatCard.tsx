@@ -34,23 +34,23 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, va
     <button
       onClick={onClick}
       className={cn(
-        "relative group text-left p-5 rounded-2xl transition-all duration-200 overflow-hidden bg-card border border-border/50 hover:border-primary/40 shadow-xs hover:shadow-md h-full w-full",
+        "relative group text-left p-4 rounded-xl transition-colors duration-200 overflow-hidden bg-card border border-border/50 hover:border-primary/40 h-full w-full",
         active
-          ? cn("scale-[1.01]", glows[variant])
-          : "hover:scale-[1.005]"
+          ? glows[variant]
+          : ""
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1 min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">{title}</p>
+          <p className="text-xs font-medium text-muted-foreground">{title}</p>
           <div className="flex items-baseline gap-2">
-            <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{value}</h3>
+            <h3 className="text-2xl font-bold tracking-tight text-foreground tabular-nums">{value}</h3>
             {active && <ArrowRight className="w-4 h-4 text-primary shrink-0" />}
           </div>
           {description && <p className="text-xs font-medium text-muted-foreground truncate">{description}</p>}
         </div>
-        <div className={cn("p-2.5 rounded-xl border shrink-0 transition-transform group-hover:scale-105", styles[variant])}>
-          <Icon className="w-5 h-5" />
+        <div className={cn("p-2 rounded-lg border shrink-0", styles[variant])}>
+          <Icon className="w-4 h-4" />
         </div>
       </div>
     </button>

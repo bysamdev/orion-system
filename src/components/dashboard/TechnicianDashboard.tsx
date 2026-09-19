@@ -155,62 +155,57 @@ export const TechnicianDashboard: React.FC = () => {
           <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" /></div>
         )
       ) : (
-      <div className="space-y-12">
-      <Indicadores stats={stats} kpiFilter={kpiFilter} closedOpen={closedOpen} onSelecionar={selecionarIndicador} />
+        <div className="space-y-8">
+          <Indicadores stats={stats} kpiFilter={kpiFilter} closedOpen={closedOpen} onSelecionar={selecionarIndicador} />
 
-      {(role === 'admin' || role === 'developer') && teamWorkload && teamWorkload.length > 0 && (
-        <CargaDaEquipe teamWorkload={teamWorkload} />
-      )}
+          {(role === 'admin' || role === 'developer') && teamWorkload && teamWorkload.length > 0 && (
+            <CargaDaEquipe teamWorkload={teamWorkload} />
+          )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-        {/* Main Content Area */}
-        <div className="xl:col-span-8 space-y-8 min-w-0">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="relative w-full md:max-w-md group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-              <Input
-                autoComplete="off"
-                placeholder="Busque por #número, título ou cliente..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="pl-12 h-12 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-2xl transition-all"
-              />
-              {searchTerm && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-tighter text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                    {totalDaAba} {totalDaAba === 1 ? 'resultado' : 'resultados'}
-                  </span>
+          <div className="grid grid-cols-1 2xl:grid-cols-12 gap-6 items-start">
+            <div className="2xl:col-span-8 space-y-4 min-w-0">
+              <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
+                <div className="relative w-full md:max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+                  <Input
+                    autoComplete="off"
+                    placeholder="Buscar #número, título ou cliente"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="pl-9 pr-28 h-9 rounded-xl"
+                  />
+                  {searchTerm && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                      {totalDaAba} {totalDaAba === 1 ? 'resultado' : 'resultados'}
+                    </span>
+                  )}
                 </div>
-              )}
+
+                <Button
+                  variant={advancedFiltersOpen ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAdvancedFiltersOpen(!advancedFiltersOpen)}
+                  className="h-9 rounded-xl gap-1.5 text-xs font-semibold self-end md:self-auto"
+                >
+                  <Filter className="w-3.5 h-3.5" /> Filtros
+                </Button>
+              </div>
+
+              {advancedFiltersOpen && <FiltrosAvancados filtros={filtros} />}
+
+              <div id="tickets-section" className="scroll-mt-6" />
+              <AbasDeChamados
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                filtros={filtros}
+                totalNaFila={unassigned.length}
+                onAssume={handleAssumeTicket}
+              />
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant={advancedFiltersOpen ? "default" : "outline"}
-                size="sm"
-                onClick={() => setAdvancedFiltersOpen(!advancedFiltersOpen)}
-                className="rounded-2xl border-border/40 font-bold text-xs gap-2 transition-colors h-12 px-4"
-              >
-                <Filter className="w-3.5 h-3.5" /> Filtros Avançados
-              </Button>
-            </div>
+            <LateralDoTecnico workload={workload} recentClosed={recentClosed} />
           </div>
-
-          {advancedFiltersOpen && <FiltrosAvancados filtros={filtros} />}
-
-          <div id="tickets-section" className="scroll-mt-6" />
-          <AbasDeChamados
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            filtros={filtros}
-            totalNaFila={unassigned.length}
-            onAssume={handleAssumeTicket}
-          />
         </div>
-
-        <LateralDoTecnico workload={workload} recentClosed={recentClosed} />
-      </div>
-      </div>
       )}
     </div>
   );

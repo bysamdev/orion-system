@@ -16,38 +16,36 @@ export const TicketRow: React.FC<{ ticket: Ticket }> = React.memo(({ ticket }) =
     <TableRow
       className="group relative cursor-pointer border-b border-border/40 hover:bg-muted/30 transition-all"
     >
-      <TableCell className="py-4 font-mono text-[11px] font-bold text-muted-foreground/60">
+      <TableCell className="py-3 font-mono text-xs text-muted-foreground">
         #{ticket.ticket_number}
       </TableCell>
-      <TableCell className="py-4">
+      <TableCell className="py-3">
         <div className="space-y-0.5">
-          <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
+          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors leading-tight">
             {ticket.title}
           </p>
           <TicketDescriptionPreview description={ticket.description} className="max-w-[44ch]" />
-          <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
-            <span className="text-primary/70">{ticket.requester_name}</span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{ticket.requester_name}</span>
             <span>·</span>
             <span className="truncate max-w-[120px]">{ticket.company_name || 'N/A'}</span>
           </div>
         </div>
       </TableCell>
-      <TableCell className="py-4">
+      <TableCell className="py-3">
         <PriorityBadge priority={ticket.priority} size="sm" />
       </TableCell>
-      <TableCell className="py-4 text-center">
+      <TableCell className="py-3 text-center">
         <StatusBadge status={ticket.status} />
       </TableCell>
-      <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
-        <TimeAgoBadge date={ticket.created_at} />
+      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+        <TimeAgoBadge date={ticket.created_at} curto />
       </TableCell>
-      <TableCell className="py-4">
-        <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} />
+      <TableCell className="py-3">
+        <SLABadge slaStatus={ticket.sla_status} slaDueDate={ticket.sla_due_date} createdAt={ticket.created_at} variant="compact" />
       </TableCell>
-      <TableCell className="py-4 text-right">
-        <span className="text-2xs font-bold text-muted-foreground uppercase opacity-40 group-hover:opacity-100 transition-opacity">
-          Ver detalhes <ArrowRight className="inline-block w-3 h-3 ml-1" />
-        </span>
+      <TableCell className="py-3 text-right">
+        <ArrowRight aria-label="Ver detalhes" className="inline-block w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         <button
           onClick={(e) => { e.stopPropagation(); navigate(`/ticket/${ticket.id}`); }}
           className="absolute inset-0 z-10"
@@ -62,36 +60,36 @@ export const UnassignedTicketRow: React.FC<{ ticket: Ticket; onAssume: (id: stri
   const navigate = useNavigate();
   return (
     <TableRow className="group relative border-b border-border/40 hover:bg-muted/30 transition-all cursor-pointer" onClick={() => navigate(`/ticket/${t.id}`)}>
-      <TableCell className="py-4 font-mono text-[11px] font-bold text-muted-foreground/60">
+      <TableCell className="py-3 font-mono text-xs text-muted-foreground">
         #{t.ticket_number}
       </TableCell>
-      <TableCell className="py-4">
+      <TableCell className="py-3">
         <div className="space-y-0.5">
-          <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
+          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors leading-tight">
             {t.title}
           </p>
           <TicketDescriptionPreview description={t.description} className="max-w-[44ch]" />
-          <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
-            <span className="text-primary/70">{t.requester_name}</span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{t.requester_name}</span>
             <span>·</span>
             <span className="truncate max-w-[120px]">{t.company_name || 'N/A'}</span>
           </div>
         </div>
       </TableCell>
-      <TableCell className="py-4">
+      <TableCell className="py-3">
         <PriorityBadge priority={t.priority} size="sm" />
       </TableCell>
-      <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
-        <TimeAgoBadge date={t.created_at} />
+      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+        <TimeAgoBadge date={t.created_at} curto />
       </TableCell>
-      <TableCell className="py-4">
+      <TableCell className="py-3">
         <SLABadge slaStatus={t.sla_status} slaDueDate={t.sla_due_date} createdAt={t.created_at} variant="compact" />
       </TableCell>
-      <TableCell className="py-4 text-right pr-6">
+      <TableCell className="py-3 text-right pr-6">
         <Button
           size="sm"
           onClick={(e) => { e.stopPropagation(); onAssume(t.id); }}
-          className="h-8 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider relative z-20 shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
+          className="h-7 px-3 rounded-lg text-xs font-semibold relative z-20 gap-1"
         >
           <HandHelping className="w-3.5 h-3.5" /> Assumir
         </Button>
