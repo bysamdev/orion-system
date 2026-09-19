@@ -730,11 +730,11 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	disksJSON := arredondarUsoDosDiscos(req.Disks)
+	disksJSON := normalizarOrdem(arredondarUsoDosDiscos(req.Disks))
 	if len(disksJSON) == 0 {
 		disksJSON = json.RawMessage(`[]`)
 	}
-	ifacesJSON := req.Interfaces
+	ifacesJSON := normalizarOrdem(req.Interfaces)
 	if len(ifacesJSON) == 0 {
 		ifacesJSON = json.RawMessage(`[]`)
 	}
@@ -745,10 +745,10 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		Disks:             disksJSON,
 		NetworkInterfaces: ifacesJSON,
 		GPU:               req.GPU,
-		SecurityInfo:      req.Security,
-		RemoteSoftware:    req.RemoteSoftware,
-		BatteryInfo:       req.Battery,
-		UpdateStatus:      req.UpdateStatus,
+		SecurityInfo:      normalizarOrdem(req.Security),
+		RemoteSoftware:    normalizarOrdem(req.RemoteSoftware),
+		BatteryInfo:       normalizarOrdem(req.Battery),
+		UpdateStatus:      normalizarOrdem(req.UpdateStatus),
 	}); err != nil {
 		log.Printf("[ERRO] heartbeat: falha ao salvar hardware para %s (%s): %v", req.Hostname, machineID, err)
 	}

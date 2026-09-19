@@ -66,8 +66,15 @@ func amostraDoHeartbeat(req *heartbeatReq, machineID, companyID, deviceType stri
 		AgentVersion: req.AgentVersion, OS: req.OS, OSVersion: req.OSVersion, IP: req.IP, CurrentUser: req.CurrentUser,
 		CPUUsage: req.CPUUsage, RAMTotal: req.RAMTotal, RAMUsed: req.RAMUsed,
 		DiskTotal: req.DiskTotal, DiskUsed: req.DiskUsed, Uptime: req.Uptime,
-		CPUModel: req.CPUModel, GPU: req.GPU, Disks: req.Disks, Interfaces: req.Interfaces,
-		Security: req.Security, RemoteSoftware: req.RemoteSoftware, Battery: req.Battery, UpdateStatus: req.UpdateStatus,
-		RecebidaEm: recebidaEm,
+		// Mesma normalização do inventário do Supabase (ver normalizarOrdem):
+		// sem ela o Monitor também regravaria o inventário a cada heartbeat.
+		CPUModel: req.CPUModel, GPU: req.GPU,
+		Disks:          normalizarOrdem(arredondarUsoDosDiscos(req.Disks)),
+		Interfaces:     normalizarOrdem(req.Interfaces),
+		Security:       normalizarOrdem(req.Security),
+		RemoteSoftware: normalizarOrdem(req.RemoteSoftware),
+		Battery:        normalizarOrdem(req.Battery),
+		UpdateStatus:   normalizarOrdem(req.UpdateStatus),
+		RecebidaEm:     recebidaEm,
 	}
 }
