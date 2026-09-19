@@ -1,22 +1,30 @@
 import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Filter, HandHelping, Search } from 'lucide-react';
+import { Filter, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PriorityBadge } from '@/components/shared/PriorityBadge';
-import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Ticket } from '@/hooks/useTickets';
 import { cn } from '@/lib/utils';
-import { SLABadge } from '../SLABadge';
-import { TimeAgoBadge } from './TimeAgoBadge';
 import { FiltrosAvancados } from './FiltrosAvancados';
 import { FiltrosDoPainel } from './useFiltrosDoPainel';
+import { CartaoDeChamado } from './CartaoDeChamado';
+import { Urgencia, urgenciaDe } from './identidade';
 
 export type Recorte = 'fila' | 'meus' | 'sla' | 'todos';
 
-const slaCritico = (t: Ticket) => t.sla_status === 'attention' || t.sla_status === 'breached';
-const semResponsavel = (t: Ticket) => !t.assigned_to_user_id && !t.assigned_to;
+const slaCritico = (t: Ticket) => {
+  const u = urgenciaDe(t);
+  return u === 'atrasado' || u === 'atencao';
+};
+
+// Ordem de leitura: o que já estourou primeiro, o que está parado por último.
+const GRUPOS: { id: Urgencia; titulo: string; dica: string; ponto: string }[] = [
+  { id: 'atrasado', titulo: 'Atrasados', dica: 'prazo de SLA vencido', ponto: 'bg-red-500' },
+  { id: 'atencao', titulo: 'Precisam de atenção', dica: 'prazo perto do fim', ponto: 'bg-orange-500' },
+  { id: 'em_dia', titulo: 'Em dia', dica: 'dentro do prazo', ponto: 'bg-emerald-500' },
+  { id: 'pausado', titulo: 'Aguardando', dica: 'cliente ou terceiro, SLA pausado', ponto: 'bg-violet-500' },
+];
+
+const vencimento = (t: Ticket) => (t.sla_due_date ? new Date(t.sla_due_date).getTime() : Infinity);
 
 interface ModoListaProps {
   filtros: FiltrosDoPainel;
@@ -24,9 +32,8 @@ interface ModoListaProps {
   onAssume: (id: string) => void;
 }
 
-// Uma linha por chamado, filtros rápidos no topo e nada mais.
+// Chamados agrupados por urgência, um cartão largo por chamado.
 export const ModoLista: React.FC<ModoListaProps> = ({ filtros, recorteInicial, onAssume }) => {
-  const navigate = useNavigate();
   const [recorte, setRecorte] = useState<Recorte>(recorteInicial);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
 
@@ -54,7 +61,13 @@ export const ModoLista: React.FC<ModoListaProps> = ({ filtros, recorteInicial, o
   ];
 
   const chamados = listas[recorte];
-  const mostraResponsavel = recorte !== 'fila' && recorte !== 'meus';
+
+  const grupos = useMemo(() => GRUPOS
+    .map(g => ({
+      ...g,
+      chamados: chamados.filter(t => urgenciaDe(t) === g.id).sort((a, b) => vencimento(a) - vencimento(b)),
+    }))
+    .filter(g => g.chamados.length > 0), [chamados]);
 
   return (
     <div className="space-y-4">
@@ -113,123 +126,36 @@ export const ModoLista: React.FC<ModoListaProps> = ({ filtros, recorteInicial, o
 
       {filtrosAbertos && <FiltrosAvancados filtros={filtros} />}
 
-      <div className="hidden md:block rounded-xl border border-border/60 bg-card overflow-x-auto">
-        <Table className="min-w-[820px]">
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[76px] h-10 text-xs font-semibold">Nº</TableHead>
-              <TableHead className="h-10 text-xs font-semibold">Chamado</TableHead>
-              <TableHead className="w-[104px] h-10 text-xs font-semibold">Prioridade</TableHead>
-              <TableHead className="w-[150px] h-10 text-xs font-semibold">Status</TableHead>
-              {mostraResponsavel && <TableHead className="w-[150px] h-10 text-xs font-semibold">Responsável</TableHead>}
-              <TableHead className="w-[130px] h-10 text-xs font-semibold">SLA</TableHead>
-              <TableHead className="w-[120px] h-10 text-xs font-semibold">Aberto</TableHead>
-              <TableHead className="w-[104px] h-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {chamados.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={mostraResponsavel ? 8 : 7} className="h-32 text-center text-sm text-muted-foreground">
-                  {recorte === 'fila' && !filtros.temFiltroNaFila
-                    ? 'Fila limpa. Nenhum chamado aguardando atendimento.'
-                    : 'Nenhum chamado por aqui.'}
-                </TableCell>
-              </TableRow>
-            ) : (
-              chamados.map(t => (
-                <TableRow
-                  key={t.id}
-                  onClick={() => navigate(`/ticket/${t.id}`)}
-                  className="cursor-pointer group"
-                >
-                  <TableCell className="py-2.5 font-mono text-xs text-muted-foreground">#{t.ticket_number}</TableCell>
-                  <TableCell className="py-2.5 max-w-0">
-                    <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">{t.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {t.requester_name}{t.company_name ? ` · ${t.company_name}` : ''}
-                    </p>
-                  </TableCell>
-                  <TableCell className="py-2.5"><PriorityBadge priority={t.priority} size="sm" /></TableCell>
-                  <TableCell className="py-2.5"><StatusBadge status={t.status} /></TableCell>
-                  {mostraResponsavel && (
-                    <TableCell className="py-2.5 text-xs text-muted-foreground truncate max-w-[150px]">
-                      {t.assigned_to || <span className="italic">Sem responsável</span>}
-                    </TableCell>
-                  )}
-                  <TableCell className="py-2.5">
-                    <SLABadge slaStatus={t.sla_status} slaDueDate={t.sla_due_date} createdAt={t.created_at} variant="compact" />
-                  </TableCell>
-                  <TableCell className="py-2.5" onClick={e => e.stopPropagation()}>
-                    <TimeAgoBadge date={t.created_at} curto />
-                  </TableCell>
-                  <TableCell className="py-2.5 text-right">
-                    {semResponsavel(t) && (
-                      <Button
-                        size="sm"
-                        onClick={e => { e.stopPropagation(); onAssume(t.id); }}
-                        className="h-7 px-3 rounded-lg text-xs font-semibold gap-1"
-                      >
-                        <HandHelping className="w-3.5 h-3.5" /> Assumir
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Celular: a tabela espreme o título; aqui cada chamado vira um cartão. */}
-      <div className="md:hidden space-y-2">
-        {chamados.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            {recorte === 'fila' && !filtros.temFiltroNaFila
-              ? 'Fila limpa. Nenhum chamado aguardando atendimento.'
-              : 'Nenhum chamado por aqui.'}
+      {chamados.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/70 py-14 text-center">
+          <p className="text-sm font-medium text-foreground">
+            {recorte === 'fila' && !filtros.temFiltroNaFila ? 'Fila limpa' : 'Nenhum chamado por aqui'}
           </p>
-        ) : (
-          chamados.map(t => (
-            <div
-              key={t.id}
-              role="link"
-              tabIndex={0}
-              onClick={() => navigate(`/ticket/${t.id}`)}
-              onKeyDown={e => { if (e.key === 'Enter') navigate(`/ticket/${t.id}`); }}
-              className="rounded-xl border border-border/60 bg-card p-3 space-y-2 cursor-pointer active:bg-muted/40"
-            >
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">#{t.ticket_number}</span>
-                <PriorityBadge priority={t.priority} size="sm" />
-                <span className="ml-auto">
-                  <SLABadge slaStatus={t.sla_status} slaDueDate={t.sla_due_date} createdAt={t.created_at} variant="compact" />
-                </span>
+          <p className="text-xs text-muted-foreground mt-1">
+            {recorte === 'fila' && !filtros.temFiltroNaFila
+              ? 'Nenhum chamado aguardando atendimento.'
+              : 'Tente outro recorte ou limpe a busca.'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {grupos.map(g => (
+            <section key={g.id} aria-label={g.titulo} className="space-y-2">
+              <header className="flex items-center gap-2 px-1">
+                <span className={cn('w-2 h-2 rounded-full', g.ponto)} />
+                <h3 className="text-sm font-semibold text-foreground">{g.titulo}</h3>
+                <span className="text-xs text-muted-foreground tabular-nums">{g.chamados.length}</span>
+                <span className="text-xs text-muted-foreground hidden sm:inline">· {g.dica}</span>
+              </header>
+              <div className="space-y-2">
+                {g.chamados.map(t => (
+                  <CartaoDeChamado key={t.id} ticket={t} onAssume={onAssume} />
+                ))}
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground line-clamp-2">{t.title}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {t.requester_name}{t.company_name ? ` · ${t.company_name}` : ''}
-                  {mostraResponsavel ? ` · ${t.assigned_to || 'Sem responsável'}` : ''}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusBadge status={t.status} />
-                <span onClick={e => e.stopPropagation()}><TimeAgoBadge date={t.created_at} curto /></span>
-                {semResponsavel(t) && (
-                  <Button
-                    size="sm"
-                    onClick={e => { e.stopPropagation(); onAssume(t.id); }}
-                    className="ml-auto h-7 px-3 rounded-lg text-xs font-semibold gap-1"
-                  >
-                    <HandHelping className="w-3.5 h-3.5" /> Assumir
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

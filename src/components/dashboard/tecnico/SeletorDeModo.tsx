@@ -1,11 +1,11 @@
 import React from 'react';
-import { BarChart3, LayoutDashboard, List } from 'lucide-react';
+import { BarChart3, Columns3, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ModoDoPainel } from './useModoDoPainel';
 
 const OPCOES: { modo: ModoDoPainel; rotulo: string; icone: React.ElementType }[] = [
   { modo: 'lista', rotulo: 'Lista', icone: List },
-  { modo: 'padrao', rotulo: 'Painel', icone: LayoutDashboard },
+  { modo: 'padrao', rotulo: 'Quadro', icone: Columns3 },
   { modo: 'graficos', rotulo: 'Gráficos', icone: BarChart3 },
 ];
 

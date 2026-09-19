@@ -47,7 +47,7 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, va
             <h3 className="text-2xl font-bold tracking-tight text-foreground tabular-nums">{value}</h3>
             {active && <ArrowRight className="w-4 h-4 text-primary shrink-0" />}
           </div>
-          {description && <p className="text-xs font-medium text-muted-foreground truncate">{description}</p>}
+          {description && <p className="hidden sm:block text-xs font-medium text-muted-foreground truncate">{description}</p>}
         </div>
         <div className={cn("p-2 rounded-lg border shrink-0", styles[variant])}>
           <Icon className="w-4 h-4" />
