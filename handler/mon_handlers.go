@@ -730,7 +730,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	disksJSON := req.Disks
+	disksJSON := arredondarUsoDosDiscos(req.Disks)
 	if len(disksJSON) == 0 {
 		disksJSON = json.RawMessage(`[]`)
 	}
