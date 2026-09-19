@@ -210,7 +210,7 @@ export default function Settings() {
               document.getElementById('global-search-ticket')?.blur();
             }}
           >
-            <TabsList className={cn("grid w-full", isDeveloper ? "grid-cols-4 lg:w-[500px]" : "grid-cols-3 lg:w-[380px]")}>
+            <TabsList className="inline-flex w-full sm:w-auto overflow-x-auto justify-start">
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Perfil

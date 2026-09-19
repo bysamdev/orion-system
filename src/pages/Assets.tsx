@@ -884,6 +884,7 @@ const Assets = () => {
                                   variant="outline" 
                                   size="icon" 
                                   className="h-8 w-8 rounded-lg border-border/60 hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-500/40 transition-colors"
+                                  aria-label="Abrir terminal remoto"
                                   onClick={() => setTerminalDevice(device)}
                                 >
                                   <Terminal className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -899,6 +900,7 @@ const Assets = () => {
                                   variant="outline" 
                                   size="icon" 
                                   className="h-8 w-8 rounded-lg border-border/60 hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors"
+                                  aria-label="Forçar atualização"
                                   onClick={handleForceRefresh}
                                 >
                                   <RefreshCw className={cn("w-4 h-4 text-primary", isRefreshing && "animate-spin")} />
@@ -914,6 +916,7 @@ const Assets = () => {
                                   variant="outline" 
                                   size="icon" 
                                   className="h-8 w-8 rounded-lg border-border/60 hover:bg-sky-500/10 hover:text-sky-600 hover:border-sky-500/40 transition-colors"
+                                  aria-label="Histórico de chamados"
                                   onClick={() => setHistoryDevice(device)}
                                 >
                                   <History className="w-4 h-4 text-sky-600 dark:text-sky-400" />

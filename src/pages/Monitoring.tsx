@@ -1097,6 +1097,7 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
                       variant="ghost" 
                       size="icon" 
                       className="h-6 w-6 rounded-full hover:bg-primary/10 text-primary"
+                      aria-label="Novo grupo"
                       onClick={() => handleOpenGroupDialog()}
                     >
                       <Plus className="w-3.5 h-3.5" />

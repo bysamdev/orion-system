@@ -1098,6 +1098,7 @@ const UserRow = React.memo(({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
+            aria-label="Editar usuário"
             onClick={() => onEdit(userItem)}
           >
             <Pencil className="h-4 w-4" />
@@ -1109,6 +1110,7 @@ const UserRow = React.memo(({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
+                  aria-label="Mesclar com outro usuário"
                   onClick={() => onMerge(userItem)}
                 >
                   <Merge className="h-4 w-4" />
@@ -1126,6 +1128,7 @@ const UserRow = React.memo(({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  aria-label="Excluir usuário"
                   disabled={isDeleting}
                 >
                   {isDeleting ? (
