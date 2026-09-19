@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { apiGet } from '@/hooks/useMonitoring';
 
 type DeviceType = 'desktop' | 'notebook' | 'server' | 'Computador' | 'Notebook' | 'Servidor';
 type DeviceStatus = 'online' | 'offline' | 'alerta';
@@ -128,6 +129,7 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           companiesRes,
           machineTicketCountsRes,
           alertsRes,
+          estadoAoVivo,
         ] = await Promise.all([
           supabase
             .from('machines' as any)
@@ -144,6 +146,13 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
             .from('machine_alerts' as any)
             .select('machine_id, resolved')
             .eq('resolved', false),
+          // Status e "visto por último" ao vivo, calculados pela API a partir
+          // do Orion Monitor. Desde a fase 3 da separação do monitoramento, o
+          // last_seen de machines no Supabase é presença grossa (renovado a
+          // cada 30 min) e não serve mais para dizer quem está online agora.
+          // Falhando, a tela segue com o dado do Supabase.
+          apiGet<Array<{ id: string; status: string; last_seen: string | null }>>('/api/monitoring/machines')
+            .catch(() => [] as Array<{ id: string; status: string; last_seen: string | null }>),
         ]);
 
         if (machinesRes.error) {
@@ -173,6 +182,11 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           if (key) hardwareMap.set(key, h);
         });
 
+        const aoVivoMap = new Map<string, { status: string; last_seen: string | null }>();
+        (estadoAoVivo || []).forEach((e) => {
+          if (e?.id) aoVivoMap.set(e.id, e);
+        });
+
         const alertsCountMap = new Map<string, number>();
         (alerts || []).forEach((a) => {
           const mId = a?.machine_id;
@@ -197,8 +211,11 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           const macAddress = extractMacAddress(m, hw);
           const loggedInUser = m.logged_in_user || m.current_user || 'N/A';
           const deviceType = resolveDeviceType(m.device_type, m.hostname, osStr);
-          const lastSeen = m.last_seen || m.metrics_collected_at || m.created_at || new Date().toISOString();
-          const baseStatus = resolveStatus(m.status, lastSeen);
+          const aoVivo = aoVivoMap.get(m.id);
+          const lastSeen = aoVivo?.last_seen || m.last_seen || m.metrics_collected_at || m.created_at || new Date().toISOString();
+          const baseStatus = aoVivo
+            ? (aoVivo.status === 'offline' ? 'offline' : 'online')
+            : resolveStatus(m.status, lastSeen);
           const alertsCount = alertsCountMap.get(m.id) || 0;
           const ticketsCount = ticketsCountMap.get(m.id) || 0;
           const status = baseStatus === 'online' && alertsCount > 0 ? 'alerta' : baseStatus;

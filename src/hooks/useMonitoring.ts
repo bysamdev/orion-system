@@ -5,7 +5,7 @@ import { fetchWithTimeout } from '@/lib/fetch-client';
 // Falls back to empty string → relative URL /api/monitoring/... (same Vercel domain)
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
 
-async function apiGet<T>(path: string): Promise<T> {
+export async function apiGet<T>(path: string): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
   const res = await fetchWithTimeout(`${API_URL}${path}`, {
