@@ -301,7 +301,12 @@ export default function WebMonitoring() {
     const httpsCount = endpoints.filter(e => e.url_or_ip?.toLowerCase().startsWith('https')).length;
     const uptimePct = total > 0 ? ((online / total) * 100).toFixed(1) : '100.0';
     const sslPct = total > 0 ? Math.round((httpsCount / total) * 100) : 100;
-    const avgResponseTime = online > 0 ? 88 + (total % 5) * 6 : null;
+    // Média das médias medidas pelo Prometheus do servidor de monitoramento.
+    // Antes era 88 + (total % 5) * 6, um número inventado.
+    const medidas = endpoints
+      .map(e => (e.diagnostics?.has_diagnostics ? e.diagnostics.response_avg_ms : null))
+      .filter((v): v is number => typeof v === 'number');
+    const avgResponseTime = medidas.length > 0 ? Math.round(medidas.reduce((a, b) => a + b, 0) / medidas.length) : null;
 
     return { total, online, offline, pending, httpsCount, uptimePct, sslPct, avgResponseTime };
   }, [endpoints]);
@@ -344,48 +349,42 @@ export default function WebMonitoring() {
     };
   }, [filteredNetworkLinks]);
 
-  // Chart time-series generator
+  // Série do gráfico a partir das checagens reais (recent_checks de cada
+  // endpoint, vindas do Prometheus). O período corta as checagens e divide a
+  // janela em faixas; cada ponto é a média das checagens daquela faixa.
+  // Faixa sem checagem não vira ponto. Antes a série era gerada com seno e
+  // cosseno em cima da média, sem nenhuma medição por trás.
   const timeSeriesData = useMemo(() => {
-    const pointsCount = period === '1h' ? 12 : period === '6h' ? 18 : period === '24h' ? 24 : 14;
-    const data = [];
-    const now = new Date();
+    const janela = { '1h': 3600, '6h': 6 * 3600, '24h': 24 * 3600, '7d': 7 * 24 * 3600 }[period];
+    const faixas = period === '1h' ? 12 : period === '6h' ? 18 : period === '24h' ? 24 : 14;
+    const agora = Date.now() / 1000;
+    const inicio = agora - janela;
+    const passo = janela / faixas;
 
-    const baseWebLatency = webStats.avgResponseTime || 85;
-
-    for (let i = pointsCount - 1; i >= 0; i--) {
-      const pointTime = new Date(now.getTime());
-      let timeLabel = '';
-
-      if (period === '1h') {
-        pointTime.setMinutes(now.getMinutes() - i * 5);
-        timeLabel = pointTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      } else if (period === '6h') {
-        pointTime.setMinutes(now.getMinutes() - i * 20);
-        timeLabel = pointTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      } else if (period === '24h') {
-        pointTime.setHours(now.getHours() - i);
-        timeLabel = `${pointTime.getHours().toString().padStart(2, '0')}:00`;
-      } else {
-        pointTime.setDate(now.getDate() - Math.floor(i / 2));
-        pointTime.setHours((i % 2) * 12);
-        timeLabel = `${pointTime.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${pointTime.getHours().toString().padStart(2, '0')}h`;
+    const somas = new Array<number>(faixas).fill(0);
+    const contagens = new Array<number>(faixas).fill(0);
+    for (const e of endpoints) {
+      for (const c of e.diagnostics?.recent_checks ?? []) {
+        if (c.time < inicio || c.time > agora || typeof c.ms !== 'number') continue;
+        const k = Math.min(faixas - 1, Math.floor((c.time - inicio) / passo));
+        somas[k] += c.ms;
+        contagens[k] += 1;
       }
-
-      const seed = Math.sin(i * 1.4) * 0.5 + 0.5;
-      const noise = Math.cos(i * 2.1) * 0.3;
-
-      const webVal = Math.max(35, Math.round(baseWebLatency + seed * 25 + noise * 15));
-      const uptimeVal = Math.min(100, Math.max(95, Math.round(100 - (webStats.offline > 0 ? 5 : 0) + (noise * 1.2))));
-
-      data.push({
-        time: timeLabel,
-        'Tempo de Resposta': webVal,
-        Disponibilidade: uptimeVal,
-      });
     }
 
-    return data;
-  }, [period, webStats]);
+    const rotulo = (segundos: number) => {
+      const d = new Date(segundos * 1000);
+      return period === '7d'
+        ? `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${d.getHours().toString().padStart(2, '0')}h`
+        : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    };
+
+    return somas
+      .map((soma, k) => (contagens[k] > 0
+        ? { time: rotulo(inicio + (k + 1) * passo), 'Tempo de Resposta': Math.round(soma / contagens[k]) }
+        : null))
+      .filter((p): p is { time: string; 'Tempo de Resposta': number } => p !== null);
+  }, [period, endpoints]);
 
   return (
     <div className="w-full space-y-6">
@@ -1049,6 +1048,12 @@ export default function WebMonitoring() {
             </CardHeader>
             <CardContent className="pt-2">
               <div className="h-[220px] w-full">
+                {timeSeriesData.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center gap-1">
+                    <p className="text-sm font-medium text-foreground">Sem medições neste período</p>
+                    <p className="text-xs text-muted-foreground">O servidor de monitoramento ainda não enviou checagens para essa janela.</p>
+                  </div>
+                ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
@@ -1072,6 +1077,7 @@ export default function WebMonitoring() {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
