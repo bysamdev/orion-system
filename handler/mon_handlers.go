@@ -1972,7 +1972,11 @@ func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if afetaStatusDaMaquina(alertType) {
-				if err := db.UpdateMachine(ctx, machineID, map[string]any{"status": "offline"}); err != nil {
+				// UpdateMachineStatus só grava quando o status muda: o Grafana
+				// reenvia o mesmo alerta a cada avaliação, e cada reenvio era
+				// uma escrita em machines (medido na fase 3 da separação do
+				// monitoramento).
+				if err := db.UpdateMachineStatus(ctx, machineID, "offline"); err != nil {
 					log.Printf("[GRAFANA-WEBHOOK] erro ao marcar máquina %s como offline: %v", machineID, err)
 				}
 			}
@@ -1996,7 +2000,7 @@ func monitoringGrafanaAlertWebhook(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if afetaStatusDaMaquina(alertType) {
-				if err := db.UpdateMachine(ctx, machineID, map[string]any{"status": "online"}); err != nil {
+				if err := db.UpdateMachineStatus(ctx, machineID, "online"); err != nil {
 					log.Printf("[GRAFANA-WEBHOOK] erro ao marcar máquina %s como online: %v", machineID, err)
 				}
 			}
