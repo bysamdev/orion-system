@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertTriangle, Loader2, Search, Filter } from 'lucide-react';
@@ -18,6 +18,9 @@ import { LateralDoTecnico } from './tecnico/LateralDoTecnico';
 import { SeletorDeModo } from './tecnico/SeletorDeModo';
 import { useModoDoPainel, ModoDoPainel } from './tecnico/useModoDoPainel';
 import { ModoLista, Recorte } from './tecnico/ModoLista';
+
+// recharts só entra quando alguém abre o modo Gráficos.
+const ModoGraficos = lazy(() => import('./tecnico/ModoGraficos'));
 
 const RECORTE_DA_ABA: Record<string, Recorte> = {
   'unassigned': 'fila',
@@ -102,6 +105,8 @@ export const TechnicianDashboard: React.FC = () => {
   }, [profile, user, assumeTicket, toast]);
 
   const selecionarIndicador = useCallback((indicador: Indicador) => {
+    // Nos gráficos não há lista para filtrar: o cartão leva ao Painel já filtrado.
+    if (modo === 'graficos') setModo('padrao');
     if (indicador === 'resolved') {
       setClosedOpen(true);
       setKpiFilter(null);
@@ -112,7 +117,17 @@ export const TechnicianDashboard: React.FC = () => {
     setKpiFilter(f => f === indicador ? null : indicador);
     setActiveTab('my-tickets');
     document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' });
-  }, [setKpiFilter]);
+  }, [setKpiFilter, modo, setModo]);
+
+  // Fila e ativos se sobrepõem; os gráficos contam cada chamado uma vez.
+  const chamadosAtivos = useMemo(() => {
+    const vistos = new Set<string>();
+    return [...allActiveTickets, ...unassigned].filter(t => {
+      if (vistos.has(t.id)) return false;
+      vistos.add(t.id);
+      return true;
+    });
+  }, [allActiveTickets, unassigned]);
 
   if (statsLoading) return (
     <div className="flex flex-col items-center justify-center py-20 animate-pulse">
@@ -154,6 +169,13 @@ export const TechnicianDashboard: React.FC = () => {
         ) : (
           <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" /></div>
         )
+      ) : modo === 'graficos' ? (
+        <div className="space-y-6">
+          <Indicadores stats={stats} kpiFilter={null} closedOpen={false} onSelecionar={selecionarIndicador} />
+          <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" /></div>}>
+            <ModoGraficos chamados={chamadosAtivos} teamWorkload={teamWorkload} />
+          </Suspense>
+        </div>
       ) : (
         <div className="space-y-8">
           <Indicadores stats={stats} kpiFilter={kpiFilter} closedOpen={closedOpen} onSelecionar={selecionarIndicador} />

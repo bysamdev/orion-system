@@ -1,11 +1,12 @@
 import React from 'react';
-import { LayoutDashboard, List } from 'lucide-react';
+import { BarChart3, LayoutDashboard, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ModoDoPainel } from './useModoDoPainel';
 
 const OPCOES: { modo: ModoDoPainel; rotulo: string; icone: React.ElementType }[] = [
   { modo: 'lista', rotulo: 'Lista', icone: List },
   { modo: 'padrao', rotulo: 'Painel', icone: LayoutDashboard },
+  { modo: 'graficos', rotulo: 'Gráficos', icone: BarChart3 },
 ];
 
 export const SeletorDeModo: React.FC<{ modo: ModoDoPainel; onEscolher: (modo: ModoDoPainel) => void }> = ({ modo, onEscolher }) => (

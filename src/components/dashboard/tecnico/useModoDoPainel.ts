@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
 
-export type ModoDoPainel = 'lista' | 'padrao';
+export type ModoDoPainel = 'lista' | 'padrao' | 'graficos';
 
 const CHAVE = 'orion.painel.modo';
-const MODOS: ModoDoPainel[] = ['lista', 'padrao'];
+const MODOS: ModoDoPainel[] = ['lista', 'padrao', 'graficos'];
 
 // Técnico abre na lista, que é onde ele trabalha; admin e developer abrem
 // no painel com os números da equipe.
