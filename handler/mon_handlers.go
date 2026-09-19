@@ -289,6 +289,7 @@ func monitoringAllMachines(w http.ResponseWriter, r *http.Request) {
 	if machines == nil {
 		machines = []lib.MachineWithMetric{}
 	}
+	marcarFonte(w, sobreporEstadoDoMonitor(ctx, machines))
 	lib.WriteJSON(w, http.StatusOK, machines)
 }
 
@@ -369,6 +370,7 @@ func monitoringGroupMachines(w http.ResponseWriter, r *http.Request) {
 	if machines == nil {
 		machines = []lib.MachineWithMetric{}
 	}
+	marcarFonte(w, sobreporEstadoDoMonitor(ctx, machines))
 	lib.WriteJSON(w, http.StatusOK, machines)
 }
 
@@ -393,7 +395,15 @@ func monitoringMachineDetail(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
 		return
 	}
-	hw, _ := db.MachineHardwareByMachineID(ctx, id)
+	// Inventário do Monitor; sem ele (máquina ainda não vista pelo Monitor,
+	// ou Monitor fora), o do Supabase.
+	hw, err := hardwareDoMonitor(ctx, id)
+	if err != nil {
+		hw, _ = db.MachineHardwareByMachineID(ctx, id)
+		marcarFonte(w, "supabase")
+	} else {
+		marcarFonte(w, "monitor")
+	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"machine": machine, "hardware": hw})
 }
 
@@ -430,6 +440,17 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 	// rede e agora alimenta machine_metrics_history (ver AppendMetricPoint).
 	// O Prometheus segue valendo pros alertas do que ele consegue scrapear.
 	janela, passo := lib.JanelaHistorico(period)
+
+	// Fase 2 da separação do monitoramento: o histórico vem do Prometheus,
+	// pelo Orion Monitor — mas só quando a série dele cobre a janela pedida.
+	// O Prometheus só tem dado desde que o Monitor entrou no ar; usar a série
+	// dele antes disso cortaria o gráfico de 24h ou 7 dias pela metade.
+	if pontos, err := historicoDoMonitor(ctx, id, janela, passo); err == nil && historicoCobreJanela(pontos, janela, time.Now()) {
+		marcarFonte(w, "monitor")
+		lib.WriteJSON(w, http.StatusOK, pontos)
+		return
+	}
+	marcarFonte(w, "supabase")
 	metrics, err := db.MetricsHistory(ctx, id, janela, passo)
 	if err != nil {
 		log.Printf("[ERRO] histórico de métricas para %s: %v", id, err)
@@ -458,10 +479,16 @@ func monitoringMachineAlerts(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito: máquina não pertence à sua empresa"})
 		return
 	}
-	alerts, err := db.AlertsByMachineID(ctx, id)
-	if err != nil {
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar alertas"})
-		return
+	alerts, err := alertasDoMonitor(ctx, id)
+	if err == nil {
+		marcarFonte(w, "monitor")
+	} else {
+		marcarFonte(w, "supabase")
+		alerts, err = db.AlertsByMachineID(ctx, id)
+		if err != nil {
+			lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar alertas"})
+			return
+		}
 	}
 	if alerts == nil {
 		alerts = []lib.AlertRow{}
