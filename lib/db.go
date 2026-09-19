@@ -429,8 +429,11 @@ func (d *DB) ValidateAPIKey(ctx context.Context, keyValue string) (companyID str
 // recusada de máquina offline (migration 20260918060000).
 //
 // Só atualiza máquina existente — token desconhecido não gera linha — e no
-// máximo uma vez por minuto, porque este caminho é alcançável por qualquer um
-// que conheça a URL. A chave enviada nunca é gravada.
+// máximo uma vez a cada 5 minutos, porque este caminho é alcançável por
+// qualquer um que conheça a URL. Era uma vez por minuto; medido em produção,
+// uma única máquina recusada virou a maior fonte de escrita em machines
+// depois que a telemetria saiu do Supabase (fase 3). O aviso no painel só
+// precisa saber que a recusa é recente. A chave enviada nunca é gravada.
 func (d *DB) RegistrarRecusaDeAutenticacao(ctx context.Context, machineToken string) error {
 	if machineToken == "" {
 		return nil
@@ -439,7 +442,7 @@ func (d *DB) RegistrarRecusaDeAutenticacao(ctx context.Context, machineToken str
 		UPDATE public.machines
 		SET auth_recusada_em = now()
 		WHERE machine_token = $1
-		  AND (auth_recusada_em IS NULL OR auth_recusada_em < now() - interval '1 minute')`, machineToken)
+		  AND (auth_recusada_em IS NULL OR auth_recusada_em < now() - interval '5 minutes')`, machineToken)
 	return err
 }
 
