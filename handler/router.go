@@ -215,6 +215,7 @@ func buildRouter() http.Handler {
 		r.Post("/api/functions/create-user-credentials", createUserCredentials)
 		r.Post("/api/functions/check-rate-limit", checkRateLimit)
 		r.Post("/api/functions/send-password-changed-alert", sendPasswordChangedAlert)
+		r.Post("/api/functions/trocar-senha-provisoria", trocarSenhaProvisoria)
 
 		// /api/tickets/*
 		r.Get("/api/tickets/resolve/{id}", ticketResolveHandler)

@@ -87,6 +87,12 @@ func adminUpdateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		authUp.Password = &pw
+		// Senha definida pelo gestor para outra pessoa é temporária: ela
+		// precisa criar a própria no próximo acesso. Quando o gestor troca a
+		// própria senha por aqui, não há o que obrigar.
+		if req.UserID != u.ID {
+			authUp.AppMetadata = map[string]interface{}{lib.DeveTrocarSenha: true}
+		}
 	}
 	if authUp.Email != nil || authUp.Password != nil {
 		if err := sb.AdminUpdateUserByID(r.Context(), req.UserID, authUp); err != nil {
@@ -360,6 +366,8 @@ func createUserCredentials(w http.ResponseWriter, r *http.Request) {
 	out, err := sb.AdminCreateUser(ctx, lib.CreateUserInput{
 		Email: req.Email, Password: pw, EmailConfirm: true,
 		UserMetadata: map[string]interface{}{"full_name": req.FullName},
+		// No primeiro acesso a pessoa troca a senha provisória pela dela.
+		AppMetadata: map[string]interface{}{lib.DeveTrocarSenha: true},
 	})
 	if err != nil {
 		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": fmt.Sprintf("Erro ao criar usuário: %v", err)})
@@ -407,7 +415,7 @@ func createUserCredentials(w http.ResponseWriter, r *http.Request) {
   <li><strong>Login:</strong> {{.Email}}</li>
   <li><strong>Senha provisória:</strong> {{.TempPassword}}</li>
 </ul>
-<p>Recomendamos alterar sua senha no primeiro acesso.</p>
+<p>No primeiro acesso o sistema vai pedir que você crie a sua própria senha.</p>
 </body></html>`, map[string]any{
 		"FullName": req.FullName, "Email": req.Email,
 		"LoginURL": cfg.LoginURL, "TempPassword": pw,

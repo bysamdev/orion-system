@@ -75,7 +75,16 @@ type CreateUserInput struct {
 	Password     string                 `json:"password"`
 	EmailConfirm bool                   `json:"email_confirm"`
 	UserMetadata map[string]interface{} `json:"user_metadata,omitempty"`
+	// AppMetadata só o servidor escreve (o usuário não altera pelo cliente),
+	// por isso é onde mora DeveTrocarSenha.
+	AppMetadata map[string]interface{} `json:"app_metadata,omitempty"`
 }
+
+// DeveTrocarSenha é a chave de app_metadata que obriga a pessoa a criar a
+// própria senha no próximo acesso: ligada quando a conta nasce com senha
+// provisória e quando o gestor define uma senha temporária; desligada por
+// /api/functions/trocar-senha-provisoria.
+const DeveTrocarSenha = "deve_trocar_senha"
 
 type CreateUserOutput struct {
 	User struct {
@@ -88,8 +97,9 @@ func (c *SupabaseClient) AdminCreateUser(ctx context.Context, in CreateUserInput
 }
 
 type AdminUpdateUserInput struct {
-	Email    *string `json:"email,omitempty"`
-	Password *string `json:"password,omitempty"`
+	Email       *string                `json:"email,omitempty"`
+	Password    *string                `json:"password,omitempty"`
+	AppMetadata map[string]interface{} `json:"app_metadata,omitempty"`
 }
 
 func (c *SupabaseClient) AdminUpdateUserByID(ctx context.Context, userID string, in AdminUpdateUserInput) error {
