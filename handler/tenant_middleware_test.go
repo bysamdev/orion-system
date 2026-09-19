@@ -179,7 +179,7 @@ func TestRotasComAutenticacaoPropriaNaoExigemEscopo(t *testing.T) {
 	}{
 		{http.MethodGet, "/api/monitoring/cron/mark-offline", http.StatusServiceUnavailable, "autorizarCron sem CRON_SECRET"},
 		{http.MethodGet, "/api/monitoring/cron/probe-network-links", http.StatusServiceUnavailable, "autorizarCron sem CRON_SECRET"},
-		{http.MethodGet, "/api/auth/machine-login", http.StatusBadRequest, "token da máquina ausente"},
+		{http.MethodGet, "/api/auth/machine-login", http.StatusSeeOther, "só redireciona para o login"},
 		{http.MethodPost, "/api/functions/reset-password-with-token", http.StatusBadRequest, "corpo vazio"},
 	}
 

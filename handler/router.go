@@ -34,17 +34,11 @@ var (
 	// Rate limiters (correção A.3) — ver lib/ratelimit.go para a limitação
 	// importante de rodar em memória, por instância, num backend serverless.
 	//
-	// machine-login é o mais sensível: não exige nenhuma credencial (só o
-	// token da query string), então é o alvo mais direto para um
-	// brute-force/scan tentando adivinhar tokens de máquinas — limite
-	// apertado por IP.
-	//
 	// heartbeat exige X-Agent-Key, mas ainda assim se beneficia de um limite
 	// generoso: protege contra uma chave vazada sendo usada para inundar o
 	// endpoint. O limite é alto de propósito porque múltiplas máquinas de um
 	// mesmo escritório costumam sair pelo mesmo IP público (NAT) — um limite
 	// apertado aqui derrubaria heartbeats legítimos.
-	limiterMachineLogin = lib.NewRateLimiter(1*time.Minute, 20)
 	limiterHeartbeat    = lib.NewRateLimiter(1*time.Minute, 300)
 
 	// Fallback em memória para agentRateLimitAllow quando o Postgres está
@@ -173,7 +167,7 @@ func buildRouter() http.Handler {
 	// de usuário, então não há empresa de usuário a resolver. Cada uma tem sua
 	// própria barreira, indicada ao lado:
 	//
-	//   machine-login              token da máquina + rate limit por IP
+	//   machine-login              só redireciona para /auth (sem credencial)
 	//   reset-password-with-token  token de convite de uso único
 	//   heartbeat                  X-Agent-Key + rate limit por IP
 	//   commands/poll|respond      X-Agent-Key
