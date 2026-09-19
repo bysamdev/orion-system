@@ -17,7 +17,7 @@ import (
 )
 
 // TestCriarAtalhoEm_CriaArquivoComFormatoEsperado garante o formato .url e
-// que a URL embutida contém o endpoint e o token corretos.
+// que a URL embutida leva à tela de login e não carrega o token.
 func TestCriarAtalhoEm_CriaArquivoComFormatoEsperado(t *testing.T) {
 	caminho := filepath.Join(t.TempDir(), "Abrir Chamado Orion.url")
 
@@ -31,7 +31,7 @@ func TestCriarAtalhoEm_CriaArquivoComFormatoEsperado(t *testing.T) {
 	}
 
 	str := string(conteudo)
-	if !strings.Contains(str, "URL=https://orion.exemplo.test/api/auth/machine-login?token=tok-123") {
+	if !strings.Contains(str, "URL=https://orion.exemplo.test/auth\n") || strings.Contains(str, "tok-123") {
 		t.Errorf("conteúdo = %q, esperado conter URL correta", str)
 	}
 	if !strings.Contains(str, "IconIndex=0") || !strings.Contains(str, "IconFile=") {
@@ -75,28 +75,28 @@ func TestCriarAtalhoEm_NaoRegravaConteudoIdentico(t *testing.T) {
 	}
 }
 
-// TestCriarAtalhoEm_RegravaQuandoTokenMuda garante que o skip de escrita não
-// vira um cache indevido: mudando o token (ex.: reconfiguração da máquina),
-// o arquivo precisa refletir o novo valor.
-func TestCriarAtalhoEm_RegravaQuandoTokenMuda(t *testing.T) {
+// TestCriarAtalhoEm_RegravaQuandoServidorMuda garante que o skip de escrita
+// não vira um cache indevido: mudando o endereço do servidor, o arquivo
+// precisa refletir o novo valor.
+func TestCriarAtalhoEm_RegravaQuandoServidorMuda(t *testing.T) {
 	caminho := filepath.Join(t.TempDir(), "Abrir Portal de Chamados.url")
 
-	if err := criarAtalhoEm(caminho, "https://orion.exemplo.test", "tok-antigo"); err != nil {
+	if err := criarAtalhoEm(caminho, "https://antigo.exemplo.test", "tok"); err != nil {
 		t.Fatalf("primeira gravação falhou: %v", err)
 	}
-	if err := criarAtalhoEm(caminho, "https://orion.exemplo.test", "tok-novo"); err != nil {
-		t.Fatalf("segunda gravação (token novo) falhou: %v", err)
+	if err := criarAtalhoEm(caminho, "https://novo.exemplo.test", "tok"); err != nil {
+		t.Fatalf("segunda gravação (servidor novo) falhou: %v", err)
 	}
 
 	conteudo, err := os.ReadFile(caminho)
 	if err != nil {
 		t.Fatalf("leitura falhou: %v", err)
 	}
-	if !strings.Contains(string(conteudo), "tok-novo") {
-		t.Errorf("arquivo não foi atualizado para o novo token: %q", string(conteudo))
+	if !strings.Contains(string(conteudo), "https://novo.exemplo.test/auth") {
+		t.Errorf("arquivo não foi atualizado para o novo servidor: %q", string(conteudo))
 	}
-	if strings.Contains(string(conteudo), "tok-antigo") {
-		t.Errorf("arquivo ainda contém o token antigo: %q", string(conteudo))
+	if strings.Contains(string(conteudo), "antigo") {
+		t.Errorf("arquivo ainda aponta para o servidor antigo: %q", string(conteudo))
 	}
 }
 

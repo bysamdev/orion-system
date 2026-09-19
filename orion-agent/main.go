@@ -161,8 +161,8 @@ func main() {
 		abrir := func(destino string, montarURL func() string) {
 			url := montarURL()
 			if url == "" {
-				logger.Printf("[TRAY] %s indisponível: aguardando o primeiro check-in com o servidor.", destino)
-				t.SetStatus("aguardando primeiro check-in…")
+				logger.Printf("[TRAY] %s indisponível: endereço do servidor não configurado.", destino)
+				t.SetStatus("servidor não configurado")
 				return
 			}
 			tray.OpenURL(url)
@@ -173,8 +173,9 @@ func main() {
 
 		t = tray.New(
 			func() {
-				// Ação de "Abrir Portal" detecta o token e abre no navegador.
-				abrir("portal de suporte", svc.GetPortalURL)
+				// Abre a tela de login do Orion. O agente não autentica mais
+				// ninguém: cada pessoa entra com a conta que o gestor criou.
+				abrir("Orion System", svc.GetPortalURL)
 			},
 			func() {
 				// Comando de saída finaliza o agente completamente.

@@ -17,7 +17,6 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -75,101 +74,33 @@ func aplicaIdentidadeComoTick(s *Svc, identidade string) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// (B) Contrato: token vazio ⇒ URL vazia (no-op silencioso da bandeja)
+// (B) Botão da bandeja: abre a tela de login, sem token
 // ─────────────────────────────────────────────────────────────
 
-func TestGetPortalURLComTokenVazioRetornaStringVazia(t *testing.T) {
-	s := novoSvcDeTeste("https://backend.invalido")
-
-	if got := s.GetPortalURL(); got != "" {
-		t.Fatalf("com machineToken vazio esperava \"\", obtive %q", got)
-	}
-}
-
-// Documenta a consequência do contrato acima: enquanto o primeiro tick() não
-// concluir, o clique na bandeja vira no-op silencioso (main.go só abre o
-// navegador quando url != "", sem avisar o usuário).
-func TestBandejaViraNoOpSilenciosoAntesDoPrimeiroTick(t *testing.T) {
-	s := novoSvcDeTeste("https://backend.invalido")
-
-	var aberturas []string
-	// Reproduz o callback de main.go: só abre o navegador se a URL não for vazia.
-	callbackDaBandeja := func(gerar func() string) {
-		if u := gerar(); u != "" {
-			aberturas = append(aberturas, u)
-		}
-	}
-
-	callbackDaBandeja(s.GetPortalURL)
-
-	if len(aberturas) != 0 {
-		t.Fatalf("antes do primeiro tick nenhuma URL deveria ser aberta, abriu: %v", aberturas)
-	}
-
-	// Depois que a identidade é resolvida, o mesmo clique passa a funcionar.
-	identidade, err := token.GenerateRandomIdentity()
-	if err != nil {
-		t.Fatalf("GenerateRandomIdentity falhou: %v", err)
-	}
-	aplicaIdentidadeComoTick(s, identidade)
-	callbackDaBandeja(s.GetPortalURL)
-
-	if len(aberturas) != 1 {
-		t.Fatalf("apos a identidade resolvida esperava 1 abertura, obtive %d (%v)", len(aberturas), aberturas)
-	}
-}
-
-// ─────────────────────────────────────────────────────────────
-// (C) Construção das URLs: formato e query params
-// ─────────────────────────────────────────────────────────────
-
-func TestGetPortalURLMontaFormatoEQueryParamsCorretos(t *testing.T) {
-	s := novoSvcDeTeste("https://orion.exemplo.test")
-	s.machineToken = "abc123token"
-
-	bruta := s.GetPortalURL()
-	u, err := url.Parse(bruta)
-	if err != nil {
-		t.Fatalf("URL do portal não é parseável: %v (bruta=%q)", err, bruta)
-	}
-
-	if u.Scheme != "https" || u.Host != "orion.exemplo.test" {
-		t.Errorf("esquema/host inesperados: %q // %q (bruta=%q)", u.Scheme, u.Host, bruta)
-	}
-	if u.Path != "/api/auth/machine-login" {
-		t.Errorf("path esperado /api/auth/machine-login, obtive %q", u.Path)
-	}
-	q := u.Query()
-	if q.Get("token") != "abc123token" {
-		t.Errorf("query token esperado %q, obtive %q", "abc123token", q.Get("token"))
-	}
-	if q.Get("redirect_to") != "" {
-		t.Errorf("URL de portal não deveria carregar redirect_to, obtive %q", q.Get("redirect_to"))
-	}
-}
-
-// BUG (baixo/médio) CORRIGIDO: GetPortalURL normaliza a barra final de cfg.APIURL.
-func TestGetPortalURLNaoDeveDuplicarBarraQuandoAPIURLTerminaComBarra(t *testing.T) {
+// O login sem senha pelo token da máquina foi retirado (19/09/2026). O botão
+// da bandeja leva à tela de login do Orion, e a URL não carrega credencial
+// nenhuma — nem antes nem depois do primeiro check-in.
+func TestGetPortalURLLevaParaOLoginSemToken(t *testing.T) {
 	s := novoSvcDeTeste("https://orion.exemplo.test/")
-	s.machineToken = "abc123token"
 
-	u, err := url.Parse(s.GetPortalURL())
-	if err != nil {
-		t.Fatalf("URL não parseável: %v", err)
+	if got := s.GetPortalURL(); got != "https://orion.exemplo.test/auth" {
+		t.Fatalf("antes do check-in: GetPortalURL() = %q, esperado https://orion.exemplo.test/auth", got)
 	}
-	if u.Path != "/api/auth/machine-login" {
-		t.Fatalf("path esperado /api/auth/machine-login, obtive %q (URL bruta=%q)", u.Path, s.GetPortalURL())
+
+	s.machineToken = "abc123token"
+	got := s.GetPortalURL()
+	if got != "https://orion.exemplo.test/auth" {
+		t.Fatalf("depois do check-in: GetPortalURL() = %q, esperado https://orion.exemplo.test/auth", got)
+	}
+	if strings.Contains(got, "abc123token") || strings.Contains(got, "token=") {
+		t.Fatalf("a URL do portal não pode carregar o token da máquina: %q", got)
 	}
 }
 
-// BUG (médio) CORRIGIDO: token é sanitizado e escapado em GetPortalURL.
-func TestGetPortalURLDeveGerarURLValidaComTokenComQuebraDeLinha(t *testing.T) {
-	s := novoSvcDeTeste("https://orion.exemplo.test")
-	s.machineToken = "abc123token\r\n"
-
-	bruta := s.GetPortalURL()
-	if _, err := url.Parse(bruta); err != nil {
-		t.Fatalf("URL gerada é inválida: %v (bruta=%q)", err, bruta)
+func TestGetPortalURLSemServidorConfiguradoFicaVazia(t *testing.T) {
+	s := novoSvcDeTeste("")
+	if got := s.GetPortalURL(); got != "" {
+		t.Fatalf("sem APIURL esperava \"\", obtive %q", got)
 	}
 }
 
@@ -223,11 +154,10 @@ func TestTrocaRapidaDeUsuarioMantemEstadoDoSvcCoerente(t *testing.T) {
 
 	// 1ª coleta: usuário "maria" loga e o tick resolve a identidade.
 	aplicaIdentidadeComoTick(s, identidade)
-	portalMaria := s.GetPortalURL()
-	tokenMaria := s.machineToken
+	tokenMaria := s.TokenDaMaquina()
 
-	if portalMaria == "" {
-		t.Fatal("após a 1ª coleta a URL da bandeja não deveria estar vazia")
+	if tokenMaria == "" {
+		t.Fatal("após a 1ª coleta a identidade não deveria estar vazia")
 	}
 
 	// 2ª coleta logo em seguida: "joao" assume a sessão (troca rápida de usuário).
@@ -235,9 +165,6 @@ func TestTrocaRapidaDeUsuarioMantemEstadoDoSvcCoerente(t *testing.T) {
 
 	if s.machineToken != tokenMaria {
 		t.Fatalf("troca de usuário alterou o machineToken do Svc: antes=%q depois=%q", tokenMaria, s.machineToken)
-	}
-	if got := s.GetPortalURL(); got != portalMaria {
-		t.Errorf("URL de portal mudou após troca de usuário:\nantes=%q\ndepois=%q", portalMaria, got)
 	}
 }
 
@@ -314,13 +241,13 @@ func TestCorridaEntreTickEBandejaNoMachineToken(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < iteracoes; i++ {
-			_ = s.GetPortalURL()
+			_ = s.TokenDaMaquina()
 		}
 	}()
 	go func() {
 		defer wg.Done()
 		for i := 0; i < iteracoes; i++ {
-			_ = s.GetPortalURL()
+			_ = s.TokenDaMaquina()
 		}
 	}()
 
@@ -402,21 +329,11 @@ func TestCorridaMachineTokenNaoDerrubaGetPortalURLComPanic(t *testing.T) {
 						mu.Unlock()
 					}
 				}()
-				u := s.GetPortalURL()
-				// Contrato: ou a URL é vazia, ou carrega o token íntegro no
-				// parâmetro "token". Não é mais HasSuffix(u, token): desde
-				// que GetPortalURL passou a anexar requester_user (usuário
-				// Windows/AD resolvido na hora do clique), o token deixou
-				// de ser necessariamente o último trecho da URL — mas
-				// continua sendo o valor exato do parâmetro "token",
-				// checado via url.Parse em vez de posição na string.
-				if u != "" {
-					parsed, err := url.Parse(u)
-					if err != nil || parsed.Query().Get("token") != tokenValido {
-						mu.Lock()
-						corrompid++
-						mu.Unlock()
-					}
+				// Contrato: ou a identidade é vazia, ou é o token íntegro.
+				if u := s.TokenDaMaquina(); u != "" && u != tokenValido {
+					mu.Lock()
+					corrompid++
+					mu.Unlock()
 				}
 			}()
 		}
@@ -963,55 +880,3 @@ func TestExtensaoDaURLIgnoraQueryString(t *testing.T) {
 	}
 }
 
-// Testes de anexarUsuarioAtualVia — a correção que resolve o usuário
-// Windows/AD na hora do clique em "Abrir Portal de Suporte" (não o current_user
-// gravado no último heartbeat, que pode ter até um ciclo inteiro de
-// defasagem) e o embute na URL de login por máquina como requester_user,
-// consumido em nomeRequisitante/sanitizarRequesterUser (handler/auth_handlers.go).
-func TestAnexarUsuarioAtualVia_AnexaQuandoResolvido(t *testing.T) {
-	base := "https://orion.exemplo.test/api/auth/machine-login?token=abc"
-	resolver := func() string { return `CONTOSO\joao.silva` }
-
-	got := anexarUsuarioAtualVia(base, resolver)
-	esperado := base + "&requester_user=CONTOSO%5Cjoao.silva"
-
-	if got != esperado {
-		t.Errorf("anexarUsuarioAtualVia() = %q, esperado %q", got, esperado)
-	}
-}
-
-func TestAnexarUsuarioAtualVia_NaoAnexaQuandoResolverFalha(t *testing.T) {
-	base := "https://orion.exemplo.test/api/auth/machine-login?token=abc"
-	resolver := func() string { return "" }
-
-	got := anexarUsuarioAtualVia(base, resolver)
-
-	if got != base {
-		t.Errorf("anexarUsuarioAtualVia() = %q, esperado a URL sem alteração (%q) quando o resolver não resolve ninguém", got, base)
-	}
-}
-
-func TestAnexarUsuarioAtualVia_AparaEspacosDoResolver(t *testing.T) {
-	base := "https://orion.exemplo.test/api/auth/machine-login?token=abc"
-	resolver := func() string { return "  maria.souza  " }
-
-	got := anexarUsuarioAtualVia(base, resolver)
-	esperado := base + "&requester_user=maria.souza"
-
-	if got != esperado {
-		t.Errorf("anexarUsuarioAtualVia() = %q, esperado %q", got, esperado)
-	}
-}
-
-// TestGetPortalURL_SemTokenNaoChamaResolver garante que, sem
-// machine_token ainda persistido (agente recém-instalado, primeiro
-// heartbeat ainda não concluído), a função continua devolvendo ""
-// — comportamento pré-existente, não pode regredir com a adição do
-// requester_user.
-func TestGetPortalURL_SemTokenNaoChamaResolver(t *testing.T) {
-	s := &Svc{cfg: &config.Config{APIURL: "https://orion.exemplo.test"}}
-
-	if got := s.GetPortalURL(); got != "" {
-		t.Errorf("GetPortalURL() sem token = %q, esperado vazio", got)
-	}
-}

@@ -155,12 +155,12 @@ func criarAtalhoEm(caminho, apiURL, machineToken string) error {
 	if apiURL == "" {
 		apiURL = "https://orion.bysam.dev"
 	}
-	var targetURL string
-	if machineToken != "" {
-		targetURL = fmt.Sprintf("%s/api/auth/machine-login?token=%s", apiURL, machineToken)
-	} else {
-		targetURL = fmt.Sprintf("%s/novo-ticket", apiURL)
-	}
+	// Sempre a tela de login: o login sem senha pelo token da máquina foi
+	// retirado (19/09/2026), e o token nunca deve ir para um arquivo que
+	// qualquer usuário da máquina lê. machineToken fica na assinatura só
+	// para não quebrar quem chama.
+	_ = machineToken
+	targetURL := apiURL + "/auth"
 
 	iconPath, err := gravarIconeOrion()
 	if err != nil {

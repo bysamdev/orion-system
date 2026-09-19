@@ -262,13 +262,12 @@ func (s *Svc) Stop(svc service.Service) error {
 	return nil
 }
 
-// GetPortalURL gera a URL de acesso ao portal já autenticada para esta máquina específica.
 // PreloadMachineToken lê a identidade da máquina já persistida em disco (sem
 // gerar uma nova, sem fazer heartbeat) — usado quando este processo é uma
 // bandeja interativa rodando ao lado do serviço, que já é quem manda
-// heartbeat de verdade (ver main.go). Sem isso, GetPortalURL
-// ficaria vazio para sempre nesta instância: token só é escrito em
-// s.machineToken dentro de tick(), que aqui nunca roda.
+// heartbeat de verdade (ver main.go). Sem isso, a bandeja não enxergaria a
+// identidade: token só é escrito em s.machineToken dentro de tick(), que aqui
+// nunca roda.
 func (s *Svc) PreloadMachineToken() error {
 	t, err := token.LoadToken()
 	if err != nil {
@@ -279,14 +278,14 @@ func (s *Svc) PreloadMachineToken() error {
 }
 
 func (s *Svc) GetPortalURL() string {
-	tok := strings.TrimSpace(s.getMachineToken())
-	if tok == "" {
+	apiURL := strings.TrimRight(strings.TrimSpace(s.cfg.APIURL), "/")
+	if apiURL == "" {
 		return ""
 	}
-	apiURL := strings.TrimRight(s.cfg.APIURL, "/")
-	// Usamos o redirecionador de login automático para que o usuário não precise digitar senha.
-	u := fmt.Sprintf("%s/api/auth/machine-login?token=%s", apiURL, url.QueryEscape(tok))
-	return anexarUsuarioAtual(u)
+	// Tela de login do Orion. O login sem senha pelo token da máquina
+	// (/api/auth/machine-login) foi retirado em 19/09/2026: as contas são
+	// criadas pelo gestor e cada pessoa entra com a própria senha.
+	return apiURL + "/auth"
 }
 
 // TokenDaMaquina devolve a identidade da máquina já carregada (ou "" se ainda
@@ -295,33 +294,6 @@ func (s *Svc) GetPortalURL() string {
 // atalho saía com ela aninhada dentro de ?token=).
 func (s *Svc) TokenDaMaquina() string {
 	return strings.TrimSpace(s.getMachineToken())
-}
-
-// anexarUsuarioAtual acrescenta requester_user=<usuário Windows/AD da sessão
-// ativa AGORA> à URL de login por máquina — resolvido na hora do clique
-// (collector.ResolverUsuarioAtual), não o valor de machines.current_user do
-// último heartbeat, que pode estar até um ciclo inteiro (30-60s) desatualizado
-// se a máquina tiver trocado de usuário nesse meio-tempo.
-//
-// Só afeta o TEXTO de exibição do requisitante no chamado (ver
-// nomeRequisitante em handler/auth_handlers.go) — não é usado como
-// identidade de autenticação nem de autorização; a sessão continua sendo a
-// do usuário-fantasma da máquina, por token. Best-effort: se a resolução
-// falhar (ex: sem sessão de console ativa), a URL sai sem o parâmetro e o
-// backend cai de volta pro current_user já salvo em machines.
-func anexarUsuarioAtual(u string) string {
-	return anexarUsuarioAtualVia(u, collector.ResolverUsuarioAtual)
-}
-
-// anexarUsuarioAtualVia é a lógica de verdade, com o resolvedor injetado —
-// separada só pra ser testável sem depender de uma sessão WTS real (mesma
-// limitação de testabilidade já documentada em device_type_windows_test.go).
-func anexarUsuarioAtualVia(u string, resolver func() string) string {
-	usuarioAtual := strings.TrimSpace(resolver())
-	if usuarioAtual == "" {
-		return u
-	}
-	return u + "&requester_user=" + url.QueryEscape(usuarioAtual)
 }
 
 // run é o loop principal do agente: coleta dados → envia para o servidor → aguarda o próximo intervalo.

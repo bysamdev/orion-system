@@ -69,7 +69,7 @@ func (tm *TrayManager) onReady() {
 	systray.AddSeparator()
 
 	// Itens do menu de contexto (clique direito no ícone)
-	mOpen := systray.AddMenuItem("Abrir Portal de Suporte", "Acessar o portal de chamados e suporte")
+	mOpen := systray.AddMenuItem("Abrir o Orion System", "Abre a tela de login do Orion System no navegador")
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Sair", "Encerrar o Orion Agent completamente")
 
