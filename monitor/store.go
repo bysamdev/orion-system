@@ -141,7 +141,9 @@ func (s *PgStore) Estados(ctx context.Context, ids []string) ([]Estado, error) {
 	rows, err := s.pool.Query(ctx, `
 SELECT e.machine_id::text, coalesce(e.cpu_pct,0), coalesce(e.ram_used,0), coalesce(e.ram_total,0),
        coalesce(e.disk_used,0), coalesce(e.disk_total,0), coalesce(e.uptime_s,0), coalesce(e.agent_version,''),
-       e.visto_em, h.security_info
+       coalesce(e.device_type,''), e.visto_em,
+       (SELECT count(*) FROM maquina_alerta a WHERE a.machine_id = e.machine_id AND a.resolvido_em IS NULL)::int,
+       h.security_info
 FROM maquina_estado e
 LEFT JOIN maquina_hardware h ON h.machine_id = e.machine_id
 WHERE e.machine_id = ANY($1::uuid[])`, ids)
@@ -155,7 +157,7 @@ WHERE e.machine_id = ANY($1::uuid[])`, ids)
 		var cpu float32
 		var sec []byte
 		if err := rows.Scan(&e.MachineID, &cpu, &e.RAMUsed, &e.RAMTotal, &e.DiskUsed, &e.DiskTotal,
-			&e.Uptime, &e.AgentVersion, &e.VistoEm, &sec); err != nil {
+			&e.Uptime, &e.AgentVersion, &e.DeviceType, &e.VistoEm, &e.AlertasAbertos, &sec); err != nil {
 			return nil, err
 		}
 		e.CPUUsage = float64(cpu)

@@ -19,16 +19,19 @@ import (
 
 // Estado é o "agora" de uma máquina, como a listagem do painel precisa.
 type Estado struct {
-	MachineID    string          `json:"machine_id"`
-	CPUUsage     float64         `json:"cpu_usage"`
-	RAMUsed      int64           `json:"ram_used"`
-	RAMTotal     int64           `json:"ram_total"`
-	DiskUsed     int64           `json:"disk_used"`
-	DiskTotal    int64           `json:"disk_total"`
-	Uptime       int64           `json:"uptime"`
-	AgentVersion string          `json:"agent_version"`
-	VistoEm      time.Time       `json:"visto_em"`
-	SecurityInfo json.RawMessage `json:"security_info,omitempty"`
+	MachineID    string    `json:"machine_id"`
+	CPUUsage     float64   `json:"cpu_usage"`
+	RAMUsed      int64     `json:"ram_used"`
+	RAMTotal     int64     `json:"ram_total"`
+	DiskUsed     int64     `json:"disk_used"`
+	DiskTotal    int64     `json:"disk_total"`
+	Uptime       int64     `json:"uptime"`
+	AgentVersion string    `json:"agent_version"`
+	DeviceType   string    `json:"device_type"`
+	VistoEm      time.Time `json:"visto_em"`
+	// AlertasAbertos decide entre "online" e "alerta" no painel.
+	AlertasAbertos int             `json:"alertas_abertos"`
+	SecurityInfo   json.RawMessage `json:"security_info,omitempty"`
 }
 
 // Hardware é o inventário de uma máquina.
