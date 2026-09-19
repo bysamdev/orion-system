@@ -15,6 +15,15 @@ import { CargaDaEquipe } from './tecnico/CargaDaEquipe';
 import { FiltrosAvancados } from './tecnico/FiltrosAvancados';
 import { AbasDeChamados } from './tecnico/AbasDeChamados';
 import { LateralDoTecnico } from './tecnico/LateralDoTecnico';
+import { SeletorDeModo } from './tecnico/SeletorDeModo';
+import { useModoDoPainel, ModoDoPainel } from './tecnico/useModoDoPainel';
+import { ModoLista, Recorte } from './tecnico/ModoLista';
+
+const RECORTE_DA_ABA: Record<string, Recorte> = {
+  'unassigned': 'fila',
+  'my-tickets': 'meus',
+  'all-tickets': 'todos',
+};
 
 export const TechnicianDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -40,6 +49,14 @@ export const TechnicianDashboard: React.FC = () => {
   const [initialTabSet, setInitialTabSet] = useState(false);
   const [closedOpen, setClosedOpen] = useState(false);
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [modo, setModo] = useModoDoPainel(role);
+
+  // A lista não tem os cartões de números; um filtro de cartão ligado no
+  // painel sumiria da vista e esconderia chamados sem explicação.
+  const escolherModo = useCallback((novo: ModoDoPainel) => {
+    if (novo === 'lista') setKpiFilter(null);
+    setModo(novo);
+  }, [setModo, setKpiFilter]);
 
   // Definir a aba inicial: se o técnico tem chamados próprios em atendimento, inicia em "Meus Chamados";
   // se não tem nenhum atribuído a si e há chamados na Fila de Espera, inicia em "Fila de Espera" ou "Todos os Chamados".
@@ -109,7 +126,11 @@ export const TechnicianDashboard: React.FC = () => {
     : activeTab === 'my-tickets' ? filtros.filteredMyTickets.length : filtros.filteredAllTickets.length;
 
   return (
-    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex justify-end -mt-4">
+        <SeletorDeModo modo={modo} onEscolher={escolherModo} />
+      </div>
+
       {/* Alerta de ausência de agentes */}
       {activeAgentsCount === 0 && unassigned.length > 0 && (
         <div className="bg-destructive/15 border border-destructive/30 rounded-xl p-4 flex items-start gap-3 text-destructive animate-in fade-in zoom-in duration-300">
@@ -123,6 +144,18 @@ export const TechnicianDashboard: React.FC = () => {
         </div>
       )}
 
+      {modo === 'lista' ? (
+        initialTabSet ? (
+          <ModoLista
+            filtros={filtros}
+            recorteInicial={RECORTE_DA_ABA[activeTab] ?? 'fila'}
+            onAssume={handleAssumeTicket}
+          />
+        ) : (
+          <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" /></div>
+        )
+      ) : (
+      <div className="space-y-12">
       <Indicadores stats={stats} kpiFilter={kpiFilter} closedOpen={closedOpen} onSelecionar={selecionarIndicador} />
 
       {(role === 'admin' || role === 'developer') && teamWorkload && teamWorkload.length > 0 && (
@@ -177,6 +210,8 @@ export const TechnicianDashboard: React.FC = () => {
 
         <LateralDoTecnico workload={workload} recentClosed={recentClosed} />
       </div>
+      </div>
+      )}
     </div>
   );
 };
