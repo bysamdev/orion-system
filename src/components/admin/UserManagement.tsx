@@ -885,7 +885,7 @@ export const UserManagement = () => {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit_password">Nova Senha (Opcional)</Label>
+              <Label htmlFor="edit_password">Senha temporária (opcional)</Label>
               <Input
                 id="edit_password"
                 type="password"
@@ -894,7 +894,7 @@ export const UserManagement = () => {
                 onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                Preencha apenas se quiser alterar a senha do usuário
+                Para quem esqueceu a senha. No próximo acesso a pessoa entra com esta e é obrigada a criar a própria.
               </p>
             </div>
           </div>

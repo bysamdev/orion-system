@@ -6,6 +6,7 @@ import { Loader2, RefreshCw, AlertTriangle, LogIn, Home } from 'lucide-react';
 import { useUserRole, UserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { deveTrocarSenha } from '@/lib/senhaProvisoria';
 
 const RedirectWithToast = () => {
   const location = useLocation();
@@ -138,6 +139,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (!user) {
     const returnUrl = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/auth?redirect=${returnUrl}`} replace />;
+  }
+
+  // 2b. Senha provisória (primeiro acesso ou temporária do gestor): nenhuma
+  // tela abre antes de a pessoa criar a própria senha.
+  if (deveTrocarSenha(user)) {
+    return <Navigate to="/trocar-senha" replace />;
   }
 
   // 3. Falha ao consultar role do usuário (evita bloquear admins acidentalmente por erro temporário)

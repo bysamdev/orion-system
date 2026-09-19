@@ -19,6 +19,7 @@ const Admin = lazyWithRetry(() => import("./pages/Admin"));
 const TicketDetails = lazyWithRetry(() => import("./pages/TicketDetails"));
 const Auth = lazyWithRetry(() => import("./pages/Auth"));
 const SetPassword = lazyWithRetry(() => import("./pages/SetPassword"));
+const TrocarSenha = lazyWithRetry(() => import("./pages/TrocarSenha"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const DebugTools = lazyWithRetry(() => import("./pages/DebugTools"));
 const Reports = lazyWithRetry(() => import("./pages/Reports"));
@@ -82,6 +83,7 @@ const App = () => (
                   <Route path="/entrar" element={<Navigate to={{ pathname: "/auth", search: window.location.search }} replace />} />
                   <Route path="/logar" element={<Navigate to={{ pathname: "/auth", search: window.location.search }} replace />} />
 
+                  <Route path="/trocar-senha" element={<TrocarSenha />} />
                   <Route path="/definir-senha" element={<SetPassword />} />
                   <Route path="/set-password" element={<SetPassword />} />
                   <Route path="/redefinir-senha" element={<SetPassword />} />
