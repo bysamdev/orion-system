@@ -260,6 +260,8 @@ const Assets = () => {
       const serial = (d as any).serial_number || (d as any).serial || '';
       const user = d.logged_in_user || (d as any).logged_user || (d as any).current_user || '';
       const compName = d.company_name || '';
+      const os = d.os || '';
+      const domain = d.domain || '';
 
       const matchesSearch = 
         hostname.toLowerCase().includes(queryStr) ||
@@ -267,7 +269,9 @@ const Assets = () => {
         mac.toLowerCase().includes(queryStr) ||
         serial.toLowerCase().includes(queryStr) ||
         user.toLowerCase().includes(queryStr) ||
-        compName.toLowerCase().includes(queryStr);
+        compName.toLowerCase().includes(queryStr) ||
+        os.toLowerCase().includes(queryStr) ||
+        domain.toLowerCase().includes(queryStr);
 
       const matchesCompany = companyFilter === 'all' || d.company_id === companyFilter;
       const matchesType = typeFilter === 'all' || d.device_type === typeFilter || (d as any).type === typeFilter;
@@ -550,6 +554,7 @@ const Assets = () => {
                         <SelectItem value="Computador" className="text-xs">Computador</SelectItem>
                         <SelectItem value="Notebook" className="text-xs">Notebook</SelectItem>
                         <SelectItem value="Servidor" className="text-xs">Servidor</SelectItem>
+                        <SelectItem value="Não identificado" className="text-xs">Não identificado</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
