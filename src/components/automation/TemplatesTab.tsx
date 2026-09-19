@@ -10,13 +10,19 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Loader2, Zap, Plus, Edit2, Trash2, Search, Copy, Check, MessageSquare, Sparkles, Terminal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useCannedResponses, useSaveCannedResponse, useDeleteCannedResponse, type CannedResponseFull } from '@/hooks/useAutomation';
+import { useCannedResponses, useSaveCannedResponse, useDeleteCannedResponse, type CannedResponseFull, type Company } from '@/hooks/useAutomation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Props {
-  companyId: string;
+  filtroEmpresa: string;
+  empresaPadrao: string;
+  empresas: Company[];
 }
 
-export const TemplatesTab: React.FC<Props> = ({ companyId }) => {
+// Templates compartilhados: todo gestor vê e edita os mesmos (a RLS decide
+// quais empresas). Cada template pertence a uma empresa, porque é o que os
+// técnicos dela veem na hora de responder e o que as regras dela podem usar.
+export const TemplatesTab: React.FC<Props> = ({ filtroEmpresa, empresaPadrao, empresas }) => {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CannedResponseFull | null>(null);
@@ -27,19 +33,28 @@ export const TemplatesTab: React.FC<Props> = ({ companyId }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [shortcut, setShortcut] = useState('');
+  const [empresa, setEmpresa] = useState('');
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
 
-  const { data: responses = [], isLoading } = useCannedResponses(companyId);
-  const saveMutation = useSaveCannedResponse(companyId);
+  const { data: todas = [], isLoading } = useCannedResponses();
+  const responses = useMemo(
+    () => todas.filter(r => filtroEmpresa === 'all' || r.company_id === filtroEmpresa),
+    [todas, filtroEmpresa]
+  );
+  const saveMutation = useSaveCannedResponse();
   const deleteMutation = useDeleteCannedResponse();
 
-  const resetForm = () => { setEditing(null); setTitle(''); setContent(''); setShortcut(''); };
+  const resetForm = () => {
+    setEditing(null); setTitle(''); setContent(''); setShortcut('');
+    setEmpresa(filtroEmpresa !== 'all' ? filtroEmpresa : empresaPadrao);
+  };
 
   const openEdit = (r: CannedResponseFull) => {
     setEditing(r);
     setTitle(r.title);
     setContent(r.content);
     setShortcut(r.shortcut ?? '');
+    setEmpresa(r.company_id ?? empresaPadrao);
     setDialogOpen(true);
   };
 
@@ -59,8 +74,12 @@ export const TemplatesTab: React.FC<Props> = ({ companyId }) => {
       toast({ title: 'Preencha título e conteúdo', variant: 'destructive' });
       return;
     }
+    if (!empresa) {
+      toast({ title: 'Escolha a empresa do template', variant: 'destructive' });
+      return;
+    }
     saveMutation.mutate(
-      { id: editing?.id, title, content, shortcut },
+      { id: editing?.id, title, content, shortcut, company_id: empresa },
       {
         onSuccess: () => {
           toast({ title: editing ? 'Template atualizado com sucesso!' : 'Template criado com sucesso!' });
@@ -148,6 +167,14 @@ export const TemplatesTab: React.FC<Props> = ({ companyId }) => {
                 </div>
 
                 <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider">Empresa *</Label>
+                  <Select value={empresa} onValueChange={setEmpresa}>
+                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Empresa" /></SelectTrigger>
+                    <SelectContent>{empresas.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-bold uppercase tracking-wider">Conteúdo da Mensagem *</Label>
                     <span className="text-[10px] text-muted-foreground">{content.length} caracteres</span>
@@ -222,7 +249,10 @@ export const TemplatesTab: React.FC<Props> = ({ companyId }) => {
                       <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
                         <MessageSquare className="w-3.5 h-3.5" />
                       </div>
-                      <h3 className="font-bold text-sm text-foreground truncate">{r.title}</h3>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-sm text-foreground truncate">{r.title}</h3>
+                        <p className="text-xs text-muted-foreground truncate">{r.companies?.name ?? 'Sem empresa'}</p>
+                      </div>
                     </div>
 
                     {r.shortcut && (

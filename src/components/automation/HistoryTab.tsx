@@ -1,75 +1,65 @@
-import React, { useState, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { CheckCircle2, CircleAlert, CircleMinus, History, Loader2, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, RefreshCw, Zap, ArrowRightLeft, AlertTriangle, Crown, MessageSquare, Search, Clock, Activity, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatDistanceToNow, format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ACTION_TYPES, useAutomationLogs } from '@/hooks/useAutomation';
-import { useProfilesMap, replaceUserUuidsInText } from '@/hooks/useUserDisplayName';
+import { iconeDaAcao } from './fluxo';
 
-const ACTION_ICONS: Record<string, React.ElementType> = {
-  assign_tech: ArrowRightLeft,
-  round_robin: RefreshCw,
-  escalate_manager: AlertTriangle,
-  set_priority: Crown,
-  auto_response: MessageSquare,
-  notify_all: Zap,
-};
+interface Props {
+  filtroEmpresa: string;
+  nomesDasEmpresas: Map<string, string>;
+}
 
-export const HistoryTab: React.FC = () => {
+// O motor grava "erro: ..." e "ignorado: ..." no resultado quando a ação não
+// fez nada; o resto é sucesso. O ícone repete a informação da cor.
+function situacao(resultado: string | null) {
+  if (resultado?.startsWith('erro')) return { Icone: CircleAlert, cor: 'text-destructive', rotulo: 'Falhou' };
+  if (resultado?.startsWith('ignorado')) return { Icone: CircleMinus, cor: 'text-muted-foreground', rotulo: 'Ignorada' };
+  return { Icone: CheckCircle2, cor: 'text-emerald-600 dark:text-emerald-400', rotulo: 'Feita' };
+}
+
+// Histórico compartilhado: todo gestor com acesso vê as mesmas execuções
+// (a RLS decide quais empresas).
+export const HistoryTab: React.FC<Props> = ({ filtroEmpresa, nomesDasEmpresas }) => {
+  const navigate = useNavigate();
   const { data: logs = [], isLoading, refetch, isFetching } = useAutomationLogs();
-  const { profilesMap } = useProfilesMap();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [busca, setBusca] = useState('');
 
-  const renderActionIcon = (type: string) => {
-    const Icon = ACTION_ICONS[type] || Zap;
-    return <Icon className="w-3.5 h-3.5 shrink-0" />;
-  };
-
-  const filteredLogs = useMemo(() => {
-    if (!searchQuery.trim()) return logs;
-    const query = searchQuery.toLowerCase();
-    return logs.filter(log =>
-      (log.rule_name && log.rule_name.toLowerCase().includes(query)) ||
-      (log.action_type && log.action_type.toLowerCase().includes(query)) ||
-      (log.action_result && log.action_result.toLowerCase().includes(query))
+  const filtrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase().replace(/^#/, '');
+    return logs.filter(l =>
+      (filtroEmpresa === 'all' || l.tickets?.company_id === filtroEmpresa) &&
+      (!termo ||
+        l.rule_name?.toLowerCase().includes(termo) ||
+        l.action_result?.toLowerCase().includes(termo) ||
+        l.tickets?.title?.toLowerCase().includes(termo) ||
+        String(l.tickets?.ticket_number ?? '').includes(termo))
     );
-  }, [logs, searchQuery]);
+  }, [logs, busca, filtroEmpresa]);
 
   return (
     <div className="space-y-4">
-      {/* Header com Busca e Atualização */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/40 p-4 rounded-2xl border border-border/40 backdrop-blur-sm">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-emerald-500" />
-            <h2 className="font-bold text-sm tracking-tight text-foreground">Histórico de Execuções</h2>
-          </div>
-          <p className="text-xs text-muted-foreground">Registro cronológico de todas as automações disparadas na plataforma (atualização periódica a cada 15s).</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">Histórico de execuções</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Cada ação que uma regra executou, com o chamado e o resultado. Atualiza a cada 15 segundos.</p>
         </div>
-
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <div className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Buscar no histórico..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 text-xs rounded-xl bg-background/60"
+              placeholder="Regra, chamado ou resultado"
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              className="pl-9 h-9"
             />
           </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="gap-2 h-9 rounded-xl font-medium"
-          >
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="h-9 gap-1.5">
             <RefreshCw className={cn('w-3.5 h-3.5', isFetching && 'animate-spin')} />
             <span className="hidden sm:inline">Atualizar</span>
           </Button>
@@ -77,87 +67,69 @@ export const HistoryTab: React.FC = () => {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-          <p className="text-xs text-muted-foreground">Carregando histórico de execuções...</p>
+        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground/40" /></div>
+      ) : filtrados.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/70 py-14 text-center space-y-2">
+          <History className="w-8 h-8 mx-auto text-muted-foreground/50" aria-hidden />
+          <p className="text-sm font-medium">{logs.length === 0 ? 'Nenhuma regra disparou ainda' : 'Nada com esse filtro'}</p>
+          <p className="text-xs text-muted-foreground">
+            {logs.length === 0 ? 'Quando um chamado aberto casar com uma regra ativa, a execução aparece aqui.' : 'Mude a busca ou a empresa.'}
+          </p>
         </div>
-      ) : logs.length === 0 ? (
-        <Card className="border-dashed bg-card/30">
-          <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 shadow-inner">
-              <History className="w-7 h-7" />
-            </div>
-            <div className="space-y-1">
-              <p className="font-bold text-foreground text-base">Nenhuma execução registrada</p>
-              <p className="text-xs text-muted-foreground max-w-md">As regras de automação são executadas de forma transparente no momento em que novos chamados são criados.</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : filteredLogs.length === 0 ? (
-        <Card className="border-dashed bg-card/30">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center gap-2">
-            <Search className="w-8 h-8 text-muted-foreground/40" />
-            <p className="font-semibold text-sm text-foreground">Nenhum evento encontrado</p>
-            <p className="text-xs text-muted-foreground">Tente buscar por outro termo ou limpe o filtro.</p>
-            <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')} className="mt-2 text-xs">
-              Limpar busca
-            </Button>
-          </CardContent>
-        </Card>
       ) : (
-        <Card className="border-border/50 bg-card/60 backdrop-blur-sm overflow-hidden rounded-2xl shadow-xs">
-          <ScrollArea className="h-[520px]">
-            <div className="overflow-x-auto">
-            <Table className="min-w-[600px]">
-              <TableHeader className="bg-muted/30 sticky top-0 backdrop-blur-md z-10">
-                <TableRow className="border-border/40 hover:bg-transparent">
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground w-40">Horário</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Regra Disparada</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground w-48">Ação Executada</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Resultado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredLogs.map(log => {
-                  const dateObj = new Date(log.created_at);
-                  const isValidDate = !isNaN(dateObj.getTime());
-                  const relativeTime = isValidDate
-                    ? formatDistanceToNow(dateObj, { locale: ptBR, addSuffix: true })
-                    : '—';
-                  const exactTime = isValidDate
-                    ? format(dateObj, "dd/MM/yyyy 'às' HH:mm:ss")
-                    : '—';
-
-                  return (
-                    <TableRow key={log.id} className="border-border/30 hover:bg-muted/20 transition-colors">
-                      <TableCell className="text-[11px] text-muted-foreground whitespace-nowrap" title={exactTime}>
-                        <div className="flex items-center gap-1.5 font-medium">
-                          <Clock className="w-3 h-3 text-muted-foreground/60" />
-                          <span>{relativeTime}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-bold text-xs text-foreground">{log.rule_name ?? 'Regra Sem Nome'}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 px-2.5 py-1 rounded-lg">
-                          {renderActionIcon(log.action_type)}
-                          <span>{ACTION_TYPES.find(a => a.value === log.action_type)?.label ?? log.action_type}</span>
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-normal leading-relaxed">
-                        {replaceUserUuidsInText(log.action_result, profilesMap)}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            </div>
-          </ScrollArea>
-        </Card>
+        <div className="rounded-xl border border-border/60 bg-card overflow-x-auto">
+          <Table className="min-w-[760px]">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[130px] text-xs font-semibold">Quando</TableHead>
+                <TableHead className="text-xs font-semibold">Chamado</TableHead>
+                <TableHead className="text-xs font-semibold">Regra</TableHead>
+                <TableHead className="w-[210px] text-xs font-semibold">Ação</TableHead>
+                <TableHead className="text-xs font-semibold">Resultado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtrados.map(l => {
+                const data = new Date(l.created_at);
+                const Icone = iconeDaAcao(l.action_type);
+                const s = situacao(l.action_result);
+                return (
+                  <TableRow key={l.id}>
+                    <TableCell className="py-2.5 text-xs text-muted-foreground whitespace-nowrap" title={format(data, "dd/MM/yyyy 'às' HH:mm:ss")}>
+                      {formatDistanceToNow(data, { locale: ptBR, addSuffix: true })}
+                    </TableCell>
+                    <TableCell className="py-2.5 max-w-[240px]">
+                      {l.tickets ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/ticket/${l.ticket_id}`)}
+                          className="text-left min-w-0 max-w-full hover:text-primary"
+                        >
+                          <span className="block text-sm font-medium truncate">#{l.tickets.ticket_number} {l.tickets.title}</span>
+                          <span className="block text-xs text-muted-foreground truncate">{nomesDasEmpresas.get(l.tickets.company_id ?? '') ?? ''}</span>
+                        </button>
+                      ) : <span className="text-xs text-muted-foreground">Chamado removido</span>}
+                    </TableCell>
+                    <TableCell className="py-2.5 text-sm">{l.rule_name ?? 'Regra removida'}</TableCell>
+                    <TableCell className="py-2.5">
+                      <span className="inline-flex items-center gap-1.5 text-xs">
+                        <Icone className="w-3.5 h-3.5 text-muted-foreground shrink-0" aria-hidden />
+                        {ACTION_TYPES.find(a => a.value === l.action_type)?.label ?? l.action_type}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-2.5">
+                      <span className={cn('inline-flex items-center gap-1.5 text-xs', s.cor)}>
+                        <s.Icone className="w-3.5 h-3.5 shrink-0" aria-label={s.rotulo} />
+                        <span className="text-foreground/80">{l.action_result}</span>
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );
 };
-

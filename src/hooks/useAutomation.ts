@@ -1,43 +1,69 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 
-// ── Types ─────────────────────────────────────────────────────
-export interface RoutingRule {
-  id: string;
-  name: string;
-  description?: string;
-  priority: number;
-  conditions: { field: string; operator: string; value: string };
-  actions: { type: string; target: string };
-  is_active: boolean;
+// automation_logs ainda não está nos tipos gerados do Supabase; esta visão
+// sem esquema evita espalhar `any` pelo arquivo.
+const semEsquema = supabase as unknown as SupabaseClient;
+
+// Automações são área de gestor. Quem pode ver o quê é decidido pela RLS
+// (pode_gerir_automacao, migration 20260919040000): gestor da empresa-mãe e
+// desenvolvedor veem todas as empresas; gestor de empresa cliente, só a
+// própria. Por isso nenhuma consulta aqui filtra por empresa: o que a RLS
+// devolve é exatamente o que a pessoa pode gerir. O filtro de empresa da tela
+// é só de visualização.
+
+export interface Condicao {
+  field: string;
+  operator: string;
+  value: string;
 }
 
-interface AutomationLog {
+export interface Acao {
+  type: string;
+  target: string;
+}
+
+export interface RoutingRule {
+  id: string;
+  company_id: string | null;
+  name: string;
+  description?: string | null;
+  priority: number;
+  // O motor aceita um objeto (formato antigo) ou uma lista.
+  conditions: Condicao | Condicao[];
+  actions: Acao | Acao[];
+  is_active: boolean;
+  created_at?: string;
+  companies?: { name: string } | null;
+}
+
+export interface AutomationLog {
   id: string;
   rule_id: string | null;
-  ticket_id: string;
-  rule_name: string;
+  ticket_id: string | null;
+  rule_name: string | null;
   action_type: string;
-  action_result: string;
+  action_result: string | null;
   created_at: string;
+  tickets?: { ticket_number: number; title: string; company_id: string | null } | null;
 }
 
 export interface CannedResponseFull {
   id: string;
   title: string;
   content: string;
-  shortcut?: string;
+  shortcut?: string | null;
+  company_id: string | null;
+  companies?: { name: string } | null;
 }
 
 export interface CannedResponseRef {
   id: string;
   title: string;
-  shortcut?: string;
-}
-
-export interface Technician {
-  id: string;
-  full_name: string;
+  shortcut?: string | null;
+  company_id?: string | null;
 }
 
 export interface Company {
@@ -45,118 +71,112 @@ export interface Company {
   name: string;
 }
 
-// ── Constants (shared with UI components) ────────────────────
+export const listaDeCondicoes = (c: RoutingRule['conditions'] | null | undefined): Condicao[] =>
+  Array.isArray(c) ? c : c && typeof c === 'object' && 'field' in c ? [c] : [];
+
+export const listaDeAcoes = (a: RoutingRule['actions'] | null | undefined): Acao[] =>
+  Array.isArray(a) ? a : a && typeof a === 'object' && 'type' in a ? [a] : [];
+
+// Campos que o motor sabe ler (regra_casa_com_chamado).
 export const CONDITION_FIELDS = [
   { value: 'category', label: 'Categoria' },
   { value: 'priority', label: 'Prioridade' },
-  { value: 'title', label: 'Assunto (contém)' },
+  { value: 'title', label: 'Assunto' },
+  { value: 'department', label: 'Departamento' },
   { value: 'company_id', label: 'Empresa' },
-  { value: 'is_vip', label: 'Cliente VIP' },
 ];
 
+export const OPERADORES = [
+  { value: 'equals', label: 'é igual a' },
+  { value: 'not_equals', label: 'é diferente de' },
+  { value: 'contains', label: 'contém' },
+];
+
+// Ações que o motor executa (tr_auto_route_ticket e tr_automacoes_pos_abertura).
 export const ACTION_TYPES = [
-  { value: 'assign_tech', label: 'Atribuir a Agente' },
-  { value: 'round_robin', label: 'Round-Robin (Fila)' },
-  { value: 'escalate_manager', label: 'Escalar para Gestor' },
-  { value: 'set_priority', label: 'Definir Prioridade' },
-  { value: 'auto_response', label: 'Resposta Automática' },
-  { value: 'notify_all', label: 'Notificar Todos os Técnicos' },
+  { value: 'assign_tech', label: 'Atribuir a um técnico', precisaAlvo: true },
+  { value: 'round_robin', label: 'Distribuir pela fila (menos ocupado)', precisaAlvo: false },
+  { value: 'escalate_manager', label: 'Escalar para gestor', precisaAlvo: true },
+  { value: 'set_priority', label: 'Mudar a prioridade', precisaAlvo: true },
+  { value: 'auto_response', label: 'Enviar resposta automática', precisaAlvo: true },
+  { value: 'notify_all', label: 'Notificar toda a equipe', precisaAlvo: false },
 ];
 
-// ── Hooks ─────────────────────────────────────────────────────
-
-export const useRoutingRules = (companyId: string) =>
+export const useRoutingRules = () =>
   useQuery<RoutingRule[]>({
-    queryKey: ['routing-rules', companyId],
+    queryKey: ['routing-rules'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('routing_rules')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('priority', { ascending: true });
+        .select('*, companies(name)')
+        .order('priority', { ascending: true })
+        .order('created_at', { ascending: true });
       if (error) throw error;
-      return (data as any[]) || [];
+      return (data as unknown as RoutingRule[]) || [];
     },
-    enabled: !!companyId,
   });
 
-export const useTechnicians = (companyId: string) =>
-  useQuery<Technician[]>({
-    queryKey: ['technicians', companyId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, user_roles!inner(role)')
-        .eq('company_id', companyId)
-        .in('user_roles.role', ['technician', 'admin', 'developer']);
-      return (data as any[]) || [];
-    },
-    enabled: !!companyId,
-  });
-
-export const useCannedResponseRefs = (companyId: string) =>
+export const useCannedResponseRefs = () =>
   useQuery<CannedResponseRef[]>({
-    queryKey: ['canned-responses', companyId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('canned_responses')
-        .select('id, title, shortcut')
-        .eq('company_id', companyId);
-      return (data as any[]) || [];
-    },
-    enabled: !!companyId,
-  });
-
-export const useCannedResponses = (companyId: string) =>
-  useQuery<CannedResponseFull[]>({
-    queryKey: ['canned-responses-full', companyId],
+    queryKey: ['canned-responses'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('canned_responses')
-        .select('*')
-        .eq('company_id', companyId)
+        .select('id, title, shortcut, company_id')
         .order('title');
       if (error) throw error;
-      return (data as any[]) || [];
+      return (data as CannedResponseRef[]) || [];
     },
-    enabled: !!companyId,
+  });
+
+export const useCannedResponses = () =>
+  useQuery<CannedResponseFull[]>({
+    queryKey: ['canned-responses-full'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('canned_responses')
+        .select('*, companies(name)')
+        .order('title');
+      if (error) throw error;
+      return (data as unknown as CannedResponseFull[]) || [];
+    },
   });
 
 export const useAutomationLogs = () =>
   useQuery<AutomationLog[]>({
     queryKey: ['automation-logs'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await semEsquema
         .from('automation_logs')
-        .select('*')
+        .select('*, tickets(ticket_number, title, company_id)')
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(300);
       if (error) throw error;
-      return (data as any[]) || [];
+      return (data as unknown as AutomationLog[]) || [];
     },
     refetchInterval: 15_000,
   });
 
-export const useSaveRule = (companyId: string) => {
+export interface RegraParaSalvar {
+  id?: string;
+  company_id: string;
+  name: string;
+  description: string;
+  priority: number;
+  conditions: Condicao[];
+  actions: Acao[];
+  is_active: boolean;
+}
+
+export const useSaveRule = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: Partial<RoutingRule> & { id?: string }) => {
-      const payload = {
-        company_id: companyId,
-        name: data.name,
-        description: data.description,
-        priority: data.priority,
-        conditions: data.conditions,
-        actions: data.actions,
-        is_active: data.is_active,
-      };
-      if (data.id) {
-        const { error } = await supabase.from('routing_rules').update(payload).eq('id', data.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('routing_rules').insert([payload]);
-        if (error) throw error;
-      }
+    mutationFn: async ({ id, conditions, actions, ...resto }: RegraParaSalvar) => {
+      const payload = { ...resto, conditions: conditions as unknown as Json, actions: actions as unknown as Json };
+      const { error } = id
+        ? await supabase.from('routing_rules').update(payload).eq('id', id)
+        : await supabase.from('routing_rules').insert([payload]);
+      if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['routing-rules'] }),
   });
@@ -184,30 +204,29 @@ export const useToggleRule = () => {
   });
 };
 
-export const useSaveCannedResponse = (companyId: string) => {
+export const useSaveCannedResponse = () => {
   const qc = useQueryClient();
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ['canned-responses-full'] });
-    qc.invalidateQueries({ queryKey: ['canned-responses'] });
-  };
   return useMutation({
-    mutationFn: async (data: { id?: string; title: string; content: string; shortcut?: string }) => {
-      const payload: any = {
+    mutationFn: async (data: { id?: string; title: string; content: string; shortcut?: string; company_id: string }) => {
+      const payload = {
         title: data.title.trim(),
         content: data.content.trim(),
         shortcut: data.shortcut?.trim() || null,
-        company_id: companyId,
+        company_id: data.company_id,
       };
       if (data.id) {
         const { error } = await supabase.from('canned_responses').update(payload).eq('id', data.id);
         if (error) throw error;
       } else {
         const { data: { user } } = await supabase.auth.getUser();
-        const { error } = await supabase.from('canned_responses').insert([{ ...payload, created_by: user?.id }]);
+        const { error } = await supabase.from('canned_responses').insert([{ ...payload, created_by: user?.id ?? '' }]);
         if (error) throw error;
       }
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['canned-responses-full'] });
+      qc.invalidateQueries({ queryKey: ['canned-responses'] });
+    },
   });
 };
 
