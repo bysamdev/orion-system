@@ -454,6 +454,14 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusOK, pontos)
 		return
 	}
+	// Com o Monitor configurado, a série do Supabase está congelada desde a
+	// fase 3: devolvê-la mostraria um gráfico velho como se fosse atual. Sem
+	// o Monitor responder, o gráfico fica vazio, que é a verdade.
+	if monitorConfigurado() {
+		marcarFonte(w, "monitor indisponível")
+		lib.WriteJSON(w, http.StatusOK, []lib.MetricRow{})
+		return
+	}
 	marcarFonte(w, "supabase")
 	metrics, err := db.MetricsHistory(ctx, id, janela, passo)
 	if err != nil {

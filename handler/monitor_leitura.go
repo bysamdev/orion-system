@@ -87,9 +87,14 @@ func sobreporEstadoDoMonitor(ctx context.Context, maquinas []lib.MachineWithMetr
 	if len(maquinas) == 0 || !monitorConfigurado() {
 		return "supabase"
 	}
+	// Desde a fase 3 o snapshot de CPU/RAM/disco do Supabase está congelado:
+	// ninguém mais grava ali. Mostrá-lo seria apresentar número velho como se
+	// fosse de agora — foi o que o teste de queda do Monitor revelou. Então
+	// ele é apagado antes de tudo, e só volta preenchido pelo Monitor.
 	ids := make([]string, len(maquinas))
 	for i := range maquinas {
 		ids[i] = maquinas[i].ID
+		limparMetricasCongeladas(&maquinas[i])
 	}
 	var estados []monitor.Estado
 	if err := pedirAoMonitor(ctx, http.MethodPost, "/v1/estado", map[string]any{"machine_ids": ids}, &estados); err != nil {
@@ -130,6 +135,10 @@ func statusDoEstado(e monitor.Estado, agora time.Time) string {
 		return "alerta"
 	}
 	return "online"
+}
+
+func limparMetricasCongeladas(m *lib.MachineWithMetric) {
+	m.CPUUsage, m.RAMTotal, m.RAMUsed, m.DiskTotal, m.DiskUsed, m.Uptime, m.CollectedAt = nil, nil, nil, nil, nil, nil, nil
 }
 
 func aplicarEstado(m *lib.MachineWithMetric, e monitor.Estado) {

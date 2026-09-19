@@ -41,8 +41,8 @@ func TestSobreporEstado_UsaMonitorEMantemQuemEleNaoConhece(t *testing.T) {
 	if *maquinas[0].CPUUsage != 42 || !maquinas[0].LastSeen.Equal(agora) || maquinas[0].SecurityInfo == nil {
 		t.Errorf("máquina a não recebeu o estado do monitor: cpu=%v last_seen=%v", *maquinas[0].CPUUsage, maquinas[0].LastSeen)
 	}
-	if *maquinas[1].CPUUsage != 11 {
-		t.Error("máquina b, que o monitor não conhece, perdeu o dado do Supabase")
+	if maquinas[1].CPUUsage != nil {
+		t.Error("máquina b, que o monitor não conhece, ficou com a métrica congelada do Supabase")
 	}
 }
 
@@ -72,8 +72,11 @@ func TestSobreporEstado_MonitorForaMantemSupabase(t *testing.T) {
 	if fonte := sobreporEstadoDoMonitor(context.Background(), maquinas); fonte != "supabase (monitor indisponível)" {
 		t.Errorf("fonte = %q", fonte)
 	}
-	if *maquinas[0].CPUUsage != 10 {
-		t.Error("dado do Supabase foi alterado com o monitor fora")
+	if maquinas[0].CPUUsage != nil || maquinas[0].CollectedAt != nil {
+		t.Error("com o monitor fora, a métrica congelada do Supabase foi exibida como atual")
+	}
+	if maquinas[0].LastSeen == nil {
+		t.Error("presença grossa do Supabase foi perdida com o monitor fora")
 	}
 }
 
