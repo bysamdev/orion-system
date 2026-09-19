@@ -1,7 +1,4 @@
-import type { ElementType } from 'react';
-import {
-  Boxes, Cpu, Mail, MoreHorizontal, Network, Printer, Server, UserPlus, AppWindow,
-} from 'lucide-react';
+import { CATEGORIAS } from '@/lib/categoriasDeChamado';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { Ticket } from '@/hooks/useTickets';
@@ -10,17 +7,7 @@ import { calculateSlaStatus } from '@/lib/ticket-helpers';
 // Peças que dão identidade visual a um chamado no painel do técnico: ícone da
 // categoria, cor da prioridade, prazo escrito por extenso e iniciais.
 
-export const CATEGORIAS: Record<string, { rotulo: string; icone: ElementType }> = {
-  erp: { rotulo: 'ERP', icone: Boxes },
-  email: { rotulo: 'E-mail', icone: Mail },
-  hardware: { rotulo: 'Hardware', icone: Cpu },
-  software: { rotulo: 'Software', icone: AppWindow },
-  rede: { rotulo: 'Rede', icone: Network },
-  criacao_usuario: { rotulo: 'Criação de usuário', icone: UserPlus },
-  impressora: { rotulo: 'Impressora', icone: Printer },
-  infraestrutura: { rotulo: 'Infraestrutura', icone: Server },
-  outros: { rotulo: 'Outros', icone: MoreHorizontal },
-};
+export { CATEGORIAS };
 
 export const categoriaDe = (c: string | null | undefined) => CATEGORIAS[c ?? ''] ?? CATEGORIAS.outros;
 

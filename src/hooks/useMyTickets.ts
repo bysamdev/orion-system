@@ -1,4 +1,5 @@
 import { enrichTicketsWithCompany, calculateSlaStatus } from '@/lib/ticket-helpers';
+import { STATUS_ATIVOS } from '@/lib/filtrosDeChamados';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Ticket } from './useTickets';
@@ -182,6 +183,10 @@ interface UseMeusTicketsOptions {
   empresaId?: string;
   /** E-mail (ou parte) do solicitante. Resolvido em profiles antes da consulta. */
   contato?: string;
+  /** Chave de categoria ou 'all'. */
+  categoria?: string;
+  /** assigned_to_user_id, 'none' para sem responsável, ou 'all'. */
+  responsavelId?: string;
   page?: number;
   pageSize?: number;
   limit?: number;
@@ -204,15 +209,21 @@ export const useMeusTickets = (userId: string | undefined, role: string | undefi
       if (options.statusIn && options.statusIn.length > 0) {
         query = query.in('status', options.statusIn);
       } else if (options.statusFilter && options.statusFilter !== 'all') {
-        if (options.statusFilter === 'open') {
-          query = query.in('status', ['open', 'reopened']);
-        } else if (options.statusFilter === 'in-progress') {
-          query = query.in('status', ['in-progress', 'awaiting-customer', 'awaiting-third-party']);
-        } else if (options.statusFilter === 'resolved') {
-          query = query.in('status', ['resolved', 'closed', 'cancelled']);
-        } else {
-          query = query.eq('status', options.statusFilter);
-        }
+        // Cada opção casa com um status só; 'ativos' junta os em aberto.
+        // Ver STATUS_DO_FILTRO em src/lib/filtrosDeChamados.ts.
+        query = options.statusFilter === 'ativos'
+          ? query.in('status', STATUS_ATIVOS)
+          : query.eq('status', options.statusFilter);
+      }
+
+      if (options.categoria && options.categoria !== 'all') {
+        query = query.eq('category', options.categoria);
+      }
+
+      if (options.responsavelId === 'none') {
+        query = query.is('assigned_to_user_id', null);
+      } else if (options.responsavelId && options.responsavelId !== 'all') {
+        query = query.eq('assigned_to_user_id', options.responsavelId);
       }
 
       if (options.priorityFilter && options.priorityFilter !== 'all') {

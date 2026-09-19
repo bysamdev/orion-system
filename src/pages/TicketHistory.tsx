@@ -17,10 +17,13 @@ import { useMeusTickets } from '@/hooks/useMyTickets';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
 import { useCompanies } from '@/hooks/useCompanies';
+import { useEquipeInterna } from '@/hooks/useEquipeInterna';
+import { CATEGORIAS } from '@/lib/categoriasDeChamado';
 import {
   FILTROS_VAZIOS,
   contarFiltrosAtivos,
   intervaloEmISO,
+  STATUS_DO_FILTRO,
   type FiltrosDeChamados,
 } from '@/lib/filtrosDeChamados';
 import { TicketDescriptionPreview } from '@/components/shared/TicketDescriptionPreview';
@@ -70,6 +73,7 @@ export default function TicketHistory() {
   // cliente o seletor prometeria o que a RLS nega — e ele já está preso à
   // própria empresa de qualquer forma.
   const ehEquipeInterna = role === 'admin' || role === 'technician' || role === 'developer';
+  const { data: tecnicos = [] } = useEquipeInterna(ehEquipeInterna);
 
   // Campos de texto esperam a digitação parar; os demais aplicam na hora.
   useEffect(() => {
@@ -99,6 +103,8 @@ export default function TicketHistory() {
     dataFim: intervalo.fim,
     empresaId: ehEquipeInterna ? filtros.empresaId : 'all',
     contato: contatoDebounced,
+    categoria: filtros.categoria,
+    responsavelId: ehEquipeInterna ? filtros.responsavelId : 'all',
     page,
     pageSize: PAGE_SIZE
   });
@@ -122,7 +128,7 @@ export default function TicketHistory() {
         icon={History}
         badge="AUDITORIA & REGISTROS"
         title="Histórico"
-        description="Consulte todos os chamados com filtros por período, empresa, contato, status e prioridade."
+        description="Consulte todos os chamados com filtros por período, empresa, contato, status, prioridade, categoria e responsável."
       />
 
         <Card className="border-border/40 shadow-xl shadow-primary/5 overflow-visible bg-card/50 backdrop-blur-sm">
@@ -170,12 +176,9 @@ export default function TicketHistory() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos os Status</SelectItem>
-                      <SelectItem value="open">Abertos</SelectItem>
-                      <SelectItem value="in-progress">Em Atendimento</SelectItem>
-                      <SelectItem value="awaiting-customer">Aguardando Cliente</SelectItem>
-                      <SelectItem value="resolved">Resolvidos</SelectItem>
-                      <SelectItem value="closed">Fechados</SelectItem>
-                      <SelectItem value="cancelled">Cancelados</SelectItem>
+                      {STATUS_DO_FILTRO.map(s => (
+                        <SelectItem key={s.valor} value={s.valor}>{s.rotulo}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -194,6 +197,41 @@ export default function TicketHistory() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Categoria</label>
+                  <Select value={filtros.categoria} onValueChange={v => atualizarFiltro('categoria', v)}>
+                    <SelectTrigger className="h-10 bg-background border-border/40 rounded-md">
+                      <SelectValue placeholder="Todas as Categorias" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as Categorias</SelectItem>
+                      {Object.entries(CATEGORIAS).map(([valor, { rotulo, icone: Icone }]) => (
+                        <SelectItem key={valor} value={valor}>
+                          <span className="inline-flex items-center gap-2"><Icone className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />{rotulo}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {ehEquipeInterna && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Responsável</label>
+                    <Select value={filtros.responsavelId} onValueChange={v => atualizarFiltro('responsavelId', v)}>
+                      <SelectTrigger className="h-10 bg-background border-border/40 rounded-md">
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="none">Sem responsável</SelectItem>
+                        {tecnicos.map(t => (
+                          <SelectItem key={t.id} value={t.id}>{t.full_name || 'Sem nome'}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">

@@ -22,7 +22,31 @@ export interface FiltrosDeChamados {
   empresaId: string;
   /** E-mail (ou parte) do solicitante. */
   contato: string;
+  /** Chave de CATEGORIAS (src/lib/categoriasDeChamado.ts) ou 'all'. */
+  categoria: string;
+  /** assigned_to_user_id, 'none' (sem responsável) ou 'all'. */
+  responsavelId: string;
 }
+
+/**
+ * Status oferecidos no filtro. Cada opção casa exatamente com um status,
+ * exceto 'ativos', que junta tudo o que ainda está em aberto. Antes
+ * "Em atendimento" trazia também os aguardando e "Resolvidos" trazia fechados
+ * e cancelados, que tinham opção própria logo abaixo.
+ */
+export const STATUS_DO_FILTRO: { valor: string; rotulo: string }[] = [
+  { valor: 'ativos', rotulo: 'Ativos (todos em aberto)' },
+  { valor: 'open', rotulo: 'Aberto' },
+  { valor: 'reopened', rotulo: 'Reaberto' },
+  { valor: 'in-progress', rotulo: 'Em atendimento' },
+  { valor: 'awaiting-customer', rotulo: 'Aguardando cliente' },
+  { valor: 'awaiting-third-party', rotulo: 'Aguardando terceiro' },
+  { valor: 'resolved', rotulo: 'Resolvido' },
+  { valor: 'closed', rotulo: 'Concluído' },
+  { valor: 'cancelled', rotulo: 'Cancelado' },
+];
+
+export const STATUS_ATIVOS = ['open', 'reopened', 'in-progress', 'awaiting-customer', 'awaiting-third-party'];
 
 export const FILTROS_VAZIOS: FiltrosDeChamados = {
   status: 'all',
@@ -32,6 +56,8 @@ export const FILTROS_VAZIOS: FiltrosDeChamados = {
   dataFim: '',
   empresaId: 'all',
   contato: '',
+  categoria: 'all',
+  responsavelId: 'all',
 };
 
 /** Um filtro está ativo quando difere do estado neutro. */
@@ -44,6 +70,8 @@ export function contarFiltrosAtivos(filtros: FiltrosDeChamados): number {
   if (filtros.dataFim !== '') ativos++;
   if (filtros.empresaId !== 'all') ativos++;
   if (filtros.contato.trim() !== '') ativos++;
+  if (filtros.categoria !== 'all') ativos++;
+  if (filtros.responsavelId !== 'all') ativos++;
   return ativos;
 }
 

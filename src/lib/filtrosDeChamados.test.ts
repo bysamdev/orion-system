@@ -4,7 +4,10 @@ import {
   contarFiltrosAtivos,
   temFiltroAtivo,
   intervaloEmISO,
+  STATUS_DO_FILTRO,
+  STATUS_ATIVOS,
 } from './filtrosDeChamados';
+import { CATEGORIAS } from './categoriasDeChamado';
 
 describe('contarFiltrosAtivos', () => {
   it('não conta nada no estado neutro', () => {
@@ -24,6 +27,11 @@ describe('contarFiltrosAtivos', () => {
         contato: 'ana@',
       })
     ).toBe(4);
+  });
+
+  it('conta categoria e responsável, inclusive "sem responsável"', () => {
+    expect(contarFiltrosAtivos({ ...FILTROS_VAZIOS, categoria: 'rede' })).toBe(1);
+    expect(contarFiltrosAtivos({ ...FILTROS_VAZIOS, responsavelId: 'none' })).toBe(1);
   });
 
   it('ignora busca e contato que são só espaço em branco', () => {
@@ -68,5 +76,20 @@ describe('intervaloEmISO', () => {
     expect(new Date(inicio!).getHours()).toBe(0);
     expect(new Date(fim!).getHours()).toBe(23);
     expect(new Date(fim!).getTime()).toBeGreaterThan(new Date(inicio!).getTime());
+  });
+});
+
+describe('opções do filtro', () => {
+  it('cada status do banco tem sua própria opção', () => {
+    const valores = STATUS_DO_FILTRO.map(s => s.valor);
+    for (const status of [...STATUS_ATIVOS, 'resolved', 'closed', 'cancelled']) {
+      expect(valores).toContain(status);
+    }
+  });
+
+  it('as categorias são as da constraint tickets_category_valid', () => {
+    expect(Object.keys(CATEGORIAS).sort()).toEqual(
+      ['criacao_usuario', 'email', 'erp', 'hardware', 'impressora', 'infraestrutura', 'outros', 'rede', 'software']
+    );
   });
 });
