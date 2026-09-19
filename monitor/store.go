@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -128,6 +129,85 @@ FROM maquina_estado`)
 			return nil, err
 		}
 		a.CPUUsage = float64(cpu)
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// Estados devolve o estado atual das máquinas pedidas, com o security_info
+// do inventário (a listagem usa para o selo "Sem antivírus"). Máquina sem
+// dado no monitor simplesmente não aparece na resposta.
+func (s *PgStore) Estados(ctx context.Context, ids []string) ([]Estado, error) {
+	rows, err := s.pool.Query(ctx, `
+SELECT e.machine_id::text, coalesce(e.cpu_pct,0), coalesce(e.ram_used,0), coalesce(e.ram_total,0),
+       coalesce(e.disk_used,0), coalesce(e.disk_total,0), coalesce(e.uptime_s,0), coalesce(e.agent_version,''),
+       e.visto_em, h.security_info
+FROM maquina_estado e
+LEFT JOIN maquina_hardware h ON h.machine_id = e.machine_id
+WHERE e.machine_id = ANY($1::uuid[])`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Estado
+	for rows.Next() {
+		var e Estado
+		var cpu float32
+		var sec []byte
+		if err := rows.Scan(&e.MachineID, &cpu, &e.RAMUsed, &e.RAMTotal, &e.DiskUsed, &e.DiskTotal,
+			&e.Uptime, &e.AgentVersion, &e.VistoEm, &sec); err != nil {
+			return nil, err
+		}
+		e.CPUUsage = float64(cpu)
+		if len(sec) > 0 {
+			e.SecurityInfo = sec
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+func (s *PgStore) Hardware(ctx context.Context, id string) (*Hardware, error) {
+	var h Hardware
+	var disks, ifaces, sec, remoto, bateria, updates []byte
+	err := s.pool.QueryRow(ctx, `
+SELECT machine_id::text, coalesce(cpu_model,''), coalesce(gpu,''), disks, interfaces, security_info,
+       remote_software, battery_info, update_status, atualizado_em
+FROM maquina_hardware WHERE machine_id = $1`, id).Scan(
+		&h.MachineID, &h.CPUModel, &h.GPU, &disks, &ifaces, &sec, &remoto, &bateria, &updates, &h.AtualizadoEm)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNaoEncontrado
+	}
+	if err != nil {
+		return nil, err
+	}
+	h.Disks, h.Interfaces, h.SecurityInfo = jsonOuVazio(disks, "[]"), jsonOuVazio(ifaces, "[]"), jsonOuVazio(sec, "null")
+	h.RemoteSoftware, h.BatteryInfo, h.UpdateStatus = jsonOuVazio(remoto, "null"), jsonOuVazio(bateria, "null"), jsonOuVazio(updates, "null")
+	return &h, nil
+}
+
+func jsonOuVazio(b []byte, padrao string) json.RawMessage {
+	if len(b) == 0 {
+		return json.RawMessage(padrao)
+	}
+	return b
+}
+
+func (s *PgStore) Alertas(ctx context.Context, id string) ([]AlertaAberto, error) {
+	rows, err := s.pool.Query(ctx, `
+SELECT id, machine_id::text, tipo, severidade, mensagem, aberto_em
+FROM maquina_alerta WHERE machine_id = $1 AND resolvido_em IS NULL
+ORDER BY aberto_em DESC`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AlertaAberto
+	for rows.Next() {
+		var a AlertaAberto
+		if err := rows.Scan(&a.ID, &a.MachineID, &a.Tipo, &a.Severidade, &a.Mensagem, &a.AbertoEm); err != nil {
+			return nil, err
+		}
 		out = append(out, a)
 	}
 	return out, rows.Err()

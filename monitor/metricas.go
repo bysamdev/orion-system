@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Metricas guarda a última amostra de cada máquina em memória e a expõe no
@@ -74,8 +75,14 @@ var series = []serie{
 	}},
 }
 
+// validadeDaAmostra: depois disso a máquina sai do /metrics. Sem esse corte,
+// uma máquina desligada continuaria publicada com o último valor, e o
+// Prometheus gravaria uma linha reta no gráfico como se ela ainda estivesse
+// medindo. 15 minutos são três heartbeats de estação de trabalho perdidos.
+const validadeDaAmostra = 15 * time.Minute
+
 // Escrever produz o texto do /metrics.
-func (m *Metricas) Escrever(w io.Writer) {
+func (m *Metricas) Escrever(w io.Writer, agora time.Time) {
 	m.mu.RLock()
 	ids := make([]string, 0, len(m.amostras))
 	for id := range m.amostras {
@@ -86,6 +93,13 @@ func (m *Metricas) Escrever(w io.Writer) {
 	for i, id := range ids {
 		amostras[i] = m.amostras[id]
 	}
+	vigentes := amostras[:0]
+	for _, a := range amostras {
+		if agora.Sub(a.RecebidaEm) <= validadeDaAmostra {
+			vigentes = append(vigentes, a)
+		}
+	}
+	amostras = vigentes
 	recebidas, rejeitadas, errosBanco := m.recebidas, m.rejeitadas, m.errosBanco
 	m.mu.RUnlock()
 

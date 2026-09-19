@@ -6,6 +6,7 @@
 //	MONITOR_INGEST_SECRET   segredo compartilhado com a API do Orion (obrigatória)
 //	PORT                    porta pública: ingest e saúde (padrão 9300)
 //	METRICS_PORT            porta interna: /metrics para o Prometheus (padrão 9301)
+//	PROMETHEUS_URL          Prometheus para o histórico (padrão http://prometheus:9090)
 package main
 
 import (
@@ -52,6 +53,8 @@ func main() {
 
 	srv := &monitor.Servidor{
 		Store:         store,
+		Leitor:        store,
+		Historiador:   &monitor.Prometheus{URL: envOu("PROMETHEUS_URL", "http://prometheus:9090"), Cliente: &http.Client{Timeout: 6 * time.Second}},
 		Metricas:      monitor.NovasMetricas(),
 		SegredoIngest: segredo,
 	}

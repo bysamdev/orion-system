@@ -18,16 +18,21 @@ const tamanhoMaximoAmostra = 512 << 10
 // Servidor são as rotas HTTP do Monitor.
 type Servidor struct {
 	Store         Store
+	Leitor        Leitor
+	Historiador   Historiador
 	Metricas      *Metricas
 	SegredoIngest string
 }
 
-// RotasPublicas é o que fica exposto pelo Cloudflare Tunnel: só a entrada
-// das amostras (com segredo) e a saúde.
+// RotasPublicas é o que fica exposto pelo Cloudflare Tunnel: a entrada das
+// amostras e a leitura para a API do Orion, ambas com segredo, e a saúde.
 func (s *Servidor) RotasPublicas() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/ingest/heartbeat", s.ingerir)
 	mux.HandleFunc("GET /healthz", s.saude)
+	if s.Leitor != nil {
+		s.rotasDeLeitura(mux)
+	}
 	return mux
 }
 
@@ -97,7 +102,7 @@ func (s *Servidor) ingerir(w http.ResponseWriter, r *http.Request) {
 
 func (s *Servidor) metricas(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-	s.Metricas.Escrever(w)
+	s.Metricas.Escrever(w, time.Now())
 }
 
 func (s *Servidor) saude(w http.ResponseWriter, r *http.Request) {

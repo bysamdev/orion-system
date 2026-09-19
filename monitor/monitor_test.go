@@ -149,7 +149,7 @@ func TestMetricas_ExpoeUltimaAmostraEIgnoraAtrasada(t *testing.T) {
 	m.Registrar(velha)
 
 	var sb strings.Builder
-	m.Escrever(&sb)
+	m.Escrever(&sb, instante)
 	saida := sb.String()
 	for _, esperado := range []string{
 		`orion_machine_cpu_percent{machine_id="11111111-1111-1111-1111-111111111111",company_id="22222222-2222-2222-2222-222222222222",hostname="SAM-DESKTOP",device_type="desktop"} 12`,
@@ -169,7 +169,7 @@ func TestMetricas_SemTotalNaoPublicaPercentual(t *testing.T) {
 	a.RAMTotal = 0
 	m.Registrar(a)
 	var sb strings.Builder
-	m.Escrever(&sb)
+	m.Escrever(&sb, instante)
 	if strings.Contains(sb.String(), "orion_machine_memory_percent{") {
 		t.Error("percentual de memória publicado sem total — apareceria como 0%")
 	}
@@ -181,7 +181,7 @@ func TestMetricas_EscapaLabels(t *testing.T) {
 	a.Hostname = `PC "1"\n`
 	m.Registrar(a)
 	var sb strings.Builder
-	m.Escrever(&sb)
+	m.Escrever(&sb, instante)
 	if !strings.Contains(sb.String(), `hostname="PC \"1\"\\n"`) {
 		t.Errorf("hostname não escapado:\n%s", sb.String())
 	}
@@ -198,5 +198,18 @@ func TestRotasPublicas_NaoExpoemMetricas(t *testing.T) {
 	srv.RotasInternas().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
 	if rec.Code != http.StatusOK {
 		t.Errorf("/metrics na porta interna respondeu %d, esperado 200", rec.Code)
+	}
+}
+
+func TestMetricas_AmostraVelhaSaiDoMetrics(t *testing.T) {
+	m := NovasMetricas()
+	m.Registrar(amostraValida())
+	var sb strings.Builder
+	m.Escrever(&sb, instante.Add(16*time.Minute))
+	if strings.Contains(sb.String(), "orion_machine_cpu_percent{") {
+		t.Error("máquina sem heartbeat há 16 min continua publicada — viraria linha reta no gráfico")
+	}
+	if !strings.Contains(sb.String(), "orion_monitor_machines 0") {
+		t.Error("contagem de máquinas vigentes errada")
 	}
 }
