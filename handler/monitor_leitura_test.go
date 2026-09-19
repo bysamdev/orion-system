@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"orion-api/lib"
+	"orion-api/monitor"
 )
 
 func maquinaDoSupabase(id string, cpu float64, visto time.Time) lib.MachineWithMetric {
@@ -83,25 +84,22 @@ func TestSobreporEstado_SemConfiguracaoNemChama(t *testing.T) {
 	}
 }
 
-func TestHistoricoCobreJanela(t *testing.T) {
+func TestStatusDoEstado(t *testing.T) {
 	agora := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
-	serie := func(maisAntigo time.Time) []lib.MetricRow {
-		return []lib.MetricRow{{CollectedAt: agora}, {CollectedAt: maisAntigo}}
-	}
 	casos := []struct {
-		nome   string
-		pontos []lib.MetricRow
-		janela time.Duration
-		cobre  bool
+		nome     string
+		e        monitor.Estado
+		esperado string
 	}{
-		{"vazia", nil, time.Hour, false},
-		{"cobre 1h", serie(agora.Add(-59 * time.Minute)), time.Hour, true},
-		{"falta pouco, dentro da tolerância", serie(agora.Add(-45 * time.Minute)), time.Hour, true},
-		{"só 3h numa janela de 24h", serie(agora.Add(-3 * time.Hour)), 24 * time.Hour, false},
+		{"estação vista há 5 min", monitor.Estado{DeviceType: "desktop", VistoEm: agora.Add(-5 * time.Minute)}, "online"},
+		{"estação calada há 13 min", monitor.Estado{DeviceType: "desktop", VistoEm: agora.Add(-13 * time.Minute)}, "offline"},
+		{"servidor calado há 4 min", monitor.Estado{DeviceType: "server", VistoEm: agora.Add(-4 * time.Minute)}, "offline"},
+		{"online com alerta aberto", monitor.Estado{DeviceType: "desktop", VistoEm: agora, AlertasAbertos: 1}, "alerta"},
+		{"offline com alerta aberto continua offline", monitor.Estado{DeviceType: "desktop", VistoEm: agora.Add(-time.Hour), AlertasAbertos: 2}, "offline"},
 	}
 	for _, c := range casos {
-		if got := historicoCobreJanela(c.pontos, c.janela, agora); got != c.cobre {
-			t.Errorf("%s: %v, esperado %v", c.nome, got, c.cobre)
+		if got := statusDoEstado(c.e, agora); got != c.esperado {
+			t.Errorf("%s: %q, esperado %q", c.nome, got, c.esperado)
 		}
 	}
 }

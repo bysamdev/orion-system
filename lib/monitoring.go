@@ -155,17 +155,24 @@ type CriticalAlertItem struct {
 // companyID nil = sem filtro (empresa master / developer). Caso contrário só os
 // grupos daquela empresa, e a contagem de máquinas também é restrita a ela —
 // senão os totais entregariam o tamanho do parque das outras empresas.
-func (d *DB) ListMachineGroups(ctx context.Context, companyID *string) ([]MachineGroupRow, error) {
+//
+// onlineIDs, quando não é nil, são as máquinas que o Orion Monitor diz estarem
+// online (fase 3 da separação do monitoramento): o Supabase só guarda presença
+// grossa e não sabe mais quem está online agora. nil cai no critério antigo.
+func (d *DB) ListMachineGroups(ctx context.Context, companyID *string, onlineIDs []string) ([]MachineGroupRow, error) {
 	rows, err := d.pool.Query(ctx, `
 SELECT MAX(mg.id::text) AS id, mg.name, MAX(mg.description), MAX(mg.client_contact), MIN(mg.created_at),
        COUNT(m.id)                                              AS total_machines,
-       COUNT(m.id) FILTER (WHERE m.status = 'online' OR m.status = 'alerta' OR (m.last_seen > NOW() - public.silencio_tolerado(m.device_type))) AS online_machines
+       COUNT(m.id) FILTER (WHERE CASE
+         WHEN $2::uuid[] IS NOT NULL THEN m.id = ANY($2::uuid[])
+         ELSE m.status = 'online' OR m.status = 'alerta' OR (m.last_seen > NOW() - public.silencio_tolerado(m.device_type))
+       END) AS online_machines
 FROM public.machine_groups mg
 LEFT JOIN public.machines m
        ON m.group_id = mg.id
       AND ($1::uuid IS NULL OR m.company_id = $1::uuid)
 WHERE $1::uuid IS NULL OR mg.company_id = $1::uuid
-GROUP BY mg.name ORDER BY mg.name`, companyID)
+GROUP BY mg.name ORDER BY mg.name`, companyID, onlineIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -523,6 +530,12 @@ WHERE id = $1 AND ($2::uuid IS NULL OR company_id = $2::uuid)`,
 // device_type_locked) e o approval_status atual.
 // UpsertMachineInput é o que o heartbeat grava em public.machines.
 type UpsertMachineInput struct {
+	// PresencaGrossa: com o Orion Monitor como dono da presença fina, o
+	// cadastro só é regravado quando algo dele muda, quando last_seen passou
+	// de 30 minutos ou quando a máquina estava offline. Sem isso, cada
+	// heartbeat regravava a linha inteira só para mudar last_seen.
+	PresencaGrossa bool
+
 	GroupID, Hostname, IP, OS, OSVersion, AgentVersion string
 	MachineToken, MachineUUID                          string
 	// HardwareUUID e BoardMAC identificam o computador físico e sobrevivem à
@@ -596,9 +609,34 @@ ON CONFLICT (machine_token) DO UPDATE
       domain = CASE WHEN machines.approval_status = 'rejected' THEN machines.domain ELSE $14 END,
       hardware_uuid = COALESCE(EXCLUDED.hardware_uuid, machines.hardware_uuid),
       board_mac = COALESCE(EXCLUDED.board_mac, machines.board_mac)
+  WHERE NOT $18::boolean
+     OR machines.last_seen IS NULL
+     OR machines.last_seen < now() - interval '30 minutes'
+     OR machines.status = 'offline'
+     OR machines.company_id IS NULL
+     OR (machines.group_id, machines.hostname, machines.ip_address, machines.os, machines.os_version,
+         machines.agent_version, machines."current_user", machines.current_user_sid, machines.mac_address, machines.domain)
+        IS DISTINCT FROM (EXCLUDED.group_id, EXCLUDED.hostname, EXCLUDED.ip_address, EXCLUDED.os, EXCLUDED.os_version,
+         EXCLUDED.agent_version, EXCLUDED."current_user", EXCLUDED.current_user_sid, EXCLUDED.mac_address, EXCLUDED.domain)
+     OR (NOT machines.device_type_locked
+         AND (machines.device_type, machines.device_type_reason) IS DISTINCT FROM (EXCLUDED.device_type, EXCLUDED.device_type_reason))
+     OR (EXCLUDED.hardware_uuid IS NOT NULL AND machines.hardware_uuid IS DISTINCT FROM EXCLUDED.hardware_uuid)
+     OR (EXCLUDED.board_mac IS NOT NULL AND machines.board_mac IS DISTINCT FROM EXCLUDED.board_mac)
 RETURNING id::text, (SELECT device_type FROM machine_antes), device_type, approval_status::text`,
-		in.GroupID, cleanHostname, in.IP, in.OS, in.OSVersion, in.AgentVersion, in.MachineToken, NilIfEmpty(in.MachineUUID), in.CurrentUser, NilIfEmpty(in.CurrentUserSID), NilIfEmpty(in.CompanyID), NilIfEmpty(in.MACAddress), deviceType, NilIfEmpty(in.Domain), NilIfEmpty(in.DeviceTypeReason), NilIfEmpty(chaves.hardwareUUID), NilIfEmpty(chaves.boardMAC),
+		in.GroupID, cleanHostname, in.IP, in.OS, in.OSVersion, in.AgentVersion, in.MachineToken, NilIfEmpty(in.MachineUUID), in.CurrentUser, NilIfEmpty(in.CurrentUserSID), NilIfEmpty(in.CompanyID), NilIfEmpty(in.MACAddress), deviceType, NilIfEmpty(in.Domain), NilIfEmpty(in.DeviceTypeReason), NilIfEmpty(chaves.hardwareUUID), NilIfEmpty(chaves.boardMAC), in.PresencaGrossa,
 	).Scan(&res.ID, &deviceTypeAntes, &res.DeviceType, &res.ApprovalStatus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// O WHERE do DO UPDATE barrou a escrita: nada mudou no cadastro. A
+		// linha existe; só não foi tocada. Lê o que o resto do heartbeat
+		// precisa, sem gravar nada.
+		err = tx.QueryRow(ctx, `
+SELECT id::text, device_type, approval_status::text FROM public.machines WHERE machine_token = $1`,
+			in.MachineToken).Scan(&res.ID, &res.DeviceType, &res.ApprovalStatus)
+		if err != nil {
+			return res, err
+		}
+		return res, tx.Commit(ctx)
+	}
 	if err != nil {
 		return res, err
 	}

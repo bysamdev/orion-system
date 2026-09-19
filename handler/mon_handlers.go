@@ -111,6 +111,11 @@ func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar dashboard"})
 		return
 	}
+	// Online/offline pelo Orion Monitor (fase 3): o Supabase só guarda
+	// presença grossa. Os alertas ativos continuam vindo de lá.
+	if online, total, fonte := contarOnlinePeloMonitor(ctx, escopo.FiltroEmpresa()); fonte == "monitor" {
+		s.Online, s.Offline, s.Total = online, total-online, total
+	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{
 		"total": s.Total, "online": s.Online, "offline": s.Offline, "active_alerts": s.ActiveAlerts,
 		// Exposto pro front-end decidir quais máquinas estão desatualizadas
@@ -138,7 +143,7 @@ func monitoringListGroups(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não foi possível resolver sua empresa"})
 		return
 	}
-	groups, err := db.ListMachineGroups(ctx, escopo.FiltroEmpresa())
+	groups, err := db.ListMachineGroups(ctx, escopo.FiltroEmpresa(), idsOnlinePeloMonitor(ctx, escopo.FiltroEmpresa()))
 	if err != nil {
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar grupos"})
 		return
@@ -441,11 +446,10 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 	// O Prometheus segue valendo pros alertas do que ele consegue scrapear.
 	janela, passo := lib.JanelaHistorico(period)
 
-	// Fase 2 da separação do monitoramento: o histórico vem do Prometheus,
-	// pelo Orion Monitor — mas só quando a série dele cobre a janela pedida.
-	// O Prometheus só tem dado desde que o Monitor entrou no ar; usar a série
-	// dele antes disso cortaria o gráfico de 24h ou 7 dias pela metade.
-	if pontos, err := historicoDoMonitor(ctx, id, janela, passo); err == nil && historicoCobreJanela(pontos, janela, time.Now()) {
+	// O histórico vem do Prometheus, pelo Orion Monitor. Desde a fase 3 o
+	// Supabase não recebe mais a série, então o Monitor vale sempre que tiver
+	// pontos; o Supabase fica só para quando ele não responde.
+	if pontos, err := historicoDoMonitor(ctx, id, janela, passo); err == nil && len(pontos) > 0 {
 		marcarFonte(w, "monitor")
 		lib.WriteJSON(w, http.StatusOK, pontos)
 		return
@@ -664,7 +668,10 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gravada, err := db.UpsertMachine(ctx, lib.UpsertMachineInput{
-		GroupID: groupID, Hostname: req.Hostname, IP: req.IP, OS: req.OS, OSVersion: req.OSVersion,
+		// Com o Monitor como dono da presença fina, o cadastro no Supabase só
+		// renova last_seen de 30 em 30 minutos (presença grossa).
+		PresencaGrossa: monitorConfigurado(),
+		GroupID:        groupID, Hostname: req.Hostname, IP: req.IP, OS: req.OS, OSVersion: req.OSVersion,
 		AgentVersion: req.AgentVersion, MachineToken: req.MachineToken, MachineUUID: req.MachineUUID,
 		HardwareUUID: req.HardwareUUID, BoardMAC: req.BoardMAC,
 		CurrentUser: req.CurrentUser, CurrentUserSID: req.CurrentUserSID, CompanyID: targetCompanyID,
@@ -704,17 +711,23 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		RAMTotal: req.RAMTotal, RAMUsed: req.RAMUsed,
 		DiskTotal: req.DiskTotal, DiskUsed: req.DiskUsed, Uptime: req.Uptime,
 	}
-	if err := db.UpdateMachineSnapshot(ctx, amostra); err != nil {
-		fmt.Println("Erro UpdateMachineSnapshot:", err)
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar métricas: %v", err)})
-		return
-	}
-
-	// Série histórica do gráfico de performance. Best-effort de propósito: o
-	// ponto de um heartbeat perdido não vale derrubar o heartbeat inteiro,
-	// que é também o que mantém a máquina online e carrega o inventário.
-	if err := db.AppendMetricPoint(ctx, amostra, deviceTypeGravado); err != nil {
-		log.Printf("[AVISO] gravar ponto histórico da máquina %s: %v", machineID, err)
+	// Fase 3 da separação do monitoramento: com o Orion Monitor configurado,
+	// o snapshot de CPU/RAM/disco e a série do gráfico moram só lá (ver
+	// encaminharAoMonitor no fim deste handler). Eram a telemetria de alta
+	// frequência que o Supabase recebia a cada heartbeat. Sem o Monitor
+	// configurado — ambiente local, ou rollback tirando a variável na
+	// Vercel —, o caminho antigo segue valendo.
+	telemetriaNoSupabase := !monitorConfigurado()
+	if telemetriaNoSupabase {
+		if err := db.UpdateMachineSnapshot(ctx, amostra); err != nil {
+			fmt.Println("Erro UpdateMachineSnapshot:", err)
+			lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar métricas: %v", err)})
+			return
+		}
+		// Série histórica do gráfico de performance. Best-effort de propósito.
+		if err := db.AppendMetricPoint(ctx, amostra, deviceTypeGravado); err != nil {
+			log.Printf("[AVISO] gravar ponto histórico da máquina %s: %v", machineID, err)
+		}
 	}
 
 	disksJSON := req.Disks
@@ -863,14 +876,17 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verifica se ainda existem alertas não resolvidos para esta máquina
-	if hasActive, err := db.HasUnresolvedAlerts(ctx, machineID); err == nil {
-		hasAlert = hasAlert || hasActive
-	}
-
-	if hasAlert {
-		_ = db.UpdateMachineStatus(ctx, machineID, "alerta")
-	} else {
-		_ = db.UpdateMachineStatus(ctx, machineID, "online")
+	// O status fino (online/alerta) também passa a ser calculado a partir do
+	// Monitor (statusDoEstado). Só o caminho antigo ainda o grava aqui.
+	if telemetriaNoSupabase {
+		if hasActive, err := db.HasUnresolvedAlerts(ctx, machineID); err == nil {
+			hasAlert = hasAlert || hasActive
+		}
+		if hasAlert {
+			_ = db.UpdateMachineStatus(ctx, machineID, "alerta")
+		} else {
+			_ = db.UpdateMachineStatus(ctx, machineID, "online")
+		}
 	}
 
 	// Auto-atualização: a máquina reportou uma versão de agente diferente

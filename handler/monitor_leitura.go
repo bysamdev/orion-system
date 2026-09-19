@@ -109,7 +109,31 @@ func sobreporEstadoDoMonitor(ctx context.Context, maquinas []lib.MachineWithMetr
 	return "monitor"
 }
 
+// silencioTolerado é quanto uma máquina pode ficar sem heartbeat antes de
+// contar como offline: três ciclos perdidos. Mesmos valores que a função
+// public.silencio_tolerado tinha no Supabase antes da fase 3.
+func silencioTolerado(deviceType string) time.Duration {
+	if deviceType == "server" {
+		return 3 * time.Minute
+	}
+	return 12 * time.Minute
+}
+
+// statusDoEstado é o status fino da máquina, calculado a partir do Monitor.
+// Desde a fase 3 o Supabase só guarda presença grossa (last_seen renovado a
+// cada 30 min), então o status que o painel mostra nasce aqui.
+func statusDoEstado(e monitor.Estado, agora time.Time) string {
+	if agora.Sub(e.VistoEm) > silencioTolerado(e.DeviceType) {
+		return "offline"
+	}
+	if e.AlertasAbertos > 0 {
+		return "alerta"
+	}
+	return "online"
+}
+
 func aplicarEstado(m *lib.MachineWithMetric, e monitor.Estado) {
+	m.Status = statusDoEstado(e, time.Now())
 	cpu, ramT, ramU, diskT, diskU, up := e.CPUUsage, e.RAMTotal, e.RAMUsed, e.DiskTotal, e.DiskUsed, e.Uptime
 	visto := e.VistoEm
 	m.CPUUsage, m.RAMTotal, m.RAMUsed, m.DiskTotal, m.DiskUsed, m.Uptime = &cpu, &ramT, &ramU, &diskT, &diskU, &up
@@ -182,14 +206,48 @@ func historicoDoMonitor(ctx context.Context, id string, janela, passo time.Durat
 	return out, nil
 }
 
-// historicoCobreJanela diz se o ponto mais antigo da série alcança o começo da
-// janela, com tolerância de 20 minutos — o intervalo em que uma estação de
-// trabalho pode ficar sem ponto (heartbeat de 5 min, mais atraso de coleta).
-// Os pontos chegam do mais recente para o mais antigo.
-func historicoCobreJanela(pontos []lib.MetricRow, janela time.Duration, agora time.Time) bool {
-	if len(pontos) == 0 {
-		return false
+// maquinasComEstado lista as máquinas aprovadas do escopo já com o estado do
+// Monitor aplicado. fonte diz se o Monitor respondeu.
+func maquinasComEstado(ctx context.Context, companyID *string) ([]lib.MachineWithMetric, string) {
+	if !monitorConfigurado() {
+		return nil, "supabase"
 	}
-	maisAntigo := pontos[len(pontos)-1].CollectedAt
-	return !maisAntigo.After(agora.Add(-janela).Add(20 * time.Minute))
+	maquinas, err := db.AllMachines(ctx, companyID)
+	if err != nil {
+		return nil, "supabase"
+	}
+	return maquinas, sobreporEstadoDoMonitor(ctx, maquinas)
+}
+
+func estaOnline(status string) bool { return status == "online" || status == "alerta" }
+
+// contarOnlinePeloMonitor devolve quantas máquinas do escopo estão online
+// segundo o Monitor, e o total.
+func contarOnlinePeloMonitor(ctx context.Context, companyID *string) (online, total int, fonte string) {
+	maquinas, fonte := maquinasComEstado(ctx, companyID)
+	if fonte != "monitor" {
+		return 0, 0, fonte
+	}
+	for _, m := range maquinas {
+		if estaOnline(m.Status) {
+			online++
+		}
+	}
+	return online, len(maquinas), fonte
+}
+
+// idsOnlinePeloMonitor devolve os ids online, ou nil quando o Monitor não
+// respondeu (o chamador cai no critério antigo do Supabase).
+func idsOnlinePeloMonitor(ctx context.Context, companyID *string) []string {
+	maquinas, fonte := maquinasComEstado(ctx, companyID)
+	if fonte != "monitor" {
+		return nil
+	}
+	ids := []string{}
+	for _, m := range maquinas {
+		if estaOnline(m.Status) {
+			ids = append(ids, m.ID)
+		}
+	}
+	return ids
 }
