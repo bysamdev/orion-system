@@ -1,8 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Ticket } from '@/hooks/useTickets';
+import { criarFiltro } from './filtroDoPainel';
 
 // Estado dos filtros do painel do técnico e as três listas já filtradas
 // (fila de espera, meus chamados e todos os chamados).
+//
+// Uma regra só vale para todas as listas: o que o técnico escolhe no filtro
+// some ou aparece igual na Lista, em todas as colunas do Quadro e nos
+// fechados. Prazo e categoria usam o mesmo cálculo que os cartões mostram
+// (urgenciaDe, identidade.ts), não o sla_status gravado, que o cron só
+// atualiza a cada 15 minutos.
 export function useFiltrosDoPainel(unassigned: Ticket[], myTickets: Ticket[], allActiveTickets: Ticket[]) {
   const [searchTerm, setSearchTerm] = useState('');
   const [kpiFilter, setKpiFilter] = useState<string | null>(null);
@@ -13,87 +20,27 @@ export function useFiltrosDoPainel(unassigned: Ticket[], myTickets: Ticket[], al
   const [companyFilter, setCompanyFilter] = useState<string>('all');
   const [slaFilter, setSlaFilter] = useState<string>('all');
 
-  const filteredUnassignedTickets = useMemo(() => {
-    let result = [...unassigned];
-    if (kpiFilter === 'sla') result = result.filter(t => t.sla_status === 'attention' || t.sla_status === 'breached');
+  const passa = useMemo(() => criarFiltro({
+    busca: searchTerm, indicador: kpiFilter, prioridade: priorityFilter, categoria: categoryFilter,
+    status: statusFilter, tecnico: technicianFilter, empresa: companyFilter, prazo: slaFilter,
+  }), [searchTerm, kpiFilter, priorityFilter, categoryFilter, statusFilter, technicianFilter, companyFilter, slaFilter]);
 
-    if (priorityFilter !== 'all') result = result.filter(t => t.priority === priorityFilter);
-    if (categoryFilter !== 'all') result = result.filter(t => t.category === categoryFilter);
-    if (companyFilter !== 'all') result = result.filter(t => t.company_name?.toLowerCase().includes(companyFilter.toLowerCase()));
-    if (slaFilter !== 'all') result = result.filter(t => t.sla_status === slaFilter);
-
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      result = result.filter(t =>
-        t.title.toLowerCase().includes(lower) ||
-        t.ticket_number.toString().includes(lower) ||
-        t.requester_name.toLowerCase().includes(lower) ||
-        t.company_name?.toLowerCase().includes(lower)
-      );
-    }
-    return result;
-  }, [unassigned, searchTerm, kpiFilter, priorityFilter, categoryFilter, companyFilter, slaFilter]);
-
-  const filteredMyTickets = useMemo(() => {
-    let result = [...myTickets];
-    if (kpiFilter === 'in-progress') result = result.filter(t => t.status === 'in-progress');
-    else if (kpiFilter === 'sla') result = result.filter(t => t.sla_status === 'attention' || t.sla_status === 'breached');
-    else if (kpiFilter === 'pending') result = result.filter(t => ['open', 'reopened', 'awaiting-customer'].includes(t.status));
-
-    if (priorityFilter !== 'all') result = result.filter(t => t.priority === priorityFilter);
-    if (categoryFilter !== 'all') result = result.filter(t => t.category === categoryFilter);
-    if (statusFilter !== 'all') result = result.filter(t => t.status === statusFilter);
-    if (technicianFilter !== 'all') result = result.filter(t => t.assigned_to === technicianFilter);
-    if (companyFilter !== 'all') result = result.filter(t => t.company_name?.toLowerCase().includes(companyFilter.toLowerCase()));
-    if (slaFilter !== 'all') result = result.filter(t => t.sla_status === slaFilter);
-
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      result = result.filter(t =>
-        t.title.toLowerCase().includes(lower) ||
-        t.ticket_number.toString().includes(lower) ||
-        t.requester_name.toLowerCase().includes(lower) ||
-        t.company_name?.toLowerCase().includes(lower)
-      );
-    }
-    return result;
-  }, [myTickets, searchTerm, kpiFilter, priorityFilter, categoryFilter, statusFilter, technicianFilter, companyFilter, slaFilter]);
-
-  const filteredAllTickets = useMemo(() => {
-    let result = [...allActiveTickets];
-    if (kpiFilter === 'in-progress') result = result.filter(t => t.status === 'in-progress');
-    else if (kpiFilter === 'sla') result = result.filter(t => t.sla_status === 'attention' || t.sla_status === 'breached');
-    else if (kpiFilter === 'pending') result = result.filter(t => ['open', 'reopened', 'awaiting-customer'].includes(t.status));
-
-    if (priorityFilter !== 'all') result = result.filter(t => t.priority === priorityFilter);
-    if (categoryFilter !== 'all') result = result.filter(t => t.category === categoryFilter);
-    if (statusFilter !== 'all') result = result.filter(t => t.status === statusFilter);
-    if (technicianFilter !== 'all') result = result.filter(t => t.assigned_to === technicianFilter);
-    if (companyFilter !== 'all') result = result.filter(t => t.company_name?.toLowerCase().includes(companyFilter.toLowerCase()));
-    if (slaFilter !== 'all') result = result.filter(t => t.sla_status === slaFilter);
-
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      result = result.filter(t =>
-        t.title.toLowerCase().includes(lower) ||
-        t.ticket_number.toString().includes(lower) ||
-        t.requester_name.toLowerCase().includes(lower) ||
-        t.company_name?.toLowerCase().includes(lower) ||
-        t.assigned_to?.toLowerCase().includes(lower)
-      );
-    }
-    return result;
-  }, [allActiveTickets, searchTerm, kpiFilter, priorityFilter, categoryFilter, statusFilter, technicianFilter, companyFilter, slaFilter]);
+  const filteredUnassignedTickets = useMemo(() => unassigned.filter(passa), [unassigned, passa]);
+  const filteredMyTickets = useMemo(() => myTickets.filter(passa), [myTickets, passa]);
+  const filteredAllTickets = useMemo(() => allActiveTickets.filter(passa), [allActiveTickets, passa]);
 
   const limparFiltros = () => {
     setPriorityFilter('all');
     setCategoryFilter('all');
     setStatusFilter('all');
+    setTechnicianFilter('all');
     setCompanyFilter('all');
     setSlaFilter('all');
   };
 
-  const temFiltroNaFila = !!searchTerm || priorityFilter !== 'all' || categoryFilter !== 'all' || companyFilter !== 'all' || slaFilter !== 'all';
+  const temFiltro = priorityFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'all'
+    || technicianFilter !== 'all' || companyFilter !== 'all' || slaFilter !== 'all';
+  const temFiltroNaFila = !!searchTerm || !!kpiFilter || temFiltro;
 
   return {
     searchTerm, setSearchTerm,
@@ -105,6 +52,7 @@ export function useFiltrosDoPainel(unassigned: Ticket[], myTickets: Ticket[], al
     companyFilter, setCompanyFilter,
     slaFilter, setSlaFilter,
     limparFiltros,
+    temFiltro,
     temFiltroNaFila,
     filteredUnassignedTickets,
     filteredMyTickets,

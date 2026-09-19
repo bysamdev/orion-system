@@ -14,14 +14,35 @@ export interface ChamadoFechado {
   id: string;
   ticket_number: number;
   title: string;
+  requester_name?: string | null;
+  category?: string | null;
+  priority?: string | null;
+  assigned_to?: string | null;
+}
+
+// Os fechados passam pelos filtros que fazem sentido para eles. Status,
+// prazo, empresa e os cartões de números descrevem chamados abertos: com um
+// deles ligado, nenhum fechado atende, e a coluna fica vazia.
+function filtrarFechados(fechados: ChamadoFechado[], f: FiltrosDoPainel): ChamadoFechado[] {
+  if (f.kpiFilter || f.statusFilter !== 'all' || f.slaFilter !== 'all' || f.companyFilter !== 'all') return [];
+  const busca = f.searchTerm.toLowerCase().replace(/^#/, '');
+  return fechados.filter(t =>
+    (f.priorityFilter === 'all' || t.priority === f.priorityFilter) &&
+    (f.categoryFilter === 'all' || t.category === f.categoryFilter) &&
+    (f.technicianFilter === 'all' || t.assigned_to === f.technicianFilter) &&
+    (!busca ||
+      t.title.toLowerCase().includes(busca) ||
+      t.ticket_number.toString().includes(busca) ||
+      !!t.requester_name?.toLowerCase().includes(busca))
+  );
 }
 
 type Coluna = 'fila' | 'atendimento' | 'aguardando';
 
 const COLUNAS: { id: Coluna; titulo: string; dica: string; ponto: string }[] = [
-  { id: 'fila', titulo: 'Na fila', dica: 'Sem responsável', ponto: 'bg-sky-500' },
-  { id: 'atendimento', titulo: 'Em atendimento', dica: 'Com responsável', ponto: 'bg-cyan-500' },
-  { id: 'aguardando', titulo: 'Aguardando', dica: 'Cliente ou terceiro', ponto: 'bg-violet-500' },
+  { id: 'fila', titulo: 'Na fila', dica: 'sem responsável', ponto: 'bg-sky-500' },
+  { id: 'atendimento', titulo: 'Em atendimento', dica: 'com responsável', ponto: 'bg-cyan-500' },
+  { id: 'aguardando', titulo: 'Aguardando', dica: 'cliente ou terceiro', ponto: 'bg-violet-500' },
 ];
 
 const AGUARDANDO = ['awaiting-customer', 'awaiting-third-party'];
@@ -42,7 +63,9 @@ interface ModoQuadroProps {
 }
 
 // Um quadro por situação do chamado: quem está na fila, quem já tem dono e
-// quem espera resposta de fora. Os fechados há pouco ficam na última coluna.
+// quem espera resposta de fora. Os fechados há pouco ficam na última coluna
+// em telas largas (2xl) e numa faixa abaixo do quadro nas médias, para não
+// roubar largura dos cartões.
 export const ModoQuadro: React.FC<ModoQuadroProps> = ({ filtros, filtrosAbertos, onAlternarFiltros, recentClosed, onAssume }) => {
   const navigate = useNavigate();
 
@@ -58,6 +81,10 @@ export const ModoQuadro: React.FC<ModoQuadroProps> = ({ filtros, filtrosAbertos,
       chamados: todos.filter(t => colunaDe(t) === c.id).sort((a, b) => vencimento(a) - vencimento(b)),
     }));
   }, [filtros.filteredAllTickets, filtros.filteredUnassignedTickets]);
+
+  const fechados = useMemo(() => filtrarFechados(recentClosed, filtros), [recentClosed, filtros]);
+  const quantosFiltros = [filtros.priorityFilter, filtros.statusFilter, filtros.categoryFilter, filtros.slaFilter, filtros.technicianFilter, filtros.companyFilter]
+    .filter(v => v !== 'all').length;
 
   return (
     <div className="space-y-4">
@@ -79,6 +106,9 @@ export const ModoQuadro: React.FC<ModoQuadroProps> = ({ filtros, filtrosAbertos,
           className="h-9 rounded-xl gap-1.5 text-xs font-semibold"
         >
           <Filter className="w-3.5 h-3.5" /> Filtros
+          {quantosFiltros > 0 && (
+            <span className="ml-0.5 min-w-4 h-4 px-1 rounded-full bg-primary-foreground/25 text-[11px] leading-4 tabular-nums">{quantosFiltros}</span>
+          )}
         </Button>
       </div>
 
@@ -86,25 +116,25 @@ export const ModoQuadro: React.FC<ModoQuadroProps> = ({ filtros, filtrosAbertos,
 
       <div
         id="tickets-section"
-        className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scroll-mt-6 lg:grid lg:grid-cols-4 lg:overflow-visible"
+        className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scroll-mt-6 lg:grid lg:grid-cols-3 2xl:grid-cols-[repeat(3,minmax(0,1fr))_220px] lg:overflow-visible items-start"
       >
         {colunas.map(c => (
           <section
             key={c.id}
             aria-label={c.titulo}
-            className="snap-start shrink-0 w-[85vw] sm:w-[340px] lg:w-auto rounded-2xl bg-muted/40 border border-border/50 p-2.5 space-y-2.5 min-w-0"
+            className="snap-start shrink-0 w-[85vw] sm:w-[320px] lg:w-auto rounded-xl bg-muted/40 border border-border/50 p-2 space-y-2 min-w-0"
           >
-            <header className="flex items-center gap-2 px-1.5 pt-1">
-              <span className={cn('w-2 h-2 rounded-full', c.ponto)} />
-              <h3 className="text-sm font-semibold text-foreground">{c.titulo}</h3>
-              <span className="ml-auto text-xs font-semibold tabular-nums text-muted-foreground bg-background/70 rounded-full px-2 py-0.5">
+            <header className="flex items-center gap-2 px-1.5 py-1 min-w-0">
+              <span className={cn('w-2 h-2 rounded-full shrink-0', c.ponto)} aria-hidden />
+              <h3 className="text-sm font-semibold text-foreground whitespace-nowrap">{c.titulo}</h3>
+              <span className="text-xs text-muted-foreground truncate lg:hidden 2xl:inline">{c.dica}</span>
+              <span className="ml-auto text-xs font-semibold tabular-nums text-muted-foreground bg-background/70 rounded-full px-2 py-0.5 shrink-0">
                 {c.chamados.length}
               </span>
             </header>
-            <p className="px-1.5 -mt-1.5 text-xs text-muted-foreground">{c.dica}</p>
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {c.chamados.length === 0 ? (
-                <p className="py-8 text-center text-xs text-muted-foreground">Nada aqui.</p>
+                <p className="py-6 text-center text-xs text-muted-foreground">Nada aqui.</p>
               ) : (
                 c.chamados.map(t => <CartaoDeChamado key={t.id} ticket={t} onAssume={onAssume} variante="cartao" />)
               )}
@@ -115,21 +145,21 @@ export const ModoQuadro: React.FC<ModoQuadroProps> = ({ filtros, filtrosAbertos,
         <section
           id="closed-tickets-section"
           aria-label="Fechados recentemente"
-          className="snap-start shrink-0 w-[85vw] sm:w-[340px] lg:w-auto rounded-2xl border border-dashed border-border/70 p-2.5 space-y-2.5 min-w-0 scroll-mt-6"
+          className="snap-start shrink-0 w-[85vw] sm:w-[320px] lg:w-auto lg:col-span-3 2xl:col-span-1 rounded-xl border border-dashed border-border/70 p-2 space-y-2 min-w-0 scroll-mt-6"
         >
-          <header className="flex items-center gap-2 px-1.5 pt-1">
+          <header className="flex items-center gap-2 px-1.5 py-1">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
             <h3 className="text-sm font-semibold text-foreground">Fechados há pouco</h3>
           </header>
-          <div className="space-y-1.5">
-            {recentClosed.length === 0 ? (
-              <p className="py-8 text-center text-xs text-muted-foreground">Nenhum ainda.</p>
+          <div className="space-y-0.5 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-x-2 2xl:block 2xl:space-y-0.5">
+            {fechados.length === 0 ? (
+              <p className="py-8 text-center text-xs text-muted-foreground">{recentClosed.length === 0 ? 'Nenhum ainda.' : 'Nenhum com esses filtros.'}</p>
             ) : (
-              recentClosed.map(t => (
+              fechados.map(t => (
                 <button
                   key={t.id}
                   onClick={() => navigate(`/ticket/${t.id}`)}
-                  className="w-full text-left rounded-lg px-2.5 py-2 hover:bg-muted/50 transition-colors"
+                  className="w-full text-left rounded-lg px-2 py-1.5 hover:bg-muted/50 transition-colors"
                 >
                   <p className="text-xs font-mono text-muted-foreground">#{t.ticket_number}</p>
                   <p className="text-sm text-foreground/80 line-through decoration-muted-foreground/40 truncate">{t.title}</p>

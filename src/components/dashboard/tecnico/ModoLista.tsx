@@ -120,6 +120,7 @@ export const ModoLista: React.FC<ModoListaProps> = ({ filtros, recorteInicial, o
             className="h-9 rounded-xl gap-1.5 text-xs font-semibold"
           >
             <Filter className="w-3.5 h-3.5" /> Filtros
+            {filtros.temFiltro && <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-current" aria-label="filtros ativos" />}
           </Button>
         </div>
       </div>
@@ -138,16 +139,16 @@ export const ModoLista: React.FC<ModoListaProps> = ({ filtros, recorteInicial, o
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {grupos.map(g => (
-            <section key={g.id} aria-label={g.titulo} className="space-y-2">
+            <section key={g.id} aria-label={g.titulo} className="space-y-1.5">
               <header className="flex items-center gap-2 px-1">
                 <span className={cn('w-2 h-2 rounded-full', g.ponto)} />
                 <h3 className="text-sm font-semibold text-foreground">{g.titulo}</h3>
                 <span className="text-xs text-muted-foreground tabular-nums">{g.chamados.length}</span>
                 <span className="text-xs text-muted-foreground hidden sm:inline">· {g.dica}</span>
               </header>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {g.chamados.map(t => (
                   <CartaoDeChamado key={t.id} ticket={t} onAssume={onAssume} />
                 ))}
