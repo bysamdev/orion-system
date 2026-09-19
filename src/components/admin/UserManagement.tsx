@@ -1069,6 +1069,13 @@ const UserRow = React.memo(({
         <span className="truncate block">{userItem.department || '-'}</span>
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
+        {/* Desenvolvedor dá acesso total e não é atribuível por aqui: aparece
+            como selo fixo em vez de um seletor em branco. */}
+        {userItem.role === 'developer' ? (
+          <span className="inline-flex h-9 w-[140px] items-center rounded-md border border-border/60 bg-muted/40 px-3 text-sm text-muted-foreground">
+            Desenvolvedor
+          </span>
+        ) : (
         <Select
           value={userItem.role || undefined}
           onValueChange={(value: 'customer' | 'technician' | 'admin') => onUpdateRole(userItem.id, value)}
@@ -1083,6 +1090,7 @@ const UserRow = React.memo(({
             <SelectItem value="admin">Gestor</SelectItem>
           </SelectContent>
         </Select>
+        )}
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-1">
