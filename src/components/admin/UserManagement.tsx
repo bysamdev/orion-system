@@ -11,10 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { agruparUsuariosPorEmpresa } from '@/lib/usuariosPorEmpresa';
+import { agruparUsuariosPorEmpresa, filtrarUsuarios, FILTRO_DE_USUARIOS_VAZIO, type FiltroDeUsuarios } from '@/lib/usuariosPorEmpresa';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Trash2, Pencil, AlertTriangle, Merge, RefreshCw, Users } from 'lucide-react';
+import { Loader2, Plus, Trash2, Pencil, AlertTriangle, Merge, RefreshCw, Users, Search, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TableEmptyState } from '@/components/ui/table-empty-state';
 import { useToast } from '@/hooks/use-toast';
@@ -188,7 +188,15 @@ export const UserManagement = () => {
   // Mesma leitura visual de "Sistemas e Alertas" em modo lista (ver
   // GroupSectionHeader em src/pages/Monitoring.tsx). A regra de ordenação e
   // contagem mora em src/lib/usuariosPorEmpresa.ts, com teste.
-  const usuariosPorEmpresa = useMemo(() => agruparUsuariosPorEmpresa(users), [users]);
+  const [filtro, setFiltro] = useState<FiltroDeUsuarios>(FILTRO_DE_USUARIOS_VAZIO);
+  const usuariosFiltrados = useMemo(() => filtrarUsuarios(users, filtro), [users, filtro]);
+  const usuariosPorEmpresa = useMemo(() => agruparUsuariosPorEmpresa(usuariosFiltrados), [usuariosFiltrados]);
+  const temFiltro = filtro.busca.trim() !== '' || filtro.papel !== 'all' || filtro.empresaId !== 'all';
+  const empresasDaLista = useMemo(() => {
+    const vistas = new Map<string, string>();
+    (users ?? []).forEach(u => { if (u.company_id) vistas.set(u.company_id, u.company_name); });
+    return [...vistas.entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
+  }, [users]);
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: UserRole }) => {
@@ -670,6 +678,43 @@ export const UserManagement = () => {
         </Dialog>
       </CardHeader>
       <CardContent>
+        <div className="flex flex-col md:flex-row gap-2 mb-4">
+          <div className="relative flex-1 md:max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              autoComplete="off"
+              placeholder="Buscar por nome, e-mail ou departamento"
+              value={filtro.busca}
+              onChange={e => setFiltro(f => ({ ...f, busca: e.target.value }))}
+              className="pl-9 h-9"
+            />
+          </div>
+          <Select value={filtro.papel} onValueChange={v => setFiltro(f => ({ ...f, papel: v }))}>
+            <SelectTrigger className="h-9 md:w-[170px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as funções</SelectItem>
+              <SelectItem value="customer">Colaborador</SelectItem>
+              <SelectItem value="technician">Técnico</SelectItem>
+              <SelectItem value="admin">Gestor</SelectItem>
+              <SelectItem value="developer">Desenvolvedor</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filtro.empresaId} onValueChange={v => setFiltro(f => ({ ...f, empresaId: v }))}>
+            <SelectTrigger className="h-9 md:w-[220px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as empresas</SelectItem>
+              {empresasDaLista.map(([id, nome]) => <SelectItem key={id} value={id}>{nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {temFiltro && (
+            <Button variant="ghost" size="sm" className="h-9 text-muted-foreground" onClick={() => setFiltro(FILTRO_DE_USUARIOS_VAZIO)}>
+              <X className="h-4 w-4 mr-1" /> Limpar
+            </Button>
+          )}
+          <span className="md:ml-auto self-center text-xs text-muted-foreground tabular-nums">
+            {usuariosFiltrados.length} de {users?.length ?? 0} usuários
+          </span>
+        </div>
         <div className="w-full overflow-x-auto">
         <Table className="min-w-[700px]">
           <TableHeader>
@@ -683,13 +728,13 @@ export const UserManagement = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users && users.length === 0 ? (
+            {usuariosFiltrados.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="p-0">
                   <TableEmptyState
                     icon={Users}
-                    title="Nenhum usuário cadastrado"
-                    description="Adicione o primeiro usuário para começar a gerenciar acessos."
+                    title={temFiltro ? 'Nenhum usuário com esses filtros' : 'Nenhum usuário cadastrado'}
+                    description={temFiltro ? 'Mude a busca ou limpe os filtros.' : 'Adicione o primeiro usuário para começar a gerenciar acessos.'}
                   />
                 </TableCell>
               </TableRow>

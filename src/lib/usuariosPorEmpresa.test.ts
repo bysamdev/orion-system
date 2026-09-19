@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { agruparUsuariosPorEmpresa, SEM_EMPRESA } from './usuariosPorEmpresa';
+import { agruparUsuariosPorEmpresa, SEM_EMPRESA, filtrarUsuarios, FILTRO_DE_USUARIOS_VAZIO } from './usuariosPorEmpresa';
 
 const u = (company_name: string, role = 'customer', email = 'x@y.z') => ({
   company_name,
@@ -56,5 +56,28 @@ describe('agruparUsuariosPorEmpresa', () => {
     expect(agruparUsuariosPorEmpresa([])).toEqual([]);
     expect(agruparUsuariosPorEmpresa(null)).toEqual([]);
     expect(agruparUsuariosPorEmpresa(undefined)).toEqual([]);
+  });
+});
+
+describe('filtrarUsuarios', () => {
+  const base = { department: null, company_name: 'Acme' };
+  const usuarios = [
+    { ...base, full_name: 'José Álvares', email: 'jose@acme.com', role: 'customer', company_id: 'a' },
+    { ...base, full_name: 'Maria Técnica', email: 'maria@orion.com', role: 'technician', company_id: 'b', department: 'Suporte' },
+  ];
+
+  it('sem filtro devolve todos', () => {
+    expect(filtrarUsuarios(usuarios, FILTRO_DE_USUARIOS_VAZIO)).toHaveLength(2);
+  });
+
+  it('busca ignora acento e maiúscula e olha e-mail e departamento', () => {
+    expect(filtrarUsuarios(usuarios, { ...FILTRO_DE_USUARIOS_VAZIO, busca: 'alvares' })).toHaveLength(1);
+    expect(filtrarUsuarios(usuarios, { ...FILTRO_DE_USUARIOS_VAZIO, busca: 'ORION.com' })).toHaveLength(1);
+    expect(filtrarUsuarios(usuarios, { ...FILTRO_DE_USUARIOS_VAZIO, busca: 'suporte' })).toHaveLength(1);
+  });
+
+  it('filtra por função e empresa ao mesmo tempo', () => {
+    expect(filtrarUsuarios(usuarios, { busca: '', papel: 'technician', empresaId: 'b' })).toHaveLength(1);
+    expect(filtrarUsuarios(usuarios, { busca: '', papel: 'technician', empresaId: 'a' })).toHaveLength(0);
   });
 });

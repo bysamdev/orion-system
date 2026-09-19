@@ -58,3 +58,33 @@ export function agruparUsuariosPorEmpresa<T extends UsuarioAgrupavel>(
       return a.empresa.localeCompare(b.empresa, 'pt-BR');
     });
 }
+
+export interface FiltroDeUsuarios {
+  busca: string;
+  /** 'all', 'customer', 'technician', 'admin' ou 'developer'. */
+  papel: string;
+  /** company_id ou 'all'. */
+  empresaId: string;
+}
+
+export const FILTRO_DE_USUARIOS_VAZIO: FiltroDeUsuarios = { busca: '', papel: 'all', empresaId: 'all' };
+
+/**
+ * Filtra antes de agrupar, para as contagens por empresa acompanharem o que
+ * está na tela. A busca olha nome, e-mail e departamento, sem diferenciar
+ * acento nem maiúscula.
+ */
+export function filtrarUsuarios<T extends UsuarioAgrupavel & {
+  full_name: string | null;
+  email: string;
+  department: string | null;
+  company_id: string | null;
+}>(usuarios: T[] | undefined, filtro: FiltroDeUsuarios): T[] {
+  const normalizar = (texto: string) => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const busca = normalizar(filtro.busca.trim());
+  return (usuarios ?? []).filter(u =>
+    (filtro.papel === 'all' || u.role === filtro.papel) &&
+    (filtro.empresaId === 'all' || u.company_id === filtro.empresaId) &&
+    (!busca || [u.full_name, u.email, u.department].some(c => c && normalizar(c).includes(busca)))
+  );
+}
