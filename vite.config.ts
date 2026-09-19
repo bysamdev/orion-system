@@ -1,17 +1,21 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import viteCompression from "vite-plugin-compression";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  // API_PROXY_TARGET no .env.local aponta o /api do dev para outra API (ex.:
+  // produção) quando o Go não está rodando localmente.
+  const env = loadEnv(mode, process.cwd(), "");
+  return {
   server: {
     host: "127.0.0.1",
     port: 8080,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: env.API_PROXY_TARGET || 'http://localhost:3000',
         changeOrigin: true,
         ws: true,
       }
@@ -66,4 +70,5 @@ export default defineConfig(({ mode }) => ({
     environment: 'node',
     globals: true,
   },
-}));
+  };
+});
