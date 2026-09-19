@@ -317,34 +317,32 @@ export default function WebMonitoring() {
     });
   }, [networkLinks, selectedTypeFilter]);
 
+  // Os cartões seguem o mesmo filtro de tipo que a lista. Média de latência
+  // só com medições reais: sem nenhuma, o cartão mostra "sem dados" em vez de
+  // um número fixo (antes caía em 38 ms / 18 ms inventados).
   const networkStats = useMemo(() => {
-    const total = networkLinks.length;
-    const online = networkLinks.filter(l => l.status === 'online').length;
-    const offline = networkLinks.filter(l => l.status === 'offline').length;
-    const activeLatencies = networkLinks
-      .filter(l => l.status === 'online' && l.latency_ms !== null)
-      .map(l => l.latency_ms as number);
-    
-    const avgLatency = activeLatencies.length > 0
-      ? Math.round(activeLatencies.reduce((a, b) => a + b, 0) / activeLatencies.length)
-      : null;
+    const links = filteredNetworkLinks;
+    const media = (lista: typeof links) => {
+      const medidas = lista
+        .filter(l => l.status === 'online' && l.latency_ms !== null)
+        .map(l => l.latency_ms as number);
+      return medidas.length > 0 ? Math.round(medidas.reduce((a, b) => a + b, 0) / medidas.length) : null;
+    };
 
-    const starlinkLinks = networkLinks.filter(l => l.type?.toLowerCase().includes('starlink'));
-    const starlinkCount = starlinkLinks.length;
-    const starlinkOnline = starlinkLinks.filter(l => l.status === 'online');
-    const starlinkAvg = starlinkOnline.length > 0 
-      ? Math.round(starlinkOnline.reduce((a, b) => a + (b.latency_ms || 38), 0) / starlinkOnline.length)
-      : (starlinkCount > 0 ? 38 : null);
+    const starlinkLinks = links.filter(l => l.type?.toLowerCase().includes('starlink'));
+    const dedicatedLinks = links.filter(l => !l.type?.toLowerCase().includes('starlink') && !l.type?.toLowerCase().includes('roteador'));
 
-    const dedicatedLinks = networkLinks.filter(l => !l.type?.toLowerCase().includes('starlink') && !l.type?.toLowerCase().includes('roteador'));
-    const dedicatedCount = dedicatedLinks.length;
-    const dedicatedOnline = dedicatedLinks.filter(l => l.status === 'online');
-    const dedicatedAvg = dedicatedOnline.length > 0
-      ? Math.round(dedicatedOnline.reduce((a, b) => a + (b.latency_ms || 18), 0) / dedicatedOnline.length)
-      : (dedicatedCount > 0 ? 18 : null);
-
-    return { total, online, offline, avgLatency, starlinkCount, starlinkAvg, dedicatedCount, dedicatedAvg };
-  }, [networkLinks]);
+    return {
+      total: links.length,
+      online: links.filter(l => l.status === 'online').length,
+      offline: links.filter(l => l.status === 'offline').length,
+      avgLatency: media(links),
+      starlinkCount: starlinkLinks.length,
+      starlinkAvg: media(starlinkLinks),
+      dedicatedCount: dedicatedLinks.length,
+      dedicatedAvg: media(dedicatedLinks),
+    };
+  }, [filteredNetworkLinks]);
 
   // Chart time-series generator
   const timeSeriesData = useMemo(() => {
@@ -1210,7 +1208,7 @@ export default function WebMonitoring() {
                   Os seguintes links não responderam às sondas ICMP/Ping:
                   {' '}
                   <span className="font-semibold text-foreground">
-                    {networkLinks.filter(l => l.status === 'offline').map(l => l.name).join(', ')}
+                    {filteredNetworkLinks.filter(l => l.status === 'offline').map(l => l.name).join(', ')}
                   </span>
                   . Verifique o roteador, operadora ou cabo de rede do local.
                 </p>
