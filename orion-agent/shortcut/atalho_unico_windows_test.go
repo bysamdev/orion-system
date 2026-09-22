@@ -37,9 +37,15 @@ func TestGarantirAtalhoUnico_PublicaRemoveCopiasPessoais(t *testing.T) {
 	if !existeAtalho(t, publica) {
 		t.Fatal("atalho deveria existir na Área de Trabalho pública")
 	}
+	// O atalho leva à tela de login e NÃO carrega o token da máquina: o
+	// login sem senha foi retirado em 19/09/2026 (ver machineLogin no
+	// backend e CreatePortalShortcut). Este teste guarda essa decisão.
 	conteudo, _ := os.ReadFile(filepath.Join(publica, nomeAtalho))
-	if !strings.Contains(string(conteudo), "token=tok-1") {
-		t.Errorf("atalho público sem o token: %q", conteudo)
+	if !strings.Contains(string(conteudo), "https://orion.exemplo.test/auth") {
+		t.Errorf("atalho público não aponta para a tela de login: %q", conteudo)
+	}
+	if strings.Contains(string(conteudo), "tok-1") {
+		t.Errorf("atalho público carrega o token da máquina: %q", conteudo)
 	}
 	for _, pasta := range []string{oneDrive, perfil} {
 		if existeAtalho(t, pasta) {
