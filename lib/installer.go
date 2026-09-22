@@ -44,16 +44,16 @@ var instaladorMsiHash = func() string {
 	return hex.EncodeToString(soma[:])[:16]
 }()
 
-// CaminhoInstaladorGenerico calcula o caminho único do instalador .exe no
-// Storage, igual para todas as empresas. O que vai anexado ao .exe (só
-// api_url) não identifica empresa: a chave é pedida na instalação (ver
-// resolverChaveDaEmpresa em orion-agent/cmd/installer), então um arquivo por
-// empresa só multiplicava ~16 MB no Storage a cada geração. O hash no nome
-// muda quando o instalador genérico ou a api_url mudam, invalidando o cache.
-func CaminhoInstaladorGenerico(apiURL string) (pasta, nomeArquivo string) {
+// CaminhoInstaladorCache calcula um caminho determinístico e
+// content-addressed pro instalador de uma empresa: mesma agent_key + apiURL
+// + companyName + versão do instalador genérico sempre gera o mesmo nome de
+// arquivo, permitindo pular o upload de ~16MB quando nada mudou desde a
+// última geração (ver InstaladorExiste em supabase.go).
+func CaminhoInstaladorCache(companyID, agentKey, apiURL, companyName string) (pasta, nomeArquivo string) {
 	h := sha256.New()
-	h.Write([]byte(instaladorGenericoHash + "|" + apiURL))
-	return "generic/", hex.EncodeToString(h.Sum(nil))[:16] + ".exe"
+	h.Write([]byte(instaladorGenericoHash + "|" + agentKey + "|" + apiURL + "|" + companyName))
+	soma := hex.EncodeToString(h.Sum(nil))[:16]
+	return companyID + "/", soma + ".exe"
 }
 
 // CaminhoMsiCache devolve o caminho fixo (não depende de empresa — o MSI é

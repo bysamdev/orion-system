@@ -851,10 +851,9 @@ func percentualDe(usado, total int64) *int16 {
 // podem ser apagados: tudo que não está entre os `manter` mais recentes da
 // sua pasta E não é alvo de nenhum comando ainda em trânsito.
 //
-// Só a pasta "generic" guarda instaladores em uso: desde que o .exe passou a
-// ser o mesmo para todas as empresas (lib.CaminhoInstaladorGenerico), as
-// pastas por empresa são sobra do formato antigo e não mantêm nenhum
-// arquivo além dos protegidos por comando em trânsito.
+// A pasta é o id da empresa (ou "generic"), e cada empresa precisa do SEU
+// instalador — a chave de agente vai embutida no executável —, então a
+// retenção é por pasta, nunca global.
 //
 // O NOT EXISTS é a parte que não pode sair: um comando orion-install
 // pendente carrega a URL do objeto, e apagar o arquivo no meio do caminho
@@ -880,7 +879,7 @@ WITH ranqueados AS (
 )
 SELECT r.name
 FROM ranqueados r
-WHERE r.posicao > CASE WHEN split_part(r.name, '/', 1) = 'generic' THEN $1 ELSE 0 END
+WHERE r.posicao > $1
   AND NOT EXISTS (
     SELECT 1 FROM public.machine_commands c
     WHERE c.status IN ('pending', 'dispatched', 'sent')

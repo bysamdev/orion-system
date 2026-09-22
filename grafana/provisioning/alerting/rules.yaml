@@ -518,7 +518,7 @@ groups:
           team: infra
         annotations:
           summary: "Storage Supabase em {{ $values.A }}% do limite"
-          description: "O bucket agent-installers acumula um executável por build. Apagar as versões antigas, mantendo as duas últimas."
+          description: "O bucket agent-installers acumula um executável por build. Apagar as versões antigas, mantendo as três últimas."
 
       - uid: orion-supabase-realtime-regressao
         title: Tabela Voltou para o Realtime
