@@ -45,12 +45,25 @@ import { useRealtimeTicket } from '@/hooks/useRealtimeTickets';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMachineDetail, useMachineAlerts, pct, useCreateCommand } from '@/hooks/useMonitoring';
 import { Server, HardDrive, Cpu, MemoryStick, Activity, Bell, Terminal } from 'lucide-react';
-import { useSLAConfigs } from '@/hooks/useSLAConfigs';
 
 
 const ticketUpdateSchema = z.object({
   content: z.string().trim().min(1, 'O comentário não pode estar vazio').max(5000, 'O comentário não pode ter mais de 5000 caracteres')
 });
+
+// Chamado resolvido fecha sozinho 48h depois da resolução: pg_cron
+// 'auto-close-resolved-tickets', de hora em hora, na função
+// auto_close_resolved_tickets(). Se mudar lá, mude aqui.
+const HORAS_ATE_FECHAR_RESOLVIDO = 48;
+
+function textoDoFechamentoAutomatico(resolvidoEm: string | null | undefined): string {
+  if (!resolvidoEm) {
+    return `Este chamado será fechado automaticamente ${HORAS_ATE_FECHAR_RESOLVIDO} horas depois de resolvido.`;
+  }
+  const fecha = new Date(new Date(resolvidoEm).getTime() + HORAS_ATE_FECHAR_RESOLVIDO * 3600 * 1000);
+  const quando = fecha.toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return `Este chamado será fechado automaticamente por volta de ${quando} (${HORAS_ATE_FECHAR_RESOLVIDO} horas depois de resolvido).`;
+}
 
 function TicketDetailSkeleton() {
   return (
@@ -196,7 +209,6 @@ const TicketDetails: React.FC = () => {
   const { data: updates = [], isLoading: updatesLoading } = useTicketUpdates(validId);
   const { data: userRole } = useUserRole();
   const { data: userProfile } = useUserProfile();
-  const { data: activeSla } = useSLAConfigs();
   const updateStatus = useUpdateTicketStatus();
   const updateAssignment = useUpdateTicketAssignment();
   const updatePriority = useUpdateTicketPriority();
@@ -1024,7 +1036,7 @@ const TicketDetails: React.FC = () => {
                     <div className="bg-green-500/5 border border-green-500/10 rounded-xl p-4 flex items-start gap-3">
                       <Clock className="w-4 h-4 text-green-600 mt-0.5" />
                       <p className="text-[10px] font-medium text-green-800 dark:text-green-300">
-                        O ticket será encerrado automaticamente em {activeSla?.medium_hours || 48}h caso não haja resposta.
+                        {textoDoFechamentoAutomatico(ticket.resolved_at)}
                       </p>
                     </div>
                   )}
@@ -1318,7 +1330,6 @@ const TicketAssetContext = ({ assetId }: { assetId: string }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { data: userProfile } = useUserProfile();
-  const { data: activeSla } = useSLAConfigs();
 
   const handleQuickAction = (commandStr: string, label: string) => {
     createCommand.mutate({
