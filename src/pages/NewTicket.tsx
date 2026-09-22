@@ -379,7 +379,6 @@ const NewTicket = () => {
         throw ticketError;
       }
 
-      console.log('Sucesso:', ticket);
 
       // Attachments logic
       if (pendingFiles.length > 0) {

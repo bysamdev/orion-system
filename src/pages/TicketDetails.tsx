@@ -172,7 +172,6 @@ const TicketDetails: React.FC = () => {
       setIsResolving(true);
       const fetchUUID = async () => {
         try {
-          console.log('[TicketDetails] Resolvendo número de chamado:', id);
           const { data, error } = await supabase
             .from('tickets')
             .select('id')
@@ -184,7 +183,6 @@ const TicketDetails: React.FC = () => {
             throw error;
           }
           const returnedId = Array.isArray(data) ? data[0]?.id : data?.id;
-          console.log('[TicketDetails] UUID resolvido:', returnedId);
           if (returnedId) {
             navigate(`/ticket/${returnedId}`, { replace: true });
           } else {

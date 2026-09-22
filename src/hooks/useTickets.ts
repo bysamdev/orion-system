@@ -126,7 +126,6 @@ export const useTicket = (id: string) => {
         return mockTicket as Ticket;
       }
 
-      console.log('[useTicket] Buscando ticket com id:', id);
       // Busca o ticket com o nome do operador via FK explícita (evita PGRST201)
       // Não usamos join aninhado profiles→companies pois há múltiplas FKs e gera ambiguidade.
       const { data: ticket, error } = await supabase
