@@ -10,22 +10,19 @@ export interface NumerosDoTecnico {
   resolvedToday?: number;
 }
 
-export type Indicador = 'in-progress' | 'sla' | 'pending' | 'resolved';
-
 interface IndicadoresProps {
   stats: NumerosDoTecnico | null | undefined;
-  kpiFilter: string | null;
-  closedOpen: boolean;
-  onSelecionar: (indicador: Indicador) => void;
 }
 
-// Os quatro cartões de números do topo. Clicar num deles filtra a lista.
-export const Indicadores: React.FC<IndicadoresProps> = ({ stats, kpiFilter, closedOpen, onSelecionar }) => {
+// Os quatro cartões de números do topo. São só leitura: antes cada um era
+// também um filtro escondido, sem nada que indicasse isso, e confundia. Para
+// filtrar, use os filtros avançados.
+export const Indicadores: React.FC<IndicadoresProps> = ({ stats }) => {
   const cartoes = [
-    { id: 'in-progress' as const, title: 'Em Atendimento', value: stats?.inProgress || 0, description: 'Chamados em atendimento ativo', icon: PlayCircle, variant: 'info' as const, active: kpiFilter === 'in-progress' },
-    { id: 'sla' as const, title: 'SLA Crítico', value: stats?.slaAtRisk || 0, description: 'Chamados com prazo vencido', icon: AlertTriangle, variant: (stats?.slaAtRisk || 0) > 0 ? 'danger' as const : 'default' as const, active: kpiFilter === 'sla' },
-    { id: 'pending' as const, title: 'Minha Fila', value: stats?.pending || 0, description: 'Chamados pendentes na sua fila', icon: Clock, variant: 'warning' as const, active: kpiFilter === 'pending' },
-    { id: 'resolved' as const, title: 'Resolvidos Hoje', value: stats?.resolvedToday || 0, description: 'Chamados concluídos hoje', icon: CheckCircle2, variant: 'success' as const, active: closedOpen },
+    { id: 'in-progress' as const, title: 'Em Atendimento', value: stats?.inProgress || 0, description: 'Chamados em atendimento ativo', icon: PlayCircle, variant: 'info' as const },
+    { id: 'sla' as const, title: 'SLA Crítico', value: stats?.slaAtRisk || 0, description: 'Chamados com prazo vencido', icon: AlertTriangle, variant: (stats?.slaAtRisk || 0) > 0 ? 'danger' as const : 'default' as const },
+    { id: 'pending' as const, title: 'Minha Fila', value: stats?.pending || 0, description: 'Chamados pendentes na sua fila', icon: Clock, variant: 'warning' as const },
+    { id: 'resolved' as const, title: 'Resolvidos Hoje', value: stats?.resolvedToday || 0, description: 'Chamados concluídos hoje', icon: CheckCircle2, variant: 'success' as const },
   ];
 
   return (
@@ -40,8 +37,6 @@ export const Indicadores: React.FC<IndicadoresProps> = ({ stats, kpiFilter, clos
                 description={c.description}
                 icon={c.icon}
                 variant={c.variant}
-                active={c.active}
-                onClick={() => onSelecionar(c.id)}
               />
             </div>
           </TooltipTrigger>

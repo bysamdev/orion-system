@@ -30,11 +30,15 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, va
     danger: 'ring-2 ring-rose-500/80 bg-rose-500/5 border-rose-500/40 shadow-sm',
   };
 
+  // Sem onClick é só leitura: div, sem cara de botão.
+  const Elemento = onClick ? 'button' : 'div';
+
   return (
-    <button
+    <Elemento
       onClick={onClick}
       className={cn(
-        "relative group text-left p-4 rounded-xl transition-colors duration-200 overflow-hidden bg-card border border-border/50 hover:border-primary/40 h-full w-full",
+        "relative group text-left p-4 rounded-xl transition-colors duration-200 overflow-hidden bg-card border border-border/50 h-full w-full",
+        onClick && "hover:border-primary/40",
         active
           ? glows[variant]
           : ""
@@ -53,6 +57,6 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, va
           <Icon className="w-4 h-4" />
         </div>
       </div>
-    </button>
+    </Elemento>
   );
 };

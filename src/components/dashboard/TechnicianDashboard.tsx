@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { useAssumeTicket } from '@/hooks/useTickets';
 import { useFiltrosDoPainel } from './tecnico/useFiltrosDoPainel';
-import { Indicadores, Indicador } from './tecnico/Indicadores';
+import { Indicadores } from './tecnico/Indicadores';
 import { CargaDaEquipe } from './tecnico/CargaDaEquipe';
 import { SeletorDeModo } from './tecnico/SeletorDeModo';
 import { useModoDoPainel, ModoDoPainel } from './tecnico/useModoDoPainel';
@@ -38,8 +38,6 @@ export const TechnicianDashboard: React.FC = () => {
   const assumeTicket = useAssumeTicket();
 
   const filtros = useFiltrosDoPainel(unassigned, myTickets, allActiveTickets);
-  const { kpiFilter, setKpiFilter } = filtros;
-  const [closedOpen, setClosedOpen] = useState(false);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [modo, setModo] = useModoDoPainel(role);
 
@@ -48,12 +46,7 @@ export const TechnicianDashboard: React.FC = () => {
   // A Lista abre onde há trabalho: nos meus chamados, senão na fila, senão em todos.
   const recorteInicial: Recorte = myTickets.length > 0 ? 'meus' : unassigned.length > 0 ? 'fila' : 'todos';
 
-  // A lista não tem os cartões de números; um filtro de cartão ligado no
-  // quadro sumiria da vista e esconderia chamados sem explicação.
-  const escolherModo = useCallback((novo: ModoDoPainel) => {
-    if (novo === 'lista') setKpiFilter(null);
-    setModo(novo);
-  }, [setModo, setKpiFilter]);
+  const escolherModo = useCallback((novo: ModoDoPainel) => setModo(novo), [setModo]);
 
   useRealtimeTickets();
 
@@ -76,19 +69,6 @@ export const TechnicianDashboard: React.FC = () => {
     }
   }, [profile, user, assumeTicket, toast]);
 
-  const selecionarIndicador = useCallback((indicador: Indicador) => {
-    // Nos gráficos não há chamado para filtrar: o cartão leva ao Quadro já filtrado.
-    if (modo === 'graficos') setModo('padrao');
-    if (indicador === 'resolved') {
-      setClosedOpen(true);
-      setKpiFilter(null);
-      setTimeout(() => document.getElementById('closed-tickets-section')?.scrollIntoView({ behavior: 'smooth', inline: 'end' }), 100);
-      return;
-    }
-    setClosedOpen(false);
-    setKpiFilter(f => f === indicador ? null : indicador);
-    setTimeout(() => document.getElementById('tickets-section')?.scrollIntoView({ behavior: 'smooth' }), 100);
-  }, [setKpiFilter, modo, setModo]);
 
   // Fila e ativos se sobrepõem; os gráficos contam cada chamado uma vez.
   const chamadosAtivos = useMemo(() => {
@@ -128,7 +108,7 @@ export const TechnicianDashboard: React.FC = () => {
         )
       ) : modo === 'graficos' ? (
         <div className="space-y-6">
-          <Indicadores stats={stats} kpiFilter={null} closedOpen={false} onSelecionar={selecionarIndicador} />
+          <Indicadores stats={stats} />
           <Suspense fallback={<Carregando />}>
             <ModoGraficos chamados={chamadosAtivos} teamWorkload={teamWorkload} />
           </Suspense>
@@ -136,7 +116,7 @@ export const TechnicianDashboard: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          <Indicadores stats={stats} kpiFilter={kpiFilter} closedOpen={closedOpen} onSelecionar={selecionarIndicador} />
+          <Indicadores stats={stats} />
           <ModoQuadro
             filtros={filtros}
             filtrosAbertos={filtrosAbertos}
