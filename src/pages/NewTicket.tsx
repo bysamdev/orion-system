@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSLAConfigs } from '@/hooks/useSLAConfigs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -185,8 +184,7 @@ const NewTicket = () => {
   const { data: avaliacaoPendente } = useAvaliacaoPendente(ehCliente ? user?.id : undefined);
   // Usado só na tela de confirmação, para dizer ao cliente em quanto tempo
   // o chamado será atendido.
-  const { data: activeSla } = useSLAConfigs();
-  const [createdTicket, setCreatedTicket] = useState<{ id: string; number: number; priority: string } | null>(null);
+  const [createdTicket, setCreatedTicket] = useState<{ id: string; number: number; priority: string; slaDueDate: string | null } | null>(null);
   const [previewArticle, setPreviewArticle] = useState<any | null>(null);
 
   // ── Smart: VIP Client detection ─────────────────
@@ -424,7 +422,10 @@ const NewTicket = () => {
       setCreatedTicket({
         id: ticket.id,
         number: ticket.ticket_number,
-        priority: ticket.priority
+        priority: ticket.priority,
+        // Prazo gravado pelo banco (política de SLA da empresa, com horário
+        // comercial). Nulo quando o SLA está desligado.
+        slaDueDate: ticket.sla_due_date ?? null,
       });
     } catch (error: unknown) {
       const err = error as Error & { code?: string };
@@ -458,7 +459,9 @@ const NewTicket = () => {
   }, []);
 
   if (createdTicket) {
-    const slaHours = activeSla ? activeSla[`${createdTicket.priority}_hours` as keyof typeof activeSla] : 24;
+    const prazo = createdTicket.slaDueDate
+      ? new Date(createdTicket.slaDueDate).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+      : null;
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
         <Card className="max-w-md w-full border-border/40 shadow-2xl shadow-primary/5 bg-card/50 backdrop-blur-sm animate-in zoom-in-95 duration-500">
@@ -468,9 +471,11 @@ const NewTicket = () => {
             </div>
             <div className="space-y-2">
               <h2 className="text-2xl font-black tracking-tight text-foreground">Chamado #{createdTicket.number} criado!</h2>
-              <p className="text-muted-foreground font-medium">
-                Prazo estimado de resposta: <span className="text-foreground font-bold">{slaHours}h</span>
-              </p>
+              {prazo && (
+                <p className="text-muted-foreground font-medium">
+                  Prazo de atendimento: <span className="text-foreground font-bold">{prazo}</span>
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-3 pt-4">
               <Button onClick={() => navigate(`/ticket/${createdTicket.id}`)} className="h-12 w-full font-bold shadow-lg shadow-primary/20">
