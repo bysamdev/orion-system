@@ -17,6 +17,8 @@ import {
   Activity,
   Settings,
   Globe,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import orionLogo from '@/assets/orion-logo.png';
@@ -37,6 +39,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar';
 
@@ -97,7 +100,9 @@ export const AppSidebar: React.FC = () => {
   const { data: role } = useUserRole();
   const { data: profile } = useUserProfile();
   const { toast } = useToast();
-  const { setOpenMobile, isMobile } = useSidebar();
+  const { setOpenMobile, isMobile, state, toggleSidebar } = useSidebar();
+  const recolhido = state === 'collapsed' && !isMobile;
+  const iniciais = (profile?.full_name || '?').trim().split(/\s+/).map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
   const [legalOpen, setLegalOpen] = useState(false);
   const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
   // const { unreadCount } = useNotifications();
@@ -146,33 +151,75 @@ export const AppSidebar: React.FC = () => {
     );
   };
 
+  // Grade do menu: tudo alinha na mesma coluna de 8 px (o p-2 do grupo mais
+  // o p-2 do botão). Logo, perfil, itens e rodapé usam os mesmos componentes
+  // de menu, então as bordas e os ícones ficam alinhados entre si, aberto ou
+  // recolhido. Recolhido, sobram só os ícones e o nome aparece no tooltip.
   return (
-    <Sidebar collapsible="offcanvas">
-      <SidebarHeader>
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          aria-label="Ir para o Início"
-          className="flex items-center px-3 pt-2 pb-3 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-        >
-          <img src={orionLogo} alt="Orion System" className="h-11 w-auto dark:hidden transition-all duration-200" />
-          <img src={orionLogoLight} alt="Orion System" className="h-11 w-auto hidden dark:block transition-all duration-200" />
-        </button>
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="gap-1">
+        <div className="flex items-center gap-1 h-12">
+          <button
+            type="button"
+            onClick={() => go('/')}
+            aria-label="Ir para o Início"
+            className={recolhido
+              ? 'flex items-center justify-center size-8 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring'
+              : 'flex items-center flex-1 min-w-0 px-2 h-10 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring'}
+          >
+            {recolhido ? (
+              <img src="/favicon.png" alt="Orion System" className="size-6 object-contain" />
+            ) : (
+              <>
+                <img src={orionLogo} alt="Orion System" className="h-9 w-auto dark:hidden" />
+                <img src={orionLogoLight} alt="Orion System" className="h-9 w-auto hidden dark:block" />
+              </>
+            )}
+          </button>
+          {!recolhido && !isMobile && (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              aria-label="Recolher menu"
+              className="flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            >
+              <PanelLeftClose className="size-4" />
+            </button>
+          )}
+        </div>
 
-        <button
-          type="button"
-          onClick={() => navigate('/ajustes')}
-          aria-label="Acessar Ajustes do Perfil"
-          className="flex items-center text-left gap-3 px-3 py-2 mx-1 mb-1 rounded-lg cursor-pointer group border-t border-sidebar-border/60 pt-3 hover:bg-sidebar-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-        >
-          <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-sm font-medium truncate group-hover:text-sidebar-foreground">{profile?.full_name || 'Carregando...'}</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wide truncate">
-              {role ? roleLabel[role] : '...'}
-            </span>
-          </div>
-        </button>
+        {recolhido && (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton tooltip="Expandir menu" onClick={toggleSidebar} aria-label="Expandir menu">
+                <PanelLeftOpen />
+                <span>Expandir menu</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
+
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              tooltip={`${profile?.full_name || 'Perfil'} · ${role ? roleLabel[role] : ''}`}
+              onClick={() => go('/ajustes')}
+              aria-label="Acessar Ajustes do Perfil"
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary text-xs font-semibold">
+                {iniciais}
+              </span>
+              <span className="flex flex-col min-w-0 leading-tight">
+                <span className="text-sm font-medium truncate">{profile?.full_name || 'Carregando...'}</span>
+                <span className="text-[11px] text-muted-foreground truncate">{role ? roleLabel[role] : '...'}</span>
+              </span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
+
+      <SidebarSeparator className="mx-0" />
 
       <SidebarContent>
         <SidebarGroup>
@@ -200,6 +247,8 @@ export const AppSidebar: React.FC = () => {
         })}
       </SidebarContent>
 
+      <SidebarSeparator className="mx-0" />
+
       <SidebarFooter>
         <SidebarMenu>
           {bottomItems.map(renderItem)}
@@ -211,7 +260,7 @@ export const AppSidebar: React.FC = () => {
           </SidebarMenuItem>
         </SidebarMenu>
 
-        <div className="pt-2 px-3 pb-1 border-t border-sidebar-border/60 flex items-center justify-between text-[11px] text-muted-foreground/70">
+        <div className="pt-1 px-2 pb-1 flex items-center gap-2 text-[11px] text-muted-foreground/70 group-data-[collapsible=icon]:hidden">
           <button
             type="button"
             onClick={() => { setLegalTab('terms'); setLegalOpen(true); }}
