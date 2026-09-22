@@ -653,6 +653,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          phone: string | null
           avatar_url: string | null
           company_id: string
           created_at: string
@@ -664,6 +665,7 @@ export type Database = {
           last_assigned_at: string | null
         }
         Insert: {
+          phone?: string | null
           avatar_url?: string | null
           company_id: string
           created_at?: string
@@ -675,6 +677,7 @@ export type Database = {
           last_assigned_at?: string | null
         }
         Update: {
+          phone?: string | null
           avatar_url?: string | null
           company_id?: string
           created_at?: string

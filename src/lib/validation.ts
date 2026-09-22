@@ -37,6 +37,12 @@ export const profileUpdateSchema = z.object({
     .trim()
     .max(50, 'Departamento deve ter no máximo 50 caracteres')
     .optional(),
+  // Telefone é opcional; string vazia vira undefined em Settings.
+  phone: z.string()
+    .trim()
+    .min(8, 'Telefone deve ter pelo menos 8 caracteres')
+    .max(20, 'Telefone deve ter no máximo 20 caracteres')
+    .optional(),
   email_notifications: z.boolean().optional(),
   push_notifications: z.boolean().optional(),
 });

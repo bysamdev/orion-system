@@ -32,6 +32,7 @@ export default function Settings() {
   
   const [fullName, setFullName] = useState('');
   const [department, setDepartment] = useState('');
+  const [phone, setPhone] = useState('');
   const [legalOpen, setLegalOpen] = useState(false);
   const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
 
@@ -82,6 +83,7 @@ export default function Settings() {
     if (profile) {
       setFullName(profile.full_name || '');
       setDepartment(profile.department || '');
+      setPhone(profile.phone || '');
       // notification prefs are local-only state
     }
   }, [profile]);
@@ -91,6 +93,7 @@ export default function Settings() {
       const validationResult = profileUpdateSchema.safeParse({
         full_name: fullName,
         department: department || undefined,
+        phone: phone || undefined,
         email_notifications: emailNotifications,
         push_notifications: pushNotifications
       });
@@ -297,7 +300,19 @@ export default function Settings() {
                         O email não pode ser alterado
                       </p>
                     </div>
-                    <div className="space-y-2 md:col-span-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="profile-phone">Telefone (opcional)</Label>
+                      <Input
+                        id="profile-phone"
+                        name="profile-phone"
+                        type="tel"
+                        autoComplete="tel"
+                        placeholder="(11) 99999-9999"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="profile-department">Departamento</Label>
                       <Input 
                         id="profile-department"
