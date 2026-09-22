@@ -11,6 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { TechnicianComparison } from '@/lib/reports/types';
+import { ESTILO_DA_DICA } from '@/lib/chart-theme';
 
 // Comparativo multidimensional de técnicos.
 //
@@ -47,7 +48,7 @@ export const TechnicianComparisonChart: React.FC<Props> = ({ data }) => {
           <YAxis yAxisId="vol" tick={{ fontSize: 9 }} allowDecimals={false} />
           <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} unit="%" tick={{ fontSize: 9 }} />
           <Tooltip
-            contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: '8px' }}
+            {...ESTILO_DA_DICA}
             formatter={(valor: number, nome: string, props: { payload?: TechnicianComparison }) => {
               if (nome === 'Satisfação') {
                 const n = props.payload?.csatAmostra ?? 0;

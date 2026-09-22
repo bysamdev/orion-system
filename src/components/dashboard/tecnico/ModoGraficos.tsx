@@ -21,17 +21,12 @@ interface Fatia {
 
 const DIA = 24 * 60 * 60 * 1000;
 const COR_NEUTRA = '#94a3b8';
+import { ESTILO_DA_DICA } from '@/lib/chart-theme';
+
 const COR_PRIMARIA = 'hsl(var(--primary))';
 
 const estiloDaDica = {
-  contentStyle: {
-    backgroundColor: 'hsl(var(--card))',
-    border: '1px solid hsl(var(--border))',
-    borderRadius: '12px',
-    fontSize: '12px',
-    color: 'hsl(var(--foreground))',
-  },
-  itemStyle: { color: 'hsl(var(--foreground))' },
+  ...ESTILO_DA_DICA,
   cursor: { fill: 'hsl(var(--muted) / 0.4)' },
 };
 

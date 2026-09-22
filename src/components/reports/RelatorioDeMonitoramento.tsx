@@ -7,13 +7,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useAllMachines } from '@/hooks/useMonitoring';
 import { useNetworkLinks } from '@/hooks/useNetworkLinks';
 import { useWebEndpoints } from '@/hooks/useWebMonitoring';
+import { ESTILO_DA_DICA } from '@/lib/chart-theme';
 import {
   contarPor, percentual, problemasDaMaquina, resumirMonitoramento, rotuloDispositivo, temProblema,
 } from '@/lib/reports/monitoramento';
 
 const TITULO = 'text-sm font-semibold tracking-tight text-foreground flex items-center gap-2';
 const TICK = { fontSize: 11, fill: 'hsl(var(--muted-foreground))' } as const;
-const TOOLTIP = { backgroundColor: 'hsl(var(--background))', borderRadius: '8px' } as const;
 
 interface Props {
   companyFilter: string;
@@ -37,7 +37,7 @@ const GraficoDeBarras: React.FC<{ dados: { nome: string; total: number }[] }> = 
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
           <XAxis type="number" allowDecimals={false} tick={TICK} />
           <YAxis type="category" dataKey="nome" width={130} tick={TICK} />
-          <Tooltip contentStyle={TOOLTIP} />
+          <Tooltip {...ESTILO_DA_DICA} />
           <Bar dataKey="total" name="Máquinas" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>

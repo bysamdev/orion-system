@@ -58,6 +58,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { ESTILO_DA_DICA, TEXTO_SOBRE_COR } from '@/lib/chart-theme';
 
 import { BulletChart } from '@/components/reports/BulletChart';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -105,7 +106,7 @@ const chartAttrs = (titulo: string) => ({
   'data-report-chart-title': titulo,
 });
 
-const TOOLTIP_STYLE = { backgroundColor: 'hsl(var(--background))', borderRadius: '8px' } as const;
+
 
 const SemDados: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
   <div className="h-full flex items-center justify-center text-muted-foreground text-sm text-center px-4">
@@ -592,11 +593,11 @@ const Reports: React.FC = () => {
                           dataKey="count"
                           position="inside"
                           fontSize={12}
-                          fill="#ffffff"
+                          {...TEXTO_SOBRE_COR}
                         />
                       </Pie>
                       <Tooltip
-                        contentStyle={TOOLTIP_STYLE}
+                        {...ESTILO_DA_DICA}
                         formatter={(v: number, n: string) => [`${v} chamados`, n]}
                       />
                       <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
@@ -631,7 +632,7 @@ const Reports: React.FC = () => {
                       <YAxis dataKey="name" type="category" tick={TICK} width={110} />
                       <Tooltip
                         cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
-                        contentStyle={TOOLTIP_STYLE}
+                        {...ESTILO_DA_DICA}
                         formatter={(v: number) => [`${v} chamados`, 'Volume']}
                       />
                       <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={18}>
@@ -698,7 +699,7 @@ const Reports: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis dataKey="week" tick={TICK} />
                     <YAxis tick={TICK} allowDecimals={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Tooltip {...ESTILO_DA_DICA} />
                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                     <Area type="monotone" dataKey="ok" name="No Prazo" stackId="1" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} strokeWidth={2} />
                     <Area type="monotone" dataKey="attention" name="Atenção" stackId="1" stroke="#eab308" fill="#eab308" fillOpacity={0.3} strokeWidth={2} />
@@ -739,7 +740,7 @@ const Reports: React.FC = () => {
                             <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
                             <XAxis type="number" hide />
                             <YAxis dataKey="name" type="category" width={100} tick={TICK} />
-                            <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
+                            <Tooltip cursor={{ fill: 'transparent' }} {...ESTILO_DA_DICA} />
                             <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={16}>
                               <LabelList dataKey="count" position="right" fontSize={11} fill="hsl(var(--foreground))" />
                             </Bar>
@@ -767,7 +768,7 @@ const Reports: React.FC = () => {
                             <XAxis type="number" tick={TICK} unit="h" />
                             <YAxis dataKey="name" type="category" width={104} tick={TICK} />
                             <Tooltip
-                              contentStyle={TOOLTIP_STYLE}
+                              {...ESTILO_DA_DICA}
                               formatter={(v: number, _n: string, p: { payload?: { amostra: number } }) => [
                                 `${v}h (${p.payload?.amostra ?? 0} resolvidos)`,
                                 'Tempo médio',
@@ -807,7 +808,7 @@ const Reports: React.FC = () => {
                             <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
                             <XAxis type="number" hide />
                             <YAxis dataKey="name" type="category" width={70} tick={TICK} />
-                            <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
+                            <Tooltip cursor={{ fill: 'transparent' }} {...ESTILO_DA_DICA} />
                             <Bar dataKey="value" name="Chamados" radius={[0, 4, 4, 0]} barSize={18} fill="hsl(var(--primary))">
                               <LabelList dataKey="value" position="right" fontSize={11} fill="hsl(var(--foreground))" />
                             </Bar>
@@ -834,7 +835,7 @@ const Reports: React.FC = () => {
                             <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
                             <XAxis type="number" hide />
                             <YAxis dataKey="name" type="category" width={116} tick={TICK} />
-                            <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
+                            <Tooltip cursor={{ fill: 'transparent' }} {...ESTILO_DA_DICA} />
                             <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={16}>
                               <LabelList dataKey="count" position="right" fontSize={11} fill="hsl(var(--foreground))" />
                             </Bar>
@@ -867,7 +868,7 @@ const Reports: React.FC = () => {
                             <YAxis dataKey="label" type="category" width={90} tick={TICK} />
                             <Tooltip
                               cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
-                              contentStyle={TOOLTIP_STYLE}
+                              {...ESTILO_DA_DICA}
                               formatter={(value: number, _n: string, p: { payload?: { count: number } }) => [
                                 `${value.toFixed(1)}% de ${p.payload?.count ?? 0} chamados`,
                                 'Dentro do prazo',
@@ -904,7 +905,7 @@ const Reports: React.FC = () => {
                             <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
                             <XAxis type="number" hide />
                             <YAxis dataKey="name" type="category" width={110} tick={TICK} />
-                            <Tooltip cursor={{ fill: 'transparent' }} contentStyle={TOOLTIP_STYLE} />
+                            <Tooltip cursor={{ fill: 'transparent' }} {...ESTILO_DA_DICA} />
                             <Bar dataKey="count" name="Chamados" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={18}>
                               <LabelList dataKey="count" position="right" fontSize={11} fill="hsl(var(--foreground))" />
                             </Bar>
@@ -949,7 +950,7 @@ const Reports: React.FC = () => {
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                             <XAxis dataKey="name" tick={TICK} interval={0} />
                             <YAxis yAxisId="left" tick={TICK} unit="%" domain={[0, 100]} />
-                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                            <Tooltip {...ESTILO_DA_DICA} />
                             <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
                             <Bar yAxisId="left" dataKey="taxaReabertura" name="Taxa de Reabertura" fill="hsl(var(--destructive))" radius={[3, 3, 0, 0]}>
                               <LabelList dataKey="taxaReabertura" position="top" fontSize={11} fill="hsl(var(--foreground))" formatter={(v: number) => `${v}%`} />
@@ -980,7 +981,7 @@ const Reports: React.FC = () => {
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                             <XAxis dataKey="name" tick={TICK} interval={0} />
                             <YAxis tick={TICK} unit="h" />
-                            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}h`, '']} />
+                            <Tooltip {...ESTILO_DA_DICA} formatter={(v: number) => [`${v}h`, '']} />
                             <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
                             <Bar dataKey="totalHoras" name="Total" fill="hsl(var(--muted-foreground))" radius={[3, 3, 0, 0]}>
                               <LabelList dataKey="totalHoras" position="top" fontSize={11} fill="hsl(var(--foreground))" />
@@ -1010,7 +1011,7 @@ const Reports: React.FC = () => {
                           <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="hsl(var(--border))" />
                           <XAxis type="number" tick={TICK} unit="h" />
                           <YAxis dataKey="name" type="category" width={116} tick={TICK} />
-                          <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}h`, '']} />
+                          <Tooltip {...ESTILO_DA_DICA} formatter={(v: number) => [`${v}h`, '']} />
                           <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
                           <Bar dataKey="totalHoras" name="Total" fill="hsl(var(--muted-foreground))" radius={[0, 4, 4, 0]} barSize={12}>
                             <LabelList dataKey="totalHoras" position="right" fontSize={11} fill="hsl(var(--foreground))" formatter={(v: number) => `${v}h`} />
@@ -1042,7 +1043,7 @@ const Reports: React.FC = () => {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                           <XAxis dataKey="week" tick={TICK} />
                           <YAxis tick={TICK} allowDecimals={false} />
-                          <Tooltip contentStyle={TOOLTIP_STYLE} />
+                          <Tooltip {...ESTILO_DA_DICA} />
                           <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                           <Line type="monotone" dataKey="kb" name="Artigos KB Vinculados" stroke="#3b82f6" strokeWidth={3} dot={{ r: 3 }} />
                           <Line type="monotone" dataKey="automation" name="Ações Automatizadas" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 3 }} />
