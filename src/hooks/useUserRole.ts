@@ -65,6 +65,7 @@ export const useUserProfile = () => {
         return {
           id: user.id,
           full_name: 'Usuário Teste (Homologação)',
+          avatar_url: null,
           email: user.email || '',
           company_id: '',
           department: 'Geral',

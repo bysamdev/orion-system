@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Home,
   Ticket,
@@ -207,9 +208,12 @@ export const AppSidebar: React.FC = () => {
               onClick={() => go('/ajustes')}
               aria-label="Acessar Ajustes do Perfil"
             >
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary text-xs font-semibold">
-                {iniciais}
-              </span>
+              <Avatar className="size-8 shrink-0 rounded-md">
+                <AvatarImage src={profile?.avatar_url ?? undefined} alt="" className="object-cover" />
+                <AvatarFallback className="rounded-md bg-primary/15 text-primary text-xs font-semibold">
+                  {iniciais}
+                </AvatarFallback>
+              </Avatar>
               <span className="flex flex-col min-w-0 leading-tight">
                 <span className="text-sm font-medium truncate">{profile?.full_name || 'Carregando...'}</span>
                 <span className="text-[11px] text-muted-foreground truncate">{role ? roleLabel[role] : '...'}</span>

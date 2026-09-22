@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Camera, Loader2, User } from 'lucide-react';
@@ -21,6 +22,10 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(currentAvatarUrl);
+  const queryClient = useQueryClient();
+
+  // O perfil chega depois do primeiro render; acompanha quando carregar.
+  useEffect(() => { setAvatarUrl(currentAvatarUrl); }, [currentAvatarUrl]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -79,6 +84,16 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
       // Adicionar timestamp para cache busting
       const urlWithTimestamp = `${publicUrl}?t=${Date.now()}`;
       
+      // Guarda no perfil para a foto continuar lá depois de recarregar. O
+      // ?t= fica salvo de propósito: o arquivo tem sempre o mesmo nome, e sem
+      // ele o navegador mostraria a foto antiga do cache.
+      const { error: perfilError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: urlWithTimestamp })
+        .eq('id', userId);
+      if (perfilError) throw perfilError;
+      await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+
       setAvatarUrl(urlWithTimestamp);
       onUploadComplete?.(urlWithTimestamp);
 
@@ -90,7 +105,7 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
       console.error('Erro ao fazer upload:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível fazer upload da imagem. Verifique se o bucket de avatars está configurado.',
+        description: 'Não foi possível salvar a foto de perfil.',
         variant: 'destructive'
       });
     } finally {

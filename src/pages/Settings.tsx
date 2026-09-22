@@ -245,7 +245,7 @@ export default function Settings() {
                   {/* Avatar Upload */}
                   <AvatarUpload
                     userId={profile?.id || ''}
-                    currentAvatarUrl={null}
+                    currentAvatarUrl={profile?.avatar_url ?? null}
                     fullName={fullName}
                   />
 
