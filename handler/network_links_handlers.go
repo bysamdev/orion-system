@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -182,6 +181,6 @@ func cronProbeNetworkLinks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("[CronProbeNetworkLinks] Summary: %+v\n", summary)
+	log.Printf("[INFO] sondagem dos links de rede: %+v", summary)
 	lib.WriteJSON(w, http.StatusOK, summary)
 }

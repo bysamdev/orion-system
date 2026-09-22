@@ -96,7 +96,6 @@ func monitoringDashboard(w http.ResponseWriter, r *http.Request) {
 
 	user, err := requireAuth(r.WithContext(ctx))
 	if err != nil {
-		fmt.Printf("[DEBUG] mon_handlers dashboard auth error: %v\n", err)
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}
@@ -133,7 +132,6 @@ func monitoringListGroups(w http.ResponseWriter, r *http.Request) {
 
 	user, err := requireAuth(r.WithContext(ctx))
 	if err != nil {
-		fmt.Printf("[DEBUG] mon_handlers groups auth error: %v\n", err)
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		return
 	}
@@ -356,7 +354,6 @@ func monitoringGroupMachines(w http.ResponseWriter, r *http.Request) {
 
 	user, err := requireAuth(r.WithContext(ctx))
 	if err != nil {
-		fmt.Printf("[DEBUG] mon_handlers group machines auth error: %v\n", err)
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
@@ -385,7 +382,6 @@ func monitoringMachineDetail(w http.ResponseWriter, r *http.Request) {
 
 	user, err := requireAuth(r.WithContext(ctx))
 	if err != nil {
-		fmt.Printf("[DEBUG] mon_handlers machine detail auth error: %v\n", err)
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
@@ -423,7 +419,6 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 
 	user, err := requireAuth(r.WithContext(ctx))
 	if err != nil {
-		fmt.Printf("[DEBUG] mon_handlers metrics auth error: %v\n", err)
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
@@ -481,7 +476,6 @@ func monitoringMachineAlerts(w http.ResponseWriter, r *http.Request) {
 
 	user, err := requireAuth(r.WithContext(ctx))
 	if err != nil {
-		fmt.Printf("[DEBUG] mon_handlers alerts auth error: %v\n", err)
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}
@@ -670,7 +664,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 	groupID, err := db.GetOrCreateMachineGroup(ctx, domain, targetCompanyID)
 	if err != nil {
-		fmt.Println("Erro GetOrCreateMachineGroup:", err)
+		log.Printf("[ERRO] resolver grupo da máquina: %v", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar grupo de máquina: %v", err)})
 		return
 	}
@@ -686,7 +680,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		DeviceType: req.DeviceType, DeviceTypeReason: req.DeviceTypeReason, MACAddress: req.MACAddress, Domain: req.Domain,
 	})
 	if err != nil {
-		fmt.Println("Erro UpsertMachine:", err)
+		log.Printf("[ERRO] gravar máquina no heartbeat: %v", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar máquina: %v", err)})
 		return
 	}
@@ -728,7 +722,7 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	telemetriaNoSupabase := !monitorConfigurado()
 	if telemetriaNoSupabase {
 		if err := db.UpdateMachineSnapshot(ctx, amostra); err != nil {
-			fmt.Println("Erro UpdateMachineSnapshot:", err)
+			log.Printf("[ERRO] gravar inventário da máquina: %v", err)
 			lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar métricas: %v", err)})
 			return
 		}
@@ -1294,7 +1288,6 @@ func monitoringCreateCommand(w http.ResponseWriter, r *http.Request) {
 
 	user, err := requireAuth(r.WithContext(ctx))
 	if err != nil {
-		fmt.Printf("[DEBUG] mon_handlers create cmd auth error: %v\n", err)
 		lib.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Não autorizado"})
 		return
 	}

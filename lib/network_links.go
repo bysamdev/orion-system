@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -478,9 +479,9 @@ func (d *DB) ProbeAllNetworkLinks(ctx context.Context) (ProbeSummary, error) {
 	}
 
 	if err := d.UpdateNetworkLinksStatusBatch(ctx, ids, statuses, pingMsVals, cycleStartedAt); err != nil {
-		fmt.Printf("[NetworkLinksWorker] falha ao gravar status em lote: %v\n", err)
+		log.Printf("[ERRO] gravar status dos links em lote: %v", err)
 	}
 
-	fmt.Printf("[NetworkLinksWorker] Probed %d links: %d online, %d offline\n", summary.Total, summary.Online, summary.Offline)
+	log.Printf("[INFO] sondados %d links: %d online, %d offline", summary.Total, summary.Online, summary.Offline)
 	return summary, nil
 }
