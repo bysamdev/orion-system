@@ -14,9 +14,12 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	_ "embed"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,8 +51,25 @@ func comandoOculto(nome string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-//go:embed assets/orion-agent.exe
-var agenteEmbutido []byte
+// O agente vai embutido em gzip (ver cmd/compactar-agente): o executável
+// comprime para ~40%, e é ele que pesa no instalador baixado.
+//
+//go:embed assets/orion-agent.exe.gz
+var agenteCompactado []byte
+
+// agenteEmbutido devolve os bytes originais do orion-agent.exe.
+func agenteEmbutido() ([]byte, error) {
+	r, err := gzip.NewReader(bytes.NewReader(agenteCompactado))
+	if err != nil {
+		return nil, fmt.Errorf("abrir agente compactado: %w", err)
+	}
+	defer r.Close()
+	dados, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("descompactar agente: %w", err)
+	}
+	return dados, nil
+}
 
 //go:embed assets/agent.yaml
 var configTemplate []byte
@@ -293,7 +313,11 @@ func instalar() error {
 	pararServicoSeRodando()
 
 	destinoExe := filepath.Join(pastaDestino, "orion-agent.exe")
-	if err := gravarExeMesmoEmUso(destinoExe, agenteEmbutido); err != nil {
+	agente, err := agenteEmbutido()
+	if err != nil {
+		return err
+	}
+	if err := gravarExeMesmoEmUso(destinoExe, agente); err != nil {
 		return fmt.Errorf("gravar orion-agent.exe: %w", err)
 	}
 	imprimirOK(destinoExe)

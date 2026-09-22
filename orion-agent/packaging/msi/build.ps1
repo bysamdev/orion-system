@@ -42,9 +42,11 @@ try {
     $env:GOOS = "windows"
     $env:GOARCH = "amd64"
     go build -ldflags="-H=windowsgui -s -w" -o orion-agent.exe .
-    Copy-Item -Force orion-agent.exe cmd\installer\assets\orion-agent.exe
-    go build -o $instaladorOrigem ./cmd/installer
-    go build -o dist\OrionAgentSetup.exe ./cmd/installer
+    # O instalador embute o agente em gzip (~40% do tamanho) e sai sem
+    # tabela de símbolos (-s -w): de ~17 MB para ~9 MB por instalador gerado.
+    go run ./cmd/compactar-agente orion-agent.exe cmd\installer\assets\orion-agent.exe.gz
+    go build -trimpath -ldflags="-s -w" -o $instaladorOrigem ./cmd/installer
+    go build -trimpath -ldflags="-s -w" -o dist\OrionAgentSetup.exe ./cmd/installer
 } finally {
     Remove-Item Env:\GOOS -ErrorAction SilentlyContinue
     Remove-Item Env:\GOARCH -ErrorAction SilentlyContinue
