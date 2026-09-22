@@ -23,13 +23,15 @@
   flags.
 
   Build: build.ps1 nesta pasta (candle + light), com OrionInstaller.exe
-  copiado aqui do lado.
+  copiado aqui do lado. A versão vem de orion-agent/version (candle
+  -dVersao=...): com versão fixa, o MajorUpgrade não trocava uma instalação
+  antiga pela nova.
 -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product Id="*"
            Name="Orion Agent"
            Language="1033"
-           Version="1.0.0.0"
+           Version="$(var.Versao)"
            Manufacturer="Orion System"
            UpgradeCode="6F1A1B2E-6C1A-4A2B-9C3D-2B6A7E9F1A01">
 

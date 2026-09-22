@@ -1,17 +1,29 @@
+# WixBinDir: pasta com candle.exe/light.exe. Padrao e o WiX 3.14 instalado;
+# tambem aceita a pasta extraida do zip portatil (wix314-binaries.zip), que
+# nao precisa de instalacao nem de administrador.
+param(
+    [string]$WixBinDir = "C:\Program Files (x86)\WiX Toolset v3.14\bin"
+)
+
 $ErrorActionPreference = "Stop"
 
-$wixBin = "C:\Program Files (x86)\WiX Toolset v3.14\bin"
-$candle = Join-Path $wixBin "candle.exe"
-$light  = Join-Path $wixBin "light.exe"
+$candle = Join-Path $WixBinDir "candle.exe"
+$light  = Join-Path $WixBinDir "light.exe"
 
 if (-not (Test-Path $candle)) {
-    throw "WiX v3.14 nao encontrado em $wixBin"
+    throw "WiX v3.14 nao encontrado em $WixBinDir. Informe -WixBinDir."
 }
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
 $msiDir = $PSScriptRoot
 $instaladorOrigem = Join-Path $repoRoot "lib\assets\installer\OrionInstaller.exe"
 $instaladorLocal = Join-Path $msiDir "OrionInstaller.exe"
+
+# Mesma versao que o agente reporta (orion-agent/version/version.go).
+$versaoGo = Get-Content (Join-Path $repoRoot "orion-agent\version\version.go") -Raw
+if ($versaoGo -notmatch 'var Version = "(\d+\.\d+\.\d+)"') { throw "versao nao encontrada em version.go" }
+$versao = $Matches[1]
+Write-Host "Versao do agente: $versao"
 
 Write-Host "1/5 Gerando recursos de icone (resource.syso)..."
 Push-Location (Join-Path $repoRoot "orion-agent")
@@ -41,6 +53,7 @@ Push-Location (Join-Path $repoRoot "orion-agent")
 try {
     $env:GOOS = "windows"
     $env:GOARCH = "amd64"
+    New-Item -ItemType Directory -Force -Path dist | Out-Null
     go build -ldflags="-H=windowsgui -s -w" -o orion-agent.exe .
     # O instalador embute o agente em gzip (~40% do tamanho) e sai sem
     # tabela de símbolos (-s -w): de ~17 MB para ~9 MB por instalador gerado.
@@ -59,9 +72,9 @@ Copy-Item $instaladorOrigem $instaladorLocal -Force
 Write-Host "4/5 Compilando (candle + light)..."
 Push-Location $msiDir
 try {
-    & $candle OrionAgent.wxs -o OrionAgent.wixobj
+    & $candle -nologo "-dVersao=$versao" OrionAgent.wxs -o OrionAgent.wixobj
     if ($LASTEXITCODE -ne 0) { throw "candle.exe falhou" }
-    & $light OrionAgent.wixobj -o OrionAgent.msi
+    & $light -nologo OrionAgent.wixobj -o OrionAgent.msi
     if ($LASTEXITCODE -ne 0) { throw "light.exe falhou" }
 } finally {
     Pop-Location
