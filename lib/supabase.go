@@ -136,24 +136,6 @@ func (c *SupabaseClient) AdminDeleteUserByID(ctx context.Context, userID string)
 	return nil
 }
 
-type GenerateLinkInput struct {
-	Type       string `json:"type"`
-	Email      string `json:"email"`
-	RedirectTo string `json:"redirect_to,omitempty"`
-}
-
-type GenerateLinkOutput struct {
-	ActionLink string `json:"action_link"`
-}
-
-func (c *SupabaseClient) AdminGenerateLink(ctx context.Context, in GenerateLinkInput) (string, error) {
-	out, err := sbPost[GenerateLinkOutput](ctx, c, "/auth/v1/admin/generate_link", in)
-	if err != nil {
-		return "", err
-	}
-	return out.ActionLink, nil
-}
-
 // SubirInstalador envia os bytes do instalador pro bucket privado
 // "agent-installers" (upsert). Só é chamado quando o arquivo não existe ou
 // foi gravado há mais de 30 minutos (DB.InstaladorRecente): regravar renova
@@ -179,48 +161,6 @@ func (c *SupabaseClient) SubirInstalador(ctx context.Context, caminho string, da
 		return fmt.Errorf("upload do instalador: %s", string(b))
 	}
 	return nil
-}
-
-// InstaladorInfo é um objeto do bucket com a data que permite ordenar por
-// idade — o list do Storage devolve created_at junto do nome.
-type InstaladorInfo struct {
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-// ListarInstaladores devolve os objetos de uma "pasta" (prefixo = id da
-// empresa, ou "generic") do bucket agent-installers, do mais novo pro mais
-// antigo.
-func (c *SupabaseClient) ListarInstaladores(ctx context.Context, pasta string) ([]InstaladorInfo, error) {
-	body, _ := json.Marshal(map[string]any{
-		"prefix": pasta,
-		"limit":  1000,
-		"sortBy": map[string]string{"column": "created_at", "order": "desc"},
-	})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+"/storage/v1/object/list/agent-installers", bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.serviceKey)
-	req.Header.Set("apikey", c.serviceKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	res, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("listar instaladores: %w", err)
-	}
-	defer res.Body.Close()
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		b, _ := io.ReadAll(res.Body)
-		return nil, fmt.Errorf("listar instaladores: %s", string(b))
-	}
-
-	var itens []InstaladorInfo
-	if err := json.NewDecoder(res.Body).Decode(&itens); err != nil {
-		return nil, fmt.Errorf("decodificar lista de instaladores: %w", err)
-	}
-	return itens, nil
 }
 
 // RemoverInstaladores apaga objetos do bucket de verdade — pelo endpoint do

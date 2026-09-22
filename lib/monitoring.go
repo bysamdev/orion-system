@@ -1648,12 +1648,6 @@ WHERE status <> 'offline' AND last_seen < now() - public.silencio_tolerado(devic
 	return cmd.RowsAffected(), nil
 }
 
-func (d *DB) MachineCount(ctx context.Context) (int, error) {
-	var count int
-	err := d.pool.QueryRow(ctx, `SELECT count(*) FROM public.machines`).Scan(&count)
-	return count, err
-}
-
 // updatableMachineColumns é a allow-list de colunas que UpdateMachine aceita
 // escrever. Os chamadores atuais (handler/mon_handlers.go) já filtram as
 // chaves antes de chegar aqui, mas a checagem também vive nesta função —
