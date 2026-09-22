@@ -847,31 +847,6 @@ func percentualDe(usado, total int64) *int16 {
 	return &pct
 }
 
-// InstaladoresObsoletos devolve os caminhos do bucket agent-installers que
-// podem ser apagados: tudo que não está entre os `manter` mais recentes da
-// sua pasta E não é alvo de nenhum comando ainda em trânsito.
-//
-// Instalador de empresa (pasta = id da empresa) é descartável: é gerado de
-// novo a cada pedido de download, e o link assinado vale 1 hora
-// (AssinarInstalador(..., 3600)). O arquivo só é reaproveitado se foi
-// gravado há menos de 30 minutos (InstaladorRecente); senão é regravado, o
-// que renova updated_at. Assim nenhum link vivo aponta para arquivo com mais
-// de 90 minutos, e o que passou disso é apagado. A pasta
-// "generic" (o .msi, igual para todas) mantém os `manter` mais recentes.
-//
-// O NOT EXISTS é a parte que não pode sair: um comando orion-install
-// pendente carrega a URL do objeto, e apagar o arquivo no meio do caminho
-// deixaria o agente baixando um 404 sem nunca conseguir se atualizar. Já
-// aconteceu antes de mudança no mecanismo de entrega quebrar agente com
-// atualização pendente; aqui a proteção é explícita.
-//
-// A janela de 24h nessa proteção é o que a torna útil: a auto-atualização
-// reinicia o próprio agente antes dele responder, então comandos ficam
-// presos em 'sent' pra sempre (mesma causa tratada em
-// JanelaAutoUpdateEmTransito). Sem recorte de tempo, um órfão de semanas
-// atrás protegeria seu instalador eternamente — na medição real eram 15
-// arquivos, 419 MB, imunes à limpeza. Uma instalação leva minutos; 24h é
-// margem de sobra pra qualquer comando que ainda tenha chance de rodar.
 // InstaladorRecente diz se o objeto existe no bucket agent-installers e foi
 // gravado há menos de 30 minutos, o que garante que um link de 1 hora
 // assinado agora não aponta para arquivo que a limpeza vai apagar.
@@ -886,29 +861,40 @@ SELECT EXISTS (
 	return recente, err
 }
 
-func (d *DB) InstaladoresObsoletos(ctx context.Context, manter int) ([]string, error) {
+// InstaladoresObsoletos devolve os caminhos do bucket agent-installers que
+// podem ser apagados: gravados há mais de 90 minutos E que não são alvo de
+// nenhum comando ainda em trânsito.
+//
+// Instalador é descartável, tanto o .exe de cada empresa quanto o .msi
+// (pasta "generic"): é gerado de novo quando alguém pede o download, e o
+// link assinado vale no máximo 1 hora. O arquivo só é reaproveitado se foi
+// gravado há menos de 30 minutos (InstaladorRecente); senão é regravado, o
+// que renova updated_at. Assim nenhum link vivo aponta para arquivo com mais
+// de 90 minutos.
+//
+// O NOT EXISTS é a parte que não pode sair: um comando orion-install
+// pendente carrega a URL do objeto, e apagar o arquivo no meio do caminho
+// deixaria o agente baixando um 404 sem nunca conseguir se atualizar.
+//
+// A janela de 24h nessa proteção é o que a torna útil: a auto-atualização
+// reinicia o próprio agente antes dele responder, então comandos ficam
+// presos em 'sent' pra sempre (mesma causa tratada em
+// JanelaAutoUpdateEmTransito). Sem recorte de tempo, um órfão de semanas
+// atrás protegeria seu instalador eternamente. Uma instalação leva minutos;
+// 24h é margem de sobra pra qualquer comando que ainda tenha chance de rodar.
+func (d *DB) InstaladoresObsoletos(ctx context.Context) ([]string, error) {
 	rows, err := d.pool.Query(ctx, `
-WITH ranqueados AS (
-  SELECT
-    name,
-    updated_at,
-    row_number() OVER (PARTITION BY split_part(name, '/', 1) ORDER BY created_at DESC) AS posicao
-  FROM storage.objects
-  WHERE bucket_id = 'agent-installers'
-)
-SELECT r.name
-FROM ranqueados r
-WHERE (
-    (split_part(r.name, '/', 1) = 'generic' AND r.posicao > $1)
-    OR (split_part(r.name, '/', 1) <> 'generic' AND r.updated_at < now() - INTERVAL '90 minutes')
-  )
+SELECT o.name
+FROM storage.objects o
+WHERE o.bucket_id = 'agent-installers'
+  AND o.updated_at < now() - INTERVAL '90 minutes'
   AND NOT EXISTS (
     SELECT 1 FROM public.machine_commands c
     WHERE c.status IN ('pending', 'dispatched', 'sent')
       AND c.created_at > now() - INTERVAL '24 hours'
-      AND c.command LIKE '%' || r.name || '%'
+      AND c.command LIKE '%' || o.name || '%'
   )
-ORDER BY r.name`, manter)
+ORDER BY o.name`)
 	if err != nil {
 		return nil, err
 	}

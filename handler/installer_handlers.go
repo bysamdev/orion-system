@@ -108,6 +108,20 @@ func apiURLPublica() string {
 	return apiURL
 }
 
+// removerInstaladoresExpirados apaga do Storage os instaladores cujo link já
+// expirou (ver InstaladoresObsoletos). Roda a cada geração, sem esperar a
+// limpeza diária, e só loga se falhar: não pode impedir o download.
+func removerInstaladoresExpirados(ctx context.Context) {
+	obsoletos, err := db.InstaladoresObsoletos(ctx)
+	if err != nil {
+		log.Printf("[AVISO] listar instaladores expirados: %v", err)
+		return
+	}
+	if err := sb.RemoverInstaladores(ctx, obsoletos); err != nil {
+		log.Printf("[AVISO] remover instaladores expirados: %v", err)
+	}
+}
+
 // prepararInstaladorDaEmpresa monta (ou reaproveita do cache) o .exe
 // personalizado de uma empresa, sobe pro Storage se preciso, e devolve a
 // signed URL de download + o SHA-256 dos bytes reais do arquivo. Usado
@@ -136,11 +150,7 @@ func prepararInstaladorDaEmpresa(ctx context.Context, companyID, apiKey, apiURL,
 	// arquivo desta empresa pode ter mais de 1 hora e seria apagado entre a
 	// checagem e a assinatura do link, e o download falharia. Não bloqueia o
 	// download se falhar.
-	if obsoletos, err := db.InstaladoresObsoletos(ctx, instaladoresMantidos); err != nil {
-		log.Printf("[AVISO] listar instaladores expirados: %v", err)
-	} else if err := sb.RemoverInstaladores(ctx, obsoletos); err != nil {
-		log.Printf("[AVISO] remover instaladores expirados: %v", err)
-	}
+	removerInstaladoresExpirados(ctx)
 
 	// Reaproveita só arquivo gravado há menos de 30 minutos; senão regrava
 	// (upsert), renovando a idade que a limpeza usa. Ver InstaladoresObsoletos.
@@ -207,13 +217,16 @@ func monitoringGenerateInstallerMsi(w http.ResponseWriter, r *http.Request) {
 	pasta, nomeCache := lib.CaminhoMsiCache()
 	caminho := pasta + nomeCache
 
-	existe, err := sb.InstaladorExiste(ctx, pasta, nomeCache)
+	// Mesmo esquema do .exe: apaga o que expirou e só reaproveita arquivo
+	// gravado há menos de 30 minutos. Ver InstaladoresObsoletos.
+	removerInstaladoresExpirados(ctx)
+	recente, err := db.InstaladorRecente(ctx, caminho)
 	if err != nil {
 		log.Printf("[ERRO] verificar cache do msi: %v", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao preparar download do instalador"})
 		return
 	}
-	if !existe {
+	if !recente {
 		if err := sb.SubirInstalador(ctx, caminho, lib.InstaladorMsiBytes()); err != nil {
 			log.Printf("[ERRO] subir msi ao storage: %v", err)
 			lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao preparar download do instalador"})

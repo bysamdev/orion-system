@@ -48,7 +48,7 @@ var instaladorMsiHash = func() string {
 // content-addressed pro instalador de uma empresa: mesma agent_key + apiURL
 // + companyName + versão do instalador genérico sempre gera o mesmo nome de
 // arquivo, permitindo pular o upload de ~16MB quando nada mudou desde a
-// última geração (ver InstaladorExiste em supabase.go).
+// última geração recente (ver DB.InstaladorRecente).
 func CaminhoInstaladorCache(companyID, agentKey, apiURL, companyName string) (pasta, nomeArquivo string) {
 	h := sha256.New()
 	h.Write([]byte(instaladorGenericoHash + "|" + agentKey + "|" + apiURL + "|" + companyName))

@@ -154,50 +154,10 @@ func (c *SupabaseClient) AdminGenerateLink(ctx context.Context, in GenerateLinkI
 	return out.ActionLink, nil
 }
 
-// InstaladorExiste verifica, via list (leve, alguns KB), se já existe um
-// objeto com esse nome exato na "pasta" (prefixo) informada — usado pra
-// pular o upload de ~16MB quando o instalador de uma empresa não mudou
-// desde a última geração (ver caminhoDeterministico em installer.go: o
-// nome do arquivo já embute um hash da configuração).
-func (c *SupabaseClient) InstaladorExiste(ctx context.Context, pasta, nomeArquivo string) (bool, error) {
-	body, _ := json.Marshal(map[string]any{"prefix": pasta, "limit": 100})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+"/storage/v1/object/list/agent-installers", bytes.NewReader(body))
-	if err != nil {
-		return false, err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.serviceKey)
-	req.Header.Set("apikey", c.serviceKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	res, err := c.http.Do(req)
-	if err != nil {
-		return false, fmt.Errorf("listar instaladores: %w", err)
-	}
-	defer res.Body.Close()
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		b, _ := io.ReadAll(res.Body)
-		return false, fmt.Errorf("listar instaladores: %s", string(b))
-	}
-
-	var itens []struct {
-		Name string `json:"name"`
-	}
-	if err := json.NewDecoder(res.Body).Decode(&itens); err != nil {
-		return false, fmt.Errorf("decodificar lista de instaladores: %w", err)
-	}
-	for _, item := range itens {
-		if item.Name == nomeArquivo {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 // SubirInstalador envia os bytes do instalador pro bucket privado
-// "agent-installers". Só deve ser chamado quando InstaladorExiste confirmar
-// que o objeto ainda não existe — reenviar ~16MB numa geração repetida sem
-// mudanças seria puro desperdício de banda e tempo de function.
+// "agent-installers" (upsert). Só é chamado quando o arquivo não existe ou
+// foi gravado há mais de 30 minutos (DB.InstaladorRecente): regravar renova
+// updated_at, que a limpeza usa para decidir o que já expirou.
 func (c *SupabaseClient) SubirInstalador(ctx context.Context, caminho string, dados []byte) error {
 	uploadReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		c.baseURL+"/storage/v1/object/agent-installers/"+caminho, bytes.NewReader(dados))

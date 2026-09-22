@@ -458,21 +458,11 @@ func cronMarkOffline(w http.ResponseWriter, r *http.Request) {
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"marked_offline": n})
 }
 
-// cronCleanupInstallers apaga instaladores antigos do bucket
-// agent-installers: os de empresa são apagados 1 hora depois de gerados (o
-// link de download já expirou) e a pasta generic mantém os 3 mais recentes.
-//
-// Cada geração de instalador sobe um executável de ~15 MB com o nome
-// derivado da configuração da empresa, e nada apagava os anteriores: 36
-// objetos somavam 533 MB, 52% da cota de 1 GB do plano, crescendo a cada
-// release. Sem isto o Storage estoura antes do banco.
-//
-// Mantém 3 (e não 1) de propósito: os anteriores cobrem a janela em que uma
-// máquina ainda está executando um comando gerado com a versão anterior.
-// Comandos ainda em trânsito protegem seus arquivos de qualquer forma — ver
-// InstaladoresObsoletos.
-const instaladoresMantidos = 3
-
+// cronCleanupInstallers apaga do bucket agent-installers os instaladores
+// (.exe de empresa e .msi) gravados há mais de 90 minutos, cujo link de
+// download já expirou. A mesma limpeza roda a cada geração de instalador;
+// esta é a rede de segurança diária. Comandos de atualização ainda em
+// trânsito protegem seus arquivos — ver InstaladoresObsoletos.
 func cronCleanupInstallers(w http.ResponseWriter, r *http.Request) {
 	if !autorizarCron(w, r) {
 		return
@@ -486,7 +476,7 @@ func cronCleanupInstallers(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	obsoletos, err := db.InstaladoresObsoletos(ctx, instaladoresMantidos)
+	obsoletos, err := db.InstaladoresObsoletos(ctx)
 	if err != nil {
 		log.Printf("[ERRO] listar instaladores obsoletos: %v", err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao listar instaladores"})
