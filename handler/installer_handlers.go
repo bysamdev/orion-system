@@ -131,22 +131,27 @@ func prepararInstaladorDaEmpresa(ctx context.Context, companyID, apiKey, apiURL,
 	}
 	sha256Hex = lib.SHA256Hex(instalador)
 
-	existe, err := sb.InstaladorExiste(ctx, pasta, nomeCache)
-	if err != nil {
-		return "", "", "", fmt.Errorf("verificar cache do instalador: %w", err)
-	}
-	if !existe {
-		if err := sb.SubirInstalador(ctx, caminho, instalador); err != nil {
-			return "", "", "", fmt.Errorf("subir instalador ao storage: %w", err)
-		}
-	}
-
 	// Aproveita o pedido para apagar instaladores cujo link já expirou, sem
-	// esperar a limpeza diária. Não bloqueia o download se falhar.
+	// esperar a limpeza diária. Precisa vir ANTES da checagem de cache: o
+	// arquivo desta empresa pode ter mais de 1 hora e seria apagado entre a
+	// checagem e a assinatura do link, e o download falharia. Não bloqueia o
+	// download se falhar.
 	if obsoletos, err := db.InstaladoresObsoletos(ctx, instaladoresMantidos); err != nil {
 		log.Printf("[AVISO] listar instaladores expirados: %v", err)
 	} else if err := sb.RemoverInstaladores(ctx, obsoletos); err != nil {
 		log.Printf("[AVISO] remover instaladores expirados: %v", err)
+	}
+
+	// Reaproveita só arquivo gravado há menos de 30 minutos; senão regrava
+	// (upsert), renovando a idade que a limpeza usa. Ver InstaladoresObsoletos.
+	recente, err := db.InstaladorRecente(ctx, caminho)
+	if err != nil {
+		return "", "", "", fmt.Errorf("verificar cache do instalador: %w", err)
+	}
+	if !recente {
+		if err := sb.SubirInstalador(ctx, caminho, instalador); err != nil {
+			return "", "", "", fmt.Errorf("subir instalador ao storage: %w", err)
+		}
 	}
 
 	nomeArquivo = fmt.Sprintf("OrionInstaller-%s.exe", lib.SanitizarNomeArquivo(companyName))

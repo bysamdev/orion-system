@@ -853,8 +853,10 @@ func percentualDe(usado, total int64) *int16 {
 //
 // Instalador de empresa (pasta = id da empresa) é descartável: é gerado de
 // novo a cada pedido de download, e o link assinado vale 1 hora
-// (AssinarInstalador(..., 3600)). Passada essa hora, o arquivo só ocupa
-// espaço, então é apagado independente de quantos existam. A pasta
+// (AssinarInstalador(..., 3600)). O arquivo só é reaproveitado se foi
+// gravado há menos de 30 minutos (InstaladorRecente); senão é regravado, o
+// que renova updated_at. Assim nenhum link vivo aponta para arquivo com mais
+// de 90 minutos, e o que passou disso é apagado. A pasta
 // "generic" (o .msi, igual para todas) mantém os `manter` mais recentes.
 //
 // O NOT EXISTS é a parte que não pode sair: um comando orion-install
@@ -870,12 +872,26 @@ func percentualDe(usado, total int64) *int16 {
 // atrás protegeria seu instalador eternamente — na medição real eram 15
 // arquivos, 419 MB, imunes à limpeza. Uma instalação leva minutos; 24h é
 // margem de sobra pra qualquer comando que ainda tenha chance de rodar.
+// InstaladorRecente diz se o objeto existe no bucket agent-installers e foi
+// gravado há menos de 30 minutos, o que garante que um link de 1 hora
+// assinado agora não aponta para arquivo que a limpeza vai apagar.
+func (d *DB) InstaladorRecente(ctx context.Context, caminho string) (bool, error) {
+	var recente bool
+	err := d.pool.QueryRow(ctx, `
+SELECT EXISTS (
+  SELECT 1 FROM storage.objects
+  WHERE bucket_id = 'agent-installers' AND name = $1
+    AND updated_at > now() - INTERVAL '30 minutes'
+)`, caminho).Scan(&recente)
+	return recente, err
+}
+
 func (d *DB) InstaladoresObsoletos(ctx context.Context, manter int) ([]string, error) {
 	rows, err := d.pool.Query(ctx, `
 WITH ranqueados AS (
   SELECT
     name,
-    created_at,
+    updated_at,
     row_number() OVER (PARTITION BY split_part(name, '/', 1) ORDER BY created_at DESC) AS posicao
   FROM storage.objects
   WHERE bucket_id = 'agent-installers'
@@ -884,7 +900,7 @@ SELECT r.name
 FROM ranqueados r
 WHERE (
     (split_part(r.name, '/', 1) = 'generic' AND r.posicao > $1)
-    OR (split_part(r.name, '/', 1) <> 'generic' AND r.created_at < now() - INTERVAL '1 hour')
+    OR (split_part(r.name, '/', 1) <> 'generic' AND r.updated_at < now() - INTERVAL '90 minutes')
   )
   AND NOT EXISTS (
     SELECT 1 FROM public.machine_commands c
