@@ -141,6 +141,14 @@ func prepararInstaladorDaEmpresa(ctx context.Context, companyID, apiKey, apiURL,
 		}
 	}
 
+	// Aproveita o pedido para apagar instaladores cujo link já expirou, sem
+	// esperar a limpeza diária. Não bloqueia o download se falhar.
+	if obsoletos, err := db.InstaladoresObsoletos(ctx, instaladoresMantidos); err != nil {
+		log.Printf("[AVISO] listar instaladores expirados: %v", err)
+	} else if err := sb.RemoverInstaladores(ctx, obsoletos); err != nil {
+		log.Printf("[AVISO] remover instaladores expirados: %v", err)
+	}
+
 	nomeArquivo = fmt.Sprintf("OrionInstaller-%s.exe", lib.SanitizarNomeArquivo(companyName))
 	downloadURL, err = sb.AssinarInstalador(ctx, caminho, nomeArquivo, 3600)
 	if err != nil {

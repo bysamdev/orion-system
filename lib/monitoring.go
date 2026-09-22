@@ -851,9 +851,11 @@ func percentualDe(usado, total int64) *int16 {
 // podem ser apagados: tudo que não está entre os `manter` mais recentes da
 // sua pasta E não é alvo de nenhum comando ainda em trânsito.
 //
-// A pasta é o id da empresa (ou "generic"), e cada empresa precisa do SEU
-// instalador — a chave de agente vai embutida no executável —, então a
-// retenção é por pasta, nunca global.
+// Instalador de empresa (pasta = id da empresa) é descartável: é gerado de
+// novo a cada pedido de download, e o link assinado vale 1 hora
+// (AssinarInstalador(..., 3600)). Passada essa hora, o arquivo só ocupa
+// espaço, então é apagado independente de quantos existam. A pasta
+// "generic" (o .msi, igual para todas) mantém os `manter` mais recentes.
 //
 // O NOT EXISTS é a parte que não pode sair: um comando orion-install
 // pendente carrega a URL do objeto, e apagar o arquivo no meio do caminho
@@ -873,13 +875,17 @@ func (d *DB) InstaladoresObsoletos(ctx context.Context, manter int) ([]string, e
 WITH ranqueados AS (
   SELECT
     name,
+    created_at,
     row_number() OVER (PARTITION BY split_part(name, '/', 1) ORDER BY created_at DESC) AS posicao
   FROM storage.objects
   WHERE bucket_id = 'agent-installers'
 )
 SELECT r.name
 FROM ranqueados r
-WHERE r.posicao > $1
+WHERE (
+    (split_part(r.name, '/', 1) = 'generic' AND r.posicao > $1)
+    OR (split_part(r.name, '/', 1) <> 'generic' AND r.created_at < now() - INTERVAL '1 hour')
+  )
   AND NOT EXISTS (
     SELECT 1 FROM public.machine_commands c
     WHERE c.status IN ('pending', 'dispatched', 'sent')
