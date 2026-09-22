@@ -108,24 +108,23 @@ func apiURLPublica() string {
 	return apiURL
 }
 
-// prepararInstaladorDaEmpresa monta (ou reaproveita do cache) o .exe
-// personalizado de uma empresa, sobe pro Storage se preciso, e devolve a
-// signed URL de download + o SHA-256 dos bytes reais do arquivo. Usado
-// tanto pelo endpoint de download manual (monitoringGenerateInstaller)
-// quanto pela auto-atualização enfileirada a partir do heartbeat (ver
-// monitoringHeartbeat) — os dois precisam exatamente da mesma coisa.
+// prepararInstaladorDaEmpresa devolve a signed URL do instalador .exe e o
+// SHA-256 dos bytes. Usado pelo download manual (monitoringGenerateInstaller)
+// e pela auto-atualização enfileirada no heartbeat (monitoringHeartbeat).
 //
-// Sempre remonta os bytes (mesmo em cache hit) só pra calcular o hash —
-// barato (append de bytes em memória, sem rede) e sempre correto: o nome
-// do arquivo em cache já embute o hash de instaladorGenericoHash+config,
-// então um cache hit garante que remontar agora dá bytes idênticos aos já
-// armazenados. O upload de ~16MB (a parte cara) continua pulado no cache
-// hit — só a montagem em memória se repete.
-func prepararInstaladorDaEmpresa(ctx context.Context, companyID, apiKey, apiURL, companyName string) (downloadURL, nomeArquivo, sha256Hex string, err error) {
-	pasta, nomeCache := lib.CaminhoInstaladorCache(companyID, apiKey, apiURL, companyName)
+// O arquivo é o mesmo para todas as empresas (lib.CaminhoInstaladorGenerico):
+// a chave é digitada na instalação e as atualizações reaproveitam a que já
+// está na máquina. Antes cada empresa tinha a sua cópia de ~16 MB no Storage,
+// que só levava o nome da empresa como rótulo. O nome continua no nome do
+// arquivo baixado.
+//
+// Remonta os bytes em memória só para calcular o hash (barato, sem rede); o
+// upload só acontece quando o arquivo daquela versão ainda não existe.
+func prepararInstaladorDaEmpresa(ctx context.Context, apiURL, companyName string) (downloadURL, nomeArquivo, sha256Hex string, err error) {
+	pasta, nomeCache := lib.CaminhoInstaladorGenerico(apiURL)
 	caminho := pasta + nomeCache
 
-	instalador, err := lib.MontarInstaladorPersonalizado(apiURL, companyName)
+	instalador, err := lib.MontarInstaladorPersonalizado(apiURL, "")
 	if err != nil {
 		return "", "", "", fmt.Errorf("montar instalador personalizado: %w", err)
 	}
@@ -163,7 +162,7 @@ func monitoringGenerateInstaller(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	downloadURL, nomeArquivo, _, err := prepararInstaladorDaEmpresa(ctx, c.companyID, c.apiKey, c.apiURL, c.companyName)
+	downloadURL, nomeArquivo, _, err := prepararInstaladorDaEmpresa(ctx, c.apiURL, c.companyName)
 	if err != nil {
 		log.Printf("[ERRO] preparar instalador (empresa %s): %v", c.companyID, err)
 		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao preparar download do instalador"})

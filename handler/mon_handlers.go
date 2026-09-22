@@ -1057,7 +1057,7 @@ func enfileirarAutoUpdateSeNecessario(ctx context.Context, machineID, companyID,
 		return false, fmt.Errorf("resolver empresa: %w", err)
 	}
 
-	downloadURL, _, sha256Hex, err := prepararInstaladorDaEmpresa(ctx, companyID, agentKey, apiURLPublica(), companyName)
+	downloadURL, _, sha256Hex, err := prepararInstaladorDaEmpresa(ctx, apiURLPublica(), companyName)
 	if err != nil {
 		log.Printf("[AVISO] preparar instalador pra auto-atualização (máquina %s): %v", machineID, err)
 		return false, fmt.Errorf("preparar instalador: %w", err)
