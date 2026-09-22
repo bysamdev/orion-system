@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { comprimirImagem } from '@/lib/comprimirImagem';
 
 export interface TicketAttachment {
   id: string;
@@ -99,11 +100,12 @@ export const useUploadAttachment = () => {
   return useMutation({
     mutationFn: async ({ 
       ticketId, 
-      file 
+      file: original
     }: { 
       ticketId: string; 
       file: File;
     }) => {
+      const file = await comprimirImagem(original);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 

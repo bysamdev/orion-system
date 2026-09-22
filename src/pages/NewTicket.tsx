@@ -40,6 +40,7 @@ import {
   perguntasDa, validarRespostas, respostasPreenchidas, montarDescricao, MAX_RESPOSTA,
   type Respostas,
 } from '@/lib/perguntasPorCategoria';
+import { comprimirImagem } from '@/lib/comprimirImagem';
 
 // A abertura tem dois passos: o passo 1 é só a escolha da categoria, o passo
 // 2 traz todo o resto num formulário só. Prioridade e departamento continuam
@@ -385,7 +386,8 @@ const NewTicket = () => {
       // Attachments logic
       if (pendingFiles.length > 0) {
         const failedUploads: string[] = [];
-        for (const file of pendingFiles) {
+        for (const original of pendingFiles) {
+          const file = await comprimirImagem(original);
           const fileExt = file.name.split('.').pop();
           const fileName = `${ticket.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
           const { error: uploadError } = await supabase.storage.from('ticket-files').upload(fileName, file);

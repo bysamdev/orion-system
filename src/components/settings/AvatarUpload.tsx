@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Camera, Loader2, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { comprimirImagem } from '@/lib/comprimirImagem';
 
 interface AvatarUploadProps {
   userId: string;
@@ -46,11 +47,11 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
       return;
     }
 
-    // Validação de tamanho (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
+    // Validação de tamanho (max 10MB; a imagem é reduzida antes do envio)
+    if (file.size > 10 * 1024 * 1024) {
       toast({
         title: 'Erro',
-        description: 'A imagem deve ter no máximo 2MB.',
+        description: 'A imagem deve ter no máximo 10MB.',
         variant: 'destructive'
       });
       return;
@@ -59,13 +60,14 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
     setIsUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
+      const comprimido = await comprimirImagem(file, { ladoMaximo: 512 });
+      const fileExt = comprimido.name.split('.').pop();
       const fileName = `${userId}/avatar.${fileExt}`;
 
       // Upload para o storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, comprimido, { upsert: true });
 
       if (uploadError) throw uploadError;
 
