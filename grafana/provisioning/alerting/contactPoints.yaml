@@ -10,9 +10,12 @@ contactPoints:
             url: https://orion.bysam.dev/api/monitoring/alerts/webhook/grafana
             httpMethod: POST
             authorization_scheme: Bearer
-            authorization_credentials: f02a338564149e1fbaecc2e8feb7680a3ec500c5f58bf7b055bffa2b6ed532ab
+            # Segredo vem do ambiente do container, como no datasource
+            # infinity.yml. Estava em texto plano aqui e no histórico do Git:
+            # o valor antigo precisa ser rotacionado.
+            authorization_credentials: $__env{GRAFANA_WEBHOOK_SECRET}
           secureSettings:
-            authorization_credentials: f02a338564149e1fbaecc2e8feb7680a3ec500c5f58bf7b055bffa2b6ed532ab
+            authorization_credentials: $__env{GRAFANA_WEBHOOK_SECRET}
   # Canal preparado: Telegram
   # Para ativar:
   #   1. Crie um bot no @BotFather -> copie o TOKEN
