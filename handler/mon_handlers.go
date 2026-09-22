@@ -878,9 +878,13 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	// deveria contar como um motivo de alerta por si só (CPU/disco/
 	// antivírus/firewall continuam contando normalmente).
 	resolver = append(resolver, alertaAgenteOffline)
-	_ = db.ResolveAlertTypes(ctx, machineID, resolver)
+	if err := db.ResolveAlertTypes(ctx, machineID, resolver); err != nil {
+		log.Printf("[AVISO] resolver alertas da máquina %s: %v", machineID, err)
+	}
 	if deviceTypeGravado == "server" {
-		_ = db.ResolverChamadoAlertaServidor(ctx, machineID, alertaServidorOffline)
+		if err := db.ResolverChamadoAlertaServidor(ctx, machineID, alertaServidorOffline); err != nil {
+			log.Printf("[AVISO] resolver chamado de servidor offline (máquina %s): %v", machineID, err)
+		}
 	}
 
 	// Verifica se ainda existem alertas não resolvidos para esta máquina
@@ -890,10 +894,12 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		if hasActive, err := db.HasUnresolvedAlerts(ctx, machineID); err == nil {
 			hasAlert = hasAlert || hasActive
 		}
+		novoStatus := "online"
 		if hasAlert {
-			_ = db.UpdateMachineStatus(ctx, machineID, "alerta")
-		} else {
-			_ = db.UpdateMachineStatus(ctx, machineID, "online")
+			novoStatus = "alerta"
+		}
+		if err := db.UpdateMachineStatus(ctx, machineID, novoStatus); err != nil {
+			log.Printf("[AVISO] gravar status %q da máquina %s: %v", novoStatus, machineID, err)
 		}
 	}
 

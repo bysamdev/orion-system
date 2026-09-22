@@ -108,8 +108,13 @@ func monitoringCreateNetworkLink(w http.ResponseWriter, r *http.Request) {
 	go func(id string, target string) {
 		pCtx, pCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer pCancel()
-		status, pingMs, _ := lib.ProbeNetworkTarget(target)
-		_ = db.UpdateNetworkLinkStatus(pCtx, id, status, pingMs)
+		status, pingMs, err := lib.ProbeNetworkTarget(target)
+		if err != nil {
+			log.Printf("[AVISO] primeira sondagem do link %s (%s): %v", id, target, err)
+		}
+		if err := db.UpdateNetworkLinkStatus(pCtx, id, status, pingMs); err != nil {
+			log.Printf("[AVISO] gravar status da primeira sondagem do link %s: %v", id, err)
+		}
 	}(created.ID, created.IPOrHostname)
 
 	lib.WriteJSON(w, http.StatusCreated, created)
