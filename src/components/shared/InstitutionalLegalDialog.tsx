@@ -79,7 +79,7 @@ export const InstitutionalLegalDialog: React.FC<InstitutionalLegalDialogProps> =
                   <div>
                     <h4 className="font-bold text-foreground text-sm mb-1">3. Agente de Monitoramento (Orion Agent)</h4>
                     <p>
-                      O agente instalado nas estações de trabalho coleta estritamente métricas de saúde de hardware (CPU, RAM, Disco, conectividade de rede e inventário de sistema operacional) para fins de manutenção preventiva e resolução de incidentes.
+                      O agente instalado nas estações coleta dados técnicos da máquina para manutenção preventiva e resolução de incidentes: uso de CPU, memória e disco, rede (IP e MAC), hardware, sistema operacional e atualizações pendentes, estado de antivírus, firewall e BitLocker, programas de acesso remoto instalados e o usuário do Windows logado no momento. O agente também executa, a pedido da equipe técnica, instalações e atualizações enviadas pelo Orion, sempre com conferência do arquivo por hash SHA-256.
                     </p>
                   </div>
 
@@ -99,28 +99,42 @@ export const InstitutionalLegalDialog: React.FC<InstitutionalLegalDialogProps> =
                   <div>
                     <h4 className="font-bold text-foreground text-sm mb-1">1. Tratamento de Dados (LGPD)</h4>
                     <p>
-                      O Orion System opera em conformidade com as diretrizes da Lei Geral de Proteção de Dados (Lei nº 13.709/2018), coletando exclusivamente as informações necessárias para a prestação de suporte técnico e gerenciamento de ativos.
+                      O Orion System trata dados pessoais conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), apenas para prestar suporte técnico e gerenciar os ativos de TI dos clientes. São tratados: nome, e-mail, departamento e foto de perfil (opcional, só para a equipe técnica); o conteúdo e os anexos dos chamados; e os dados técnicos coletados pelo Orion Agent descritos nos Termos de Uso, incluindo o usuário do Windows logado na máquina.
                     </p>
                   </div>
 
                   <div>
-                    <h4 className="font-bold text-foreground text-sm mb-1">2. Isolamento Multi-Tenant</h4>
+                    <h4 className="font-bold text-foreground text-sm mb-1">2. Quem vê cada informação</h4>
                     <p>
-                      Todas as informações organizacionais, chamados, métricas de telemetria e registros de auditoria são rigorosamente isolados por empresa através de políticas RLS (Row Level Security) ativas no banco de dados.
+                      Os dados de cada empresa cliente são separados por políticas RLS (Row Level Security) no banco de dados. Usuários comuns e gestores de uma empresa cliente veem só as informações da própria empresa. A equipe técnica que presta o suporte (técnicos, desenvolvedores e administradores das empresas responsáveis pelo atendimento) tem acesso às empresas atendidas, para poder resolver os chamados e acompanhar as máquinas. As respostas prontas usadas no atendimento são compartilhadas por toda a equipe técnica.
                     </p>
                   </div>
 
                   <div>
                     <h4 className="font-bold text-foreground text-sm mb-1">3. Registro de Auditoria</h4>
                     <p>
-                      Operações críticas (criação de pacotes, fechamento de chamados e alterações cadastrais) são registradas em logs de auditoria imutáveis com carimbo de data/hora para fins de conformidade e rastreabilidade.
+                      Operações importantes, como alterações de cadastro, de chamados e de pacotes de instalação, ficam registradas com data e hora. Usuários do sistema não podem alterar nem apagar esses registros; eles podem ser consultados pelos administradores da empresa e pelos desenvolvedores.
                     </p>
                   </div>
 
                   <div>
-                    <h4 className="font-bold text-foreground text-sm mb-1">4. Retenção e Segurança</h4>
+                    <h4 className="font-bold text-foreground text-sm mb-1">4. Onde os dados ficam</h4>
                     <p>
-                      Os dados de telemetria e chamados são armazenados em infraestrutura segura com criptografia em repouso e em trânsito (TLS 1.3).
+                      O cadastro, os chamados e os anexos ficam no Supabase (banco de dados, autenticação e armazenamento de arquivos), com criptografia em repouso. A aplicação roda na Vercel, e os e-mails do sistema são enviados pela Resend. As métricas de monitoramento das máquinas ficam no servidor de monitoramento da equipe responsável pelo atendimento. Toda a comunicação entre navegador, agente e servidores usa conexão criptografada (HTTPS/TLS).
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-foreground text-sm mb-1">5. Navegador</h4>
+                    <p>
+                      O sistema guarda no seu navegador apenas o necessário para funcionar: a sessão de login e preferências de tela, como tema e modo de exibição. Não são usados cookies de publicidade nem rastreadores de terceiros.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-foreground text-sm mb-1">6. Seus direitos</h4>
+                    <p>
+                      Você pode pedir acesso, correção ou exclusão dos seus dados pessoais abrindo um chamado ou falando com o administrador da sua empresa. Fotos de perfil podem ser trocadas a qualquer momento em Ajustes do Perfil.
                     </p>
                   </div>
                 </div>
