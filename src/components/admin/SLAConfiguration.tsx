@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useUserProfile } from '@/hooks/useUserRole';
+import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
+import { useSlaAtivo, useDefinirSlaAtivo } from '@/hooks/useSlaAtivo';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ButtonPrimary } from '@/components/ui/button-primary';
@@ -19,6 +20,11 @@ export const SLAConfiguration: React.FC = () => {
   const companyId = profile?.company_id ?? '';
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: role } = useUserRole();
+  const { data: slaAtivo = true } = useSlaAtivo();
+  const definirSla = useDefinirSlaAtivo();
+  // A função do banco confere de novo: desenvolvedor ou admin da empresa mãe.
+  const podeLigarDesligar = role === 'developer' || role === 'admin';
 
   const { data: slaConfigs = [], isLoading } = useQuery({
     queryKey: ['sla-configs', companyId],
@@ -140,9 +146,32 @@ export const SLAConfiguration: React.FC = () => {
           </h2>
           <p className="text-sm text-muted-foreground mt-1">Gerencie os tempos limites e níveis de serviço para os chamados da sua empresa.</p>
         </div>
-        <ButtonPrimary onClick={handleCreate} className="font-bold" icon={<Plus className="w-4 h-4" />}>
-          Novo SLA
-        </ButtonPrimary>
+        <div className="flex items-center gap-4">
+          {podeLigarDesligar && (
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <Switch
+                checked={slaAtivo}
+                disabled={definirSla.isPending}
+                aria-label="SLA ativo"
+                onCheckedChange={ativo =>
+                  definirSla.mutate(ativo, {
+                    onSuccess: () => toast({
+                      title: ativo ? 'SLA ligado' : 'SLA desligado',
+                      description: ativo
+                        ? 'Os chamados abertos voltaram a ter prazo.'
+                        : 'Os chamados deixam de ter prazo e alertas de SLA.',
+                    }),
+                    onError: (err: Error) => toast({ title: 'Erro', description: err.message, variant: 'destructive' }),
+                  })
+                }
+              />
+              {slaAtivo ? 'SLA ligado' : 'SLA desligado'}
+            </label>
+          )}
+          <ButtonPrimary onClick={handleCreate} className="font-bold" icon={<Plus className="w-4 h-4" />}>
+            Novo SLA
+          </ButtonPrimary>
+        </div>
       </div>
 
       {editingId && formData && (

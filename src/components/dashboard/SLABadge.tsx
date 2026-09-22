@@ -32,6 +32,8 @@ export const SLABadge: React.FC<SLABadgeProps> = ({
   variant = 'default',
   className,
 }) => {
+  // Sem prazo e sem status = chamado sem SLA (SLA desligado): não mostra nada.
+  const semSla = !slaDueDate && !slaStatus;
   const dynamicStatus = (calculateSlaStatus(slaDueDate, createdAt) || slaStatus || 'ok') as SLAStatusKey;
   const config = getSlaConfig(dynamicStatus);
   const Icon = iconMap[dynamicStatus] || Clock;
@@ -42,6 +44,8 @@ export const SLABadge: React.FC<SLABadgeProps> = ({
         addSuffix: true,
       })
     : '';
+
+  if (semSla) return null;
 
   if (variant === 'compact') {
     return (
