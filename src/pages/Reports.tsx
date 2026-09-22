@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTickets } from '@/hooks/useTickets';
@@ -64,6 +64,9 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { GaugeChart } from '@/components/reports/GaugeChart';
 import { TechnicianComparisonChart } from '@/components/reports/TechnicianComparisonChart';
 import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
+
+// Só carrega os gráficos e dados de monitoramento quando a aba é aberta.
+const RelatorioDeMonitoramento = lazy(() => import('@/components/reports/RelatorioDeMonitoramento'));
 import {
   useSlaTarget,
   useTicketRatings,
@@ -716,6 +719,7 @@ const Reports: React.FC = () => {
               <TabsTrigger value="chamados">Análise de Chamados</TabsTrigger>
               <TabsTrigger value="equipe">Desempenho da Equipe</TabsTrigger>
               <TabsTrigger value="plataforma">Plataforma e Autoatendimento</TabsTrigger>
+              <TabsTrigger value="monitoramento">Monitoramento</TabsTrigger>
             </TabsList>
 
             {/* ABA: ANÁLISE DE CHAMADOS */}
@@ -1050,6 +1054,13 @@ const Reports: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* ABA: MONITORAMENTO */}
+            <TabsContent value="monitoramento" className="mt-0">
+              <Suspense fallback={<SemDados>Carregando monitoramento...</SemDados>}>
+                <RelatorioDeMonitoramento companyFilter={companyFilter} />
+              </Suspense>
             </TabsContent>
           </Tabs>
         )}
