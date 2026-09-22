@@ -66,7 +66,7 @@ const categories = [
     icon: Layout,
     color: 'text-blue-500',
     bg: 'bg-blue-500/10',
-    description: 'Sistema Senior (Sapiens, Vetorh, Ronda, emissão de notas fiscais, faturamento, financeiro e relatórios).',
+    description: 'Sistema Senior (Sapiens, Vetorh, Ronda, emissão de notas fiscais, faturamento, financeiro, relatórios, etc.).',
     examples: ['Senior Sapiens (Gestão Empresarial)', 'Senior Vetorh / Ronda (RH e Acesso)', 'Emissão de NF-e / Danfe / Boletos', 'Rotinas de faturamento e relatórios']
   },
   {
@@ -75,7 +75,7 @@ const categories = [
     icon: Mail,
     color: 'text-primary',
     bg: 'bg-primary/10',
-    description: 'Contas de correio eletrônico, problemas no Outlook ou Webmail, envio/recebimento e configuração de contas.',
+    description: 'Contas de correio eletrônico, problemas no Outlook ou Webmail, envio/recebimento, configuração de contas, etc.',
     examples: ['Outlook travando ou não abre', 'Não envia ou não recebe mensagens', 'Configuração de nova conta / senha', 'Caixa de entrada cheia']
   },
   {
@@ -84,7 +84,7 @@ const categories = [
     icon: HardDrive,
     color: 'text-orange-500',
     bg: 'bg-orange-500/10',
-    description: 'Diagnóstico de problemas físicos no computador, máquina que não liga, travamentos graves ou lentidão de hardware.',
+    description: 'Diagnóstico de problemas físicos no computador, máquina que não liga, travamentos graves, lentidão de hardware, etc.',
     examples: ['Computador ou notebook não liga / desliga sozinho', 'Lentidão severa ou congelamentos do sistema', 'Upgrade ou solicitação de memória RAM / SSD', 'Superaquecimento ou barulho anormal no equipamento']
   },
   {
@@ -93,7 +93,7 @@ const categories = [
     icon: Cpu,
     color: 'text-emerald-500',
     bg: 'bg-emerald-500/10',
-    description: 'Instalação, atualização ou erros em programas, pacote Microsoft Office, Excel travando, Adobe e antivírus.',
+    description: 'Instalação, atualização ou erros em programas, pacote Microsoft Office, Excel travando, Adobe, antivírus, etc.',
     examples: ['Instalação / Atualização de programas', 'Excel, Word ou PowerPoint com erro', 'Adobe Acrobat / Leitor de PDF', 'Navegadores e antivírus']
   },
   {
@@ -102,7 +102,7 @@ const categories = [
     icon: Globe,
     color: 'text-sky-500',
     bg: 'bg-sky-500/10',
-    description: 'Sem conexão com a internet, Wi-Fi instável ou lento, falha ao acessar pastas na rede e impressoras conectadas.',
+    description: 'Sem conexão com a internet, Wi-Fi instável ou lento, falha ao acessar pastas na rede, impressoras conectadas, etc.',
     examples: ['Sem acesso à internet ou Wi-Fi instável', 'Pasta compartilhada do servidor não abre', 'VPN não conecta', 'Site ou sistema web fora do ar']
   },
   {
@@ -111,7 +111,7 @@ const categories = [
     icon: UserPlus,
     color: 'text-violet-500',
     bg: 'bg-violet-500/10',
-    description: 'Acesso para um novo colaborador ou acesso novo para quem já trabalha aí: Windows, Senior, e-mail, VPN.',
+    description: 'Acesso para um novo colaborador ou acesso novo para quem já trabalha aí: Windows, Senior, e-mail, VPN, etc.',
     examples: ['Novo colaborador começando', 'Usuário no Windows / rede', 'Usuário no Senior', 'Acesso à VPN']
   },
   {
@@ -120,7 +120,7 @@ const categories = [
     icon: Printer,
     color: 'text-rose-500',
     bg: 'bg-rose-500/10',
-    description: 'Impressora que não imprime, papel atolado, falta de toner, scanner ou impressora que sumiu da lista.',
+    description: 'Impressora que não imprime, papel atolado, falta de toner, scanner, impressora que sumiu da lista, etc.',
     examples: ['Impressora não imprime', 'Papel atolado ou toner acabando', 'Scanner não digitaliza', 'Impressora não aparece no computador']
   },
   {
@@ -129,7 +129,7 @@ const categories = [
     icon: MoreHorizontal,
     color: 'text-muted-foreground',
     bg: 'bg-muted/40',
-    description: 'Solicitações gerais, dúvidas de informática, liberação de novos acessos ou assuntos não listados nas outras opções.',
+    description: 'Solicitações gerais, dúvidas de informática, liberação de novos acessos ou assuntos não listados nas outras opções, etc.',
     examples: ['Criação ou liberação de novos acessos', 'Dúvidas de uso em geral', 'Telefonia / Ramal', 'Outras solicitações de TI']
   },
 ];
