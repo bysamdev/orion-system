@@ -242,12 +242,14 @@ export default function Settings() {
                   <CardDescription>Atualize suas informações pessoais</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Avatar Upload */}
-                  <AvatarUpload
-                    userId={profile?.id || ''}
-                    currentAvatarUrl={profile?.avatar_url ?? null}
-                    fullName={fullName}
-                  />
+                  {/* Foto de perfil só para a equipe interna (técnico para cima). */}
+                  {role && role !== 'customer' && (
+                    <AvatarUpload
+                      userId={profile?.id || ''}
+                      currentAvatarUrl={profile?.avatar_url ?? null}
+                      fullName={fullName}
+                    />
+                  )}
 
                   {/* Informações da Empresa - Badges */}
                   <div className="flex flex-wrap gap-3 p-4 bg-muted/50 rounded-lg">

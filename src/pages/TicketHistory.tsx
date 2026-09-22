@@ -138,7 +138,7 @@ export default function TicketHistory() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
                 <Input
                   autoComplete="off"
-                  placeholder="Buscar por #número, ID, usuário, título ou empresa..."
+                  placeholder={ehEquipeInterna ? "Buscar por #número, ID, usuário, título ou empresa..." : "Buscar por #número ou título..."}
                   value={filtros.busca}
                   onChange={e => atualizarFiltro('busca', e.target.value)}
                   className="pl-12 h-10 bg-muted/20 border-border/40 hover:bg-muted/30 focus-visible:ring-primary/20 rounded-md transition-all text-sm"
@@ -279,18 +279,20 @@ export default function TicketHistory() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                    Contato (e-mail)
-                  </label>
-                  <Input
-                    autoComplete="off"
-                    placeholder="e-mail de quem abriu"
-                    value={filtros.contato}
-                    onChange={e => atualizarFiltro('contato', e.target.value)}
-                    className="h-10 bg-background border-border/40 rounded-md text-sm"
-                  />
-                </div>
+                {ehEquipeInterna && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                      Contato (e-mail)
+                    </label>
+                    <Input
+                      autoComplete="off"
+                      placeholder="e-mail de quem abriu"
+                      value={filtros.contato}
+                      onChange={e => atualizarFiltro('contato', e.target.value)}
+                      className="h-10 bg-background border-border/40 rounded-md text-sm"
+                    />
+                  </div>
+                )}
               </div>
             )}
           </CardHeader>

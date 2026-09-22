@@ -529,8 +529,9 @@ const NewTicket = () => {
             <div className="space-y-1">
               <p className="text-sm font-semibold">Estamos no horário de almoço (12h às 14h)</p>
               <p className="text-sm">
-                Pode abrir o chamado normalmente — ele entra na fila do mesmo jeito. Só a primeira
-                resposta tende a demorar um pouco mais neste intervalo, porque a equipe está reduzida.
+                Você pode abrir o chamado normalmente, seu chamado entra na fila do mesmo jeito. Só a
+                primeira resposta tende a demorar um pouco mais neste intervalo, pois estamos com a
+                equipe reduzida.
               </p>
             </div>
           </div>
