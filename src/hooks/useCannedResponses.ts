@@ -7,7 +7,7 @@ export interface CannedResponse {
   title: string;
   content: string;
   shortcut: string | null;
-  company_id: string;
+  company_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -40,20 +40,11 @@ export const useAddCannedResponse = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      // Get user's company_id
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('company_id')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) throw profileError;
-
       const { data, error } = await supabase
         .from('canned_responses')
         .insert({
           ...response,
-          company_id: profile.company_id,
+          company_id: null, // global: visível para a equipe de todas as empresas
           created_by: user.id,
         })
         .select()

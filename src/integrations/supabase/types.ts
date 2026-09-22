@@ -114,7 +114,7 @@ export type Database = {
       }
       canned_responses: {
         Row: {
-          company_id: string
+          company_id: string | null
           content: string
           created_at: string
           created_by: string
@@ -124,7 +124,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          company_id: string
+          company_id?: string | null
           content: string
           created_at?: string
           created_by: string
@@ -134,7 +134,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          company_id?: string
+          company_id?: string | null
           content?: string
           created_at?: string
           created_by?: string

@@ -207,12 +207,13 @@ export const useToggleRule = () => {
 export const useSaveCannedResponse = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { id?: string; title: string; content: string; shortcut?: string; company_id: string }) => {
+    mutationFn: async (data: { id?: string; title: string; content: string; shortcut?: string }) => {
+      // company_id nulo = template global, visível para a equipe de todas as empresas.
       const payload = {
         title: data.title.trim(),
         content: data.content.trim(),
         shortcut: data.shortcut?.trim() || null,
-        company_id: data.company_id,
+        company_id: null,
       };
       if (data.id) {
         const { error } = await supabase.from('canned_responses').update(payload).eq('id', data.id);

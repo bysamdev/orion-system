@@ -80,7 +80,7 @@ const Automacoes: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="templates">
-          <TemplatesTab filtroEmpresa={filtroEmpresa} empresaPadrao={empresaPadrao} empresas={empresas} />
+          <TemplatesTab />
         </TabsContent>
       </Tabs>
     </div>
