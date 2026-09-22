@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -136,7 +137,10 @@ func bombear(origem *SafeConn, destino func() *SafeConn) {
 	sessaoInicio := time.Now()
 	maxSessao := 60 * time.Minute
 	maxInatividade := 15 * time.Minute
-	ultimoInput := time.Now()
+	// Lido pela goroutine do ping e escrito por este laço: precisa ser
+	// atômico, senão é corrida de dados (go test -race acusa).
+	var ultimoInput atomic.Int64
+	ultimoInput.Store(time.Now().UnixNano())
 
 	pararPing := make(chan struct{})
 	defer close(pararPing)
@@ -146,7 +150,7 @@ func bombear(origem *SafeConn, destino func() *SafeConn) {
 		for {
 			select {
 			case <-t.C:
-				if time.Since(sessaoInicio) > maxSessao || time.Since(ultimoInput) > maxInatividade {
+				if time.Since(sessaoInicio) > maxSessao || time.Since(time.Unix(0, ultimoInput.Load())) > maxInatividade {
 					_ = origem.Close()
 					return
 				}
@@ -164,7 +168,7 @@ func bombear(origem *SafeConn, destino func() *SafeConn) {
 		if err != nil {
 			return
 		}
-		ultimoInput = time.Now()
+		ultimoInput.Store(time.Now().UnixNano())
 		if time.Since(sessaoInicio) > maxSessao {
 			return
 		}
