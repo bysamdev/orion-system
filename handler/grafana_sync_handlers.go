@@ -34,7 +34,7 @@ func monitoringGrafanaSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	role, _ := requireAdminOrDeveloper(r, user.ID)
-	if role != "admin" && role != "developer" && role != "gestor" {
+	if role != "admin" && role != "developer" {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
 		return
 	}
@@ -88,7 +88,7 @@ func monitoringGrafanaSyncDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	role, _ := requireAdminOrDeveloper(r, user.ID)
-	if role != "admin" && role != "developer" && role != "gestor" {
+	if role != "admin" && role != "developer" {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
 		return
 	}

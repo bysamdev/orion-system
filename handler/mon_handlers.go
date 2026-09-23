@@ -1504,8 +1504,7 @@ func monitoringUpdateMachine(w http.ResponseWriter, r *http.Request) {
 
 	// Check management roles
 	role, _ := requireAdminOrDeveloper(r, user.ID)
-	// If it's "gestor", it's also allowed (gestor is allowed for monitoring)
-	if role != "admin" && role != "developer" && role != "gestor" {
+	if role != "admin" && role != "developer" {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
 		return
 	}
@@ -1593,7 +1592,7 @@ func monitoringCreateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	role, _ := requireAdminOrDeveloper(r, user.ID)
-	if role != "admin" && role != "developer" && role != "gestor" {
+	if role != "admin" && role != "developer" {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
 		return
 	}
@@ -1644,7 +1643,7 @@ func monitoringUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	role, _ := requireAdminOrDeveloper(r, user.ID)
-	if role != "admin" && role != "developer" && role != "gestor" {
+	if role != "admin" && role != "developer" {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
 		return
 	}
@@ -1713,7 +1712,7 @@ func monitoringDeleteGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	role, _ := requireAdminOrDeveloper(r, user.ID)
-	if role != "admin" && role != "developer" && role != "gestor" {
+	if role != "admin" && role != "developer" {
 		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Acesso restrito"})
 		return
 	}

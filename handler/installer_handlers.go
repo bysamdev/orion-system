@@ -31,7 +31,7 @@ type contextoInstalador struct {
 // só continha admin/developer/gestor — technician via a página (front
 // permitia) mas toda chamada de API vinha 403 (bug de UX, nunca foi brecha:
 // a direção restritiva demais não é risco de segurança, só quebrava a tela).
-var papeisInstalador = map[string]bool{"admin": true, "developer": true, "gestor": true, "technician": true}
+var papeisInstalador = map[string]bool{"admin": true, "developer": true, "technician": true}
 
 // resolverContextoInstalador centraliza auth + papel + escopo de empresa +
 // nome + chave de API — compartilhado pelos handlers de .exe e .msi.

@@ -7,7 +7,7 @@ import "testing"
 // só liberava admin/developer/gestor — technician via a página, mas toda
 // chamada de API (gerar .exe/.msi) vinha 403.
 func TestPapeisInstaladorInclueTechnician(t *testing.T) {
-	permitidos := []string{"admin", "developer", "gestor", "technician"}
+	permitidos := []string{"admin", "developer", "technician"}
 	for _, r := range permitidos {
 		if !papeisInstalador[r] {
 			t.Errorf("papel %q deveria poder gerar instalador", r)
