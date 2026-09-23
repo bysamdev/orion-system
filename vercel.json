@@ -55,10 +55,6 @@
   ],
   "crons": [
     {
-      "path": "/api/monitoring/cron/probe-network-links",
-      "schedule": "0 1 * * *"
-    },
-    {
       "path": "/api/monitoring/cron/cleanup-installers",
       "schedule": "0 2 * * *"
     }

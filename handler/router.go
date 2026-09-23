@@ -105,36 +105,6 @@ func init() {
 	})
 }
 
-// StartNetworkPingWorker faz probe dos alvos de network_links a cada 5
-// minutos. Precisa ser chamado explicitamente por um processo de vida longa
-// (cmd/server) — antes era disparado dentro de init(), o que o fazia rodar
-// também em cada instância serverless da Vercel, sem eleição de líder: sob
-// pico, várias instâncias sondavam os mesmos alvos em paralelo; sem tráfego,
-// a instância congelava e ninguém sondava.
-//
-// Em produção quem mantém network_links atualizado não é este worker e sim o
-// caminho Prometheus/Blackbox: o bridge lê probe_success/probe_duration do
-// Prometheus e chama update_telemetry_status, que escreve exatamente as
-// mesmas colunas (status, last_ping_ms, last_checked_at) a cada 15 segundos,
-// a partir de um host estável. Este worker é conveniência de
-// desenvolvimento local, não a fonte de verdade.
-func StartNetworkPingWorker() {
-	go func() {
-		time.Sleep(10 * time.Second)
-		ticker := time.NewTicker(300 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			if db != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-				_, _ = db.ProbeAllNetworkLinks(ctx)
-				cancel()
-			}
-			<-ticker.C
-		}
-	}()
-}
-
 // Handler is the Vercel Go serverless function entry point.
 func Handler(w http.ResponseWriter, r *http.Request) {
 	router.ServeHTTP(w, r)
@@ -193,7 +163,6 @@ func buildRouter() http.Handler {
 	r.Get("/api/monitoring/capacity", monitoringCapacity)
 
 	r.Get("/api/monitoring/cron/mark-offline", cronMarkOffline)
-	r.Get("/api/monitoring/cron/probe-network-links", cronProbeNetworkLinks)
 	r.Get("/api/monitoring/cron/cleanup-installers", cronCleanupInstallers)
 
 	r.Get("/api/ws/terminal", WsTerminalBrowserHandler)

@@ -103,19 +103,8 @@ func monitoringCreateNetworkLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Trigger immediate probe asynchronously so initial status gets populated
-	go func(id string, target string) {
-		pCtx, pCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer pCancel()
-		status, pingMs, err := lib.ProbeNetworkTarget(target)
-		if err != nil {
-			log.Printf("[AVISO] primeira sondagem do link %s (%s): %v", id, target, err)
-		}
-		if err := db.UpdateNetworkLinkStatus(pCtx, id, status, pingMs); err != nil {
-			log.Printf("[AVISO] gravar status da primeira sondagem do link %s: %v", id, err)
-		}
-	}(created.ID, created.IPOrHostname)
-
+	// O status vem do Blackbox, pelo orion-bridge, no próximo ciclo; até lá
+	// o link aparece como pending (ORN-DUP-05: um prober só).
 	lib.WriteJSON(w, http.StatusCreated, created)
 }
 
@@ -159,28 +148,4 @@ func monitoringDeleteNetworkLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// GET /api/monitoring/cron/probe-network-links
-func cronProbeNetworkLinks(w http.ResponseWriter, r *http.Request) {
-	// Mesmo fail-open que existia em cronMarkOffline; o relatório do pentest só
-	// apontou o outro, mas o padrão era idêntico. Ver autorizarCron em router.go.
-	if !autorizarCron(w, r) {
-		return
-	}
-
-	if db == nil {
-		lib.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "sem conexão com banco"})
-		return
-	}
-
-	summary, err := db.ProbeAllNetworkLinks(r.Context())
-	if err != nil {
-		log.Printf("[erro] ProbeAllNetworkLinks: %v", err)
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro interno do servidor"})
-		return
-	}
-
-	log.Printf("[INFO] sondagem dos links de rede: %+v", summary)
-	lib.WriteJSON(w, http.StatusOK, summary)
 }
