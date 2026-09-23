@@ -28,6 +28,10 @@ CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
 SELECT plan(20);
 
+-- Os cenários abrem vários chamados seguidos do mesmo cliente; a trava de
+-- abertura (20260924030000) é coberta à parte.
+SET LOCAL orion.limite_de_abertura = 'off';
+
 -- Identificadores fixos: as consultas rodam como authenticated, que não
 -- enxerga tabelas temporárias do postgres.
 --   empresas  e0000000-...-00000000000a / b / c

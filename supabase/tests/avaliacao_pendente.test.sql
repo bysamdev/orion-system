@@ -61,6 +61,10 @@ CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
 SELECT plan(9);
 
+-- Os cenários abrem vários chamados seguidos do mesmo cliente; a trava de
+-- abertura (20260924030000) é coberta à parte.
+SET LOCAL orion.limite_de_abertura = 'off';
+
 -- -----------------------------------------------------------------------------
 -- Fixture
 -- -----------------------------------------------------------------------------
