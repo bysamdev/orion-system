@@ -6,10 +6,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface AlertRequest {
-  email: string;
-  full_name: string;
-}
+// O destinatário é SEMPRE o e-mail da sessão (ORN-SEC-10): antes, email e
+// full_name vinham do corpo, e qualquer usuário logado mandava e-mail com o
+// remetente do Orion para qualquer endereço, com HTML injetado no nome.
+const escaparHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+// Um alerta por troca de senha basta; mais que isso por hora é abuso.
+const LIMITE_POR_HORA = 3;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -37,12 +42,37 @@ serve(async (req) => {
       throw new Error('Não autorizado');
     }
 
-    const body: AlertRequest = await req.json();
-    const { email, full_name } = body;
-
+    const email = user.email;
     if (!email) {
-      throw new Error('Email é obrigatório');
+      throw new Error('Usuário sem e-mail');
     }
+
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    const { data: tentativas, error: limiteError } = await supabaseAdmin.rpc('check_rate_limit', {
+      p_key: `password-changed-alert:${user.id}`,
+      p_window_seconds: 3600,
+      p_limit: LIMITE_POR_HORA,
+    });
+    if (limiteError) {
+      throw new Error('Erro ao verificar limite de envio');
+    }
+    if ((tentativas ?? 0) > LIMITE_POR_HORA) {
+      return new Response(
+        JSON.stringify({ error: 'Limite de alertas atingido. Tente mais tarde.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { data: perfil } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .maybeSingle();
+    const nome = escaparHtml(perfil?.full_name || 'Usuário');
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) {
@@ -67,7 +97,7 @@ serve(async (req) => {
           <!-- Body -->
           <div style="padding: 40px 30px;">
             <h2 style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 24px; font-weight: 600;">
-              Olá, ${full_name || 'Usuário'}!
+              Olá, ${nome}!
             </h2>
             
             <p style="margin: 0 0 20px 0; color: #4a5568; font-size: 16px; line-height: 1.6;">
