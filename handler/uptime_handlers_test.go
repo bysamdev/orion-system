@@ -18,11 +18,6 @@ import (
 // db==nil comprometer o teste). A allow-list de role em si já é coberta
 // por TestAutorizarComandoRemoto (mesmo mapa, reaproveitado aqui).
 func TestWebEndpointMutationsExigemAuth(t *testing.T) {
-	// getUptimeRobotKey() roda antes de requireAuth nos dois handlers — sem
-	// isto, a rota devolveria 500 (chave não configurada) antes de chegar
-	// perto da checagem de autenticação/role que este teste cobre.
-	t.Setenv("UPTIMEROBOT_API_KEY", "chave-de-teste")
-
 	casos := []struct {
 		nome    string
 		metodo  string

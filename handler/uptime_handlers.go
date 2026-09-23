@@ -2,13 +2,8 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
-	"log"
 	"math"
 	"net/http"
-	"net/url"
-	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -18,42 +13,10 @@ import (
 	"orion-api/lib"
 )
 
-func getUptimeRobotKey() string {
-	if key := os.Getenv("UPTIMEROBOT_API_KEY"); key != "" {
-		return key
-	}
-	return cfg.UptimeRobotKey
-}
-
 type createEndpointReq struct {
 	Name      string `json:"name"`
 	URL       string `json:"url"`
 	CompanyID string `json:"company_id,omitempty"`
-}
-
-type uptimeResponse struct {
-	Stat    string `json:"stat"`
-	Monitor struct {
-		ID int `json:"id"`
-	} `json:"monitor"`
-	Monitors []struct {
-		ID             int    `json:"id"`
-		FriendlyName   string `json:"friendly_name"`
-		URL            string `json:"url"`
-		Type           int    `json:"type"`
-		SubType        string `json:"sub_type"`
-		KeywordType    int    `json:"keyword_type"`
-		KeywordValue   string `json:"keyword_value"`
-		HTTPUsername   string `json:"http_username"`
-		HTTPPassword   string `json:"http_password"`
-		Port           string `json:"port"`
-		Interval       int    `json:"interval"`
-		Status         int    `json:"status"`
-		CreateDatetime int    `json:"create_datetime"`
-	} `json:"monitors"`
-	Error *struct {
-		Message string `json:"message"`
-	} `json:"error,omitempty"`
 }
 
 // endpointDiagnostics carrega as métricas reais de uptime/latência exibidas
@@ -212,12 +175,6 @@ func buildEndpointDiagnostics(success, durationMs map[int64]float64) endpointDia
 }
 
 func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
-	apiKey := getUptimeRobotKey()
-	if apiKey == "" {
-		http.Error(w, "UPTIMEROBOT_API_KEY not configured", http.StatusInternalServerError)
-		return
-	}
-
 	user, err := requireAuth(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -253,37 +210,17 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure URL has schema (UptimeRobot Free plan requires HTTP/HTTPS type 1)
+	// O status do site vem do Blackbox (Prometheus), via orion-bridge; a
+	// integração com o UptimeRobot foi removida (ORN-DUP-04): nunca chegou a
+	// criar monitor e disputava com o Blackbox quem gravava o status.
 	if !strings.HasPrefix(req.URL, "http://") && !strings.HasPrefix(req.URL, "https://") {
 		req.URL = "https://" + req.URL
 	}
-	monitorType := "1"
 
-	// Call UptimeRobot API — only Free-plan-allowed fields (DO NOT send interval parameter as it requires PRO)
-	apiURL := "https://api.uptimerobot.com/v2/newMonitor"
-	data := url.Values{}
-	data.Set("api_key", apiKey)
-	data.Set("format", "json")
-	data.Set("type", monitorType)
-	data.Set("url", req.URL)
-	data.Set("friendly_name", req.Name)
-
-	var monitorID string
-	resp, err := http.PostForm(apiURL, data)
-	if err == nil {
-		defer resp.Body.Close()
-		body, _ := io.ReadAll(resp.Body)
-		var upResp uptimeResponse
-		if json.Unmarshal(body, &upResp) == nil && upResp.Stat == "ok" {
-			monitorID = fmt.Sprintf("%d", upResp.Monitor.ID)
-		}
-	}
-
-	// Save to database (works even if UptimeRobot fails or hits plan limit)
 	_, err = db.Pool().Exec(r.Context(), `
-		INSERT INTO public.monitored_endpoints (company_id, name, url_or_ip, uptimerobot_monitor_id, status, created_at)
-		VALUES ($1, $2, $3, $4, 'pending', now())
-	`, targetCompanyID, req.Name, req.URL, monitorID)
+		INSERT INTO public.monitored_endpoints (company_id, name, url_or_ip, status, created_at)
+		VALUES ($1, $2, $3, 'pending', now())
+	`, targetCompanyID, req.Name, req.URL)
 
 	if err != nil {
 		http.Error(w, "Failed to save to database", http.StatusInternalServerError)
@@ -292,21 +229,17 @@ func monitoringCreateWebEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":    true,
-		"monitor_id": monitorID,
-	})
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
 }
 
 type MonitoredEndpoint struct {
-	ID                   string     `json:"id"`
-	CompanyID            string     `json:"company_id"`
-	Name                 string     `json:"name"`
-	URLOrIP              string     `json:"url_or_ip"`
-	UptimeRobotMonitorID string     `json:"uptimerobot_monitor_id"`
-	Status               string     `json:"status"` // e.g. "pending", "online", "offline", "paused"
-	LastCheck            *time.Time `json:"last_check"`
-	CreatedAt            time.Time  `json:"created_at"`
+	ID        string     `json:"id"`
+	CompanyID string     `json:"company_id"`
+	Name      string     `json:"name"`
+	URLOrIP   string     `json:"url_or_ip"`
+	Status    string     `json:"status"` // e.g. "pending", "online", "offline", "paused"
+	LastCheck *time.Time `json:"last_check"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 // statusComFrescor devolve 'sem_dados' quando o status do site não é
@@ -360,7 +293,7 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 	)
 	if companyID != "" {
 		sqlStr = `
-			SELECT id, name, url_or_ip, uptimerobot_monitor_id, ` + statusComFrescor + `
+			SELECT id, name, url_or_ip, ` + statusComFrescor + `
 			FROM public.monitored_endpoints
 			WHERE company_id = $1
 			ORDER BY created_at DESC
@@ -368,7 +301,7 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 		args = append(args, companyID)
 	} else {
 		sqlStr = `
-			SELECT id, name, url_or_ip, uptimerobot_monitor_id, ` + statusComFrescor + `
+			SELECT id, name, url_or_ip, ` + statusComFrescor + `
 			FROM public.monitored_endpoints
 			ORDER BY created_at DESC
 		`
@@ -381,87 +314,20 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	var endpoints []map[string]interface{}
-	monitorIDs := []string{}
 	for rows.Next() {
-		var id, name, urlOrIp, urID, status string
-		if err := rows.Scan(&id, &name, &urlOrIp, &urID, &status); err != nil {
+		var id, name, urlOrIp, status string
+		if err := rows.Scan(&id, &name, &urlOrIp, &status); err != nil {
 			continue
 		}
 		endpoints = append(endpoints, map[string]interface{}{
-			"id":                     id,
-			"name":                   name,
-			"url_or_ip":              urlOrIp,
-			"uptimerobot_monitor_id": urID,
-			"status":                 status,
+			"id":        id,
+			"name":      name,
+			"url_or_ip": urlOrIp,
+			"status":    status,
 		})
-		if urID != "" {
-			monitorIDs = append(monitorIDs, urID)
-		}
 	}
 
-	// 2. Fetch statuses from UptimeRobot if we have monitors and API key
-	apiKey := getUptimeRobotKey()
-	if len(monitorIDs) > 0 && apiKey != "" {
-		apiURL := "https://api.uptimerobot.com/v2/getMonitors"
-		data := url.Values{}
-		data.Set("api_key", apiKey)
-		data.Set("format", "json")
-		data.Set("monitors", strings.Join(monitorIDs, "-"))
-
-		resp, err := http.PostForm(apiURL, data)
-		if err == nil {
-			defer resp.Body.Close()
-			body, _ := io.ReadAll(resp.Body)
-			var upResp uptimeResponse
-			if json.Unmarshal(body, &upResp) == nil && upResp.Stat == "ok" {
-				// Create map of ID -> status
-				statusMap := make(map[string]int)
-				for _, m := range upResp.Monitors {
-					statusMap[fmt.Sprintf("%d", m.ID)] = m.Status
-				}
-
-				// Update endpoints list, coletando as mudanças pra gravar
-				// num único UPDATE em lote (em vez de uma goroutine solta
-				// por endpoint, sem limite de concorrência e sem tratar
-				// erro).
-				var changedIDs, changedStatuses []string
-				for i, ep := range endpoints {
-					urID := ep["uptimerobot_monitor_id"].(string)
-					if s, ok := statusMap[urID]; ok {
-						statusStr := "pending"
-						switch s {
-						case 0:
-							statusStr = "paused"
-						case 1:
-							statusStr = "pending" // Not checked yet
-						case 2:
-							statusStr = "online" // Up
-						case 8, 9:
-							statusStr = "offline" // Down
-						}
-
-						if ep["status"] != statusStr {
-							endpoints[i]["status"] = statusStr
-							changedIDs = append(changedIDs, urID)
-							changedStatuses = append(changedStatuses, statusStr)
-						}
-					}
-				}
-				if len(changedIDs) > 0 {
-					if _, err := db.Pool().Exec(r.Context(), `
-						UPDATE public.monitored_endpoints AS ep
-						SET status = u.new_status, last_check = now()
-						FROM unnest($1::text[], $2::text[]) AS u(monitor_id, new_status)
-						WHERE ep.uptimerobot_monitor_id = u.monitor_id
-					`, changedIDs, changedStatuses); err != nil {
-						log.Printf("[AVISO] falha ao atualizar status de endpoints via UptimeRobot: %v", err)
-					}
-				}
-			}
-		}
-	}
-
-	// 3. Diagnóstico real (uptime, latência, quedas) vem do Prometheus do
+	// 2. Diagnóstico real (uptime, latência, quedas) vem do Prometheus do
 	// próprio servidor de monitoramento, via proxy do Grafana — o mesmo
 	// dado que já alimenta o status ao vivo através do orion-bridge (ver
 	// comentário de endpointDiagnostics acima). Sem GRAFANA_API_TOKEN
@@ -504,12 +370,6 @@ func monitoringListWebEndpoints(w http.ResponseWriter, r *http.Request) {
 }
 
 func monitoringDeleteWebEndpoint(w http.ResponseWriter, r *http.Request) {
-	apiKey := getUptimeRobotKey()
-	if apiKey == "" {
-		http.Error(w, "UPTIMEROBOT_API_KEY not configured", http.StatusInternalServerError)
-		return
-	}
-
 	user, err := requireAuth(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -527,58 +387,31 @@ func monitoringDeleteWebEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Get UptimeRobot Monitor ID
 	// Resolução de escopo idêntica ao molde de network_links_handlers.go:142.
 	// Equipe interna pode excluir endpoint de qualquer empresa (sem filtrar
 	// por company_id); os demais só apagam da própria empresa.
-	var urID string
-	if escopo.Global() {
-		err = db.Pool().QueryRow(r.Context(), `
-			SELECT uptimerobot_monitor_id FROM public.monitored_endpoints
-			WHERE id = $1
-		`, id).Scan(&urID)
-	} else if escopo.CompanyID != nil {
-		err = db.Pool().QueryRow(r.Context(), `
-			SELECT uptimerobot_monitor_id FROM public.monitored_endpoints
-			WHERE id = $1 AND company_id = $2
-		`, id, *escopo.CompanyID).Scan(&urID)
-	} else {
+	if !escopo.Global() && escopo.CompanyID == nil {
 		http.Error(w, "Não foi possível resolver sua empresa", http.StatusForbidden)
 		return
 	}
 
-	if err != nil {
-		http.Error(w, "Endpoint not found", http.StatusNotFound)
-		return
-	}
-
-	// 2. Delete from UptimeRobot
-	if urID != "" {
-		apiURL := "https://api.uptimerobot.com/v2/deleteMonitor"
-		data := url.Values{}
-		data.Set("api_key", apiKey)
-		data.Set("format", "json")
-		data.Set("id", urID)
-
-		resp, err := http.PostForm(apiURL, data)
-		if err == nil {
-			resp.Body.Close()
-		}
-	}
-
-	// 3. Delete from DB
+	var tag interface{ RowsAffected() int64 }
 	if escopo.Global() {
-		_, err = db.Pool().Exec(r.Context(), `
+		tag, err = db.Pool().Exec(r.Context(), `
 			DELETE FROM public.monitored_endpoints WHERE id = $1
 		`, id)
 	} else {
-		_, err = db.Pool().Exec(r.Context(), `
+		tag, err = db.Pool().Exec(r.Context(), `
 			DELETE FROM public.monitored_endpoints WHERE id = $1 AND company_id = $2
 		`, id, *escopo.CompanyID)
 	}
 
 	if err != nil {
 		http.Error(w, "Failed to delete from DB", http.StatusInternalServerError)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		http.Error(w, "Endpoint not found", http.StatusNotFound)
 		return
 	}
 

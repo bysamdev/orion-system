@@ -9,7 +9,6 @@ type Config struct {
 	SupabaseAnonKey      string
 	SupabaseServiceKey   string
 	AgentKey             string
-	UptimeRobotKey       string
 	GrafanaWebhookSecret string
 	GrafanaURL           string
 	GrafanaAPIToken      string
@@ -44,7 +43,6 @@ func LoadConfig() Config {
 		SupabaseAnonKey:       supabaseAnonKey,
 		SupabaseServiceKey:    supabaseServiceKey,
 		AgentKey:              os.Getenv("AGENT_KEY"),
-		UptimeRobotKey:        os.Getenv("UPTIMEROBOT_API_KEY"),
 		GrafanaWebhookSecret:  os.Getenv("GRAFANA_WEBHOOK_SECRET"),
 		GrafanaURL:            envOr("GRAFANA_URL", "https://monitor-orion.bysam.dev"),
 		GrafanaAPIToken:       os.Getenv("GRAFANA_API_TOKEN"),
