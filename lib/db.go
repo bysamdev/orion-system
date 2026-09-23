@@ -120,7 +120,12 @@ func (d *DB) Pool() *pgxpool.Pool { return d.pool }
 
 func (d *DB) RoleByUserID(ctx context.Context, userID string) (string, error) {
 	var role string
-	err := d.pool.QueryRow(ctx, `select role from public.user_roles where user_id = $1 limit 1`, userID).Scan(&role)
+	// Um usuário pode ter mais de um papel (ex.: admin e developer); sem
+	// ORDER BY o LIMIT 1 devolvia qualquer um (ORN-DB-02). Vale o mais alto.
+	err := d.pool.QueryRow(ctx, `
+select role from public.user_roles where user_id = $1
+order by case role::text when 'developer' then 1 when 'admin' then 2 when 'technician' then 3 else 4 end
+limit 1`, userID).Scan(&role)
 	return role, err
 }
 
