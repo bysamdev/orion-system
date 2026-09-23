@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -25,6 +26,8 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = useQueryClient();
+  const usuarioAnterior = useRef<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,8 +76,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // 1. Escuta mudanças em tempo real de autenticação do Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, currentSession) => {
+      (evento, currentSession) => {
         if (!isMounted) return;
+        // O cache do React Query tem chaves sem o id do usuário (['tickets'],
+        // ['monitoring']...): sem limpar, quem entrasse na mesma aba depois de
+        // um logout via os dados do usuário anterior (ORN-BUG-08).
+        const novoId = currentSession?.user?.id ?? null;
+        if (evento === 'SIGNED_OUT' || (usuarioAnterior.current && novoId !== usuarioAnterior.current)) {
+          queryClient.clear();
+        }
+        usuarioAnterior.current = novoId;
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setLoading(false);
@@ -93,7 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [fetchSession]);
+  }, [fetchSession, queryClient]);
 
   const value = useMemo(
     () => ({ user, session, loading, refreshAuth }),
