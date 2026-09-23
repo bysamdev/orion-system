@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { ArrowLeft, Play, Zap, Clock, FileText, RefreshCw, Loader2, Trash2, Wrench, CheckCircle2, XCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast, toast as mostrarToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -50,6 +50,20 @@ interface AuditLogEntry {
   changed_at: string;
 }
 
+// Fora do componente: não depende de estado, e assim o efeito do realtime não
+// precisa listá-la como dependência.
+const avisarSeTicketDeTeste = (entry: AuditLogEntry) => {
+  if (entry.table_name !== 'tickets' || entry.action !== 'INSERT') return;
+  const titulo = (entry.new_data as { title?: string } | null)?.title;
+  if (ehTituloDeTicketDeTeste(titulo)) {
+    mostrarToast({
+      title: 'Possível ticket de teste em produção',
+      description: `"${titulo}" (ticket ${entry.record_id}) — verifique se foi criado por engano fora do ambiente de desenvolvimento.`,
+      variant: 'destructive',
+    });
+  }
+};
+
 const DebugTools = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -83,17 +97,6 @@ const DebugTools = () => {
   // (audit_tickets_changes/audit_tickets_trigger → audit_log, já assinado em
   // tempo real logo abaixo) pra avisar assim que um novo ticket com padrão
   // de nome de teste for criado, em vez de precisar notar manualmente no log.
-  const avisarSeTicketDeTeste = (entry: AuditLogEntry) => {
-    if (entry.table_name !== 'tickets' || entry.action !== 'INSERT') return;
-    const titulo = (entry.new_data as { title?: string } | null)?.title;
-    if (ehTituloDeTicketDeTeste(titulo)) {
-      toast({
-        title: 'Possível ticket de teste em produção',
-        description: `"${titulo}" (ticket ${entry.record_id}) — verifique se foi criado por engano fora do ambiente de desenvolvimento.`,
-        variant: 'destructive',
-      });
-    }
-  };
 
   // Load audit logs on mount and setup realtime
   useEffect(() => {

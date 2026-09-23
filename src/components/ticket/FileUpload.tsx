@@ -32,7 +32,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const validateFiles = (files: File[]): File[] => {
+  const validateFiles = useCallback((files: File[]): File[] => {
     setError(null);
     const validFiles: File[] = [];
     
@@ -49,7 +49,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     }
     
     return validFiles.slice(0, maxFiles);
-  };
+  }, [maxFiles, maxSizeMB]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -71,7 +71,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     if (validFiles.length > 0) {
       setPendingFiles(prev => [...prev, ...validFiles].slice(0, maxFiles));
     }
-  }, [maxFiles, maxSizeMB]);
+  }, [maxFiles, validateFiles]);
 
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -84,7 +84,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     }
     
     e.target.value = '';
-  }, [maxFiles, maxSizeMB]);
+  }, [maxFiles, validateFiles]);
 
   const removeFile = (index: number) => {
     setPendingFiles(prev => prev.filter((_, i) => i !== index));

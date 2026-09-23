@@ -519,14 +519,20 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
     }
   }, [initialTab, machine?.id, open]);
 
-  // Sync selects when machine changes
+  // Sync selects when machine changes. Depende só dos valores lidos, não do
+  // objeto inteiro: a máquina é recarregada a cada poucos segundos e trocar a
+  // referência não pode apagar o que o usuário está escolhendo.
+  const maquinaId = machine?.id;
+  const grupoDaMaquina = machine?.group_id;
+  const empresaDaMaquina = machine?.company_id;
+  const tipoDaMaquina = detail?.machine?.device_type || machine?.device_type;
   React.useEffect(() => {
-    if (machine) {
-      setSelectedGroupId(machine.group_id || '');
-      setSelectedCompanyId(machine.company_id || '');
-      setSelectedDeviceType(detail?.machine?.device_type || machine.device_type || 'desktop');
+    if (maquinaId) {
+      setSelectedGroupId(grupoDaMaquina || '');
+      setSelectedCompanyId(empresaDaMaquina || '');
+      setSelectedDeviceType(tipoDaMaquina || 'desktop');
     }
-  }, [machine?.id, detail?.machine?.device_type]);
+  }, [maquinaId, grupoDaMaquina, empresaDaMaquina, tipoDaMaquina]);
 
   const handleSaveChanges = async () => {
     if (!machineId) return;
