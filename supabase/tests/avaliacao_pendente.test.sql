@@ -130,14 +130,19 @@ DECLARE v_id uuid;
 BEGIN
   PERFORM pg_temp.entrar();
 
+  -- aa_sanitiza_abertura_de_chamado faz o chamado do cliente nascer aberto;
+  -- o encerramento vem depois, sem sessão, como o sistema faria.
   INSERT INTO public.tickets (user_id, company_id, requester_name, title, description,
-                              category, priority, status, closed_at)
+                              category, priority)
   VALUES (pg_temp.ref('usuario'), pg_temp.ref('empresa'), 'Usuario de Teste', titulo,
           'Descricao longa o bastante para satisfazer a constraint de comprimento minimo do chamado.',
-          'outros', 'medium', st, now() - (dias_atras || ' days')::interval)
+          'outros', 'medium')
   RETURNING id INTO v_id;
 
   PERFORM pg_temp.sair();
+
+  UPDATE public.tickets SET status = st WHERE id = v_id;
+  UPDATE public.tickets SET closed_at = now() - (dias_atras || ' days')::interval WHERE id = v_id;
 
   INSERT INTO fixture (chave, valor) VALUES (chave, v_id);
 END $$;
