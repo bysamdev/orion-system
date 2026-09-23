@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import DOMPurify from 'dompurify';/**
+// Texto do usuário é guardado como texto puro: o React escapa na tela e os
+// e-mails escapam no servidor. Passar DOMPurify aqui só corrompia o texto
+// ("&" virava "&amp;", "<DC01>" sumia) e não protegia nada, porque a API
+// aceita gravação direta sem passar por este schema (ORN-BUG-14).
+/**
  * Validation schemas for ticket operations
  * These schemas enforce input validation before database operations
  */
@@ -21,8 +25,7 @@ export const ticketUpdateTypeSchema = z.enum(['comment', 'status_change', 'assig
 export const companyNameSchema = z.string()
   .trim()
   .min(1, 'Nome da empresa é obrigatório')
-  .max(100, 'Nome da empresa deve ter no máximo 100 caracteres')
-  .transform(val => DOMPurify.sanitize(val));
+  .max(100, 'Nome da empresa deve ter no máximo 100 caracteres');
 
 export const userRoleSchema = z.enum(['customer', 'technician', 'admin', 'developer'], {
   errorMap: () => ({ message: 'Função de usuário inválida' })
@@ -52,8 +55,7 @@ export const ticketUpdateSchema = z.object({
   content: z.string()
     .trim()
     .min(1, 'Conteúdo é obrigatório')
-    .max(5000, 'Conteúdo deve ter no máximo 5000 caracteres')
-    .transform(val => DOMPurify.sanitize(val)),
+    .max(5000, 'Conteúdo deve ter no máximo 5000 caracteres'),
   type: ticketUpdateTypeSchema
 });
 
@@ -61,8 +63,7 @@ export const ticketCreationSchema = z.object({
   title: z.string()
     .trim()
     .min(5, 'Título deve ter no mínimo 5 caracteres')
-    .max(200, 'Título deve ter no máximo 200 caracteres')
-    .transform(val => DOMPurify.sanitize(val)),
+    .max(200, 'Título deve ter no máximo 200 caracteres'),
   description: z.string()
     .trim()
     .min(20, 'Descrição deve ter no mínimo 20 caracteres')
@@ -70,17 +71,14 @@ export const ticketCreationSchema = z.object({
     .refine(
       (val) => !val.includes('[preencher]'),
       { message: 'Parece que você não preencheu todos os campos do template — revise antes de enviar.' }
-    )
-    .transform(val => DOMPurify.sanitize(val)),
+    ),
   category: z.string()
     .trim()
-    .min(1, 'Categoria é obrigatória')
-    .transform(val => DOMPurify.sanitize(val)),
+    .min(1, 'Categoria é obrigatória'),
   priority: ticketPrioritySchema,
   department: z.string()
     .trim()
     .max(50, 'Departamento deve ter no máximo 50 caracteres')
-    .transform(val => val ? DOMPurify.sanitize(val) : val)
     .optional()
     .or(z.literal(''))
 });
