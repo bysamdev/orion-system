@@ -62,7 +62,7 @@ export const useSoftwarePackages = (companyId?: string) =>
   useQuery<SoftwarePackage[]>({
     queryKey: ['packages', companyId || 'all'],
     queryFn: async () => {
-      let query = (supabase as any)
+      let query = supabase
         .from('software_packages')
         .select('*');
       if (companyId && companyId !== 'all') {
@@ -73,7 +73,7 @@ export const useSoftwarePackages = (companyId?: string) =>
         console.warn('[useSoftwarePackages] Erro:', error);
         return [];
       }
-      return (data as any[]) || [];
+      return (data as unknown as SoftwarePackage[]) || [];
     },
   });
 
@@ -81,18 +81,19 @@ export const usePackageDeployments = (companyId?: string) =>
   useQuery<PackageDeployment[]>({
     queryKey: ['package-deployments', companyId || 'all'],
     queryFn: async () => {
-      let query = (supabase as any)
+      let query = supabase
         .from('package_deployments')
-        .select('*, software_packages(name)');
+        .select('*, software_packages(name), machines!inner(company_id)');
+      // package_deployments não tem company_id: a empresa vem da máquina.
       if (companyId && companyId !== 'all') {
-        query = query.eq('company_id', companyId);
+        query = query.eq('machines.company_id', companyId);
       }
       const { data, error } = await query.order('dispatched_at', { ascending: false }).limit(50);
       if (error) {
         console.warn('[usePackageDeployments] Erro:', error);
         return [];
       }
-      return (data as any[]) || [];
+      return (data as unknown as PackageDeployment[]) || [];
     },
     refetchInterval: 15_000,
   });
@@ -102,7 +103,7 @@ export const useCreatePackage = (companyId?: string) => {
   return useMutation({
     mutationFn: async (input: CreatePackageInput & { company_id?: string }) => {
       const targetCompany = input.company_id || companyId;
-      const { error } = await (supabase as any).from('software_packages').insert([{
+      const { error } = await supabase.from('software_packages').insert([{
         company_id: targetCompany,
         name: input.name,
         description: input.description || null,
@@ -121,7 +122,7 @@ export const useDeletePackage = (companyId?: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from('software_packages').delete().eq('id', id);
+      const { error } = await supabase.from('software_packages').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
@@ -135,7 +136,7 @@ export const useDeployPackage = () => {
       // O banco monta o comando a partir do cadastro do pacote (URL e hash) e
       // grava a autoria pela sessão: o frontend não escreve mais em
       // machine_commands (ORN-SEC-05).
-      const { error } = await (supabase as any).rpc('despachar_pacote', {
+      const { error } = await supabase.rpc('despachar_pacote', {
         p_package_id: input.package_id,
         p_machine_id: input.machine_id,
       });
