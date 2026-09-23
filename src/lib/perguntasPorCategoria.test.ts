@@ -3,6 +3,7 @@ import {
   MAX_RESPOSTA,
   PERGUNTAS_POR_CATEGORIA,
   montarDescricao,
+  respostasDoChamado,
   respostasPreenchidas,
   validarRespostas,
 } from './perguntasPorCategoria';
@@ -107,5 +108,32 @@ describe('múltipla escolha', () => {
       pergunta: 'Em quais sistemas o acesso precisa ser criado?',
       resposta: 'Windows / rede, Senior, VPN',
     });
+  });
+});
+
+describe('respostasDoChamado', () => {
+  it('devolve vazio para chamado sem formulário', () => {
+    expect(respostasDoChamado(null, 'texto livre')).toEqual([]);
+    expect(respostasDoChamado({}, 'texto livre')).toEqual([]);
+    expect(respostasDoChamado({ formulario: { respostas: 'x' } }, '')).toEqual([]);
+  });
+
+  it('lê as respostas gravadas e ignora itens inválidos ou vazios', () => {
+    const metadata = { formulario: { versao: 1, respostas: [
+      { pergunta: 'Qual programa?', resposta: 'Sapiens' },
+      { pergunta: 'Vazia', resposta: '   ' },
+      { pergunta: 1, resposta: 'x' },
+      null,
+    ] } };
+    expect(respostasDoChamado(metadata, '')).toEqual([{ pergunta: 'Qual programa?', resposta: 'Sapiens' }]);
+  });
+
+  it('acrescenta as informações adicionais que só estão na descrição', () => {
+    const preenchidas = [{ pergunta: 'Qual programa?', resposta: 'Sapiens' }];
+    const descricao = montarDescricao(preenchidas, 'Começou ontem');
+    expect(respostasDoChamado({ formulario: { respostas: preenchidas } }, descricao)).toEqual([
+      { pergunta: 'Qual programa?', resposta: 'Sapiens' },
+      { pergunta: 'Informações adicionais', resposta: 'Começou ontem' },
+    ]);
   });
 });

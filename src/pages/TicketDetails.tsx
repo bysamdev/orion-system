@@ -15,6 +15,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SLABadge } from '@/components/dashboard/SLABadge';
 import { TicketHeroHeader } from '@/components/ticket/TicketHeroHeader';
 import { UnifiedTimeline } from '@/components/ticket/UnifiedTimeline';
+import { RespostasDoFormulario } from '@/components/ticket/RespostasDoFormulario';
+import { respostasDoChamado } from '@/lib/perguntasPorCategoria';
 import { ResolutionDialog } from '@/components/ticket/ResolutionDialog';
 import { EscalateDialog } from '@/components/ticket/EscalateDialog';
 import { ArrowLeft, ArrowUpRight, Clock, MessageSquare, Info, Paperclip, Upload, Monitor, Copy, Check, Lock, AlertCircle, Timer, Settings, Loader2, CircleDot, CheckCircle2, Sparkles, ExternalLink, FileText, HandHelping, UserCheck, ChevronDown } from 'lucide-react';
@@ -486,6 +488,11 @@ const TicketDetails: React.FC = () => {
   });
 
   const canManageTickets = userRole === 'technician' || userRole === 'admin' || userRole === 'developer';
+  // Técnicos e gestores leem as respostas do formulário em destaque; o cliente
+  // e os chamados abertos antes do formulário seguem com a descrição corrida.
+  const respostasFormulario = canManageTickets && ticket
+    ? respostasDoChamado(ticket.metadata, ticket.description)
+    : [];
   const canReopenTicket = ticket?.status === 'closed' || ticket?.status === 'resolved';
 
   const statusLabels: Record<string, string> = {
@@ -803,6 +810,9 @@ const TicketDetails: React.FC = () => {
             )}
 
             {/* Problema / Descrição */}
+            {respostasFormulario.length > 0 ? (
+              <RespostasDoFormulario respostas={respostasFormulario} />
+            ) : (
             <Card className="p-8 border-none shadow-sm bg-muted/20">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
@@ -814,6 +824,7 @@ const TicketDetails: React.FC = () => {
                 {ticket.description}
               </p>
             </Card>
+            )}
 
             {/* Histórico / Timeline */}
             <Card className="p-8 shadow-sm overflow-hidden bg-background border border-border/40">

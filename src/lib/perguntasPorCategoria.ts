@@ -177,3 +177,31 @@ export function montarDescricao(preenchidas: RespostaGravada[], complemento = ''
   if (extra) blocos.push(`Informações adicionais\n${extra}`);
   return blocos.join('\n\n').slice(0, MAX_DESCRICAO);
 }
+
+/**
+ * Respostas do formulário gravadas no chamado (metadata.formulario), mais o
+ * bloco "Informações adicionais" que só existe na descrição. Devolve lista
+ * vazia para chamado aberto antes do formulário ou sem respostas, e aí a tela
+ * mostra a descrição como sempre.
+ */
+export function respostasDoChamado(metadata: unknown, descricao: string | null | undefined): RespostaGravada[] {
+  const formulario = (metadata as { formulario?: { respostas?: unknown } } | null)?.formulario;
+  const brutas = Array.isArray(formulario?.respostas) ? formulario.respostas : [];
+  const respostas = brutas
+    .filter((r): r is RespostaGravada =>
+      !!r && typeof r === 'object'
+      && typeof (r as RespostaGravada).pergunta === 'string'
+      && typeof (r as RespostaGravada).resposta === 'string'
+      && (r as RespostaGravada).resposta.trim() !== '')
+    .map((r) => ({ pergunta: r.pergunta, resposta: r.resposta }));
+  if (respostas.length === 0) return [];
+
+  const adicional = (descricao ?? '')
+    .split('\n\n')
+    .find((bloco) => bloco.startsWith('Informações adicionais\n'));
+  if (adicional) {
+    const texto = adicional.slice('Informações adicionais\n'.length).trim();
+    if (texto) respostas.push({ pergunta: 'Informações adicionais', resposta: texto });
+  }
+  return respostas;
+}
