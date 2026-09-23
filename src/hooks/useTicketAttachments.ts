@@ -1,5 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeOrionFunction } from '@/lib/orion-functions';
+
+/**
+ * Desfaz um upload cujo registro em ticket_attachments não foi gravado, para
+ * o arquivo não ficar órfão no bucket. Best-effort: se falhar, só registra.
+ */
+export async function descartarUpload(caminho: string): Promise<void> {
+  const { error } = await invokeOrionFunction('excluir-anexo', { descartarCaminho: caminho });
+  if (error) console.warn('[anexos] Não foi possível descartar o upload órfão:', error.message);
+}
 import { useToast } from '@/hooks/use-toast';
 import { comprimirImagem } from '@/lib/comprimirImagem';
 
@@ -143,8 +153,12 @@ export const useUploadAttachment = () => {
         })
         .select()
         .single();
-      
-      if (error) throw error;
+
+      if (error) {
+        // O arquivo já subiu: sem o registro ele vira órfão no bucket.
+        await descartarUpload(fileName);
+        throw error;
+      }
       return data;
     },
     onSuccess: (_, variables) => {
@@ -171,12 +185,10 @@ export const useDeleteAttachment = () => {
   
   return useMutation({
     mutationFn: async ({ attachmentId, ticketId }: { attachmentId: string; ticketId: string }) => {
-      const { error } = await supabase
-        .from('ticket_attachments')
-        .delete()
-        .eq('id', attachmentId);
-      
-      if (error) throw error;
+      // Registro e arquivo saem juntos, pela Edge excluir-anexo: o navegador
+      // só apagava a linha e o arquivo ficava no bucket.
+      const { error } = await invokeOrionFunction('excluir-anexo', { attachmentId });
+      if (error) throw new Error(error.message);
       return { attachmentId, ticketId };
     },
     onSuccess: (data) => {

@@ -40,6 +40,7 @@ import {
   type Respostas,
 } from '@/lib/perguntasPorCategoria';
 import { comprimirImagem } from '@/lib/comprimirImagem';
+import { descartarUpload } from '@/hooks/useTicketAttachments';
 import { useCompanies } from '@/hooks/useCompanies';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -413,13 +414,19 @@ const NewTicket = () => {
             continue;
           }
 
-          await supabase.from('ticket_attachments').insert({
+          const { error: anexoError } = await supabase.from('ticket_attachments').insert({
             ticket_id: ticket.id,
             file_name: file.name,
             file_url: fileName,
             file_type: file.type,
             uploaded_by: user.id
           });
+          if (anexoError) {
+            // O arquivo subiu mas o registro não: descarta para não ficar órfão.
+            console.error('[NewTicket] Falha ao registrar anexo:', file.name, anexoError);
+            await descartarUpload(fileName);
+            failedUploads.push(file.name);
+          }
         }
         if (failedUploads.length > 0) {
           toast({
