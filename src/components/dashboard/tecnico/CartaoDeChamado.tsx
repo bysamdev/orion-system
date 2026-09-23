@@ -4,6 +4,7 @@ import { AlarmClock, HandHelping } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { getPriorityLabel } from '@/lib/state-tokens';
 import type { Ticket } from '@/hooks/useTickets';
@@ -47,7 +48,7 @@ const Responsavel: React.FC<{ ticket: Ticket; onAssume: (id: string) => void }> 
       <HandHelping className="w-3.5 h-3.5" aria-hidden /> Assumir
     </Button>
   ) : (
-    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 shrink-0 max-w-[45%]">
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground min-w-0" title={ticket.assigned_to ?? undefined}>
       <Avatar nome={ticket.assigned_to} />
       <span className="truncate">{ticket.assigned_to}</span>
     </span>
@@ -87,14 +88,16 @@ export const CartaoDeChamado: React.FC<CartaoDeChamadoProps> = React.memo(({ tic
   const solicitante = (
     <span className="inline-flex items-center gap-1.5 min-w-0">
       <Avatar nome={t.requester_name} />
-      <span className="truncate">
+      <span className="truncate" title={[t.requester_name, t.company_name].filter(Boolean).join(' · ')}>
         <span className="text-foreground/80">{t.requester_name}</span>
         {t.company_name ? ` · ${t.company_name}` : ''}
       </span>
     </span>
   );
 
-  return (
+  const descricao = (t.description ?? '').trim();
+
+  const cartao = (
     <div
       role="link"
       tabIndex={0}
@@ -125,26 +128,46 @@ export const CartaoDeChamado: React.FC<CartaoDeChamadoProps> = React.memo(({ tic
           </div>
           <div className="flex items-center gap-x-4 gap-y-1.5 flex-wrap md:flex-nowrap shrink-0">
             <span className="md:w-[140px] md:text-right"><Prazo ticket={t} /></span>
-            <span className="md:w-[130px] flex md:justify-center"><StatusBadge status={t.status} /></span>
-            <div className="md:w-[130px] flex md:justify-end min-w-0">
+            <span className="md:w-[150px] flex md:justify-center"><StatusBadge status={t.status} /></span>
+            <div className="md:w-[180px] flex md:justify-end min-w-0">
               <Responsavel ticket={t} onAssume={onAssume} />
             </div>
           </div>
         </div>
       ) : (
         <div className="space-y-1">
-          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground min-h-7">
-            <span className="flex items-center gap-1.5 min-w-0">{identificacao}</span>
-            <Responsavel ticket={t} onAssume={onAssume} />
-          </div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">{identificacao}</div>
           <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">{t.title}</p>
-          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            {solicitante}
+          <div className="flex items-center text-xs text-muted-foreground min-w-0">{solicitante}</div>
+          {/* Prazo e responsável na mesma linha, cada um com metade do espaço. */}
+          <div className="flex items-center justify-between gap-2 pt-0.5 min-h-7">
             <Prazo ticket={t} />
+            <Responsavel ticket={t} onAssume={onAssume} />
           </div>
         </div>
       )}
     </div>
+  );
+
+  if (!descricao) return cartao;
+
+  // Descrição ao parar o mouse (ou focar pelo teclado), para decidir sem abrir
+  // o chamado. Atraso evita abrir ao só atravessar a lista.
+  return (
+    <Tooltip delayDuration={500}>
+      <TooltipTrigger asChild>{cartao}</TooltipTrigger>
+      <TooltipContent
+        side={variante === 'cartao' ? 'right' : 'bottom'}
+        align="start"
+        collisionPadding={16}
+        className="max-w-sm p-3 space-y-1.5"
+      >
+        <p className="text-sm font-semibold text-foreground leading-snug">#{t.ticket_number} · {t.title}</p>
+        <p className="text-xs font-normal text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-[12] break-words">
+          {descricao}
+        </p>
+      </TooltipContent>
+    </Tooltip>
   );
 });
 CartaoDeChamado.displayName = 'CartaoDeChamado';
