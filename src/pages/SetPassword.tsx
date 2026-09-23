@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { invokeOrionFunction } from '@/lib/orion-functions';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,16 +40,51 @@ export default function SetPassword() {
   }>({});
 
   const token = searchParams.get('token');
+  // Duas origens para esta tela: o convite do Orion (?token=, tabela
+  // invite_tokens) e o "Esqueci a senha" do Supabase, cujo link abre uma
+  // sessão de recuperação (evento PASSWORD_RECOVERY). Antes só o convite era
+  // tratado, e a recuperação terminava em "Token não fornecido" (ORN-BUG-01).
+  const [modoRecuperacao, setModoRecuperacao] = useState(false);
 
-  // Validar token ao carregar a página (apenas verifica presença na URL)
   useEffect(() => {
-    if (!token) {
-      setTokenError('Token não fornecido na URL');
-      setTokenValid(false);
-    } else {
+    if (token) {
       setTokenValid(true);
+      setIsValidating(false);
+      return;
     }
-    setIsValidating(false);
+
+    let resolvido = false;
+    const aceitar = () => {
+      resolvido = true;
+      setModoRecuperacao(true);
+      setTokenValid(true);
+      setIsValidating(false);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === 'PASSWORD_RECOVERY') aceitar();
+    });
+
+    // O cliente troca o código do link pela sessão logo ao carregar; se o
+    // evento já passou, a sessão de recuperação está ativa.
+    const url = window.location.href;
+    const veioDoLink = /[?&#](code|type=recovery|access_token)=?/.test(url);
+    const espera = setTimeout(async () => {
+      if (resolvido) return;
+      const { data } = await supabase.auth.getSession();
+      if (data.session && veioDoLink) {
+        aceitar();
+      } else {
+        setTokenError('Link inválido ou expirado. Peça um novo em "Esqueci a senha".');
+        setTokenValid(false);
+        setIsValidating(false);
+      }
+    }, 1500);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(espera);
+    };
   }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,6 +107,15 @@ export default function SetPassword() {
     setIsLoading(true);
 
     try {
+      if (modoRecuperacao) {
+        const { error: erroRecuperacao } = await supabase.auth.updateUser({ password: formData.password });
+        if (erroRecuperacao) throw erroRecuperacao;
+        await supabase.auth.signOut();
+        toast({ title: 'Senha redefinida!', description: 'Entre com a nova senha.' });
+        setTimeout(() => navigate('/auth'), 1500);
+        return;
+      }
+
       // Chamar edge function para resetar senha com token
       const { data, error } = await invokeOrionFunction<{ success?: boolean; message?: string; error?: string }>(
         'reset-password-with-token',
@@ -116,7 +161,7 @@ export default function SetPassword() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Validando convite...</p>
+          <p className="text-muted-foreground">Validando link...</p>
         </div>
       </div>
     );
@@ -137,12 +182,12 @@ export default function SetPassword() {
         <Card className="border-border/50 shadow-lg">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">
-              {tokenValid ? 'Bem-vindo!' : 'Erro no Convite'}
+              {!tokenValid ? 'Link inválido' : modoRecuperacao ? 'Redefinir senha' : 'Bem-vindo!'}
             </CardTitle>
             <CardDescription className="text-center text-base">
               {tokenValid 
                 ? 'Defina sua senha de acesso para começar a usar o sistema'
-                : 'Não foi possível validar seu link de convite'
+                : 'Não foi possível validar o link'
               }
             </CardDescription>
           </CardHeader>
