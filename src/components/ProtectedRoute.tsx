@@ -38,9 +38,24 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   } = useUserRole();
 
   const [hasTimedOut, setHasTimedOut] = useState(false);
+  // Quem tem 2FA verificado e ainda está em aal1 (só digitou a senha) volta
+  // para o desafio: antes, abrir qualquer rota direto pulava o segundo fator
+  // (ORN-SEC-13). null = ainda conferindo.
+  const [faltaSegundoFator, setFaltaSegundoFator] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!user) { setFaltaSegundoFator(null); return; }
+    let ativo = true;
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      .then(({ data }) => {
+        if (ativo) setFaltaSegundoFator(!!data && data.nextLevel === 'aal2' && data.currentLevel === 'aal1');
+      })
+      .catch(() => { if (ativo) setFaltaSegundoFator(false); }); // a tela /auth também deixa passar em erro; true aqui daria laço
+    return () => { ativo = false; };
+  }, [user]);
   const [isRetrying, setIsRetrying] = useState(false);
 
-  const isLoading = isAuthLoading || (!!user && isRoleLoading);
+  const isLoading = isAuthLoading || (!!user && (isRoleLoading || faltaSegundoFator === null));
 
   // Timeout de segurança de 5 segundos para exibir opções de recuperação
   useEffect(() => {
@@ -139,6 +154,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (!user) {
     const returnUrl = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/auth?redirect=${returnUrl}`} replace />;
+  }
+
+  // 2a. 2FA ativo e sessão só com senha: volta para o desafio.
+  if (faltaSegundoFator) {
+    const destino = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/auth?redirect=${destino}`} replace />;
   }
 
   // 2b. Senha provisória (primeiro acesso ou temporária do gestor): nenhuma

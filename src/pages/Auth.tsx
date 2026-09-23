@@ -44,7 +44,7 @@ import {
   Smartphone,
   ShieldAlert
 } from 'lucide-react';
-import { verifyBackupCode, formatBackupCode } from '@/lib/mfa';
+import { formatBackupCode } from '@/lib/mfa';
 
 import orionLogo from '@/assets/orion-logo.png';
 import orionLogoLight from '@/assets/orion-logo-light.png';
@@ -196,16 +196,15 @@ const Auth = () => {
         try {
           const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
           if (aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel === 'aal1') {
-            const hasBackupBypass = sessionStorage.getItem('orion_mfa_backup_passed') === 'true';
-            if (!hasBackupBypass) {
-              // Exige desafio 2FA
-              const { data: factors } = await supabase.auth.mfa.listFactors();
-              const totp = factors?.totp?.find((f) => f.status === 'verified');
-              if (totp) {
-                setMfaFactorId(totp.id);
-                setMfaRequired(true);
-                return;
-              }
+            // Exige desafio 2FA. Não há mais atalho por sessionStorage: a
+            // marca "backup passou" era gravada no navegador e qualquer um
+            // com a senha podia criá-la à mão (ORN-SEC-13).
+            const { data: factors } = await supabase.auth.mfa.listFactors();
+            const totp = factors?.totp?.find((f) => f.status === 'verified');
+            if (totp) {
+              setMfaFactorId(totp.id);
+              setMfaRequired(true);
+              return;
             }
           }
         } catch (err) {
@@ -328,8 +327,7 @@ const Auth = () => {
       if (machineToken) {
         localStorage.setItem('orion_machine_token', machineToken);
       }
-      sessionStorage.removeItem('orion_mfa_backup_passed');
-      const searchParams = new URLSearchParams(window.location.search);
+        const searchParams = new URLSearchParams(window.location.search);
       const redirectParam = searchParams.get('redirect');
       const target = redirectParam ? decodeURIComponent(redirectParam) : '/';
       navigate(target, { replace: true });
@@ -359,22 +357,12 @@ const Auth = () => {
 
     setIsMfaSubmitting(true);
     try {
-      const isValid = await verifyBackupCode(clean);
-      if (!isValid) {
-        throw new Error('Código de recuperação inválido ou já utilizado.');
-      }
-
-      sessionStorage.setItem('orion_mfa_backup_passed', 'true');
-
-      toast({
-        title: "Acesso Autorizado via Backup!",
-        description: "Código de recuperação validado e consumido. Lembre-se de gerar novos códigos em Configurações > Segurança.",
-      });
-
-      if (machineToken) {
-        localStorage.setItem('orion_machine_token', machineToken);
-      }
-      navigate('/', { replace: true });
+      // Código de recuperação conferido só no navegador não eleva a sessão
+      // ao nível aal2 do Supabase: liberar o acesso com ele era um atalho
+      // que dispensava o segundo fator (ORN-SEC-13). Até existir uma
+      // recuperação feita pelo servidor, o caminho é pedir ao administrador
+      // que remova a verificação em duas etapas da conta.
+      throw new Error('A entrada por código de recuperação está desativada. Peça ao administrador do Orion para remover a verificação em duas etapas da sua conta.');
     } catch (err: any) {
       toast({
         title: "Código Inválido",
@@ -393,7 +381,6 @@ const Auth = () => {
     setTotpCode('');
     setBackupCode('');
     setIsBackupMode(false);
-    sessionStorage.removeItem('orion_mfa_backup_passed');
   };
 
   // Recuperação de senha
