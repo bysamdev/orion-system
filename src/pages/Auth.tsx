@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from '@/lib/useErrorHandler';
-import { fetchWithTimeout } from '@/lib/fetch-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/theme-provider';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -169,8 +168,6 @@ const Auth = () => {
   const { toast } = useToast();
   const { handleError } = useErrorHandler();
   const { resolvedTheme } = useTheme();
-  const [machineToken, setMachineToken] = useState<string | null>(null);
-  const [isDetectingAgent, setIsDetectingAgent] = useState(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -228,29 +225,6 @@ const Auth = () => {
     localStorage.removeItem('lastEmail');
   }, []);
 
-  useEffect(() => {
-    const detectAgent = async () => {
-      setIsDetectingAgent(true);
-      try {
-        const response = await fetchWithTimeout('http://127.0.0.1:8081/token', { timeoutMs: 3000 });
-        if (response.ok) {
-          const data = await response.json();
-          setMachineToken(data.machine_token);
-          toast({
-            title: "Agente Orion Detectado",
-            description: "Identificação automática de máquina ativada.",
-          });
-        }
-      } catch (err) {
-        // Sem agente local rodando
-      } finally {
-        setIsDetectingAgent(false);
-      }
-    };
-
-    detectAgent();
-  }, [toast]);
-
   // Submissão inicial de Email e Senha
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -296,9 +270,6 @@ const Auth = () => {
     setIsSubmitting(false);
 
     // Login sem 2FA (usuários existentes ou sem MFA configurado)
-    if (machineToken) {
-      localStorage.setItem('orion_machine_token', machineToken);
-    }
     const searchParams = new URLSearchParams(window.location.search);
     const redirectParam = searchParams.get('redirect');
     const target = redirectParam ? decodeURIComponent(redirectParam) : '/';
@@ -324,9 +295,6 @@ const Auth = () => {
         description: "Autenticação em dois fatores verificada.",
       });
 
-      if (machineToken) {
-        localStorage.setItem('orion_machine_token', machineToken);
-      }
         const searchParams = new URLSearchParams(window.location.search);
       const redirectParam = searchParams.get('redirect');
       const target = redirectParam ? decodeURIComponent(redirectParam) : '/';
@@ -341,7 +309,7 @@ const Auth = () => {
     } finally {
       setIsMfaSubmitting(false);
     }
-  }, [mfaFactorId, totpCode, isMfaSubmitting, machineToken, navigate, toast]);
+  }, [mfaFactorId, totpCode, isMfaSubmitting, navigate, toast]);
 
   // Submissão do formulário TOTP
   const handleTotpFormSubmit = (e: React.FormEvent) => {
