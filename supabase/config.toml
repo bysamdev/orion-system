@@ -3,9 +3,6 @@ project_id = "kcxwealimsfxqstoprdg"
 [functions.check-rate-limit]
 verify_jwt = true
 
-[functions.create-new-user]
-verify_jwt = false
-
 [functions.delete-user-admin]
 verify_jwt = false
 
