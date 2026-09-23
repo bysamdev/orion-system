@@ -1,6 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 export interface CannedResponse {
   id: string;
@@ -27,105 +26,5 @@ export const useCannedResponses = () => {
     },
     staleTime: 5 * 60 * 1000, // 5 minutos
     gcTime: 10 * 60 * 1000, // 10 minutos
-  });
-};
-
-export const useAddCannedResponse = () => {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: async (response: { title: string; content: string; shortcut?: string }) => {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
-
-      const { data, error } = await supabase
-        .from('canned_responses')
-        .insert({
-          ...response,
-          company_id: null, // global: visível para a equipe de todas as empresas
-          created_by: user.id,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['canned-responses'] });
-      toast({
-        title: 'Resposta pronta criada',
-        description: 'A resposta pronta foi criada com sucesso.',
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Erro ao criar resposta pronta',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-};
-
-export const useDeleteCannedResponse = () => {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('canned_responses')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['canned-responses'] });
-      toast({
-        title: 'Resposta pronta excluída',
-        description: 'A resposta pronta foi excluída com sucesso.',
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Erro ao excluir resposta pronta',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-};
-
-export const useUpdateCannedResponse = () => {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { title?: string; content?: string; shortcut?: string } }) => {
-      const { error } = await supabase
-        .from('canned_responses')
-        .update(data)
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['canned-responses'] });
-      toast({
-        title: 'Resposta pronta atualizada',
-        description: 'A resposta pronta foi atualizada com sucesso.',
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Erro ao atualizar resposta pronta',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
   });
 };
