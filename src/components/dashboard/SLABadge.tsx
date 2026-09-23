@@ -78,4 +78,3 @@ export const SLABadge: React.FC<SLABadgeProps> = ({
   );
 };
 
-export { getSlaLabel };

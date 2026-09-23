@@ -6,7 +6,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useTheme } from '@/components/theme-provider';
+import { useTheme } from '@/components/theme-context';
 
 export const ThemeToggle: React.FC = () => {
   const { theme, setTheme, resolvedTheme } = useTheme();

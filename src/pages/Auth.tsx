@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from '@/lib/useErrorHandler';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/components/theme-provider';
+import { useTheme } from '@/components/theme-context';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Ripple,

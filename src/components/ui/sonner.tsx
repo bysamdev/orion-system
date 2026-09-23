@@ -1,4 +1,4 @@
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@/components/theme-context";
 import { Toaster as Sonner, toast } from "sonner";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
@@ -28,4 +28,4 @@ const Toaster = ({ ...props }: ToasterProps) => {
   );
 };
 
-export { Toaster, toast };
+export { Toaster };

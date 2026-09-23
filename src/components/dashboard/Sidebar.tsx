@@ -41,8 +41,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
-  useSidebar,
 } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar-context';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

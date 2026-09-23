@@ -1,1 +1,1 @@
-export { RootErrorBoundary, RootErrorBoundary as ErrorBoundary, sanitizeErrorMessage, clearApplicationCache } from '../RootErrorBoundary';
+export { RootErrorBoundary, RootErrorBoundary as ErrorBoundary } from '../RootErrorBoundary';

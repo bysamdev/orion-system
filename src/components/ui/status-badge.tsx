@@ -77,4 +77,4 @@ const StatusBadge = React.forwardRef<HTMLDivElement, StatusBadgeProps>(
 );
 StatusBadge.displayName = "StatusBadge";
 
-export { StatusBadge, statusBadgeVariants };
+export { StatusBadge };

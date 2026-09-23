@@ -72,7 +72,8 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { InventoryTab } from './InventoryTab';
 import { MachineTicketsTab } from './MachineTicketsTab';
-import { OsIcon, parseOsInfo } from './MachineCard';
+import { OsIcon } from './MachineCard';
+import { parseOsInfo } from '@/lib/monitoring/sistemaOperacional';
 
 const PerformanceChart = React.lazy(() =>
   import('./PerformanceChart').then((m) => ({ default: m.PerformanceChart }))

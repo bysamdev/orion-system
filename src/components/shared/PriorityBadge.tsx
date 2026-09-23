@@ -30,4 +30,3 @@ export const PriorityBadge: React.FC<PriorityBadgeProps> = ({ priority, size = '
   );
 };
 
-export { getPriorityLabel };
