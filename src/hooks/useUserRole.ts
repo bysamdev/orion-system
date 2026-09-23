@@ -75,7 +75,7 @@ export const useUserProfile = () => {
           last_assigned_at: null,
           email_notifications: true,
           push_notifications: true
-        } as Database['public']['Tables']['profiles']['Row'];
+        } as unknown as Database['public']['Tables']['profiles']['Row'];
       }
 
       // O perfil guarda informações adicionais que não estão no Auth nativo do Supabase.

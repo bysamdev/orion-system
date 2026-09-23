@@ -40,7 +40,11 @@ export const ResolutionChecklistManagement = () => {
         .order('category');
       
       if (error) throw error;
-      return data || [];
+      // items é jsonb no banco; aqui é sempre lista de textos.
+      return (data || []).map(c => ({
+        ...c,
+        items: Array.isArray(c.items) ? c.items.filter((i): i is string => typeof i === 'string') : [],
+      }));
     },
     enabled: !!profile?.company_id,
   });

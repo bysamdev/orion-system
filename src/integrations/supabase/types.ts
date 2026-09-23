@@ -10,10 +10,164 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          key_value: string
+          label: string | null
+          last_used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_value: string
+          label?: string | null
+          last_used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_value?: string
+          label?: string | null
+          last_used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_relationships: {
+        Row: {
+          created_at: string
+          id: string
+          port_source: string | null
+          port_target: string | null
+          relationship_type: string
+          source_asset_id: string
+          target_asset_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          port_source?: string | null
+          port_target?: string | null
+          relationship_type: string
+          source_asset_id: string
+          target_asset_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          port_source?: string | null
+          port_target?: string | null
+          relationship_type?: string
+          source_asset_id?: string
+          target_asset_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_relationships_source_asset_id_fkey"
+            columns: ["source_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_relationships_target_asset_id_fkey"
+            columns: ["target_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assets: {
+        Row: {
+          brand: string | null
+          company_id: string
+          created_at: string
+          hostname: string | null
+          id: string
+          internal_ip: string | null
+          last_check: string | null
+          model: string | null
+          name: string
+          notes: string | null
+          os: string | null
+          purchased_at: string | null
+          serial_number: string | null
+          status: string
+          type: string
+          updated_at: string
+          warranty_until: string | null
+        }
+        Insert: {
+          brand?: string | null
+          company_id: string
+          created_at?: string
+          hostname?: string | null
+          id?: string
+          internal_ip?: string | null
+          last_check?: string | null
+          model?: string | null
+          name: string
+          notes?: string | null
+          os?: string | null
+          purchased_at?: string | null
+          serial_number?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          warranty_until?: string | null
+        }
+        Update: {
+          brand?: string | null
+          company_id?: string
+          created_at?: string
+          hostname?: string | null
+          id?: string
+          internal_ip?: string | null
+          last_check?: string | null
+          model?: string | null
+          name?: string
+          notes?: string | null
+          os?: string | null
+          purchased_at?: string | null
+          serial_number?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          warranty_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -47,70 +201,68 @@ export type Database = {
         }
         Relationships: []
       }
-      assets: {
+      automation_logs: {
         Row: {
-          brand: string | null
-          company_id: string
+          action_result: string | null
+          action_type: string
           created_at: string
           id: string
-          model: string | null
-          name: string
-          purchased_at: string | null
-          serial_number: string | null
-          status: string
-          type: string
-          updated_at: string
-          warranty_until: string | null
-          os: string | null
-          internal_ip: string | null
-          last_check: string | null
-          hostname: string | null
+          rule_id: string | null
+          rule_name: string | null
+          ticket_id: string | null
         }
         Insert: {
-          brand?: string | null
-          company_id: string
+          action_result?: string | null
+          action_type: string
           created_at?: string
           id?: string
-          model?: string | null
-          name: string
-          purchased_at?: string | null
-          serial_number?: string | null
-          status?: string
-          type: string
-          updated_at?: string
-          warranty_until?: string | null
-          os?: string | null
-          internal_ip?: string | null
-          last_check?: string | null
-          hostname?: string | null
+          rule_id?: string | null
+          rule_name?: string | null
+          ticket_id?: string | null
         }
         Update: {
-          brand?: string | null
-          company_id?: string
+          action_result?: string | null
+          action_type?: string
           created_at?: string
           id?: string
-          model?: string | null
-          name?: string
-          purchased_at?: string | null
-          serial_number?: string | null
-          status?: string
-          type?: string
-          updated_at?: string
-          warranty_until?: string | null
-          os?: string | null
-          internal_ip?: string | null
-          last_check?: string | null
-          hostname?: string | null
+          rule_id?: string | null
+          rule_name?: string | null
+          ticket_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "assets_company_id_fkey"
-            columns: ["company_id"]
+            foreignKeyName: "automation_logs_rule_id_fkey"
+            columns: ["rule_id"]
             isOneToOne: false
-            referencedRelation: "companies"
+            referencedRelation: "routing_rules"
             referencedColumns: ["id"]
-          }
+          },
+          {
+            foreignKeyName: "automation_logs_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      bridge_secrets: {
+        Row: {
+          created_at: string
+          name: string
+          secret: string
+        }
+        Insert: {
+          created_at?: string
+          name: string
+          secret: string
+        }
+        Update: {
+          created_at?: string
+          name?: string
+          secret?: string
+        }
+        Relationships: []
       }
       canned_responses: {
         Row: {
@@ -160,64 +312,16 @@ export type Database = {
           },
         ]
       }
-      categories: {
-        Row: {
-          company_id: string
-          created_at: string
-          description: string | null
-          icon: string | null
-          id: string
-          is_active: boolean
-          name: string
-          parent_id: string | null
-          sort_order: number
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          description?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean
-          name: string
-          parent_id?: string | null
-          sort_order?: number
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          description?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          parent_id?: string | null
-          sort_order?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "categories_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "categories_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       companies: {
         Row: {
           address: string | null
           cnpj: string | null
           created_at: string
           current_plan_id: string | null
+          domain: string | null
+          has_contract: boolean
           id: string
+          is_master: boolean
           logo_url: string | null
           name: string
           phone: string | null
@@ -229,7 +333,10 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           current_plan_id?: string | null
+          domain?: string | null
+          has_contract?: boolean
           id?: string
+          is_master?: boolean
           logo_url?: string | null
           name: string
           phone?: string | null
@@ -241,7 +348,10 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           current_plan_id?: string | null
+          domain?: string | null
+          has_contract?: boolean
           id?: string
+          is_master?: boolean
           logo_url?: string | null
           name?: string
           phone?: string | null
@@ -257,6 +367,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      configuracoes_sistema: {
+        Row: {
+          chave: string
+          updated_at: string
+          updated_by: string | null
+          valor: Json
+        }
+        Insert: {
+          chave: string
+          updated_at?: string
+          updated_by?: string | null
+          valor: Json
+        }
+        Update: {
+          chave?: string
+          updated_at?: string
+          updated_by?: string | null
+          valor?: Json
+        }
+        Relationships: []
       }
       contract_billing_cycles: {
         Row: {
@@ -321,9 +452,9 @@ export type Database = {
           notes: string | null
           sla_config_id: string | null
           start_date: string
-          updated_at: string
           tickets_limit: number | null
           tickets_used: number | null
+          updated_at: string
         }
         Insert: {
           company_id: string
@@ -336,9 +467,9 @@ export type Database = {
           notes?: string | null
           sla_config_id?: string | null
           start_date: string
-          updated_at?: string
           tickets_limit?: number | null
           tickets_used?: number | null
+          updated_at?: string
         }
         Update: {
           company_id?: string
@@ -351,9 +482,9 @@ export type Database = {
           notes?: string | null
           sla_config_id?: string | null
           start_date?: string
-          updated_at?: string
           tickets_limit?: number | null
           tickets_used?: number | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -496,6 +627,21 @@ export type Database = {
           },
         ]
       }
+      egress_diario: {
+        Row: {
+          bytes: number
+          dia: string
+        }
+        Insert: {
+          bytes?: number
+          dia: string
+        }
+        Update: {
+          bytes?: number
+          dia?: string
+        }
+        Relationships: []
+      }
       invite_tokens: {
         Row: {
           created_at: string
@@ -527,6 +673,7 @@ export type Database = {
           content: string
           created_at: string
           created_by: string
+          embedding: string | null
           id: string
           is_public: boolean
           search_vector: unknown
@@ -543,6 +690,7 @@ export type Database = {
           content: string
           created_at?: string
           created_by: string
+          embedding?: string | null
           id?: string
           is_public?: boolean
           search_vector?: unknown
@@ -559,6 +707,7 @@ export type Database = {
           content?: string
           created_at?: string
           created_by?: string
+          embedding?: string | null
           id?: string
           is_public?: boolean
           search_vector?: unknown
@@ -571,14 +720,655 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "knowledge_base_articles_category_id_fkey"
-            columns: ["category_id"]
+            foreignKeyName: "knowledge_base_articles_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "categories"
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      machine_alerts: {
+        Row: {
+          created_at: string
+          id: string
+          machine_id: string
+          message: string | null
+          resolved: boolean
+          severity: string | null
+          type: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          machine_id: string
+          message?: string | null
+          resolved?: boolean
+          severity?: string | null
+          type?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          machine_id?: string
+          message?: string | null
+          resolved?: boolean
+          severity?: string | null
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_alerts_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      machine_commands: {
+        Row: {
+          command: string
+          created_at: string
+          executed_by_name: string | null
+          executed_by_user_id: string | null
+          id: string
+          machine_id: string
+          output: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          command: string
+          created_at?: string
+          executed_by_name?: string | null
+          executed_by_user_id?: string | null
+          id?: string
+          machine_id: string
+          output?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          command?: string
+          created_at?: string
+          executed_by_name?: string | null
+          executed_by_user_id?: string | null
+          id?: string
+          machine_id?: string
+          output?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_commands_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      machine_device_type_history: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          id: string
+          machine_id: string
+          new_type: string
+          old_type: string | null
+          reason: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string
+          id?: string
+          machine_id: string
+          new_type: string
+          old_type?: string | null
+          reason?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          id?: string
+          machine_id?: string
+          new_type?: string
+          old_type?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_device_type_history_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      machine_groups: {
+        Row: {
+          client_contact: string | null
+          company_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          client_contact?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          client_contact?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_groups_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      machine_hardware: {
+        Row: {
+          battery_info: Json | null
+          cpu_model: string | null
+          disks: Json | null
+          gpu: string | null
+          id: string
+          interfaces: Json | null
+          machine_id: string
+          ram_slots: Json | null
+          remote_software: Json | null
+          security_info: Json | null
+          update_status: Json | null
+          updated_at: string
+        }
+        Insert: {
+          battery_info?: Json | null
+          cpu_model?: string | null
+          disks?: Json | null
+          gpu?: string | null
+          id?: string
+          interfaces?: Json | null
+          machine_id: string
+          ram_slots?: Json | null
+          remote_software?: Json | null
+          security_info?: Json | null
+          update_status?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          battery_info?: Json | null
+          cpu_model?: string | null
+          disks?: Json | null
+          gpu?: string | null
+          id?: string
+          interfaces?: Json | null
+          machine_id?: string
+          ram_slots?: Json | null
+          remote_software?: Json | null
+          security_info?: Json | null
+          update_status?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_hardware_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: true
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      machine_identity_merges: {
+        Row: {
+          criterio: string
+          hostname_anterior: string | null
+          hostname_novo: string | null
+          id: string
+          machine_id: string
+          merged_at: string
+        }
+        Insert: {
+          criterio: string
+          hostname_anterior?: string | null
+          hostname_novo?: string | null
+          id?: string
+          machine_id: string
+          merged_at?: string
+        }
+        Update: {
+          criterio?: string
+          hostname_anterior?: string | null
+          hostname_novo?: string | null
+          id?: string
+          machine_id?: string
+          merged_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_identity_merges_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      machine_metrics_history: {
+        Row: {
+          collected_at: string
+          cpu_pct: number | null
+          disk_pct: number | null
+          machine_id: string
+          ram_pct: number | null
+        }
+        Insert: {
+          collected_at: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id: string
+          ram_pct?: number | null
+        }
+        Update: {
+          collected_at?: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id?: string
+          ram_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_metrics_history_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      machine_metrics_history_20260920: {
+        Row: {
+          collected_at: string
+          cpu_pct: number | null
+          disk_pct: number | null
+          machine_id: string
+          ram_pct: number | null
+        }
+        Insert: {
+          collected_at: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id: string
+          ram_pct?: number | null
+        }
+        Update: {
+          collected_at?: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id?: string
+          ram_pct?: number | null
+        }
+        Relationships: []
+      }
+      machine_metrics_history_20260921: {
+        Row: {
+          collected_at: string
+          cpu_pct: number | null
+          disk_pct: number | null
+          machine_id: string
+          ram_pct: number | null
+        }
+        Insert: {
+          collected_at: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id: string
+          ram_pct?: number | null
+        }
+        Update: {
+          collected_at?: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id?: string
+          ram_pct?: number | null
+        }
+        Relationships: []
+      }
+      machine_metrics_history_20260922: {
+        Row: {
+          collected_at: string
+          cpu_pct: number | null
+          disk_pct: number | null
+          machine_id: string
+          ram_pct: number | null
+        }
+        Insert: {
+          collected_at: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id: string
+          ram_pct?: number | null
+        }
+        Update: {
+          collected_at?: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id?: string
+          ram_pct?: number | null
+        }
+        Relationships: []
+      }
+      machine_metrics_history_20260923: {
+        Row: {
+          collected_at: string
+          cpu_pct: number | null
+          disk_pct: number | null
+          machine_id: string
+          ram_pct: number | null
+        }
+        Insert: {
+          collected_at: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id: string
+          ram_pct?: number | null
+        }
+        Update: {
+          collected_at?: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id?: string
+          ram_pct?: number | null
+        }
+        Relationships: []
+      }
+      machine_metrics_history_20260924: {
+        Row: {
+          collected_at: string
+          cpu_pct: number | null
+          disk_pct: number | null
+          machine_id: string
+          ram_pct: number | null
+        }
+        Insert: {
+          collected_at: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id: string
+          ram_pct?: number | null
+        }
+        Update: {
+          collected_at?: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id?: string
+          ram_pct?: number | null
+        }
+        Relationships: []
+      }
+      machine_metrics_history_20260925: {
+        Row: {
+          collected_at: string
+          cpu_pct: number | null
+          disk_pct: number | null
+          machine_id: string
+          ram_pct: number | null
+        }
+        Insert: {
+          collected_at: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id: string
+          ram_pct?: number | null
+        }
+        Update: {
+          collected_at?: string
+          cpu_pct?: number | null
+          disk_pct?: number | null
+          machine_id?: string
+          ram_pct?: number | null
+        }
+        Relationships: []
+      }
+      machines: {
+        Row: {
+          agent_version: string | null
+          approval_status: string
+          auth_recusada_em: string | null
+          board_mac: string | null
+          company_id: string | null
+          cpu_usage: number | null
+          created_at: string
+          current_user: string | null
+          current_user_sid: string | null
+          device_type: string | null
+          device_type_locked: boolean
+          device_type_reason: string | null
+          disk_total: number | null
+          disk_used: number | null
+          domain: string | null
+          group_id: string | null
+          hardware_uuid: string | null
+          hostname: string
+          id: string
+          ip_address: string | null
+          last_seen: string | null
+          local_ip: string | null
+          logged_in_user: string | null
+          mac_address: string | null
+          machine_token: string | null
+          machine_uuid: string | null
+          metrics_collected_at: string | null
+          os: string | null
+          os_version: string | null
+          ram_total: number | null
+          ram_used: number | null
+          status: string
+          updated_at: string
+          uptime: number | null
+        }
+        Insert: {
+          agent_version?: string | null
+          approval_status?: string
+          auth_recusada_em?: string | null
+          board_mac?: string | null
+          company_id?: string | null
+          cpu_usage?: number | null
+          created_at?: string
+          current_user?: string | null
+          current_user_sid?: string | null
+          device_type?: string | null
+          device_type_locked?: boolean
+          device_type_reason?: string | null
+          disk_total?: number | null
+          disk_used?: number | null
+          domain?: string | null
+          group_id?: string | null
+          hardware_uuid?: string | null
+          hostname: string
+          id?: string
+          ip_address?: string | null
+          last_seen?: string | null
+          local_ip?: string | null
+          logged_in_user?: string | null
+          mac_address?: string | null
+          machine_token?: string | null
+          machine_uuid?: string | null
+          metrics_collected_at?: string | null
+          os?: string | null
+          os_version?: string | null
+          ram_total?: number | null
+          ram_used?: number | null
+          status?: string
+          updated_at?: string
+          uptime?: number | null
+        }
+        Update: {
+          agent_version?: string | null
+          approval_status?: string
+          auth_recusada_em?: string | null
+          board_mac?: string | null
+          company_id?: string | null
+          cpu_usage?: number | null
+          created_at?: string
+          current_user?: string | null
+          current_user_sid?: string | null
+          device_type?: string | null
+          device_type_locked?: boolean
+          device_type_reason?: string | null
+          disk_total?: number | null
+          disk_used?: number | null
+          domain?: string | null
+          group_id?: string | null
+          hardware_uuid?: string | null
+          hostname?: string
+          id?: string
+          ip_address?: string | null
+          last_seen?: string | null
+          local_ip?: string | null
+          logged_in_user?: string | null
+          mac_address?: string | null
+          machine_token?: string | null
+          machine_uuid?: string | null
+          metrics_collected_at?: string | null
+          os?: string | null
+          os_version?: string | null
+          ram_total?: number | null
+          ram_used?: number | null
+          status?: string
+          updated_at?: string
+          uptime?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machines_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "knowledge_base_articles_company_id_fkey"
+            foreignKeyName: "machines_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "machine_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monitored_endpoints: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          id: string
+          last_check: string | null
+          name: string
+          status: string | null
+          uptimerobot_monitor_id: string | null
+          url_or_ip: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_check?: string | null
+          name: string
+          status?: string | null
+          uptimerobot_monitor_id?: string | null
+          url_or_ip: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_check?: string | null
+          name?: string
+          status?: string | null
+          uptimerobot_monitor_id?: string | null
+          url_or_ip?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitored_endpoints_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      network_links: {
+        Row: {
+          check_interval_seconds: number | null
+          company_id: string | null
+          created_at: string | null
+          id: string
+          ip_or_host: string | null
+          ip_or_hostname: string | null
+          last_check: string | null
+          last_checked_at: string | null
+          last_ping_ms: number | null
+          latency_ms: number | null
+          link_type: string
+          name: string
+          status: string | null
+          type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          check_interval_seconds?: number | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          ip_or_host?: string | null
+          ip_or_hostname?: string | null
+          last_check?: string | null
+          last_checked_at?: string | null
+          last_ping_ms?: number | null
+          latency_ms?: number | null
+          link_type?: string
+          name: string
+          status?: string | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          check_interval_seconds?: number | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          ip_or_host?: string | null
+          ip_or_hostname?: string | null
+          last_check?: string | null
+          last_checked_at?: string | null
+          last_ping_ms?: number | null
+          latency_ms?: number | null
+          link_type?: string
+          name?: string
+          status?: string | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_links_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -624,6 +1414,61 @@ export type Database = {
           },
         ]
       }
+      package_deployments: {
+        Row: {
+          command_id: string | null
+          completed_at: string | null
+          dispatched_at: string
+          dispatched_by: string | null
+          id: string
+          machine_id: string
+          package_id: string
+          status: string
+        }
+        Insert: {
+          command_id?: string | null
+          completed_at?: string | null
+          dispatched_at?: string
+          dispatched_by?: string | null
+          id?: string
+          machine_id: string
+          package_id: string
+          status?: string
+        }
+        Update: {
+          command_id?: string | null
+          completed_at?: string | null
+          dispatched_at?: string
+          dispatched_by?: string | null
+          id?: string
+          machine_id?: string
+          package_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_deployments_command_id_fkey"
+            columns: ["command_id"]
+            isOneToOne: false
+            referencedRelation: "machine_commands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_deployments_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_deployments_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "software_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           created_at: string
@@ -653,7 +1498,6 @@ export type Database = {
       }
       profiles: {
         Row: {
-          phone: string | null
           avatar_url: string | null
           company_id: string
           created_at: string
@@ -661,11 +1505,12 @@ export type Database = {
           email: string
           full_name: string
           id: string
-          updated_at: string
           last_assigned_at: string | null
+          phone: string | null
+          status: string | null
+          updated_at: string
         }
         Insert: {
-          phone?: string | null
           avatar_url?: string | null
           company_id: string
           created_at?: string
@@ -673,11 +1518,12 @@ export type Database = {
           email: string
           full_name: string
           id: string
-          updated_at?: string
           last_assigned_at?: string | null
+          phone?: string | null
+          status?: string | null
+          updated_at?: string
         }
         Update: {
-          phone?: string | null
           avatar_url?: string | null
           company_id?: string
           created_at?: string
@@ -685,8 +1531,10 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
-          updated_at?: string
           last_assigned_at?: string | null
+          phone?: string | null
+          status?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -704,6 +1552,310 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      rate_limit_counters: {
+        Row: {
+          bucket_key: string
+          count: number
+          window_start: string
+        }
+        Insert: {
+          bucket_key: string
+          count?: number
+          window_start: string
+        }
+        Update: {
+          bucket_key?: string
+          count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
+      remote_terminal_sessions: {
+        Row: {
+          company_id: string | null
+          id: string
+          machine_id: string
+          opened_at: string
+          opened_by: string
+        }
+        Insert: {
+          company_id?: string | null
+          id?: string
+          machine_id: string
+          opened_at?: string
+          opened_by: string
+        }
+        Update: {
+          company_id?: string | null
+          id?: string
+          machine_id?: string
+          opened_at?: string
+          opened_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "remote_terminal_sessions_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_schedules: {
+        Row: {
+          created_at: string
+          created_by: string
+          frequency: string
+          id: string
+          is_active: boolean
+          last_sent_at: string | null
+          next_run_at: string
+          recipients: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          frequency: string
+          id?: string
+          is_active?: boolean
+          last_sent_at?: string | null
+          next_run_at?: string
+          recipients: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_sent_at?: string | null
+          next_run_at?: string
+          recipients?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resolution_checklists: {
+        Row: {
+          category: string
+          company_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          items: Json
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          items?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          items?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resolution_checklists_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rmm_remediation_logs: {
+        Row: {
+          agent_id: string
+          alert_type: string | null
+          company_id: string | null
+          created_at: string | null
+          id: string
+          output: string | null
+          rule_id: string | null
+          status: string
+        }
+        Insert: {
+          agent_id: string
+          alert_type?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          output?: string | null
+          rule_id?: string | null
+          status: string
+        }
+        Update: {
+          agent_id?: string
+          alert_type?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          output?: string | null
+          rule_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rmm_remediation_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rmm_remediation_logs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "rmm_remediation_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rmm_remediation_rules: {
+        Row: {
+          action_payload: Json | null
+          action_type: string
+          alert_type: string
+          company_id: string | null
+          condition_json: Json | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          action_payload?: Json | null
+          action_type: string
+          alert_type: string
+          company_id?: string | null
+          condition_json?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          action_payload?: Json | null
+          action_type?: string
+          alert_type?: string
+          company_id?: string | null
+          condition_json?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rmm_remediation_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routing_rules: {
+        Row: {
+          actions: Json | null
+          company_id: string | null
+          conditions: Json | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          priority: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          actions?: Json | null
+          company_id?: string | null
+          conditions?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          priority?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          actions?: Json | null
+          company_id?: string | null
+          conditions?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          priority?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routing_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saude_do_banco: {
+        Row: {
+          alerta_enviado_em: string | null
+          anomalia_desde: string | null
+          em_alerta: boolean
+          id: number
+          lido_em: string | null
+          rollbacks_lidos: number | null
+          ultima_taxa: number | null
+        }
+        Insert: {
+          alerta_enviado_em?: string | null
+          anomalia_desde?: string | null
+          em_alerta?: boolean
+          id?: number
+          lido_em?: string | null
+          rollbacks_lidos?: number | null
+          ultima_taxa?: number | null
+        }
+        Update: {
+          alerta_enviado_em?: string | null
+          anomalia_desde?: string | null
+          em_alerta?: boolean
+          id?: number
+          lido_em?: string | null
+          rollbacks_lidos?: number | null
+          ultima_taxa?: number | null
+        }
+        Relationships: []
       }
       services: {
         Row: {
@@ -743,13 +1895,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "services_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "services_company_id_fkey"
             columns: ["company_id"]
@@ -812,6 +1957,86 @@ export type Database = {
           },
         ]
       }
+      software_packages: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          deploy_count: number
+          description: string | null
+          file_path: string | null
+          id: string
+          name: string
+          sha256_hash: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          deploy_count?: number
+          description?: string | null
+          file_path?: string | null
+          id?: string
+          name: string
+          sha256_hash: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          deploy_count?: number
+          description?: string | null
+          file_path?: string | null
+          id?: string
+          name?: string
+          sha256_hash?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "software_packages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_assets: {
+        Row: {
+          asset_id: string
+          ticket_id: string
+        }
+        Insert: {
+          asset_id: string
+          ticket_id: string
+        }
+        Update: {
+          asset_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_assets_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_assets_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_attachments: {
         Row: {
           created_at: string
@@ -857,44 +2082,6 @@ export type Database = {
           },
         ]
       }
-      ticket_ratings: {
-        Row: {
-          comment: string | null
-          created_at: string
-          id: string
-          rating: number | null
-          skipped: boolean
-          ticket_id: string
-          user_id: string
-        }
-        Insert: {
-          comment?: string | null
-          created_at?: string
-          id?: string
-          rating?: number | null
-          skipped?: boolean
-          ticket_id: string
-          user_id?: string
-        }
-        Update: {
-          comment?: string | null
-          created_at?: string
-          id?: string
-          rating?: number | null
-          skipped?: boolean
-          ticket_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ticket_ratings_ticket_id_fkey"
-            columns: ["ticket_id"]
-            isOneToOne: true
-            referencedRelation: "tickets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ticket_kb_links: {
         Row: {
           article_id: string
@@ -934,9 +2121,47 @@ export type Database = {
           },
         ]
       }
+      ticket_ratings: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          rating: number | null
+          skipped: boolean
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating?: number | null
+          skipped?: boolean
+          ticket_id: string
+          user_id?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating?: number | null
+          skipped?: boolean
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_ratings_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_status_history: {
         Row: {
-          changed_by: string
+          changed_by: string | null
           created_at: string
           id: string
           new_status: string
@@ -945,7 +2170,7 @@ export type Database = {
           ticket_id: string
         }
         Insert: {
-          changed_by: string
+          changed_by?: string | null
           created_at?: string
           id?: string
           new_status: string
@@ -954,7 +2179,7 @@ export type Database = {
           ticket_id: string
         }
         Update: {
-          changed_by?: string
+          changed_by?: string | null
           created_at?: string
           id?: string
           new_status?: string
@@ -964,13 +2189,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "ticket_status_history_changed_by_fkey"
-            columns: ["changed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "ticket_status_history_ticket_id_fkey"
             columns: ["ticket_id"]
             isOneToOne: false
@@ -979,133 +2197,6 @@ export type Database = {
           },
         ]
       }
-      report_schedules: {
-        Row: {
-          created_at: string
-          created_by: string
-          frequency: string
-          id: string
-          is_active: boolean
-          last_sent_at: string | null
-          next_run_at: string
-          recipients: string[]
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          frequency: string
-          id?: string
-          is_active?: boolean
-          last_sent_at?: string | null
-          next_run_at?: string
-          recipients: string[]
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          frequency?: string
-          id?: string
-          is_active?: boolean
-          last_sent_at?: string | null
-          next_run_at?: string
-          recipients?: string[]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "report_schedules_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      resolution_checklists: {
-        Row: {
-          category: string
-          company_id: string
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          items: string[] | null
-          updated_at: string | null
-        }
-        Insert: {
-          category: string
-          company_id: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          items?: string[] | null
-          updated_at?: string | null
-        }
-        Update: {
-          category?: string
-          company_id?: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          items?: string[] | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "resolution_checklists_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      routing_rules: {
-        Row: {
-          actions: Json
-          company_id: string
-          conditions: Json
-          created_at: string | null
-          description: string | null
-          id: string
-          is_active: boolean | null
-          name: string
-          priority: number | null
-        }
-        Insert: {
-          actions: Json
-          company_id: string
-          conditions: Json
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          name: string
-          priority?: number | null
-        }
-        Update: {
-          actions?: Json
-          company_id?: string
-          conditions?: Json
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          priority?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "routing_rules_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-
       ticket_updates: {
         Row: {
           author: string
@@ -1163,8 +2254,10 @@ export type Database = {
       }
       tickets: {
         Row: {
+          asset_id: string | null
           assigned_to: string | null
           assigned_to_user_id: string | null
+          avaliacao_email_enviada_em: string | null
           cancelled_at: string | null
           category: string
           category_id: string | null
@@ -1172,10 +2265,12 @@ export type Database = {
           company_id: string
           contract_id: string | null
           created_at: string
+          custom_fields: Json | null
           department: string | null
           description: string
           first_response_at: string | null
           id: string
+          metadata: Json | null
           operator_name: string | null
           priority: string
           remote_id: string | null
@@ -1198,12 +2293,12 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
-          asset_id: string | null
-          metadata: Json | null
         }
         Insert: {
+          asset_id?: string | null
           assigned_to?: string | null
           assigned_to_user_id?: string | null
+          avaliacao_email_enviada_em?: string | null
           cancelled_at?: string | null
           category: string
           category_id?: string | null
@@ -1211,10 +2306,12 @@ export type Database = {
           company_id: string
           contract_id?: string | null
           created_at?: string
+          custom_fields?: Json | null
           department?: string | null
           description: string
           first_response_at?: string | null
           id?: string
+          metadata?: Json | null
           operator_name?: string | null
           priority?: string
           remote_id?: string | null
@@ -1237,12 +2334,12 @@ export type Database = {
           title: string
           updated_at?: string
           user_id: string
-          asset_id?: string | null
-          metadata?: Json | null
         }
         Update: {
+          asset_id?: string | null
           assigned_to?: string | null
           assigned_to_user_id?: string | null
+          avaliacao_email_enviada_em?: string | null
           cancelled_at?: string | null
           category?: string
           category_id?: string | null
@@ -1250,10 +2347,12 @@ export type Database = {
           company_id?: string
           contract_id?: string | null
           created_at?: string
+          custom_fields?: Json | null
           department?: string | null
           description?: string
           first_response_at?: string | null
           id?: string
+          metadata?: Json | null
           operator_name?: string | null
           priority?: string
           remote_id?: string | null
@@ -1276,8 +2375,6 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
-          asset_id?: string | null
-          metadata?: Json | null
         }
         Relationships: [
           {
@@ -1302,10 +2399,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tickets_category_id_fkey"
-            columns: ["category_id"]
+            foreignKeyName: "tickets_asset_id_fkey"
+            columns: ["asset_id"]
             isOneToOne: false
-            referencedRelation: "categories"
+            referencedRelation: "assets"
             referencedColumns: ["id"]
           },
           {
@@ -1320,13 +2417,6 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tickets_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
             referencedColumns: ["id"]
           },
         ]
@@ -1412,10 +2502,249 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adiciona_dias_uteis: {
+        Args: { dias: number; inicio: string }
+        Returns: string
+      }
+      alterar_prioridade_chamado: {
+        Args: {
+          p_expected_updated_at?: string
+          p_priority: string
+          p_ticket_id: string
+          p_update_content?: string
+        }
+        Returns: {
+          asset_id: string | null
+          assigned_to: string | null
+          assigned_to_user_id: string | null
+          avaliacao_email_enviada_em: string | null
+          cancelled_at: string | null
+          category: string
+          category_id: string | null
+          closed_at: string | null
+          company_id: string
+          contract_id: string | null
+          created_at: string
+          custom_fields: Json | null
+          department: string | null
+          description: string
+          first_response_at: string | null
+          id: string
+          metadata: Json | null
+          operator_name: string | null
+          priority: string
+          remote_id: string | null
+          remote_password: string | null
+          remote_tool: string | null
+          requester_name: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          satisfaction_comment: string | null
+          satisfaction_rating: number | null
+          scheduled_date: string | null
+          search_vector: unknown
+          service_id: string | null
+          sla_accumulated_pause_minutes: number | null
+          sla_due_date: string | null
+          sla_paused_at: string | null
+          sla_status: string | null
+          status: string
+          ticket_number: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      alterar_status_chamado: {
+        Args: {
+          p_expected_updated_at?: string
+          p_is_internal?: boolean
+          p_status: string
+          p_ticket_id: string
+          p_update_content?: string
+          p_update_type?: string
+        }
+        Returns: {
+          asset_id: string | null
+          assigned_to: string | null
+          assigned_to_user_id: string | null
+          avaliacao_email_enviada_em: string | null
+          cancelled_at: string | null
+          category: string
+          category_id: string | null
+          closed_at: string | null
+          company_id: string
+          contract_id: string | null
+          created_at: string
+          custom_fields: Json | null
+          department: string | null
+          description: string
+          first_response_at: string | null
+          id: string
+          metadata: Json | null
+          operator_name: string | null
+          priority: string
+          remote_id: string | null
+          remote_password: string | null
+          remote_tool: string | null
+          requester_name: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          satisfaction_comment: string | null
+          satisfaction_rating: number | null
+          scheduled_date: string | null
+          search_vector: unknown
+          service_id: string | null
+          sla_accumulated_pause_minutes: number | null
+          sla_due_date: string | null
+          sla_paused_at: string | null
+          sla_status: string | null
+          status: string
+          ticket_number: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assumir_chamado: {
+        Args: {
+          p_expected_updated_at?: string
+          p_ticket_id: string
+          p_user_name: string
+        }
+        Returns: {
+          asset_id: string | null
+          assigned_to: string | null
+          assigned_to_user_id: string | null
+          avaliacao_email_enviada_em: string | null
+          cancelled_at: string | null
+          category: string
+          category_id: string | null
+          closed_at: string | null
+          company_id: string
+          contract_id: string | null
+          created_at: string
+          custom_fields: Json | null
+          department: string | null
+          description: string
+          first_response_at: string | null
+          id: string
+          metadata: Json | null
+          operator_name: string | null
+          priority: string
+          remote_id: string | null
+          remote_password: string | null
+          remote_tool: string | null
+          requester_name: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          satisfaction_comment: string | null
+          satisfaction_rating: number | null
+          scheduled_date: string | null
+          search_vector: unknown
+          service_id: string | null
+          sla_accumulated_pause_minutes: number | null
+          sla_due_date: string | null
+          sla_paused_at: string | null
+          sla_status: string | null
+          status: string
+          ticket_number: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      atribuir_chamado: {
+        Args: {
+          p_assigned_to: string
+          p_assigned_to_user_id?: string
+          p_expected_updated_at?: string
+          p_ticket_id: string
+          p_update_content?: string
+        }
+        Returns: {
+          asset_id: string | null
+          assigned_to: string | null
+          assigned_to_user_id: string | null
+          avaliacao_email_enviada_em: string | null
+          cancelled_at: string | null
+          category: string
+          category_id: string | null
+          closed_at: string | null
+          company_id: string
+          contract_id: string | null
+          created_at: string
+          custom_fields: Json | null
+          department: string | null
+          description: string
+          first_response_at: string | null
+          id: string
+          metadata: Json | null
+          operator_name: string | null
+          priority: string
+          remote_id: string | null
+          remote_password: string | null
+          remote_tool: string | null
+          requester_name: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          satisfaction_comment: string | null
+          satisfaction_rating: number | null
+          scheduled_date: string | null
+          search_vector: unknown
+          service_id: string | null
+          sla_accumulated_pause_minutes: number | null
+          sla_due_date: string | null
+          sla_paused_at: string | null
+          sla_status: string | null
+          status: string
+          ticket_number: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       auto_close_resolved_tickets: { Args: never; Returns: number }
+      calcular_prazo_sla: {
+        Args: { p_company_id: string; p_inicio: string; p_priority: string }
+        Returns: string
+      }
       calculate_sla_due_date: {
         Args: { ticket_created_at: string; ticket_priority: string }
         Returns: string
+      }
+      chamado_pendente_de_avaliacao: {
+        Args: never
+        Returns: {
+          encerrado_em: string
+          id: string
+          ticket_number: number
+          title: string
+        }[]
       }
       check_index_health: {
         Args: never
@@ -1429,6 +2758,10 @@ export type Database = {
           table_name: string
         }[]
       }
+      check_rate_limit: {
+        Args: { p_key: string; p_limit: number; p_window_seconds: number }
+        Returns: number
+      }
       check_table_bloat: {
         Args: never
         Returns: {
@@ -1440,17 +2773,182 @@ export type Database = {
           total_size: string
         }[]
       }
+      cleanup_audit_logs: { Args: never; Returns: undefined }
       cleanup_expired_invite_tokens: { Args: never; Returns: number }
+      cleanup_monitoring_history: { Args: never; Returns: undefined }
+      cleanup_old_machine_metrics: { Args: never; Returns: undefined }
+      close_contract_billing_cycles: {
+        Args: { p_period_end: string; p_period_start: string }
+        Returns: number
+      }
+      close_previous_month_billing_cycles: { Args: never; Returns: number }
+      count_company_active_agents: {
+        Args: { p_company_id: string }
+        Returns: number
+      }
+      definir_sla_ativo: { Args: { p_ativo: boolean }; Returns: undefined }
+      despachar_pacote: {
+        Args: { p_machine_id: string; p_package_id: string }
+        Returns: string
+      }
+      dispatch_due_report_schedules: { Args: never; Returns: number }
+      eh_usuario_de_maquina: { Args: { _user_id: string }; Returns: boolean }
+      escalar_chamado: {
+        Args: {
+          p_expected_updated_at?: string
+          p_new_priority: string
+          p_reason: string
+          p_technician_name: string
+          p_technician_user_id: string
+          p_ticket_id: string
+        }
+        Returns: {
+          asset_id: string | null
+          assigned_to: string | null
+          assigned_to_user_id: string | null
+          avaliacao_email_enviada_em: string | null
+          cancelled_at: string | null
+          category: string
+          category_id: string | null
+          closed_at: string | null
+          company_id: string
+          contract_id: string | null
+          created_at: string
+          custom_fields: Json | null
+          department: string | null
+          description: string
+          first_response_at: string | null
+          id: string
+          metadata: Json | null
+          operator_name: string | null
+          priority: string
+          remote_id: string | null
+          remote_password: string | null
+          remote_tool: string | null
+          requester_name: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          satisfaction_comment: string | null
+          satisfaction_rating: number | null
+          scheduled_date: string | null
+          search_vector: unknown
+          service_id: string | null
+          sla_accumulated_pause_minutes: number | null
+          sla_due_date: string | null
+          sla_paused_at: string | null
+          sla_status: string | null
+          status: string
+          ticket_number: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      falhar_comando_chamado: {
+        Args: { p_ticket_id: string }
+        Returns: undefined
+      }
+      fechar_chamados_em_pausa_sem_resposta: { Args: never; Returns: number }
+      fn_auto_assign_ticket: {
+        Args: { p_ticket_id: string }
+        Returns: undefined
+      }
+      fn_merge_tickets: {
+        Args: { duplicate_ids: string[]; primary_id: string }
+        Returns: undefined
+      }
+      get_all_monitoring_targets: { Args: { p_secret?: string }; Returns: Json }
       get_company_plan_usage: { Args: never; Returns: Json }
+      get_cron_dispatch_secret: { Args: never; Returns: string }
       get_dashboard_stats: { Args: never; Returns: Json }
+      get_reports_active_in_period: {
+        Args: {
+          p_company_id?: string
+          p_end_date: string
+          p_start_date: string
+          p_tech_id?: string
+        }
+        Returns: Json
+      }
+      get_reports_created_in_period: {
+        Args: {
+          p_company_id?: string
+          p_end_date: string
+          p_start_date: string
+          p_tech_id?: string
+        }
+        Returns: Json
+      }
+      get_reports_tickets: {
+        Args: {
+          p_company_id?: string
+          p_end_date: string
+          p_mode: string
+          p_start_date: string
+          p_tech_id?: string
+        }
+        Returns: {
+          asset_id: string | null
+          assigned_to: string | null
+          assigned_to_user_id: string | null
+          avaliacao_email_enviada_em: string | null
+          cancelled_at: string | null
+          category: string
+          category_id: string | null
+          closed_at: string | null
+          company_id: string
+          contract_id: string | null
+          created_at: string
+          custom_fields: Json | null
+          department: string | null
+          description: string
+          first_response_at: string | null
+          id: string
+          metadata: Json | null
+          operator_name: string | null
+          priority: string
+          remote_id: string | null
+          remote_password: string | null
+          remote_tool: string | null
+          requester_name: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          satisfaction_comment: string | null
+          satisfaction_rating: number | null
+          scheduled_date: string | null
+          search_vector: unknown
+          service_id: string | null
+          sla_accumulated_pause_minutes: number | null
+          sla_due_date: string | null
+          sla_paused_at: string | null
+          sla_status: string | null
+          status: string
+          ticket_number: number
+          title: string
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_technician_workload: {
         Args: { p_company_id: string }
         Returns: {
+          open_tickets: number
+          resolved_today: number
+          sla_at_risk_tickets: number
           technician_id: string
           technician_name: string
-          open_tickets: number
-          sla_at_risk_tickets: number
-          resolved_today: number
         }[]
       }
       get_ticket_company_id: { Args: { _ticket_id: string }; Returns: string }
@@ -1462,68 +2960,126 @@ export type Database = {
         }
         Returns: boolean
       }
-      alterar_prioridade_chamado: {
-        Args: {
-          p_ticket_id: string
-          p_priority: string
-          p_update_content?: string | null
-          p_expected_updated_at?: string | null
-        }
-        Returns: Database["public"]["Tables"]["tickets"]["Row"]
+      is_equipe_interna: { Args: { _user_id: string }; Returns: boolean }
+      is_master_company_user: { Args: { _user_id: string }; Returns: boolean }
+      itens_de_regra: { Args: { p: Json }; Returns: Json[] }
+      machine_ticket_counts: {
+        Args: never
+        Returns: {
+          machine_id: string
+          tickets_count: number
+        }[]
       }
-      alterar_status_chamado: {
+      maintain_machine_metrics_partitions: { Args: never; Returns: undefined }
+      marcar_maquinas_offline: { Args: never; Returns: number }
+      match_kb_articles: {
         Args: {
-          p_ticket_id: string
-          p_status: string
-          p_update_content?: string | null
-          p_update_type?: string
-          p_is_internal?: boolean
-          p_expected_updated_at?: string | null
+          match_count: number
+          match_threshold: number
+          p_company_id: string
+          query_embedding: string
         }
-        Returns: Database["public"]["Tables"]["tickets"]["Row"]
+        Returns: {
+          category: string
+          content: string
+          id: string
+          similarity: number
+          title: string
+        }[]
       }
-      assumir_chamado: {
-        Args: {
-          p_ticket_id: string
-          p_user_name: string
-          p_expected_updated_at?: string | null
-        }
-        Returns: Database["public"]["Tables"]["tickets"]["Row"]
-      }
-      atribuir_chamado: {
-        Args: {
-          p_ticket_id: string
-          p_assigned_to: string | null
-          p_assigned_to_user_id?: string | null
-          p_update_content?: string | null
-          p_expected_updated_at?: string | null
-        }
-        Returns: Database["public"]["Tables"]["tickets"]["Row"]
-      }
-      escalar_chamado: {
-        Args: {
-          p_ticket_id: string
-          p_technician_name: string
-          p_technician_user_id: string | null
-          p_new_priority: string
-          p_reason: string
-          p_expected_updated_at?: string | null
-        }
-        Returns: Database["public"]["Tables"]["tickets"]["Row"]
-      }
-      fn_merge_tickets: {
-        Args: { primary_id: string; duplicate_ids: string[] }
+      merge_user_data: {
+        Args: { source_id: string; target_id: string }
         Returns: undefined
       }
-      is_master_company_user: { Args: { _user_id: string }; Returns: boolean }
+      normalizar_valor_de_regra: {
+        Args: { p_campo: string; p_valor: string }
+        Returns: string
+      }
+      pode_gerir_automacao: { Args: { p_company_id: string }; Returns: boolean }
+      politica_sla_da_empresa: {
+        Args: { p_company_id: string }
+        Returns: {
+          business_end: string | null
+          business_hours_only: boolean
+          business_start: string | null
+          company_id: string
+          created_at: string
+          high_hours: number
+          id: string
+          low_hours: number
+          medium_hours: number
+          name: string
+          updated_at: string
+          urgent_hours: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "sla_configs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      regra_casa_com_chamado: {
+        Args: {
+          p_chamado: Database["public"]["Tables"]["tickets"]["Row"]
+          p_condicoes: Json
+        }
+        Returns: boolean
+      }
       resolver_chamado: {
         Args: {
-          p_ticket_id: string
+          p_expected_updated_at?: string
           p_notes: string
           p_resolution_content: string
-          p_expected_updated_at?: string | null
+          p_ticket_id: string
         }
-        Returns: Database["public"]["Tables"]["tickets"]["Row"]
+        Returns: {
+          asset_id: string | null
+          assigned_to: string | null
+          assigned_to_user_id: string | null
+          avaliacao_email_enviada_em: string | null
+          cancelled_at: string | null
+          category: string
+          category_id: string | null
+          closed_at: string | null
+          company_id: string
+          contract_id: string | null
+          created_at: string
+          custom_fields: Json | null
+          department: string | null
+          description: string
+          first_response_at: string | null
+          id: string
+          metadata: Json | null
+          operator_name: string | null
+          priority: string
+          remote_id: string | null
+          remote_password: string | null
+          remote_tool: string | null
+          requester_name: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          satisfaction_comment: string | null
+          satisfaction_rating: number | null
+          scheduled_date: string | null
+          search_vector: unknown
+          service_id: string | null
+          sla_accumulated_pause_minutes: number | null
+          sla_due_date: string | null
+          sla_paused_at: string | null
+          sla_status: string | null
+          status: string
+          ticket_number: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       search_tickets: {
         Args: { search_query: string }
@@ -1538,11 +3094,33 @@ export type Database = {
           title: string
         }[]
       }
+      silencio_tolerado: { Args: { p_device_type: string }; Returns: string }
+      sla_ativo: { Args: never; Returns: boolean }
+      somar_egress: { Args: { p_bytes: number }; Returns: undefined }
+      somar_horas_uteis: {
+        Args: {
+          p_abre: string
+          p_fecha: string
+          p_horas: number
+          p_inicio: string
+        }
+        Returns: string
+      }
+      tem_avaliacao_pendente: { Args: never; Returns: boolean }
       ticket_belongs_to_user_company: {
         Args: { _ticket_id: string; _user_id: string }
         Returns: boolean
       }
       update_all_tickets_sla_status: { Args: never; Returns: number }
+      update_telemetry_status: {
+        Args: {
+          p_endpoint_results?: Json
+          p_link_results?: Json
+          p_secret?: string
+        }
+        Returns: Json
+      }
+      verificar_saude_do_banco: { Args: { p_limiar?: number }; Returns: string }
     }
     Enums: {
       app_role: "customer" | "technician" | "admin" | "developer"
@@ -1561,12 +3139,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1590,11 +3168,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1615,11 +3193,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1640,11 +3218,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1657,11 +3235,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

@@ -435,8 +435,13 @@ const TicketDetails: React.FC = () => {
         .eq('category', ticket.category)
         .eq('is_active', true)
         .maybeSingle();
-      
-      return data || null;
+
+      if (!data) return null;
+      // items é jsonb no banco; aqui é sempre lista de textos.
+      return {
+        ...data,
+        items: Array.isArray(data.items) ? data.items.filter((i): i is string => typeof i === 'string') : [],
+      };
     },
     enabled: !!ticket && !!user,
   });

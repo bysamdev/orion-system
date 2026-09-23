@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -368,7 +369,13 @@ export default function KnowledgeBase() {
   const { data: dbCategories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('categories').select('id, name').order('name');
+      // A tabela categories foi removida do banco; a consulta falha e a lista
+      // fica vazia. Pendente de decisão (card no Notion) qual lista de
+      // categorias a base de conhecimento deve usar.
+      const { data, error } = await supabase
+        .from('categories' as keyof Database['public']['Tables'])
+        .select('id, name')
+        .order('name');
       if (error) throw error;
       return data || [];
     },
