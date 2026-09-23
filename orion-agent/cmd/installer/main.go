@@ -450,6 +450,8 @@ func instalar() error {
 		return err
 	}
 
+	endurecerPastaDestino()
+
 	// O atalho "Abrir Chamado Orion" deixou de existir: abrir chamado passa a
 	// exigir login individual, então um ícone que levava direto à criação de
 	// ticket pelo token da máquina não tem mais destino válido (o
@@ -640,4 +642,43 @@ func falharComPausa(formato string, args ...any) {
 	fmt.Fprintf(os.Stderr, colorir(corVermelha, formato)+"\n", args...)
 	pausarSeInterativo("Pressione ENTER para fechar...")
 	os.Exit(1)
+}
+
+// endurecerPastaDestino troca as permissões herdadas de C:\ por uma lista
+// explícita (ORN-SEC-07). Herdando de C:\, "Usuários autenticados" podiam
+// modificar C:\Orion: qualquer usuário local trocava orion-agent.exe (que o
+// serviço executa no próximo início) ou editava agent.yaml.
+//
+//	SYSTEM e Administradores   controle total
+//	NT SERVICE\OrionAgent      modificar (agent.log, trocas no auto-update)
+//	Usuários                   leitura e execução (a bandeja roda como o
+//	                           usuário e só lê agent.yaml; se não puder gravar
+//	                           o log, escreve no stderr)
+//
+// Roda depois de registrar o serviço, porque a conta virtual
+// NT SERVICE\OrionAgent só existe a partir daí. Roda também em toda
+// auto-atualização (que executa este instalador), o que corrige instalações
+// antigas. Falha aqui não interrompe a instalação: o agente funciona com as
+// permissões herdadas, só fica menos protegido.
+func endurecerPastaDestino() {
+	cmd := comandoOculto("icacls", pastaDestino,
+		"/inheritance:r",
+		"/grant:r", "*S-1-5-18:(OI)(CI)F",
+		"/grant:r", "*S-1-5-32-544:(OI)(CI)F",
+		"/grant:r", `NT SERVICE\OrionAgent:(OI)(CI)M`,
+		"/grant:r", "*S-1-5-32-545:(OI)(CI)RX",
+		"/C", "/Q")
+	if saida, err := cmd.CombinedOutput(); err != nil {
+		imprimirAviso(fmt.Sprintf("não foi possível ajustar as permissões de %s: %v %s", pastaDestino, err, strings.TrimSpace(string(saida))))
+		return
+	}
+	// Os arquivos voltam a herdar da pasta. Aplicar a lista com /T direto
+	// neles tirava a herança e os deixava sem permissão de leitura para a
+	// bandeja (testado em 23/09/2026).
+	filhos := comandoOculto("icacls", filepath.Join(pastaDestino, "*"), "/reset", "/T", "/C", "/Q")
+	if saida, err := filhos.CombinedOutput(); err != nil {
+		imprimirAviso(fmt.Sprintf("não foi possível ajustar as permissões dos arquivos de %s: %v %s", pastaDestino, err, strings.TrimSpace(string(saida))))
+		return
+	}
+	imprimirOK("Permissões de " + pastaDestino + " restritas (usuários só leem)")
 }
