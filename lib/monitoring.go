@@ -1865,7 +1865,7 @@ SELECT EXISTS(
 	}
 
 	description := fmt.Sprintf("Chamado gerado automaticamente pelo monitoramento Orion RMM.\n\nServidor: %s\nTipo de Alerta: %s\nSeveridade: %s\nMensagem: %s\nDetectado em: %s",
-		hostname, alertType, severity, alertMessage, time.Now().Format("02/01/2006 15:04:05"))
+		hostname, alertType, severity, alertMessage, AgoraFormatado())
 
 	metaJSON, _ := json.Marshal(map[string]any{
 		"machine_id":     machineID,

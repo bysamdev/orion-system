@@ -535,7 +535,7 @@ func sendPasswordChangedAlert(w http.ResponseWriter, r *http.Request) {
 <p>Se você não fez essa alteração, entre em contato com o suporte imediatamente.</p>
 </body></html>`, map[string]any{
 		"FullName": strings.TrimSpace(req.FullName),
-		"When":     time.Now().Format("02/01/2006 15:04:05"),
+		"When":     lib.AgoraFormatado(),
 	})
 
 	out, err := mailer.Send(r.Context(), lib.SendEmailInput{
