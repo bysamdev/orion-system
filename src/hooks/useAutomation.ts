@@ -116,9 +116,13 @@ export const useRoutingRules = () =>
     },
   });
 
+// Chave própria: sob ['canned-responses'] ficam as linhas completas (com
+// content) de useCannedResponses. Dividir a chave fazia o seletor de resposta
+// pronta ler linhas sem content e derrubar a tela do chamado (ORN-BUG-02).
+// Invalidar ['canned-responses'] continua alcançando esta, por prefixo.
 export const useCannedResponseRefs = () =>
   useQuery<CannedResponseRef[]>({
-    queryKey: ['canned-responses'],
+    queryKey: ['canned-responses', 'refs'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('canned_responses')

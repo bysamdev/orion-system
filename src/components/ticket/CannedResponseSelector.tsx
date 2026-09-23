@@ -26,7 +26,7 @@ export const CannedResponseSelector: React.FC<CannedResponseSelectorProps> = ({ 
   const filteredResponses = responses.filter(
     (response) =>
       response.title.toLowerCase().includes(search.toLowerCase()) ||
-      response.content.toLowerCase().includes(search.toLowerCase()) ||
+      (response.content ?? '').toLowerCase().includes(search.toLowerCase()) ||
       (response.shortcut && response.shortcut.toLowerCase().includes(search.toLowerCase()))
   );
 
