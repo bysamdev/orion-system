@@ -38,12 +38,9 @@ import {
   Sparkles, 
   Loader2,
   Lock,
-  KeyRound,
   ArrowLeft,
-  Smartphone,
   ShieldAlert
 } from 'lucide-react';
-import { formatBackupCode } from '@/lib/mfa';
 
 import orionLogo from '@/assets/orion-logo.png';
 import orionLogoLight from '@/assets/orion-logo-light.png';
@@ -177,8 +174,6 @@ const Auth = () => {
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [totpCode, setTotpCode] = useState('');
-  const [backupCode, setBackupCode] = useState('');
-  const [isBackupMode, setIsBackupMode] = useState(false);
   const [isMfaSubmitting, setIsMfaSubmitting] = useState(false);
 
   // Modal de Recuperação de Senha
@@ -257,8 +252,6 @@ const Auth = () => {
           setMfaFactorId(totp.id);
           setMfaRequired(true);
           setTotpCode('');
-          setBackupCode('');
-          setIsBackupMode(false);
           setIsSubmitting(false);
           return;
         }
@@ -317,38 +310,11 @@ const Auth = () => {
     handleVerifyMfaTotp();
   };
 
-  // Verificação de Código de Recuperação / Backup
-  const handleVerifyBackupCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = backupCode.trim();
-    if (!clean || isMfaSubmitting) return;
-
-    setIsMfaSubmitting(true);
-    try {
-      // Código de recuperação conferido só no navegador não eleva a sessão
-      // ao nível aal2 do Supabase: liberar o acesso com ele era um atalho
-      // que dispensava o segundo fator (ORN-SEC-13). Até existir uma
-      // recuperação feita pelo servidor, o caminho é pedir ao administrador
-      // que remova a verificação em duas etapas da conta.
-      throw new Error('A entrada por código de recuperação está desativada. Peça ao administrador do Orion para remover a verificação em duas etapas da sua conta.');
-    } catch (err) {
-      toast({
-        title: "Código Inválido",
-        description: (err as Error).message || "Não foi possível validar o código de recuperação.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsMfaSubmitting(false);
-    }
-  };
-
   // Cancelar desafio 2FA e deslogar
   const handleCancelMfa = async () => {
     await supabase.auth.signOut();
     setMfaRequired(false);
     setTotpCode('');
-    setBackupCode('');
-    setIsBackupMode(false);
   };
 
   // Recuperação de senha
@@ -508,17 +474,14 @@ const Auth = () => {
                   </Badge>
                 </div>
                 <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                  {isBackupMode ? "Código de Recuperação" : "Verificação em 2 Fatores"}
+                  Verificação em 2 Fatores
                 </h2>
                 <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
-                  {isBackupMode
-                    ? "Digite um dos seus códigos de backup de 8 caracteres salvos na configuração."
-                    : "Digite o código de 6 dígitos gerado pelo seu aplicativo autenticador (Google Authenticator, Authy, etc.)."}
+                  Digite o código de 6 dígitos gerado pelo seu aplicativo autenticador (Google Authenticator, Authy, etc.).
                 </p>
               </div>
 
-              {!isBackupMode ? (
-                /* Modo TOTP (6 dígitos) */
+              {/* Código de 6 dígitos do autenticador */}
                 <form onSubmit={handleTotpFormSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="mfa-login-code" className="sr-only">
@@ -563,74 +526,11 @@ const Auth = () => {
                     )}
                   </Button>
 
-                  <div className="pt-2 text-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsBackupMode(true)}
-                      className="text-xs text-muted-foreground hover:text-foreground gap-1.5"
-                    >
-                      <KeyRound className="h-3.5 w-3.5" />
-                      Não tem acesso ao app? Usar código de backup
-                    </Button>
-                  </div>
+                  {/* Códigos de recuperação foram retirados (ORN-BUG-11). */}
+                  <p className="pt-2 text-center text-[11px] text-muted-foreground leading-relaxed">
+                    Perdeu acesso ao app autenticador? Peça a um administrador do Orion para remover a verificação em duas etapas da sua conta.
+                  </p>
                 </form>
-              ) : (
-                /* Modo Código de Backup */
-                <form onSubmit={handleVerifyBackupCode} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="mfa-backup-code" className="text-xs font-semibold text-foreground">
-                      Código de Backup (8 caracteres)
-                    </Label>
-                    <Input
-                      id="mfa-backup-code"
-                      type="text"
-                      autoComplete="off"
-                      placeholder="Ex: ABCD-1234"
-                      value={backupCode}
-                      onChange={(e) => setBackupCode(e.target.value.toUpperCase())}
-                      className="text-center font-mono text-lg font-bold tracking-widest h-12 bg-background border-2 uppercase"
-                      required
-                      autoFocus
-                    />
-                    <p className="text-[11px] text-muted-foreground text-center">
-                      Insira com ou sem hífen. Cada código só pode ser usado uma única vez.
-                    </p>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={isMfaSubmitting || !backupCode.trim()}
-                    className="w-full h-11 text-sm font-semibold gap-2"
-                  >
-                    {isMfaSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Validando...
-                      </>
-                    ) : (
-                      <>
-                        <KeyRound className="h-4 w-4" />
-                        Validar Código de Recuperação
-                      </>
-                    )}
-                  </Button>
-
-                  <div className="pt-2 text-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsBackupMode(false)}
-                      className="text-xs text-muted-foreground hover:text-foreground gap-1.5"
-                    >
-                      <Smartphone className="h-3.5 w-3.5" />
-                      Voltar para Autenticador (TOTP)
-                    </Button>
-                  </div>
-                </form>
-              )}
 
               {/* Botão Cancelar / Voltar para formulário de login */}
               <div className="border-t border-border pt-4 text-center">

@@ -31,13 +31,9 @@ import {
   KeyRound,
   Copy,
   CheckCircle2,
-  Download,
-  RefreshCw,
-  AlertTriangle,
   Loader2,
   Lock,
   Smartphone,
-  Info,
   Shield,
   Eye,
   EyeOff
@@ -49,12 +45,7 @@ import {
   verifyTotpEnrollment,
   unenrollTotpFactor,
   getMfaStatus,
-  generateBackupCodes,
-  saveBackupCodes,
-  getBackupCodesStatus,
-  downloadBackupCodesAsText,
   TotpEnrollmentData,
-  BackupCodesStatus,
 } from "@/lib/mfa";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +61,6 @@ export const TwoFactorAuthSettings = () => {
   const [loading, setLoading] = useState(true);
   const [isMfaEnabled, setIsMfaEnabled] = useState(false);
   const [activeFactorId, setActiveFactorId] = useState<string | null>(null);
-  const [backupStatus, setBackupStatus] = useState<BackupCodesStatus>({ total: 0, remaining: 0 });
 
   // Estados do fluxo de Ativação
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
@@ -81,25 +71,15 @@ export const TwoFactorAuthSettings = () => {
   const [showManualKey, setShowManualKey] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
 
-  // Estados dos Códigos de Backup
-  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
-  const [newBackupCodes, setNewBackupCodes] = useState<string[]>([]);
-  const [copiedCodes, setCopiedCodes] = useState(false);
-  const [isRegeneratingBackupCodes, setIsRegeneratingBackupCodes] = useState(false);
-  const [isRegenerateConfirmOpen, setIsRegenerateConfirmOpen] = useState(false);
-
   // Estados de Desativação
   const [isUnenrollConfirmOpen, setIsUnenrollConfirmOpen] = useState(false);
   const [isUnenrolling, setIsUnenrolling] = useState(false);
 
-  // Carregar status do 2FA e códigos de backup
+  // Carregar status do 2FA
   const loadMfaStatus = async () => {
     try {
       setLoading(true);
-      const [status, backupInfo] = await Promise.all([
-        getMfaStatus(),
-        getBackupCodesStatus().catch(() => ({ total: 0, remaining: 0 })),
-      ]);
+      const status = await getMfaStatus();
 
       const verifiedTotp = status.factors.find(
         (f) => f.factorType === "totp" && f.status === "verified"
@@ -107,7 +87,6 @@ export const TwoFactorAuthSettings = () => {
 
       setIsMfaEnabled(!!verifiedTotp);
       setActiveFactorId(verifiedTotp?.id || null);
-      setBackupStatus(backupInfo);
     } catch (error) {
       console.error("[TwoFactorAuthSettings] Erro ao carregar status do 2FA:", error);
     } finally {
@@ -148,13 +127,11 @@ export const TwoFactorAuthSettings = () => {
       setIsVerifying(true);
       await verifyTotpEnrollment(enrollData.factorId, verificationCode);
 
-      // Gerar e salvar códigos de backup
-      const codes = generateBackupCodes(8);
-      await saveBackupCodes(codes);
-
-      setNewBackupCodes(codes);
+      // Códigos de recuperação foram retirados (ORN-BUG-11): a tabela nunca
+      // existiu, e a falha ao gravá-los fazia a tela acusar "código inválido"
+      // com o 2FA já ativado. Quem perde o autenticador pede a um admin para
+      // remover o fator.
       setIsEnrollModalOpen(false);
-      setIsBackupModalOpen(true);
 
       toast({
         title: "2FA Ativado com Sucesso!",
@@ -170,34 +147,6 @@ export const TwoFactorAuthSettings = () => {
       });
     } finally {
       setIsVerifying(false);
-    }
-  };
-
-  // Regerar códigos de backup
-  const handleRegenerateBackupCodes = async () => {
-    try {
-      setIsRegeneratingBackupCodes(true);
-      const codes = generateBackupCodes(8);
-      await saveBackupCodes(codes);
-
-      setNewBackupCodes(codes);
-      setIsRegenerateConfirmOpen(false);
-      setIsBackupModalOpen(true);
-
-      toast({
-        title: "Novos Códigos Gerados",
-        description: "Os códigos de recuperação anteriores foram invalidados.",
-      });
-
-      await loadMfaStatus();
-    } catch (error) {
-      toast({
-        title: "Erro ao gerar códigos",
-        description: (error as Error).message || "Não foi possível salvar os novos códigos de backup.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRegeneratingBackupCodes(false);
     }
   };
 
@@ -237,19 +186,6 @@ export const TwoFactorAuthSettings = () => {
       description: "A chave secreta foi copiada para a área de transferência.",
     });
     setTimeout(() => setCopiedSecret(false), 2000);
-  };
-
-  // Copiar todos os códigos de backup
-  const handleCopyAllBackupCodes = () => {
-    if (newBackupCodes.length === 0) return;
-    const text = newBackupCodes.join("\n");
-    navigator.clipboard.writeText(text);
-    setCopiedCodes(true);
-    toast({
-      title: "Códigos Copiados",
-      description: "Todos os códigos de backup foram copiados para a área de transferência.",
-    });
-    setTimeout(() => setCopiedCodes(false), 2500);
   };
 
   if (loading) {
@@ -385,36 +321,19 @@ export const TwoFactorAuthSettings = () => {
                   </p>
                 </div>
 
-                {/* Status dos Códigos de Backup */}
-                <div className="p-4 rounded-xl border border-border bg-card/60 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <KeyRound className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-semibold text-foreground">Códigos de Recuperação</span>
-                    </div>
-                    <Badge variant="outline" className="text-xs font-mono">
-                      {backupStatus.remaining} / {backupStatus.total || 8} restantes
-                    </Badge>
+                <div className="p-4 rounded-xl border border-border bg-card/60 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">Perdeu o celular?</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {backupStatus.remaining === 0
-                      ? "Você não possui mais códigos de recuperação disponíveis. Gere novos códigos imediatamente."
-                      : "Utilize estes códigos caso você perca temporariamente o acesso ao seu celular."}
+                    Peça a um administrador do Orion para remover o autenticador da sua conta. Depois você entra com a senha e ativa o 2FA de novo.
                   </p>
                 </div>
               </div>
 
               {/* Ações para 2FA Ativo */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsRegenerateConfirmOpen(true)}
-                  className="gap-1.5 text-xs"
-                >
-                  <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
-                  Gerar Novos Códigos de Backup
-                </Button>
+              <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-border">
 
                 <Button
                   variant="destructive"
@@ -556,110 +475,6 @@ export const TwoFactorAuthSettings = () => {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Modal de Exibição dos Códigos de Backup Recém-Gerados */}
-      <Dialog open={isBackupModalOpen} onOpenChange={setIsBackupModalOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-amber-600 dark:text-amber-400">
-              <KeyRound className="h-5 w-5" />
-              Guarde seus Códigos de Recuperação
-            </DialogTitle>
-            <DialogDescription>
-              Se você perder o acesso ao seu celular, estes códigos permitirão que você recupere o acesso à sua conta.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300 space-y-1">
-              <p className="font-semibold flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                Aviso Importante:
-              </p>
-              <p>
-                Cada código pode ser usado <strong>apenas uma vez</strong>. Salve-os em um gerenciador de senhas seguro ou baixe o arquivo de texto. Eles não serão mostrados novamente.
-              </p>
-            </div>
-
-            {/* Grid dos Códigos */}
-            <div className="grid grid-cols-2 gap-2.5 p-3.5 bg-muted/50 rounded-xl border border-border">
-              {newBackupCodes.map((code, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-2 rounded bg-background border border-border/80 font-mono text-xs font-bold text-foreground"
-                >
-                  <span className="text-muted-foreground text-[10px] select-none mr-2">
-                    #{(idx + 1).toString().padStart(2, "0")}
-                  </span>
-                  <span className="tracking-wider">{code}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Ações de Cópia e Download */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleCopyAllBackupCodes}
-                className="flex-1 gap-1.5 text-xs"
-              >
-                {copiedCodes ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-                {copiedCodes ? "Copiados!" : "Copiar Códigos"}
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => downloadBackupCodesAsText(newBackupCodes, profile?.email)}
-                className="flex-1 gap-1.5 text-xs"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Baixar Arquivo (.txt)
-              </Button>
-            </div>
-          </div>
-
-          <DialogFooter className="pt-2">
-            <Button
-              type="button"
-              className="w-full sm:w-auto"
-              onClick={() => setIsBackupModalOpen(false)}
-            >
-              Entendi e Guardei os Códigos
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirmação de Regeração de Códigos de Backup */}
-      <AlertDialog open={isRegenerateConfirmOpen} onOpenChange={setIsRegenerateConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-              <RefreshCw className="h-5 w-5" />
-              Regerar Códigos de Recuperação?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Ao gerar um novo conjunto de códigos de backup, todos os códigos anteriores serão
-              <strong> invalidados imediatamente</strong>. Você deverá guardar os novos códigos em um local seguro.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isRegeneratingBackupCodes}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleRegenerateBackupCodes}
-              disabled={isRegeneratingBackupCodes}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
-            >
-              {isRegeneratingBackupCodes && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Sim, Regerar Códigos
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Confirmação de Desativação do 2FA */}
       <AlertDialog open={isUnenrollConfirmOpen} onOpenChange={setIsUnenrollConfirmOpen}>

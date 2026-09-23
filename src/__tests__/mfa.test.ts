@@ -4,17 +4,10 @@ import type { Mock } from 'vitest';
 // Os mocks recebem objetos parciais; a tipagem estrita do Supabase não ajuda aqui.
 const comoMock = (fn: unknown) => fn as Mock;
 import {
-  normalizeBackupCode,
-  formatBackupCode,
-  generateBackupCodes,
-  hashBackupCode,
   enrollTotpFactor,
   verifyTotpEnrollment,
   unenrollTotpFactor,
   getMfaStatus,
-  saveBackupCodes,
-  verifyBackupCode,
-  getBackupCodesStatus,
 } from '@/lib/mfa';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -39,46 +32,6 @@ vi.mock('@/integrations/supabase/client', () => ({
 describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe('Funções de Formatação e Normalização de Códigos', () => {
-    it('deve normalizar códigos removendo espaços, hífens e convertendo para maiúsculo', () => {
-      expect(normalizeBackupCode('abcd-efgh')).toBe('ABCDEFGH');
-      expect(normalizeBackupCode('  ab cd - 12 34  ')).toBe('ABCD1234');
-      expect(normalizeBackupCode('')).toBe('');
-    });
-
-    it('deve formatar código no padrão XXXX-XXXX', () => {
-      expect(formatBackupCode('abcdefgh')).toBe('ABCD-EFGH');
-      expect(formatBackupCode('12345678')).toBe('1234-5678');
-      expect(formatBackupCode('abc')).toBe('ABC');
-    });
-
-    it('deve gerar 8 códigos de backup únicos no formato correto sem caracteres ambíguos (0, O, 1, I)', () => {
-      const codes = generateBackupCodes(8);
-      expect(codes).toHaveLength(8);
-
-      const uniqueCodes = new Set(codes);
-      expect(uniqueCodes.size).toBe(8);
-
-      for (const code of codes) {
-        expect(code).toMatch(/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}$/);
-        expect(code).not.toContain('0');
-        expect(code).not.toContain('O');
-        expect(code).not.toContain('1');
-        expect(code).not.toContain('I');
-      }
-    });
-
-    it('deve gerar hash SHA-256 consistente e independente de formatação/espaços', async () => {
-      const hash1 = await hashBackupCode('ABCD-EFGH');
-      const hash2 = await hashBackupCode('abcd efgh');
-      const hash3 = await hashBackupCode('  abcdefgh  ');
-
-      expect(hash1).toHaveLength(64); // SHA-256 hex string
-      expect(hash1).toBe(hash2);
-      expect(hash2).toBe(hash3);
-    });
   });
 
   describe('Fluxo de TOTP nativo do Supabase Auth', () => {
@@ -126,20 +79,11 @@ describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
       expect(success).toBe(true);
     });
 
-    it('deve desativar o fator TOTP e limpar registros', async () => {
+    it('deve desativar o fator TOTP', async () => {
       comoMock(supabase.auth.mfa.unenroll).mockResolvedValueOnce({
         data: { id: 'factor-totp-123' },
         error: null,
       });
-
-      comoMock(supabase.auth.getUser).mockResolvedValueOnce({
-        data: { user: { id: 'user-123' } },
-      });
-
-      const mockDelete = vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      });
-      comoMock(supabase.from).mockReturnValue({ delete: mockDelete });
 
       await unenrollTotpFactor('factor-totp-123');
 
@@ -185,53 +129,6 @@ describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
       expect(status.isEnabled).toBe(true);
       expect(status.currentLevel).toBe('aal2');
       expect(status.factors).toHaveLength(1);
-    });
-  });
-
-  describe('Armazenamento e Validação de Códigos de Recuperação', () => {
-    it('deve salvar hashes de códigos de backup via RPC', async () => {
-      comoMock(supabase.rpc).mockResolvedValueOnce({ error: null });
-
-      const codes = ['ABCD-1234', 'EFGH-5678'];
-      await saveBackupCodes(codes);
-
-      expect(supabase.rpc).toHaveBeenCalledWith(
-        'save_user_backup_codes',
-        expect.objectContaining({
-          p_code_hashes: expect.any(Array),
-        })
-      );
-    });
-
-    it('deve validar e consumir código de backup com sucesso', async () => {
-      comoMock(supabase.rpc).mockResolvedValueOnce({ data: true, error: null });
-
-      const isValid = await verifyBackupCode('ABCD-1234');
-      expect(isValid).toBe(true);
-      expect(supabase.rpc).toHaveBeenCalledWith(
-        'verify_user_backup_code',
-        expect.objectContaining({
-          p_code_hash: expect.any(String),
-        })
-      );
-    });
-
-    it('deve rejeitar código de backup inválido', async () => {
-      comoMock(supabase.rpc).mockResolvedValueOnce({ data: false, error: null });
-
-      const isValid = await verifyBackupCode('INVALID-CODE');
-      expect(isValid).toBe(false);
-    });
-
-    it('deve obter quantidade de códigos totais e restantes', async () => {
-      comoMock(supabase.rpc).mockResolvedValueOnce({
-        data: { total: 8, remaining: 6 },
-        error: null,
-      });
-
-      const status = await getBackupCodesStatus();
-      expect(status.total).toBe(8);
-      expect(status.remaining).toBe(6);
     });
   });
 
