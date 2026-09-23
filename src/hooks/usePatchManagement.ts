@@ -132,27 +132,14 @@ export const useDeployPackage = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: DeployPackageInput) => {
-      // 1. Insert deployment record
-      const { error: depErr } = await (supabase as any)
-        .from('package_deployments')
-        .insert([{
-          package_id: input.package_id,
-          machine_id: input.machine_id,
-          status: 'dispatched',
-          dispatched_by: input.dispatched_by,
-        }]);
-      if (depErr) throw depErr;
-
-      // 2. Queue command for the agent
-      const { error: cmdErr } = await (supabase as any)
-        .from('machine_commands')
-        .insert([{
-          machine_id: input.machine_id,
-          command: `orion-install --url="${input.file_path}" --hash="${input.sha256_hash}"`,
-          executed_by_user_id: input.executed_by_user_id,
-          executed_by_name: input.executed_by_name,
-        }]);
-      if (cmdErr) throw cmdErr;
+      // O banco monta o comando a partir do cadastro do pacote (URL e hash) e
+      // grava a autoria pela sessão: o frontend não escreve mais em
+      // machine_commands (ORN-SEC-05).
+      const { error } = await (supabase as any).rpc('despachar_pacote', {
+        p_package_id: input.package_id,
+        p_machine_id: input.machine_id,
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['packages'] });
