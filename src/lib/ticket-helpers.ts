@@ -83,7 +83,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   hardware: 'Hardware',
   email: 'E-mail',
   rede: 'Rede',
-  erp: 'ERP',
+  erp: 'Sistemas ERP/RH',
   software: 'Software',
   outros: 'Outros',
   criacao_usuario: 'Criação de usuário',

@@ -61,11 +61,11 @@ const PRIORIDADE_PADRAO = 'medium';
 const categories = [
   {
     id: 'erp',
-    name: 'ERP',
+    name: 'Sistemas ERP/RH',
     icon: Layout,
     color: 'text-blue-500',
     bg: 'bg-blue-500/10',
-    description: 'Sistema Senior (Sapiens, Vetorh, Ronda, emissão de notas fiscais, faturamento, financeiro, relatórios, etc.).',
+    description: 'Sistemas de gestão e de RH, incluindo os Sistemas Senior (Sapiens, Vetorh, Ronda), emissão de notas fiscais, faturamento, financeiro, relatórios, etc.',
     examples: ['Senior Sapiens (Gestão Empresarial)', 'Senior Vetorh / Ronda (RH e Acesso)', 'Emissão de NF-e / Danfe / Boletos', 'Rotinas de faturamento e relatórios']
   },
   {
