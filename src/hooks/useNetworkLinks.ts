@@ -118,25 +118,18 @@ export function useNetworkLinks(companyId?: string) {
           return [];
         }
 
-        // Aceita nomes antigos de coluna (ip_address, host, latency) de linhas
-        // gravadas antes da padronização.
-        type LinhaDoBanco = (typeof data)[number] & {
-          ip_address?: string | null;
-          host?: string | null;
-          latency?: number | null;
-          company_name?: string | null;
-          updated_at?: string | null;
-        };
-        return ((data || []) as LinhaDoBanco[]).map((item) => ({
+        // Colunas canônicas da tabela (ORN-DUP-05), convertidas para os nomes
+        // que a tela usa.
+        return (data || []).map((item) => ({
           id: item.id,
           name: item.name,
-          type: item.type,
+          type: item.link_type,
           company_id: item.company_id || null,
-          company_name: item.companies?.name || item.company_name || null,
-          ip_or_host: item.ip_or_host || item.ip_address || item.host || '',
+          company_name: item.companies?.name || null,
+          ip_or_host: item.ip_or_hostname || '',
           status: item.status || 'pending',
-          latency_ms: item.latency_ms ?? item.latency ?? null,
-          last_check: item.last_check || item.updated_at || item.created_at || null,
+          latency_ms: item.last_ping_ms ?? null,
+          last_check: item.last_checked_at || null,
           created_at: item.created_at,
         }));
       }
@@ -153,15 +146,14 @@ export function useCreateNetworkLink() {
         return await apiRequest<NetworkLink>('/api/monitoring/network-links', 'POST', data);
       } catch (err) {
         console.warn('Local API POST /api/monitoring/network-links error, inserting into Supabase directly:', err);
+        // Grava nas colunas que o orion-bridge lê (link_type, ip_or_hostname);
+        // o status fica pending até o Blackbox checar o link.
         const payload = {
           name: data.name,
-          type: data.type,
+          link_type: data.type,
           company_id: data.company_id || null,
-          ip_or_host: data.ip_or_host,
-          status: data.status || 'pending',
-          latency_ms: data.latency_ms ?? null,
-          last_check: new Date().toISOString(),
-          created_at: new Date().toISOString(),
+          ip_or_hostname: data.ip_or_host,
+          status: 'pending',
         };
 
         const { data: inserted, error } = await supabase
@@ -177,13 +169,13 @@ export function useCreateNetworkLink() {
         return {
           id: inserted.id,
           name: inserted.name,
-          type: inserted.type,
+          type: inserted.link_type,
           company_id: inserted.company_id,
           company_name: inserted.companies?.name || null,
-          ip_or_host: inserted.ip_or_host,
+          ip_or_host: inserted.ip_or_hostname,
           status: inserted.status,
-          latency_ms: inserted.latency_ms,
-          last_check: inserted.last_check,
+          latency_ms: inserted.last_ping_ms,
+          last_check: inserted.last_checked_at,
           created_at: inserted.created_at,
         };
       }
