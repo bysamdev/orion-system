@@ -220,6 +220,18 @@ serve(async (req) => {
     }
 
     if (status) {
+      if (status !== 'active' && status !== 'inactive') {
+        return new Response(
+          JSON.stringify({ error: 'Status inválido' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (status === 'inactive' && user_id === callerUser.id) {
+        return new Response(
+          JSON.stringify({ error: 'Você não pode inativar a própria conta' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       profileUpdateData.status = status;
     }
 
@@ -258,6 +270,23 @@ serve(async (req) => {
         );
       }
       console.log('Profile atualizado com sucesso');
+    }
+
+    // ORN-INC-01: inativar era só um rótulo no perfil, e a pessoa seguia
+    // entrando. Agora a conta é bloqueada no Auth (ban): não faz login nem
+    // renova a sessão, então o acesso cai quando o token atual expirar (até
+    // 1 hora). Reativar tira o bloqueio.
+    if (status) {
+      const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(user_id, {
+        ban_duration: status === 'inactive' ? '876000h' : 'none',
+      });
+      if (banError) {
+        console.error('Erro ao aplicar bloqueio de acesso:', banError.message);
+        return new Response(
+          JSON.stringify({ error: 'Status salvo, mas não foi possível bloquear/liberar o acesso. Tente de novo.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // 3. Atualizar role
