@@ -349,7 +349,7 @@ export default function KnowledgeBase() {
     queryFn: async () => {
       let query = supabase
         .from('knowledge_base_articles')
-        .select('*, categories(name)')
+        .select('*')
         .order('created_at', { ascending: false });
       
       if (!isAdmin) {
@@ -359,10 +359,13 @@ export default function KnowledgeBase() {
       const { data, error } = await query;
       
       if (error) throw error;
-      return (data || []).map((a: any) => ({
+      // O vínculo com categories derrubava a consulta inteira (PGRST200): a
+      // tabela foi removida do banco. Até decidir a nova lista de categorias
+      // (card no Notion), todo artigo aparece como "Geral".
+      return (data || []).map((a) => ({
         ...a,
-        category: a.categories?.name || 'Geral'
-      })) as Article[];
+        category: 'Geral'
+      })) as unknown as Article[];
     }
   });
 
@@ -377,7 +380,7 @@ export default function KnowledgeBase() {
         .select('id, name')
         .order('name');
       if (error) throw error;
-      return data || [];
+      return (data || []) as unknown as { id: string; name: string }[];
     },
     enabled: isAdmin
   });
@@ -422,7 +425,7 @@ export default function KnowledgeBase() {
       setEditingArticle(null);
       toast({ title: 'Sucesso', description: 'Artigo salvo com sucesso.' });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     }
   });
@@ -436,7 +439,7 @@ export default function KnowledgeBase() {
       queryClient.invalidateQueries({ queryKey: ['knowledge-articles'] });
       toast({ title: 'Sucesso', description: 'Artigo excluído com sucesso.' });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     }
   });
@@ -808,7 +811,7 @@ export default function KnowledgeBase() {
                       <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
                     <SelectContent>
-                      {dbCategories?.map((c: any) => (
+                      {dbCategories?.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
                     </SelectContent>
