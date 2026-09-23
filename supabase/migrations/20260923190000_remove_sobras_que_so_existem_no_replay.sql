@@ -43,4 +43,18 @@ BEGIN
     -- função não existe em produção, nada que dependa dela existe lá.
     EXECUTE format('DROP FUNCTION IF EXISTS %s CASCADE', r.funcao);
   END LOOP;
+
+  -- Em produção routing_rules e automation_logs têm uma policy cada, as do
+  -- motor de automações (20260919040000). No replay sobram policies antigas
+  -- de outro nome que deixam o técnico ver regras e histórico.
+  FOR r IN
+    SELECT policyname, tablename
+      FROM pg_policies
+     WHERE schemaname = 'public'
+       AND tablename IN ('routing_rules', 'automation_logs')
+       AND policyname NOT IN ('Gestores gerem regras de automacao',
+                              'Gestores veem historico de automacao')
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
+  END LOOP;
 END $$;
