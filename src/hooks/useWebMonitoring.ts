@@ -61,7 +61,6 @@ export interface MonitoredEndpoint {
   id: string;
   name: string;
   url_or_ip: string;
-  uptimerobot_monitor_id: string;
   status: string; // "pending", "online", "offline", "paused"
   diagnostics?: EndpointDiagnostics;
 }
@@ -112,7 +111,7 @@ export function useWebEndpoints() {
         console.warn('API endpoint fetch failed, falling back to Supabase:', err);
         const { data, error } = await supabase
           .from('monitored_endpoints')
-          .select('id, name, url_or_ip, uptimerobot_monitor_id, status')
+          .select('id, name, url_or_ip, status')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -120,7 +119,6 @@ export function useWebEndpoints() {
           id: item.id,
           name: item.name,
           url_or_ip: item.url_or_ip,
-          uptimerobot_monitor_id: item.uptimerobot_monitor_id || '',
           status: item.status || 'pending',
         }));
       }
@@ -149,11 +147,9 @@ export function useCreateWebEndpoint() {
         const companyId = profile?.company_id;
         if (!companyId) throw new Error('Empresa do usuário não encontrada');
 
-        // Esse fallback só roda quando a API Go falha -- pula o registro
-        // real no UptimeRobot (uptimerobot_monitor_id fica vazio, nunca
-        // mais é atualizado pelo pipeline de monitoramento). Não marca
-        // 'online' sem nunca ter verificado; 'pending' reflete o estado
-        // real (mesmo default da coluna).
+        // Esse fallback só roda quando a API Go falha. Não marca 'online'
+        // sem nunca ter verificado; 'pending' reflete o estado real (mesmo
+        // default da coluna) até o Blackbox checar o site.
         const { data: inserted, error } = await supabase
           .from('monitored_endpoints')
           .insert({
