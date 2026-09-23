@@ -1810,9 +1810,21 @@ func (d *DB) AbrirChamadoAlertaServidor(ctx context.Context, machineID, companyI
 		return nil
 	}
 
-	// 1. Deduplicação: verifica se já existe chamado em aberto para esta máquina e tipo de alerta
+	// 1. Deduplicação: verifica se já existe chamado em aberto para esta
+	// máquina e tipo de alerta. Checar e inserir acontecem na mesma transação,
+	// sob uma trava por máquina+alerta: sem ela, dois heartbeats simultâneos
+	// passavam os dois pela checagem e abriam chamado duplicado (ORN-PERF-06).
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("abrir transação do chamado automático: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "chamado-alerta|"+machineID+"|"+alertType); err != nil {
+		return fmt.Errorf("travar chamado automático: %w", err)
+	}
+
 	var existente bool
-	err := d.pool.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 SELECT EXISTS(
   SELECT 1 FROM public.tickets
   WHERE company_id = $1::uuid
@@ -1864,12 +1876,15 @@ SELECT EXISTS(
 
 	requesterName := fmt.Sprintf("Servidor %s (Orion RMM)", hostname)
 
-	_, err = d.pool.Exec(ctx, `
+	_, err = tx.Exec(ctx, `
 INSERT INTO public.tickets (title, description, category, priority, status, user_id, company_id, requester_name, metadata)
 VALUES ($1, $2, $3, $4, 'open', $5::uuid, $6::uuid, $7, $8::jsonb)`,
 		title, description, CategoriaChamadoInfraestrutura, priority, userID, companyID, requesterName, metaJSON)
 	if err != nil {
 		return fmt.Errorf("inserir ticket automático de servidor: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("confirmar chamado automático: %w", err)
 	}
 
 	log.Printf("[RMM-SERVIDORES] Chamado automático aberto para servidor %s (%s): %s", hostname, alertType, alertMessage)
