@@ -8,7 +8,7 @@ import {
 // cartões e badges: um filtro que oferece categoria fora desta lista não casa
 // com chamado nenhum.
 export const CATEGORIAS: Record<string, { rotulo: string; icone: ElementType }> = {
-  erp: { rotulo: 'Sistemas ERP/RH', icone: Boxes },
+  erp: { rotulo: 'Sistemas Senior', icone: Boxes },
   email: { rotulo: 'E-mail', icone: Mail },
   hardware: { rotulo: 'Hardware', icone: Cpu },
   software: { rotulo: 'Software', icone: AppWindow },

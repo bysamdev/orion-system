@@ -63,7 +63,7 @@ const PRIORIDADE_PADRAO = 'medium';
 const categories = [
   {
     id: 'erp',
-    name: 'Sistemas ERP/RH',
+    name: 'Sistemas Senior',
     icon: Layout,
     color: 'text-blue-500',
     bg: 'bg-blue-500/10',
