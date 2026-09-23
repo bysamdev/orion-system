@@ -74,7 +74,7 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
   const [internalMetric, setInternalMetric] = useState<MetricType>('all');
   const activeMetric = controlledMetric ?? internalMetric;
 
-  // Só servidor guarda 3 dias de histórico (AppendMetricPoint, lib/monitoring.go) —
+  // Só servidor guarda 3 dias de histórico (no Orion Monitor) —
   // estação/notebook são auto-aparados em 24h a cada heartbeat, pra desafogar o
   // banco. Oferecer o botão "3d" pra quem não é servidor prometeria uma janela
   // que o dado real nunca preenche.

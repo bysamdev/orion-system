@@ -149,7 +149,7 @@ export interface MetricRow {
   disk_total: number | null;
   disk_used: number | null;
   /**
-   * Percentuais já calculados pela série histórica (machine_metrics_history
+   * Percentuais já calculados pela série histórica (Orion Monitor
    * guarda porcentagem, não bytes). Quando chegam preenchidos, o gráfico usa
    * eles direto; os campos em bytes acima só vêm do snapshot ao vivo.
    */
