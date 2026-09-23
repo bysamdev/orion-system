@@ -124,17 +124,14 @@ jobs:
     name: Banco (replay das migrations e pgTAP)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    permissions:
-      contents: read
-      packages: read
+    # Em 23/09/2026 o ghcr.io (registro padrão da CLI) recusou o download da
+    # imagem do Postgres com "toomanyrequests" quatro vezes seguidas, mesmo
+    # logado. As mesmas imagens estão no Docker Hub; a CLI usa o registro
+    # indicado nesta variável.
+    env:
+      SUPABASE_INTERNAL_IMAGE_REGISTRY: docker.io
     steps:
       - uses: actions/checkout@v4
-
-      # Sem login, o ghcr.io devolve "toomanyrequests" ao baixar a imagem do
-      # Postgres do Supabase em horário de pico (aconteceu duas vezes seguidas
-      # em 23/09/2026). Logado com o token da própria execução o limite é maior.
-      - name: Login no registro de imagens do GitHub
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - uses: supabase/setup-cli@v1
         with:
