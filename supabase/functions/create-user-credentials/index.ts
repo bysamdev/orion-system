@@ -184,6 +184,9 @@ serve(async (req) => {
         full_name: full_name,
         company_id: company_id,
       },
+      // No primeiro acesso a pessoa troca a senha provisória pela dela
+      // (tela /trocar-senha, Edge trocar-senha-provisoria).
+      app_metadata: { deve_trocar_senha: true },
     });
 
     if (createUserError || !createUserData.user) {
@@ -265,7 +268,7 @@ serve(async (req) => {
       );
     }
 
-    const loginUrl = 'https://orionsystem.bysam.dev/auth';
+    const loginUrl = Deno.env.get('LOGIN_URL') ?? 'https://orion.bysam.dev/auth';
 
     const emailHtml = `
       <!DOCTYPE html>

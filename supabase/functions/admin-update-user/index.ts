@@ -163,7 +163,7 @@ serve(async (req) => {
     }
 
     // 8. Atualizar dados no Auth (email e/ou senha)
-    const authUpdateData: { email?: string; password?: string } = {};
+    const authUpdateData: { email?: string; password?: string; app_metadata?: Record<string, unknown> } = {};
     
     if (email) {
       authUpdateData.email = email;
@@ -180,6 +180,12 @@ serve(async (req) => {
         );
       }
       authUpdateData.password = password.trim();
+      // Senha definida pelo gestor para outra pessoa é temporária: ela cria a
+      // própria no próximo acesso (tela /trocar-senha). Quando o gestor troca
+      // a própria senha por aqui, não há o que obrigar.
+      if (user_id !== callerUser.id) {
+        authUpdateData.app_metadata = { deve_trocar_senha: true };
+      }
     }
 
     if (Object.keys(authUpdateData).length > 0) {

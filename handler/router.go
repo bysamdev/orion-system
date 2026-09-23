@@ -144,7 +144,6 @@ func buildRouter() http.Handler {
 	//   self-heal-event            X-Agent-Key (+ confere empresa da máquina)
 	//   cron/*                     CRON_SECRET, fail-closed
 	//   ws/terminal*               token no subprotocolo (WS não aceita header Authorization)
-	r.Post("/api/functions/reset-password-with-token", resetPasswordWithToken)
 	r.Get("/api/auth/machine-login", machineLogin)
 
 	r.Post("/api/monitoring/machines/heartbeat", monitoringHeartbeat)
@@ -176,15 +175,6 @@ func buildRouter() http.Handler {
 	// cada handler lembrar de fazer a checagem.
 	r.Group(func(r chi.Router) {
 		r.Use(RequireCompanyScope)
-
-		// /functions/*
-		r.Post("/api/functions/admin-update-user", adminUpdateUser)
-		r.Post("/api/functions/delete-user-admin", deleteUserAdmin)
-		r.Post("/api/functions/merge-users", mergeUsers)
-		r.Post("/api/functions/create-user-credentials", createUserCredentials)
-		r.Post("/api/functions/check-rate-limit", checkRateLimit)
-		r.Post("/api/functions/send-password-changed-alert", sendPasswordChangedAlert)
-		r.Post("/api/functions/trocar-senha-provisoria", trocarSenhaProvisoria)
 
 		// /api/tickets/*
 		r.Get("/api/tickets/resolve/{id}", ticketResolveHandler)

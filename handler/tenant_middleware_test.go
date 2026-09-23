@@ -132,11 +132,6 @@ func TestRotasDeUsuarioExigemEscopo(t *testing.T) {
 		{http.MethodPost, "/api/monitoring/web/endpoints"},
 		{http.MethodDelete, "/api/monitoring/web/endpoints/abc"},
 		{http.MethodGet, "/api/tickets/resolve/1"},
-		{http.MethodPost, "/api/functions/admin-update-user"},
-		{http.MethodPost, "/api/functions/delete-user-admin"},
-		{http.MethodPost, "/api/functions/create-user-credentials"},
-		{http.MethodPost, "/api/functions/check-rate-limit"},
-		{http.MethodPost, "/api/functions/send-password-changed-alert"},
 	}
 
 	roteador := buildRouter()
@@ -176,7 +171,6 @@ func TestRotasComAutenticacaoPropriaNaoExigemEscopo(t *testing.T) {
 	}{
 		{http.MethodGet, "/api/monitoring/cron/mark-offline", http.StatusServiceUnavailable, "autorizarCron sem CRON_SECRET"},
 		{http.MethodGet, "/api/auth/machine-login", http.StatusSeeOther, "só redireciona para o login"},
-		{http.MethodPost, "/api/functions/reset-password-with-token", http.StatusBadRequest, "corpo vazio"},
 	}
 
 	roteador := buildRouter()
