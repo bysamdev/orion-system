@@ -669,7 +669,6 @@ export type Database = {
       knowledge_base_articles: {
         Row: {
           category: string
-          category_id: string | null
           company_id: string
           content: string
           created_at: string
@@ -687,7 +686,6 @@ export type Database = {
         }
         Insert: {
           category?: string
-          category_id?: string | null
           company_id: string
           content: string
           created_at?: string
@@ -705,7 +703,6 @@ export type Database = {
         }
         Update: {
           category?: string
-          category_id?: string | null
           company_id?: string
           content?: string
           created_at?: string
@@ -974,182 +971,6 @@ export type Database = {
           },
         ]
       }
-      machine_metrics_history: {
-        Row: {
-          collected_at: string
-          cpu_pct: number | null
-          disk_pct: number | null
-          machine_id: string
-          ram_pct: number | null
-        }
-        Insert: {
-          collected_at: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id: string
-          ram_pct?: number | null
-        }
-        Update: {
-          collected_at?: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id?: string
-          ram_pct?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "machine_metrics_history_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "machines"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      machine_metrics_history_20260920: {
-        Row: {
-          collected_at: string
-          cpu_pct: number | null
-          disk_pct: number | null
-          machine_id: string
-          ram_pct: number | null
-        }
-        Insert: {
-          collected_at: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id: string
-          ram_pct?: number | null
-        }
-        Update: {
-          collected_at?: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id?: string
-          ram_pct?: number | null
-        }
-        Relationships: []
-      }
-      machine_metrics_history_20260921: {
-        Row: {
-          collected_at: string
-          cpu_pct: number | null
-          disk_pct: number | null
-          machine_id: string
-          ram_pct: number | null
-        }
-        Insert: {
-          collected_at: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id: string
-          ram_pct?: number | null
-        }
-        Update: {
-          collected_at?: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id?: string
-          ram_pct?: number | null
-        }
-        Relationships: []
-      }
-      machine_metrics_history_20260922: {
-        Row: {
-          collected_at: string
-          cpu_pct: number | null
-          disk_pct: number | null
-          machine_id: string
-          ram_pct: number | null
-        }
-        Insert: {
-          collected_at: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id: string
-          ram_pct?: number | null
-        }
-        Update: {
-          collected_at?: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id?: string
-          ram_pct?: number | null
-        }
-        Relationships: []
-      }
-      machine_metrics_history_20260923: {
-        Row: {
-          collected_at: string
-          cpu_pct: number | null
-          disk_pct: number | null
-          machine_id: string
-          ram_pct: number | null
-        }
-        Insert: {
-          collected_at: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id: string
-          ram_pct?: number | null
-        }
-        Update: {
-          collected_at?: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id?: string
-          ram_pct?: number | null
-        }
-        Relationships: []
-      }
-      machine_metrics_history_20260924: {
-        Row: {
-          collected_at: string
-          cpu_pct: number | null
-          disk_pct: number | null
-          machine_id: string
-          ram_pct: number | null
-        }
-        Insert: {
-          collected_at: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id: string
-          ram_pct?: number | null
-        }
-        Update: {
-          collected_at?: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id?: string
-          ram_pct?: number | null
-        }
-        Relationships: []
-      }
-      machine_metrics_history_20260925: {
-        Row: {
-          collected_at: string
-          cpu_pct: number | null
-          disk_pct: number | null
-          machine_id: string
-          ram_pct: number | null
-        }
-        Insert: {
-          collected_at: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id: string
-          ram_pct?: number | null
-        }
-        Update: {
-          collected_at?: string
-          cpu_pct?: number | null
-          disk_pct?: number | null
-          machine_id?: string
-          ram_pct?: number | null
-        }
-        Relationships: []
-      }
       machines: {
         Row: {
           agent_version: string | null
@@ -1284,7 +1105,6 @@ export type Database = {
           last_check: string | null
           name: string
           status: string | null
-          uptimerobot_monitor_id: string | null
           url_or_ip: string
         }
         Insert: {
@@ -1294,7 +1114,6 @@ export type Database = {
           last_check?: string | null
           name: string
           status?: string | null
-          uptimerobot_monitor_id?: string | null
           url_or_ip: string
         }
         Update: {
@@ -1304,7 +1123,6 @@ export type Database = {
           last_check?: string | null
           name?: string
           status?: string | null
-          uptimerobot_monitor_id?: string | null
           url_or_ip?: string
         }
         Relationships: [
@@ -1323,16 +1141,12 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           id: string
-          ip_or_host: string | null
           ip_or_hostname: string | null
-          last_check: string | null
           last_checked_at: string | null
           last_ping_ms: number | null
-          latency_ms: number | null
           link_type: string
           name: string
           status: string | null
-          type: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1340,16 +1154,12 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           id?: string
-          ip_or_host?: string | null
           ip_or_hostname?: string | null
-          last_check?: string | null
           last_checked_at?: string | null
           last_ping_ms?: number | null
-          latency_ms?: number | null
           link_type?: string
           name: string
           status?: string | null
-          type?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1357,16 +1167,12 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           id?: string
-          ip_or_host?: string | null
           ip_or_hostname?: string | null
-          last_check?: string | null
           last_checked_at?: string | null
           last_ping_ms?: number | null
-          latency_ms?: number | null
           link_type?: string
           name?: string
           status?: string | null
-          type?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2973,7 +2779,6 @@ export type Database = {
           tickets_count: number
         }[]
       }
-      maintain_machine_metrics_partitions: { Args: never; Returns: undefined }
       marcar_maquinas_offline: { Args: never; Returns: number }
       match_kb_articles: {
         Args: {
