@@ -226,9 +226,27 @@ where id = $1
 	return err
 }
 
+// UpdateUserRole deixa o usuário com exatamente o papel pedido.
+//
+// Antes era um UPDATE ... WHERE user_id: não fazia nada para customer (que
+// não tem linha em user_roles) e violava UNIQUE(user_id, role) para quem tem
+// dois papéis (ORN-BUG-09). Agora troca as linhas numa transação; customer
+// fica sem linha, que é como o resto do sistema o representa.
 func (d *DB) UpdateUserRole(ctx context.Context, userID, role string) error {
-	_, err := d.pool.Exec(ctx, `update public.user_roles set role = $2 where user_id = $1`, userID, role)
-	return err
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `delete from public.user_roles where user_id = $1`, userID); err != nil {
+		return err
+	}
+	if role != "customer" {
+		if _, err := tx.Exec(ctx, `insert into public.user_roles (user_id, role) values ($1, $2::app_role)`, userID, role); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 // MergeUserData reatribui todos os dados de sourceID pra targetID (função
