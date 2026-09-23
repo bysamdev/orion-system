@@ -40,6 +40,8 @@ import {
   type Respostas,
 } from '@/lib/perguntasPorCategoria';
 import { comprimirImagem } from '@/lib/comprimirImagem';
+import { useCompanies } from '@/hooks/useCompanies';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // A abertura tem dois passos: o passo 1 é só a escolha da categoria, o passo
 // 2 traz todo o resto num formulário só. Prioridade e departamento continuam
@@ -141,6 +143,23 @@ const NewTicket = () => {
   const { data: profile } = useUserProfile();
   const { data: userRole } = useUserRole();
   const { handleError } = useErrorHandler();
+
+  // A equipe interna (empresa mãe) pode abrir o chamado em nome de outra
+  // empresa. Pergunta ao banco pela mesma regra que o gatilho usa: o papel
+  // sozinho não basta, porque o admin de empresa cliente também é "admin".
+  const { data: souEquipeInterna = false } = useQuery({
+    queryKey: ['sou-equipe-interna', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return false;
+      const { data, error } = await supabase.rpc('is_equipe_interna', { _user_id: user.id });
+      if (error) return false;
+      return data === true;
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: empresas = [] } = useCompanies();
+  const [empresaEscolhida, setEmpresaEscolhida] = useState('');
   const [searchParams] = useSearchParams();
   const urlMachineId = searchParams.get('machine_id');
   
@@ -361,7 +380,7 @@ const NewTicket = () => {
         department: profile?.department || 'Geral',
         status: 'open',
         user_id: user.id,
-        company_id: profile.company_id,
+        company_id: souEquipeInterna && empresaEscolhida ? empresaEscolhida : profile.company_id,
         remote_id: remoteId.trim() || null,
         // Sem ID não existe ferramenta a registrar. Minúsculo porque o CHECK
         // tickets_remote_tool_valid é sensível a caixa -- 'TeamViewer' é
@@ -681,6 +700,30 @@ const NewTicket = () => {
                       <categoriaEscolhida.icon className="w-4 h-4" />
                       {categoriaEscolhida.name}
                     </span>
+                  </div>
+                )}
+
+                {souEquipeInterna && empresas.length > 0 && (
+                  <div className="space-y-4">
+                    <Label htmlFor="empresa-do-chamado" className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">
+                      Empresa do chamado
+                    </Label>
+                    <Select
+                      value={empresaEscolhida || profile?.company_id || ''}
+                      onValueChange={setEmpresaEscolhida}
+                    >
+                      <SelectTrigger id="empresa-do-chamado" className="h-12 rounded-xl">
+                        <SelectValue placeholder="Escolha a empresa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {empresas.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      O chamado fica registrado para esta empresa. Por padrão, a sua.
+                    </p>
                   </div>
                 )}
 
