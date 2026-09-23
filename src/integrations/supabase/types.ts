@@ -668,6 +668,7 @@ export type Database = {
       }
       knowledge_base_articles: {
         Row: {
+          category: string
           category_id: string | null
           company_id: string
           content: string
@@ -685,6 +686,7 @@ export type Database = {
           view_count: number
         }
         Insert: {
+          category?: string
           category_id?: string | null
           company_id: string
           content: string
@@ -702,6 +704,7 @@ export type Database = {
           view_count?: number
         }
         Update: {
+          category?: string
           category_id?: string | null
           company_id?: string
           content?: string

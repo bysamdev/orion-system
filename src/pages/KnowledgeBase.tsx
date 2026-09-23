@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
+import { CATEGORIAS } from '@/lib/categoriasDeChamado';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +24,8 @@ interface Article {
   title: string;
   slug: string;
   content: string;
-  category_id: string | null;
+  // Chave da categoria no banco (mesma lista dos chamados); category é o rótulo exibido.
+  categoria: string | null;
   category: string;
   status: string;
   is_public: boolean;
@@ -39,7 +40,7 @@ const DEFAULT_ARTICLES: Article[] = [
     id: 'default-1',
     title: 'Como abrir um chamado no Orion System',
     slug: 'como-abrir-um-chamado-no-orion-system',
-    category_id: null,
+    categoria: null,
     category: 'Chamados',
     status: 'published',
     is_public: true,
@@ -72,7 +73,7 @@ Abrir um chamado no Orion System é simples e garante que sua solicitação seja
     id: 'default-2',
     title: 'Como permitir acesso remoto via TeamViewer',
     slug: 'como-permitir-acesso-remoto-via-teamviewer',
-    category_id: null,
+    categoria: null,
     category: 'Acesso Remoto',
     status: 'published',
     is_public: true,
@@ -117,7 +118,7 @@ Caso o **TeamViewer** esteja indisponível, bloqueado pela rede ou não instalad
     id: 'default-3',
     title: 'Como usar o AnyDesk como alternativa de acesso remoto',
     slug: 'como-usar-o-anydesk-como-alternativa-de-acesso-remoto',
-    category_id: null,
+    categoria: null,
     category: 'Acesso Remoto',
     status: 'published',
     is_public: true,
@@ -151,7 +152,7 @@ Caso o TeamViewer esteja indisponível ou bloqueado, o **AnyDesk** é utilizado 
     id: 'default-4',
     title: 'Impressora aparece offline ou não imprime',
     slug: 'impressora-aparece-offline-ou-nao-imprime',
-    category_id: null,
+    categoria: null,
     category: 'Impressoras',
     status: 'published',
     is_public: true,
@@ -187,7 +188,7 @@ Se sua impressora parou de responder ou exibe a mensagem de status "Offline", si
     id: 'default-5',
     title: 'Internet lenta ou instável: testes rápidos',
     slug: 'internet-lenta-ou-instavel-testes-rapidos',
-    category_id: null,
+    categoria: null,
     category: 'Rede & Internet',
     status: 'published',
     is_public: true,
@@ -222,7 +223,7 @@ Problemas de conexão podem afetar a velocidade do sistema. Realize os testes ab
     id: 'default-6',
     title: 'Computador muito lento: soluções simples',
     slug: 'computador-muito-lento-solucoes-simples',
-    category_id: null,
+    categoria: null,
     category: 'Sistema',
     status: 'published',
     is_public: true,
@@ -258,7 +259,7 @@ Lentidão extrema pode ocorrer devido ao acúmulo de processos no sistema ou fal
     id: 'default-7',
     title: 'VPN corporativa (OpenVPN) não conecta: o que verificar',
     slug: 'vpn-corporativa-openvpn-nao-conecta-o-que-verificar',
-    category_id: null,
+    categoria: null,
     category: 'Segurança',
     status: 'published',
     is_public: true,
@@ -300,7 +301,7 @@ O **OpenVPN (Community Edition)** é a nossa ferramenta oficial para estabelecer
     id: 'default-8',
     title: 'E-mail não sincroniza ou mensagens não chegam',
     slug: 'e-mail-nao-sincroniza-ou-mensagens-nao-chegam',
-    category_id: null,
+    categoria: null,
     category: 'E-mail & Comunicação',
     status: 'published',
     is_public: true,
@@ -359,31 +360,14 @@ export default function KnowledgeBase() {
       const { data, error } = await query;
       
       if (error) throw error;
-      // O vínculo com categories derrubava a consulta inteira (PGRST200): a
-      // tabela foi removida do banco. Até decidir a nova lista de categorias
-      // (card no Notion), todo artigo aparece como "Geral".
       return (data || []).map((a) => ({
         ...a,
-        category: 'Geral'
+        categoria: a.category,
+        category: CATEGORIAS[a.category]?.rotulo ?? 'Geral'
       })) as unknown as Article[];
     }
   });
 
-  const { data: dbCategories } = useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => {
-      // A tabela categories foi removida do banco; a consulta falha e a lista
-      // fica vazia. Pendente de decisão (card no Notion) qual lista de
-      // categorias a base de conhecimento deve usar.
-      const { data, error } = await supabase
-        .from('categories' as keyof Database['public']['Tables'])
-        .select('id, name')
-        .order('name');
-      if (error) throw error;
-      return (data || []) as unknown as { id: string; name: string }[];
-    },
-    enabled: isAdmin
-  });
 
   const saveMutation = useMutation({
     mutationFn: async (article: Partial<Article>) => {
@@ -399,7 +383,7 @@ export default function KnowledgeBase() {
         const { error } = await supabase.from('knowledge_base_articles').update({
           title: article.title,
           content: article.content,
-          category_id: article.category_id,
+          category: article.categoria || 'outros',
           status: article.status,
           is_public: article.is_public ?? true,
           company_id: companyData,
@@ -410,7 +394,7 @@ export default function KnowledgeBase() {
         const { error } = await supabase.from('knowledge_base_articles').insert([{
           title: article.title || '',
           content: article.content || '',
-          category_id: article.category_id,
+          category: article.categoria || 'outros',
           status: article.status,
           is_public: article.is_public ?? true,
           company_id: companyData,
@@ -445,7 +429,7 @@ export default function KnowledgeBase() {
   });
 
   const handleSave = () => {
-    if (!editingArticle?.title || !editingArticle?.content || !editingArticle?.category_id) {
+    if (!editingArticle?.title || !editingArticle?.content || !editingArticle?.categoria) {
       toast({ title: 'Atenção', description: 'Preencha título, categoria e conteúdo.', variant: 'destructive' });
       return;
     }
@@ -804,15 +788,15 @@ export default function KnowledgeBase() {
                 <div className="space-y-2">
                   <Label>Categoria</Label>
                   <Select 
-                    value={editingArticle?.category_id || ''} 
-                    onValueChange={(val) => setEditingArticle(prev => ({ ...prev, category_id: val }))}
+                    value={editingArticle?.categoria || ''}
+                    onValueChange={(val) => setEditingArticle(prev => ({ ...prev, categoria: val }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
                     <SelectContent>
-                      {dbCategories?.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      {Object.entries(CATEGORIAS).map(([chave, c]) => (
+                        <SelectItem key={chave} value={chave}>{c.rotulo}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

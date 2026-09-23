@@ -40,7 +40,7 @@ export function useKBSuggestions(query: string, category: string) {
         }
 
         const { data, error } = await supabase.from('knowledge_base_articles')
-          .select('id, title, content, category_id')
+          .select('id, title, content, category')
           .eq('company_id', profile.company_id)
           .or(`title.ilike.%${termo}%,content.ilike.%${termo}%`)
           .limit(3);
@@ -50,7 +50,7 @@ export function useKBSuggestions(query: string, category: string) {
           id: item.id,
           title: item.title,
           content: item.content,
-          category: item.category_id || ''
+          category: item.category
         })));
       } catch (err) {
         console.error('Error fetching KB suggestions:', err);
