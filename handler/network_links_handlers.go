@@ -12,7 +12,7 @@ import (
 	"orion-api/lib"
 )
 
-// GET /api/monitoring/network/links and GET /api/monitoring/network-links
+// GET /api/monitoring/network-links
 func monitoringListNetworkLinks(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
@@ -57,7 +57,7 @@ func monitoringListNetworkLinks(w http.ResponseWriter, r *http.Request) {
 	lib.WriteJSON(w, http.StatusOK, links)
 }
 
-// POST /api/monitoring/network/links and POST /api/monitoring/network-links
+// POST /api/monitoring/network-links
 func monitoringCreateNetworkLink(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
@@ -119,7 +119,7 @@ func monitoringCreateNetworkLink(w http.ResponseWriter, r *http.Request) {
 	lib.WriteJSON(w, http.StatusCreated, created)
 }
 
-// DELETE /api/monitoring/network/links/{id} and DELETE /api/monitoring/network-links/{id}
+// DELETE /api/monitoring/network-links/{id}
 func monitoringDeleteNetworkLink(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()

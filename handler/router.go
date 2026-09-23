@@ -239,9 +239,6 @@ func buildRouter() http.Handler {
 		r.Get("/api/monitoring/alerts/critical", monitoringCriticalAlerts)
 
 		// Network Links Monitoring
-		r.Get("/api/monitoring/network/links", monitoringListNetworkLinks)
-		r.Post("/api/monitoring/network/links", monitoringCreateNetworkLink)
-		r.Delete("/api/monitoring/network/links/{id}", monitoringDeleteNetworkLink)
 		r.Get("/api/monitoring/network-links", monitoringListNetworkLinks)
 		r.Post("/api/monitoring/network-links", monitoringCreateNetworkLink)
 		r.Delete("/api/monitoring/network-links/{id}", monitoringDeleteNetworkLink)
