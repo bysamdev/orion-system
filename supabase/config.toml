@@ -24,6 +24,9 @@ verify_jwt = false
 [functions.trocar-senha-provisoria]
 verify_jwt = false
 
+[functions.excluir-anexo]
+verify_jwt = false
+
 [functions.send-scheduled-report]
 verify_jwt = false
 
