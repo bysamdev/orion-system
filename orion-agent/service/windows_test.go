@@ -879,4 +879,3 @@ func TestExtensaoDaURLIgnoraQueryString(t *testing.T) {
 		})
 	}
 }
-

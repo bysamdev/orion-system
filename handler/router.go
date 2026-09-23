@@ -39,7 +39,7 @@ var (
 	// endpoint. O limite é alto de propósito porque múltiplas máquinas de um
 	// mesmo escritório costumam sair pelo mesmo IP público (NAT) — um limite
 	// apertado aqui derrubaria heartbeats legítimos.
-	limiterHeartbeat    = lib.NewRateLimiter(1*time.Minute, 300)
+	limiterHeartbeat = lib.NewRateLimiter(1*time.Minute, 300)
 
 	// Fallback em memória para agentRateLimitAllow quando o Postgres está
 	// indisponível (ver agentRateLimitAllow) — mesmos limites de heartbeat,

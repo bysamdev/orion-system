@@ -628,5 +628,3 @@ func resetPasswordWithToken(w http.ResponseWriter, r *http.Request) {
 	}
 	lib.WriteJSON(w, http.StatusOK, map[string]any{"success": true, "message": "Senha definida com sucesso"})
 }
-
-
