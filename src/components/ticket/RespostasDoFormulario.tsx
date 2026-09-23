@@ -26,10 +26,10 @@ export function RespostasDoFormulario({ respostas }: Props) {
             key={`${i}-${r.pergunta}`}
             className="rounded-lg border border-border/40 border-l-4 border-l-blue-500 bg-background px-4 py-3"
           >
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
               {r.pergunta}
             </dt>
-            <dd className="mt-1.5 text-sm md:text-base font-medium text-foreground whitespace-pre-wrap break-words selection:bg-primary/20">
+            <dd className="mt-1.5 text-sm md:text-base font-bold text-foreground whitespace-pre-wrap break-words selection:bg-primary/20">
               {r.resposta}
             </dd>
           </div>

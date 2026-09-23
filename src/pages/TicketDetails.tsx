@@ -820,7 +820,7 @@ const TicketDetails: React.FC = () => {
                 </div>
                 <h3 className="font-bold text-lg">Descrição do Problema</h3>
               </div>
-              <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap text-sm md:text-base selection:bg-primary/20">
+              <p className="text-muted-foreground font-bold leading-relaxed whitespace-pre-wrap text-sm md:text-base selection:bg-primary/20">
                 {ticket.description}
               </p>
             </Card>

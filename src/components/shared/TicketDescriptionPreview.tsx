@@ -32,7 +32,7 @@ export const TicketDescriptionPreview: React.FC<TicketDescriptionPreviewProps> =
   if (!resumo) return null;
 
   return (
-    <p className={cn('text-xs text-muted-foreground line-clamp-2 leading-snug', className)}>
+    <p className={cn('text-xs font-bold text-muted-foreground line-clamp-2 leading-snug', className)}>
       {resumo}
     </p>
   );

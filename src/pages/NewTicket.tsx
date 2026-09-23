@@ -743,7 +743,7 @@ const NewTicket = () => {
                               form.clearErrors('title');
                             }
                           }}
-                          className="h-14 text-lg bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl"
+                          className="h-14 text-lg font-bold placeholder:font-normal bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl"
                         />
                       </FormControl>
                       <FormMessage />
@@ -790,7 +790,7 @@ const NewTicket = () => {
                       <div key={p.id} className="space-y-2">
                         {p.tipo === 'multipla' ? (
                           <fieldset aria-invalid={!!erro} aria-describedby={descritoPor}>
-                            <legend className="text-sm font-semibold text-foreground mb-2">
+                            <legend className="text-sm font-bold text-foreground mb-2">
                               {rotulo}
                               <span className="ml-1.5 text-xs font-normal text-muted-foreground">Marque quantas precisar</span>
                             </legend>
@@ -801,7 +801,7 @@ const NewTicket = () => {
                                   <label
                                     key={opcao}
                                     className={cn(
-                                      'flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors text-sm font-medium',
+                                      'flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors text-sm font-bold',
                                       marcada
                                         ? 'border-primary bg-primary/10 text-foreground'
                                         : 'border-border/60 bg-background text-muted-foreground hover:border-primary/40'
@@ -825,13 +825,13 @@ const NewTicket = () => {
                           </fieldset>
                         ) : p.tipo === 'opcoes' ? (
                           <fieldset aria-invalid={!!erro} aria-describedby={descritoPor}>
-                            <legend className="text-sm font-semibold text-foreground mb-2">{rotulo}</legend>
+                            <legend className="text-sm font-bold text-foreground mb-2">{rotulo}</legend>
                             <div className="flex flex-wrap gap-2">
                               {p.opcoes?.map((opcao, i) => (
                                 <label
                                   key={opcao}
                                   className={cn(
-                                    'flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors text-sm font-medium',
+                                    'flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors text-sm font-bold',
                                     valor === opcao
                                       ? 'border-primary bg-primary/10 text-foreground'
                                       : 'border-border/60 bg-background text-muted-foreground hover:border-primary/40'
@@ -854,7 +854,7 @@ const NewTicket = () => {
                           </fieldset>
                         ) : (
                           <>
-                            <Label htmlFor={idCampo} className="text-sm font-semibold text-foreground">{rotulo}</Label>
+                            <Label htmlFor={idCampo} className="text-sm font-bold text-foreground">{rotulo}</Label>
                             {p.tipo === 'longa' ? (
                               <Textarea
                                 id={idCampo}
@@ -865,7 +865,7 @@ const NewTicket = () => {
                                 aria-required={p.obrigatoria}
                                 aria-invalid={!!erro}
                                 aria-describedby={descritoPor}
-                                className="min-h-[96px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-y leading-relaxed"
+                                className="min-h-[96px] text-base font-bold placeholder:font-normal bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-y leading-relaxed"
                               />
                             ) : (
                               <Input
@@ -877,7 +877,7 @@ const NewTicket = () => {
                                 aria-required={p.obrigatoria}
                                 aria-invalid={!!erro}
                                 aria-describedby={descritoPor}
-                                className="h-11 bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl"
+                                className="h-11 font-bold placeholder:font-normal bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl"
                               />
                             )}
                           </>
@@ -890,7 +890,7 @@ const NewTicket = () => {
                   })}
 
                   <div className="space-y-2">
-                    <Label htmlFor="pergunta-complemento" className="text-sm font-semibold text-foreground">
+                    <Label htmlFor="pergunta-complemento" className="text-sm font-bold text-foreground">
                       Mais alguma informação?
                       <span className="ml-1.5 text-xs font-normal italic text-muted-foreground">Opcional</span>
                     </Label>
@@ -900,7 +900,7 @@ const NewTicket = () => {
                       maxLength={MAX_RESPOSTA}
                       onChange={(e) => setComplemento(e.target.value)}
                       placeholder="O que você já tentou, horários em que acontece, qualquer detalhe que ajude"
-                      className="min-h-[80px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-y leading-relaxed"
+                      className="min-h-[80px] text-base font-bold placeholder:font-normal bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-y leading-relaxed"
                     />
                   </div>
                 </section>
@@ -912,7 +912,7 @@ const NewTicket = () => {
                   </div>
 
                   <fieldset className="space-y-2">
-                    <legend className="text-xs font-semibold text-muted-foreground mb-2">
+                    <legend className="text-xs font-bold text-muted-foreground mb-2">
                       Qual programa você usa?
                     </legend>
                     <div className="flex flex-wrap gap-2">
@@ -922,7 +922,7 @@ const NewTicket = () => {
                           <label
                             key={ferramenta.valor}
                             className={cn(
-                              'flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors text-sm font-medium',
+                              'flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors text-sm font-bold',
                               escolhida
                                 ? ferramenta.corSelecionada
                                 : ferramenta.corNaoSelecionada
@@ -947,7 +947,7 @@ const NewTicket = () => {
                   </fieldset>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="remote-id" className="text-xs font-semibold text-muted-foreground">
+                    <Label htmlFor="remote-id" className="text-xs font-bold text-muted-foreground">
                       {rotuloDoCampoRemoto}
                     </Label>
                     <Input
@@ -958,7 +958,7 @@ const NewTicket = () => {
                         setRemoteId(e.target.value);
                         if (!e.target.value.trim()) setErroFerramenta(false);
                       }}
-                      className="bg-background border-border/40"
+                      className="font-bold placeholder:font-normal bg-background border-border/40"
                       aria-invalid={erroFerramenta}
                       aria-describedby={erroFerramenta ? 'remote-tool-erro' : undefined}
                     />
@@ -970,7 +970,7 @@ const NewTicket = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="remote-password" className="text-xs font-semibold text-muted-foreground">
+                    <Label htmlFor="remote-password" className="text-xs font-bold text-muted-foreground">
                       Senha de acesso
                     </Label>
                     <Input
@@ -979,7 +979,7 @@ const NewTicket = () => {
                       value={remotePassword}
                       onChange={(e) => setRemotePassword(e.target.value)}
                       autoComplete="off"
-                      className="bg-background border-border/40"
+                      className="font-bold placeholder:font-normal bg-background border-border/40"
                     />
                   </div>
                 </section>
