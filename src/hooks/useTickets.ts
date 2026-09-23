@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Database } from '@/integrations/supabase/types';
@@ -206,7 +206,7 @@ export const useTicketUpdates = (ticketId: string) => {
   });
 };
 
-export const invalidateTicketQueries = (queryClient: any, ticketId?: string) => {
+export const invalidateTicketQueries = (queryClient: QueryClient, ticketId?: string) => {
   queryClient.invalidateQueries({ queryKey: ['tickets'] });
   queryClient.invalidateQueries({ queryKey: ['my-active-tickets'] });
   queryClient.invalidateQueries({ queryKey: ['unassigned-tickets-enhanced'] });

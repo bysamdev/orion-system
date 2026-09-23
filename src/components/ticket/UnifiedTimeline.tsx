@@ -35,7 +35,15 @@ type TimelineItem = {
   content: string;
   created_at: string;
   isInternal?: boolean;
-  meta?: Record<string, any>;
+  meta?: {
+    reason?: string | null;
+    old_status?: string | null;
+    new_status?: string;
+    reaberturaAutomatica?: boolean;
+    duration?: string;
+    billable?: boolean | null;
+    running?: boolean;
+  };
 };
 
 // Converte dados crus para itens unificados
@@ -52,7 +60,7 @@ const buildTimeline = (
     const authorName = resolveUserDisplayName(u.author, profilesMap, { fallback: 'Sistema' });
     items.push({
       id: u.id,
-      type: u.type as any,
+      type: u.type as TimelineItem['type'],
       author: authorName,
       content: replaceUserUuidsInText(u.content, profilesMap),
       created_at: u.created_at,

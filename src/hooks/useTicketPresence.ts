@@ -29,9 +29,9 @@ export const useTicketPresence = (ticketId: string | undefined) => {
         const state = channel.presenceState();
         const activeViewers: Viewer[] = [];
 
-        Object.values(state).forEach((presences: any) => {
-          presences.forEach((presence: any) => {
-            activeViewers.push(presence as Viewer);
+        Object.values(state).forEach((presences) => {
+          presences.forEach((presence) => {
+            activeViewers.push(presence as unknown as Viewer);
           });
         });
 

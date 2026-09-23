@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from '@/hooks/useUserRole';
 
-interface ArticleSuggestion {
+export interface ArticleSuggestion {
   id: string;
   title: string;
   content: string;
@@ -39,18 +39,18 @@ export function useKBSuggestions(query: string, category: string) {
           return;
         }
 
-        const { data, error } = await (supabase.from('knowledge_base_articles') as any)
+        const { data, error } = await supabase.from('knowledge_base_articles')
           .select('id, title, content, category_id')
           .eq('company_id', profile.company_id)
           .or(`title.ilike.%${termo}%,content.ilike.%${termo}%`)
           .limit(3);
 
         if (error) throw error;
-        setSuggestions((data || []).map((item: any) => ({
+        setSuggestions((data || []).map((item) => ({
           id: item.id,
           title: item.title,
           content: item.content,
-          category: item.category || item.category_id || ''
+          category: item.category_id || ''
         })));
       } catch (err) {
         console.error('Error fetching KB suggestions:', err);

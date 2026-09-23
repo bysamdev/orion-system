@@ -234,8 +234,8 @@ export default function ClientPortal() {
                           <TicketDescriptionPreview description={ticket.description} />
 
                           <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                            <StatusBadge status={ticket.status as any} />
-                            <PriorityBadge priority={ticket.priority as any} />
+                            <StatusBadge status={ticket.status} />
+                            <PriorityBadge priority={ticket.priority} />
                             <span className="flex items-center gap-1 text-[11px]">
                               <Clock className="w-3 h-3" />
                               {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true, locale: ptBR })}

@@ -278,12 +278,13 @@ const TicketDetails: React.FC = () => {
     queryKey: ['ticket-company-data', ticket?.company_id],
     queryFn: async () => {
       if (!ticket?.company_id) return null;
-      const { data, error } = await (supabase.from('companies') as any)
-        .select('id, name, has_contract')
+      // has_contract não está nos tipos gerados do Supabase.
+      const { data, error } = await supabase.from('companies')
+        .select('*')
         .eq('id', ticket.company_id)
         .maybeSingle();
       if (error) return null;
-      return data as { id: string; name: string; has_contract?: boolean | null } | null;
+      return data as unknown as { id: string; name: string; has_contract?: boolean | null } | null;
     },
     enabled: !!ticket?.company_id
   });
@@ -1219,8 +1220,8 @@ const TicketDetails: React.FC = () => {
             </Card>
 
             {/* Context Bridge (Ativo Relacionado / Dispositivo RMM) */}
-            {Boolean((ticket.metadata as Record<string, any>)?.machine_id || ticket.asset_id) && (
-              <TicketAssetContext assetId={((ticket.metadata as Record<string, any>)?.machine_id || ticket.asset_id) as string} />
+            {Boolean((ticket.metadata as Record<string, unknown> | null)?.machine_id || ticket.asset_id) && (
+              <TicketAssetContext assetId={((ticket.metadata as Record<string, unknown> | null)?.machine_id || ticket.asset_id) as string} />
             )}
 
             {/* Anexos */}

@@ -16,6 +16,7 @@ import { formatDate } from '@/lib/utils';
 import { useMeusTickets } from '@/hooks/useMyTickets';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useProfilesMap, resolveUserDisplayName } from '@/hooks/useUserDisplayName';
+import type { ProfilesMap } from '@/lib/userDisplayName';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useEquipeInterna } from '@/hooks/useEquipeInterna';
 import { CATEGORIAS } from '@/lib/categoriasDeChamado';
@@ -402,7 +403,7 @@ export default function TicketHistory() {
 
 interface TicketHistoryRowProps {
   ticket: Ticket;
-  profilesMap?: any;
+  profilesMap?: ProfilesMap;
   onClick: (id: string) => void;
 }
 

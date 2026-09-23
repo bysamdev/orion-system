@@ -30,7 +30,7 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ ticketId }) => {
 
   // Timer logic
   useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (activeTimer && activeTimer.ticket_id === ticketId) {
       const startTime = new Date(activeTimer.start_time).getTime();
       interval = setInterval(() => {

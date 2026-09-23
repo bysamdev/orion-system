@@ -34,7 +34,7 @@ import { invokeOrionFunction } from '@/lib/orion-functions';
 import { cn } from '@/lib/utils';
 import { FERRAMENTAS_REMOTAS, campoDeIdRemoto } from '@/lib/ferramentaRemota';
 import { estaNoHorarioDeAlmoco } from '@/lib/horarioDeAlmoco';
-import { useKBSuggestions } from '@/hooks/useKBSuggestions';
+import { useKBSuggestions, type ArticleSuggestion } from '@/hooks/useKBSuggestions';
 import {
   perguntasDa, validarRespostas, respostasPreenchidas, montarDescricao, MAX_RESPOSTA,
   type Respostas,
@@ -185,7 +185,7 @@ const NewTicket = () => {
   // Usado só na tela de confirmação, para dizer ao cliente em quanto tempo
   // o chamado será atendido.
   const [createdTicket, setCreatedTicket] = useState<{ id: string; number: number; priority: string; slaDueDate: string | null } | null>(null);
-  const [previewArticle, setPreviewArticle] = useState<any | null>(null);
+  const [previewArticle, setPreviewArticle] = useState<ArticleSuggestion | null>(null);
 
   // ── Smart: VIP Client detection ─────────────────
   const { data: companyInfo } = useQuery({

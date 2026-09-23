@@ -11,7 +11,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 const subscribers = new Set<QueryClient>();
 let globalChannel: RealtimeChannel | null = null;
 
-function notifyTicketSubscribers(payload: any) {
+function notifyTicketSubscribers(payload: { new?: Record<string, unknown> | null }) {
   subscribers.forEach((qc) => {
     try {
       qc.invalidateQueries({ queryKey: ['tickets'] });

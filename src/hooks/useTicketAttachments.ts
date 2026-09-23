@@ -154,7 +154,7 @@ export const useUploadAttachment = () => {
         description: 'O arquivo foi anexado com sucesso.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('Upload error:', error);
       toast({
         title: 'Erro no upload',
@@ -186,7 +186,7 @@ export const useDeleteAttachment = () => {
         description: 'O anexo foi removido com sucesso.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Erro',
         description: error.message || 'Não foi possível remover o arquivo.',
