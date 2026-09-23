@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ButtonPrimary } from '@/components/ui/button-primary';
@@ -50,13 +51,13 @@ export const CompanyManagement = () => {
     queryKey: ['companies'],
     queryFn: async () => {
       const [compRes, machRes] = await Promise.all([
-        (supabase.from('companies') as any).select('*').order('name'),
-        (supabase.from('machines' as any) as any).select('company_id, domain')
+        supabase.from('companies').select('*').order('name'),
+        supabase.from('machines').select('company_id, domain')
       ]);
       if (compRes.error) throw compRes.error;
 
       const companyMachineDomains = new Map<string, { domain: string; isAgentDetected: boolean }>();
-      ((machRes.data || []) as any[]).forEach((m) => {
+      (machRes.data || []).forEach((m) => {
         const rawDomain = (m.domain || '').trim();
         if (m.company_id && rawDomain && rawDomain !== '.' && rawDomain !== 'local') {
           const existing = companyMachineDomains.get(m.company_id);
@@ -66,7 +67,7 @@ export const CompanyManagement = () => {
         }
       });
 
-      return ((compRes.data ?? []) as any[]).map((company) => {
+      return (compRes.data ?? []).map((company) => {
         const detected = companyMachineDomains.get(company.id);
         const resolvedDomain = company.domain || detected?.domain || null;
         const isAutoDetected = !company.domain && !!detected?.domain;
@@ -89,7 +90,7 @@ export const CompanyManagement = () => {
         updated_at?: string;
         current_plan_id?: string | null;
         logo_url?: string | null;
-        settings?: any;
+        settings?: Json | null;
       }>;
     }
   });
@@ -151,7 +152,7 @@ export const CompanyManagement = () => {
 
   const toggleContractMutation = useMutation({
     mutationFn: async ({ id, has_contract }: { id: string; has_contract: boolean }) => {
-      const { error } = await (supabase.from('companies') as any).update({ has_contract }).eq('id', id);
+      const { error } = await supabase.from('companies').update({ has_contract }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
@@ -186,11 +187,11 @@ export const CompanyManagement = () => {
       };
 
       if (data.id) {
-        const { error } = await (supabase.from('companies') as any).update(payload).eq('id', data.id);
+        const { error } = await supabase.from('companies').update(payload).eq('id', data.id);
         if (error) throw error;
         return { id: data.id };
       } else {
-        const { data: inserted, error } = await (supabase.from('companies') as any).insert(payload).select('id').single();
+        const { data: inserted, error } = await supabase.from('companies').insert(payload).select('id').single();
         if (error) throw error;
         return { id: inserted.id as string };
       }

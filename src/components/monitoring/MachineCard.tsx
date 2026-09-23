@@ -288,7 +288,7 @@ export const MachineCard: React.FC<MachineCardProps> = React.memo(
           toast.success(`Máquina ${machine.hostname} excluída com sucesso`);
         }
         setShowDeleteDialog(false);
-      } catch (err: any) {
+      } catch (err) {
         toast.error('Erro ao excluir máquina: ' + (err.message || 'Falha na requisição'));
       } finally {
         setIsDeleting(false);

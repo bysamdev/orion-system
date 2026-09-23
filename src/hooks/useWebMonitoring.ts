@@ -5,7 +5,7 @@ import { fetchWithTimeout } from '@/lib/fetch-client';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
 
-async function apiRequest<T>(path: string, method: string = 'GET', body?: any): Promise<T> {
+async function apiRequest<T>(path: string, method: string = 'GET', body?: unknown): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
   
@@ -110,13 +110,13 @@ export function useWebEndpoints() {
         return await apiRequest<MonitoredEndpoint[]>('/api/monitoring/web/endpoints');
       } catch (err) {
         console.warn('API endpoint fetch failed, falling back to Supabase:', err);
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('monitored_endpoints')
           .select('id, name, url_or_ip, uptimerobot_monitor_id, status')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        return (data || []).map((item: any) => ({
+        return (data || []).map((item): MonitoredEndpoint => ({
           id: item.id,
           name: item.name,
           url_or_ip: item.url_or_ip,
@@ -135,7 +135,7 @@ export function useCreateWebEndpoint() {
     mutationFn: async (data: { name: string; url: string }) => {
       try {
         return await apiRequest<{ success: boolean; monitor_id: string }>('/api/monitoring/web/endpoints', 'POST', data);
-      } catch (err: any) {
+      } catch (err) {
         console.warn('API endpoint creation failed, falling back to direct Supabase insert:', err);
         const { data: userData } = await supabase.auth.getUser();
         if (!userData.user) throw new Error('Não autenticado');
@@ -154,7 +154,7 @@ export function useCreateWebEndpoint() {
         // mais é atualizado pelo pipeline de monitoramento). Não marca
         // 'online' sem nunca ter verificado; 'pending' reflete o estado
         // real (mesmo default da coluna).
-        const { data: inserted, error } = await (supabase as any)
+        const { data: inserted, error } = await supabase
           .from('monitored_endpoints')
           .insert({
             company_id: companyId,
@@ -183,7 +183,7 @@ export function useDeleteWebEndpoint() {
         return await apiRequest(`/api/monitoring/web/endpoints/${id}`, 'DELETE');
       } catch (err) {
         console.warn('API endpoint delete failed, falling back to direct Supabase delete:', err);
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('monitored_endpoints')
           .delete()
           .eq('id', id);

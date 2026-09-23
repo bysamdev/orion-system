@@ -299,7 +299,7 @@ const Auth = () => {
       const redirectParam = searchParams.get('redirect');
       const target = redirectParam ? decodeURIComponent(redirectParam) : '/';
       navigate(target, { replace: true });
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: "Código 2FA Inválido",
         description: "O código digitado está incorreto ou expirou. Tente novamente.",
@@ -331,10 +331,10 @@ const Auth = () => {
       // recuperação feita pelo servidor, o caminho é pedir ao administrador
       // que remova a verificação em duas etapas da conta.
       throw new Error('A entrada por código de recuperação está desativada. Peça ao administrador do Orion para remover a verificação em duas etapas da sua conta.');
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: "Código Inválido",
-        description: err.message || "Não foi possível validar o código de recuperação.",
+        description: (err as Error).message || "Não foi possível validar o código de recuperação.",
         variant: "destructive",
       });
     } finally {

@@ -20,8 +20,8 @@ export const MonitoringOnboarding: React.FC = () => {
     queryKey: ['my-api-key', profile?.company_id],
     queryFn: async () => {
       if (!profile?.company_id) return null;
-      const { data, error } = await (supabase
-        .from('api_keys' as any) as any)
+      const { data, error } = await supabase
+        .from('api_keys')
         .select('key_value')
         .eq('company_id', profile.company_id)
         .eq('is_active', true)
@@ -29,7 +29,7 @@ export const MonitoringOnboarding: React.FC = () => {
         .maybeSingle();
       
       if (error) throw error;
-      return (data as any)?.key_value || null;
+      return data?.key_value || null;
     },
     enabled: !!profile?.company_id
   });
@@ -136,7 +136,7 @@ export const MonitoringOnboarding: React.FC = () => {
   );
 };
 
-const FeatureCard = ({ icon: Icon, title, description }: any) => (
+const FeatureCard = ({ icon: Icon, title, description }: { icon: React.ElementType; title: string; description: string }) => (
   <div className="p-6 bg-card border border-border/40 rounded-lg space-y-3 hover:border-primary/50 transition-colors group">
     <div className="p-2 rounded-md bg-primary/5 border border-primary/10 w-fit group-hover:bg-primary/10 transition-colors">
       <Icon className="w-5 h-5 text-primary" />

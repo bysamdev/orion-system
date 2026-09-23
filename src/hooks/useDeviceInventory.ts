@@ -1,6 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { apiGet } from '@/hooks/useMonitoring';
+import { apiGet, type MachineWithMetric } from '@/hooks/useMonitoring';
+import type { Database } from '@/integrations/supabase/types';
+
+type AssetRow = Database['public']['Tables']['assets']['Row'];
+
+// Campos que o agente já gravou com nomes diferentes ao longo das versões.
+type MaquinaLida = { ip_address?: string | null; local_ip?: string | null; mac_address?: string | null; mac?: string | null };
+type HardwareLido = { local_ip?: string | null; mac_address?: string | null; mac?: string | null; interfaces?: unknown; network_interfaces?: unknown };
+type InterfaceLida = { ip?: string; address?: string; mac?: string; mac_address?: string } | null;
 
 type DeviceType = 'desktop' | 'notebook' | 'server' | 'Computador' | 'Notebook' | 'Servidor';
 type DeviceStatus = 'online' | 'offline' | 'alerta';
@@ -26,8 +34,8 @@ interface DeviceInventoryItem {
   serial_number?: string;
   brand?: string;
   model?: string;
-  raw_asset?: any;
-  raw_machine?: any;
+  raw_asset?: AssetRow | null;
+  raw_machine?: MachineWithMetric;
 }
 
 export type DeviceItem = DeviceInventoryItem;
@@ -78,27 +86,27 @@ function resolveStatus(status?: string | null, lastSeen?: string | null): Device
   return diffMs <= 10 * 60 * 1000 ? 'online' : 'offline';
 }
 
-function extractLocalIp(machine: any, hardware: any): string {
+function extractLocalIp(machine: MaquinaLida, hardware: HardwareLido): string {
   if (machine?.ip_address && machine.ip_address !== '127.0.0.1') return machine.ip_address;
   if (machine?.local_ip && machine.local_ip !== '127.0.0.1') return machine.local_ip;
   if (hardware?.local_ip && hardware.local_ip !== '127.0.0.1') return hardware.local_ip;
   const ifaces = hardware?.interfaces || hardware?.network_interfaces;
   if (Array.isArray(ifaces) && ifaces.length > 0) {
-    const ni = ifaces.find((i: any) => (i?.ip || i?.address) && i?.ip !== '127.0.0.1' && i?.address !== '127.0.0.1');
+    const ni = (ifaces as InterfaceLida[]).find((i) => (i?.ip || i?.address) && i?.ip !== '127.0.0.1' && i?.address !== '127.0.0.1');
     if (ni?.ip) return ni.ip;
     if (ni?.address) return ni.address;
   }
   return machine?.ip_address || machine?.local_ip || '—';
 }
 
-function extractMacAddress(machine: any, hardware: any): string {
+function extractMacAddress(machine: MaquinaLida, hardware: HardwareLido): string {
   if (machine?.mac_address && machine.mac_address !== '00:00:00:00:00:00') return machine.mac_address;
   if (machine?.mac && machine.mac !== '00:00:00:00:00:00') return machine.mac;
   if (hardware?.mac_address && hardware.mac_address !== '00:00:00:00:00:00') return hardware.mac_address;
   if (hardware?.mac && hardware.mac !== '00:00:00:00:00:00') return hardware.mac;
   const ifaces = hardware?.interfaces || hardware?.network_interfaces;
   if (Array.isArray(ifaces) && ifaces.length > 0) {
-    const ni = ifaces.find((i: any) => (i?.mac || i?.mac_address) && i?.mac !== '00:00:00:00:00:00' && i?.mac_address !== '00:00:00:00:00:00');
+    const ni = (ifaces as InterfaceLida[]).find((i) => (i?.mac || i?.mac_address) && i?.mac !== '00:00:00:00:00:00' && i?.mac_address !== '00:00:00:00:00:00');
     if (ni?.mac) return ni.mac;
     if (ni?.mac_address) return ni.mac_address;
   }
@@ -132,18 +140,18 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           estadoAoVivo,
         ] = await Promise.all([
           supabase
-            .from('machines' as any)
+            .from('machines')
             .select('id, hostname, company_id, domain, status, last_seen, metrics_collected_at, created_at, approval_status, os, local_ip, mac_address, logged_in_user, current_user, device_type, ip_address'),
           supabase
-            .from('machine_hardware' as any)
+            .from('machine_hardware')
             .select('id, machine_id, cpu_model, ram_slots, disks, gpu, interfaces, security_info, remote_software, battery_info, update_status'),
           supabase
             .from('companies')
             .select('id, name'),
           supabase
-            .rpc('machine_ticket_counts' as any),
+            .rpc('machine_ticket_counts'),
           supabase
-            .from('machine_alerts' as any)
+            .from('machine_alerts')
             .select('machine_id, resolved')
             .eq('resolved', false),
           // Status e "visto por último" ao vivo, calculados pela API a partir
@@ -159,13 +167,13 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           console.warn('[useDeviceInventory] Erro na consulta de máquinas:', machinesRes.error);
         }
 
-        const rawMachines = (machinesRes.data as any[]) || [];
+        const rawMachines = machinesRes.data || [];
         // Filtra máquinas excluindo apenas as explicitamente rejeitadas
         const machines = rawMachines.filter((m) => m.approval_status !== 'rejected');
-        const hardwareList = (hardwareRes.data as any[]) || [];
-        const companies = (companiesRes.data as any[]) || [];
-        const machineTicketCounts = (machineTicketCountsRes.data as any[]) || [];
-        const alerts = (alertsRes.data as any[]) || [];
+        const hardwareList = hardwareRes.data || [];
+        const companies = companiesRes.data || [];
+        const machineTicketCounts = machineTicketCountsRes.data || [];
+        const alerts = alertsRes.data || [];
 
         if (machines.length === 0) {
           return [];
@@ -176,7 +184,7 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
           if (c?.id && c?.name) companyMap.set(c.id, c.name);
         });
 
-        const hardwareMap = new Map<string, any>();
+        const hardwareMap = new Map<string, (typeof hardwareList)[number]>();
         (hardwareList || []).forEach((h) => {
           const key = h?.machine_id || h?.id;
           if (key) hardwareMap.set(key, h);
@@ -249,7 +257,7 @@ export function useDeviceInventory(optionsOrCompanyId?: string | UseDeviceInvent
             brand: '',
             model: '',
             raw_asset: null,
-            raw_machine: m,
+            raw_machine: m as unknown as MachineWithMetric,
             hardware: hw,
           };
         });

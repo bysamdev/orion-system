@@ -50,7 +50,7 @@ export const NewPackageDialog: React.FC<Props> = ({ open, companyId, userId, onC
       { name: name.trim(), description: description.trim(), type, file_path: filePath.trim(), sha256_hash: hash.trim(), created_by: userId, company_id: targetCompany },
       {
         onSuccess: () => { toast({ title: 'Pacote cadastrado!' }); reset(); onClose(); },
-        onError: (err: any) => toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' }),
+        onError: (err: Error) => toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' }),
       },
     );
   };
@@ -71,7 +71,7 @@ export const NewPackageDialog: React.FC<Props> = ({ open, companyId, userId, onC
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-bold uppercase tracking-wider">Tipo</Label>
-              <Select value={type} onValueChange={(v: any) => setType(v)}>
+              <Select value={type} onValueChange={(v) => setType(v as PackageType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="powershell">PowerShell</SelectItem>

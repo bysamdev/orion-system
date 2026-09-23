@@ -1,5 +1,5 @@
 import * as React from "react";
-import { toast as sonnerToast } from "sonner";
+import { toast as sonnerToast, type ExternalToast } from "sonner";
 
 export interface ToastProps {
   id?: string;
@@ -13,7 +13,7 @@ export function toast({ title, description, variant, action }: ToastProps) {
   const message = typeof title === "string" ? title : (description as string) || "";
   const opts = {
     description: typeof title === "string" ? (description as string) : undefined,
-    action: action as any,
+    action: action as ExternalToast['action'],
   };
 
   if (variant === "destructive") {

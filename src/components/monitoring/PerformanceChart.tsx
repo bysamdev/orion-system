@@ -24,19 +24,22 @@ export type MetricType = 'all' | 'cpu' | 'ram' | 'disk';
 const PERIODS_PADRAO: MetricPeriod[] = ['1h', '6h', '24h'];
 const PERIODS_SERVIDOR: MetricPeriod[] = ['1h', '6h', '24h', '3d'];
 
-const METRIC_TABS: { key: MetricType; label: string; icon: any; color: string }[] = [
+const METRIC_TABS: { key: MetricType; label: string; icon: React.ElementType; color: string }[] = [
   { key: 'all', label: 'Todos', icon: Activity, color: 'text-primary' },
   { key: 'cpu', label: 'CPU', icon: Cpu, color: 'text-primary' },
   { key: 'ram', label: 'RAM', icon: Layers, color: 'text-brand-400' },
   { key: 'disk', label: 'Disco', icon: HardDrive, color: 'text-amber-500' },
 ];
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+type ItemDoTooltip = { dataKey?: string | number; name?: string | number; value?: number | string | null; color?: string; stroke?: string; fill?: string };
+type PropsDoTooltip = { active?: boolean; payload?: ItemDoTooltip[]; label?: string | number };
+
+const CustomTooltip = ({ active, payload, label }: PropsDoTooltip) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-popover/95 backdrop-blur-sm border border-border rounded-xl px-3 py-2.5 shadow-2xl text-[11px] space-y-1.5 min-w-[130px]">
       <p className="font-bold text-muted-foreground border-b border-border/40 pb-1">{label}</p>
-      {payload.map((p: any) => (
+      {payload.map((p) => (
         <div key={p.dataKey} className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color || p.stroke }} />

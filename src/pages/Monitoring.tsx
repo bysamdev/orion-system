@@ -745,8 +745,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
         toast.success("Grupo criado com sucesso");
       }
       setIsGroupDialogOpen(false);
-    } catch (err: any) {
-      toast.error("Erro ao salvar grupo: " + err.message);
+    } catch (err) {
+      toast.error("Erro ao salvar grupo: " + (err as Error).message);
     }
   };
 
@@ -756,8 +756,8 @@ const Monitoring: React.FC<MonitoringProps> = ({ externalMachineId, onClearExter
       await deleteGroup.mutateAsync(id);
       toast.success("Grupo removido");
       if (selectedGroupId === id) setSelectedGroupId(null);
-    } catch (err: any) {
-      toast.error("Erro ao remover: " + err.message);
+    } catch (err) {
+      toast.error("Erro ao remover: " + (err as Error).message);
     }
   };
 

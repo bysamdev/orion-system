@@ -15,7 +15,7 @@ const mockOn = vi.fn().mockImplementation(() => ({
 const mockTrack = vi.fn().mockResolvedValue('ok');
 const mockPresenceState = vi.fn().mockReturnValue({});
 
-const mockChannel = vi.fn().mockImplementation((channelName: string, options?: any) => ({
+const mockChannel = vi.fn().mockImplementation((channelName: string, options?: unknown) => ({
   channelName,
   options,
   on: mockOn,
@@ -26,8 +26,8 @@ const mockChannel = vi.fn().mockImplementation((channelName: string, options?: a
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
-    channel: (...args: any[]) => mockChannel(...args),
-    removeChannel: (...args: any[]) => mockRemoveChannel(...args),
+    channel: (...args: unknown[]) => mockChannel(...args),
+    removeChannel: (...args: unknown[]) => mockRemoveChannel(...args),
     auth: {
       getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
       getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
@@ -141,10 +141,8 @@ describe('1. Root Error Boundary & Sanitization', () => {
       };
     })();
 
-    // @ts-ignore
-    global.localStorage = storageMock;
-    // @ts-ignore
-    global.sessionStorage = storageMock;
+    Object.defineProperty(global, 'localStorage', { value: storageMock, configurable: true, writable: true });
+    Object.defineProperty(global, 'sessionStorage', { value: storageMock, configurable: true, writable: true });
 
     expect(global.localStorage.getItem('auth_token')).toBe('abc');
     clearApplicationCache();
@@ -159,7 +157,7 @@ describe('2. Realtime Channels Lifecycle & Teardown Verification', () => {
 
   it('useRealtimeMachines creates channel and removes it on unmount when subscribers reach 0', async () => {
     const { useRealtimeMachines } = await import('../hooks/useRealtimeMachines');
-    const mockQueryClient: any = {
+    const mockQueryClient = {
       invalidateQueries: vi.fn(),
     };
 
@@ -167,9 +165,9 @@ describe('2. Realtime Channels Lifecycle & Teardown Verification', () => {
     let hookEffectCleanup: (() => void) | undefined;
 
     // Simulate useEffect mounting
-    const simulateMount = (qc: any) => {
+    const simulateMount = (qc: typeof mockQueryClient) => {
       // Direct invocation of the effect logic
-      const subscribers = (global as any).__subscribers_test || new Set();
+      const subscribers = (global as { __subscribers_test?: Set<unknown> }).__subscribers_test || new Set<unknown>();
       subscribers.add(qc);
 
       mockChannel('machines-realtime-global');
@@ -238,16 +236,16 @@ describe('2. Realtime Channels Lifecycle & Teardown Verification', () => {
 
 describe('3. Event Listeners & Timers Cleanup', () => {
   it('useTimerGuard attaches and removes all window event listeners and timers', () => {
-    const addedListeners = new Map<string, Function[]>();
-    const removedListeners = new Map<string, Function[]>();
+    const addedListeners = new Map<string, EventListener[]>();
+    const removedListeners = new Map<string, EventListener[]>();
 
     const mockWindow = {
-      addEventListener: vi.fn((event: string, handler: any) => {
+      addEventListener: vi.fn((event: string, handler: EventListener) => {
         const list = addedListeners.get(event) || [];
         list.push(handler);
         addedListeners.set(event, list);
       }),
-      removeEventListener: vi.fn((event: string, handler: any) => {
+      removeEventListener: vi.fn((event: string, handler: EventListener) => {
         const list = removedListeners.get(event) || [];
         list.push(handler);
         removedListeners.set(event, list);

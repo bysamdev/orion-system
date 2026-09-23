@@ -3,7 +3,7 @@ import { fetchWithTimeout } from '@/lib/fetch-client';
 
 type InvokeResult<T> = {
   data: T | null;
-  error: { message: string; context?: any } | null;
+  error: { message: string; context?: unknown } | null;
 };
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
@@ -39,7 +39,7 @@ export async function invokeOrionFunction<T>(
     const res = await supabase.functions.invoke(name, { body });
     if (res.error) {
       let message = res.error.message;
-      if (res.error.context && typeof (res.error.context as any).json === 'function') {
+      if (res.error.context && typeof (res.error.context as { json?: unknown }).json === 'function') {
         try {
           const errBody = await (res.error.context as Response).clone().json();
           if (errBody?.error) {

@@ -143,11 +143,11 @@ export default function SetPassword() {
         navigate('/auth');
       }, 1500);
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao definir senha:', error);
       toast({
         title: 'Erro ao definir senha',
-        description: error.message || 'Ocorreu um erro ao definir sua senha. Tente novamente.',
+        description: (error as Error).message || 'Ocorreu um erro ao definir sua senha. Tente novamente.',
         variant: 'destructive',
       });
     } finally {

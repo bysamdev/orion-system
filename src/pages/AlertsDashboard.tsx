@@ -53,7 +53,7 @@ function AlertCard({
   alert: CriticalAlertItem;
   onOpenMachine: (machineId: string) => void;
 }) {
-  const iconMap: Record<string, any> = {
+  const iconMap: Record<string, React.ElementType> = {
     antivirus: ShieldAlert,
     firewall: ShieldAlert,
     updates: RotateCcw,

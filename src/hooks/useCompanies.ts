@@ -19,7 +19,7 @@ export const useCompanies = () => {
         .order('name');
       if (error) throw error;
 
-      return (data ?? []).map((c: any) => ({
+      return (data ?? []).map((c) => ({
         id: c.id,
         name: c.name,
         is_vip: (c.settings as Record<string, unknown> | null)?.is_vip === true,

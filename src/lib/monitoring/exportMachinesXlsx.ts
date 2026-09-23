@@ -72,8 +72,8 @@ export async function gerarMachinesXlsx(machines: MachineExportRow[]): Promise<B
   const dados = getSheetData(machines, colunas as never);
   const saida = (await writeXlsxFile([{ sheet: 'Máquinas', data: dados }] as never)) as unknown;
   if (saida instanceof Blob) return saida;
-  if (saida && typeof (saida as any).toBlob === 'function') {
-    return await (saida as any).toBlob();
+  if (saida && typeof (saida as { toBlob?: unknown }).toBlob === 'function') {
+    return await (saida as { toBlob: () => Promise<Blob> }).toBlob();
   }
   throw new Error('write-excel-file não retornou um Blob utilizável');
 }

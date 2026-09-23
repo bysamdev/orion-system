@@ -1,4 +1,10 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+
+// user_backup_codes e as funções de códigos de backup não existem no banco
+// (ORN-BUG-11, pendente de decisão no Notion); por isso ficam fora dos tipos
+// gerados e são chamadas por um cliente sem tipos.
+const semTipos = supabase as unknown as SupabaseClient;
 
 export interface TotpEnrollmentData {
   factorId: string;
@@ -149,7 +155,7 @@ export async function unenrollTotpFactor(factorId: string): Promise<void> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (user?.id) {
-      await supabase.from('user_backup_codes' as any).delete().eq('user_id', user.id);
+      await semTipos.from('user_backup_codes').delete().eq('user_id', user.id);
     }
   } catch (err) {
     console.warn('[MFA] Erro ao limpar códigos de backup ao desativar 2FA:', err);
@@ -199,7 +205,7 @@ export async function saveBackupCodes(codes: string[]): Promise<void> {
   const hashes = await Promise.all(codes.map((code) => hashBackupCode(code)));
 
   // Tenta via RPC dedicada
-  const { error: rpcError } = await supabase.rpc('save_user_backup_codes' as any, {
+  const { error: rpcError } = await semTipos.rpc('save_user_backup_codes', {
     p_code_hashes: hashes,
   });
 
@@ -210,14 +216,14 @@ export async function saveBackupCodes(codes: string[]): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.id) throw new Error('Usuário não autenticado para salvar códigos de backup.');
 
-    await supabase.from('user_backup_codes' as any).delete().eq('user_id', user.id);
+    await semTipos.from('user_backup_codes').delete().eq('user_id', user.id);
 
     const rows = hashes.map((h) => ({
       user_id: user.id,
       code_hash: h,
     }));
 
-    const { error: insertError } = await supabase.from('user_backup_codes' as any).insert(rows);
+    const { error: insertError } = await semTipos.from('user_backup_codes').insert(rows);
     if (insertError) {
       throw insertError;
     }
@@ -231,7 +237,7 @@ export async function verifyBackupCode(code: string): Promise<boolean> {
   const hash = await hashBackupCode(code);
 
   // Tenta via RPC segura
-  const { data, error } = await supabase.rpc('verify_user_backup_code' as any, {
+  const { data, error } = await semTipos.rpc('verify_user_backup_code', {
     p_code_hash: hash,
   });
 
@@ -243,8 +249,8 @@ export async function verifyBackupCode(code: string): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user?.id) return false;
 
-  const { data: records, error: queryError } = await supabase
-    .from('user_backup_codes' as any)
+  const { data: records, error: queryError } = await semTipos
+    .from('user_backup_codes')
     .select('id')
     .eq('user_id', user.id)
     .eq('code_hash', hash)
@@ -255,9 +261,9 @@ export async function verifyBackupCode(code: string): Promise<boolean> {
     return false;
   }
 
-  const recordId = (records as any[])[0]?.id;
-  const { error: updateError } = await supabase
-    .from('user_backup_codes' as any)
+  const recordId = (records as { id: string }[])[0]?.id;
+  const { error: updateError } = await semTipos
+    .from('user_backup_codes')
     .update({ used_at: new Date().toISOString() })
     .eq('id', recordId);
 
@@ -268,12 +274,12 @@ export async function verifyBackupCode(code: string): Promise<boolean> {
  * Obtém a quantidade total e restante de códigos de backup do usuário.
  */
 export async function getBackupCodesStatus(): Promise<BackupCodesStatus> {
-  const { data, error } = await supabase.rpc('get_backup_codes_status' as any);
+  const { data, error } = await semTipos.rpc('get_backup_codes_status');
 
   if (!error && data && typeof data === 'object') {
     return {
-      total: Number((data as any).total || 0),
-      remaining: Number((data as any).remaining || 0),
+      total: Number((data as { total?: number }).total || 0),
+      remaining: Number((data as { remaining?: number }).remaining || 0),
     };
   }
 
@@ -281,15 +287,15 @@ export async function getBackupCodesStatus(): Promise<BackupCodesStatus> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user?.id) return { total: 0, remaining: 0 };
 
-  const { data: allCodes } = await supabase
-    .from('user_backup_codes' as any)
+  const { data: allCodes } = await semTipos
+    .from('user_backup_codes')
     .select('id, used_at')
     .eq('user_id', user.id);
 
   if (!allCodes) return { total: 0, remaining: 0 };
 
   const total = allCodes.length;
-  const remaining = allCodes.filter((c: any) => !c.used_at).length;
+  const remaining = (allCodes as { used_at: string | null }[]).filter((c) => !c.used_at).length;
 
   return { total, remaining };
 }

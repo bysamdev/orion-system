@@ -49,7 +49,7 @@ export const DeployDialog: React.FC<Props> = ({ pkg, deployedBy, onClose }) => {
           setSelectedMachineId('');
           onClose();
         },
-        onError: (err: any) => toast({ title: 'Erro ao implantar', description: err.message, variant: 'destructive' }),
+        onError: (err: Error) => toast({ title: 'Erro ao implantar', description: err.message, variant: 'destructive' }),
       },
     );
   };

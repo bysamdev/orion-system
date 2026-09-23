@@ -220,8 +220,8 @@ export async function gerarXlsx(payload: XlsxPayload): Promise<Blob> {
   // fluxo ser idêntico ao do PDF.
   const saida = (await writeXlsxFile(abas as never)) as unknown;
   if (saida instanceof Blob) return saida;
-  if (saida && typeof (saida as any).toBlob === 'function') {
-    return await (saida as any).toBlob();
+  if (saida && typeof (saida as { toBlob?: unknown }).toBlob === 'function') {
+    return await (saida as { toBlob: () => Promise<Blob> }).toBlob();
   }
   throw new Error('write-excel-file não retornou um Blob utilizável');
 }

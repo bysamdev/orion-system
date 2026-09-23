@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchWithTimeout } from '@/lib/fetch-client';
+import type { Json } from '@/integrations/supabase/types';
 
 // Falls back to empty string → relative URL /api/monitoring/... (same Vercel domain)
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
@@ -22,7 +23,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   return res.json();
 }
 
-async function apiPost<T>(path: string, body: any): Promise<T> {
+async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
   const res = await fetchWithTimeout(`${API_URL}${path}`, {
@@ -172,9 +173,9 @@ export interface HardwareRow {
   id: string;
   machine_id: string;
   cpu_model: string | null;
-  ram_slots: any;
-  disks: any;
-  network_interfaces: any;
+  ram_slots: Json | null;
+  disks: Json | null;
+  network_interfaces: Json | null;
   gpu: string | null;
   updated_at: string;
   // Endpoint Security, Remote Software, Battery, and Update status
@@ -480,11 +481,11 @@ export function useDeleteMachine() {
       }
 
       // 2. Direct Supabase client cascade delete
-      await supabase.from('machine_hardware' as any).delete().eq('machine_id', id);
-      await supabase.from('machine_alerts' as any).delete().eq('machine_id', id);
-      await supabase.from('machine_commands' as any).delete().eq('machine_id', id);
+      await supabase.from('machine_hardware').delete().eq('machine_id', id);
+      await supabase.from('machine_alerts').delete().eq('machine_id', id);
+      await supabase.from('machine_commands').delete().eq('machine_id', id);
 
-      const { error } = await supabase.from('machines' as any).delete().eq('id', id);
+      const { error } = await supabase.from('machines').delete().eq('id', id);
       if (error) throw error;
       return { success: true };
     },

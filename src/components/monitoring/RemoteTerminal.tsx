@@ -192,9 +192,9 @@ export const RemoteTerminal: React.FC<Props> = ({ machineId, hostname, isOnline,
         });
       }
       
-    } catch (err: any) {
+    } catch (err) {
       setIsConnecting(false);
-      toast.error('Falha ao iniciar terminal remoto: ' + err.message);
+      toast.error('Falha ao iniciar terminal remoto: ' + (err as Error).message);
     }
   };
   

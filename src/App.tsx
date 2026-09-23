@@ -41,7 +41,8 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes - revalidação inteligente com Realtime
       gcTime: 1000 * 60 * 15, // 15 minutes - garbage collection ativo para evitar acúmulo de memória na SPA
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, err) => {
+        const error = err as { code?: string; status?: number } | null;
         // Abort retry immediately for auth/RLS errors
         if (error?.code === 'PGRST301' || error?.code === '42501' || error?.status === 401 || error?.status === 403) {
           return false;

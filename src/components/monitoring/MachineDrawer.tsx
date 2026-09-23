@@ -539,8 +539,8 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
         updates: { group_id: selectedGroupId || '', company_id: targetCompanyId },
       });
       toast.success('Alterações salvas com sucesso!');
-    } catch (err: any) {
-      toast.error('Erro ao salvar: ' + err.message);
+    } catch (err) {
+      toast.error('Erro ao salvar: ' + (err as Error).message);
     } finally {
       setIsSaving(false);
     }
@@ -558,8 +558,8 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
     try {
       await updateMachine.mutateAsync({ id: machineId, updates: { device_type: selectedDeviceType } });
       toast.success('Classificação do dispositivo atualizada e travada — o agente não vai mais sobrescrevê-la.');
-    } catch (err: any) {
-      toast.error('Erro ao atualizar classificação: ' + err.message);
+    } catch (err) {
+      toast.error('Erro ao atualizar classificação: ' + (err as Error).message);
     } finally {
       setIsApplyingDeviceType(false);
     }
@@ -572,8 +572,8 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
       toast.success(`Registro da máquina "${machine?.hostname}" excluído com sucesso!`);
       setIsDeleteDialogOpen(false);
       onClose();
-    } catch (err: any) {
-      toast.error('Erro ao excluir máquina: ' + err.message);
+    } catch (err) {
+      toast.error('Erro ao excluir máquina: ' + (err as Error).message);
     }
   };
 
@@ -593,8 +593,8 @@ export const MachineDrawer: React.FC<MachineDrawerProps> = ({
   const macAddress =
     machine?.mac_address ||
     detail?.machine?.mac_address ||
-    (Array.isArray(detail?.hardware?.network_interfaces) && detail?.hardware?.network_interfaces[0]?.mac
-      ? detail.hardware.network_interfaces[0].mac
+    (Array.isArray(detail?.hardware?.network_interfaces)
+      ? (detail.hardware.network_interfaces[0] as { mac?: string } | null)?.mac
       : null) ||
     '–';
 

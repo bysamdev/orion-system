@@ -8,6 +8,7 @@ import { lazy, ComponentType } from 'react';
  * @param retries Número de tentativas antes de desistir ou disparar recarregamento controlado (padrão: 2).
  * @param interval Intervalo em milissegundos entre as tentativas (padrão: 1000ms).
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mesmo limite do React.lazy: aceita componentes com quaisquer props
 export function lazyWithRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
   retries = 2,
@@ -18,13 +19,14 @@ export function lazyWithRetry<T extends ComponentType<any>>(
       const attempt = (remaining: number) => {
         factory()
           .then(resolve)
-          .catch((error: any) => {
-            const errorMessage = error?.message || String(error);
+          .catch((error: unknown) => {
+            const erro = error as { message?: string; name?: string } | null;
+            const errorMessage = erro?.message || String(error);
             const isChunkError =
               errorMessage.includes('Failed to fetch dynamically imported module') ||
               errorMessage.includes('Importing a module script failed') ||
               errorMessage.includes('error loading dynamically imported module') ||
-              error?.name === 'ChunkLoadError';
+              erro?.name === 'ChunkLoadError';
 
             if (remaining <= 0) {
               if (typeof window !== 'undefined') {

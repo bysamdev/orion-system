@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Mock } from 'vitest';
+
+// Os mocks recebem objetos parciais; a tipagem estrita do Supabase não ajuda aqui.
+const comoMock = (fn: unknown) => fn as Mock;
 import {
   normalizeBackupCode,
   formatBackupCode,
@@ -92,7 +96,7 @@ describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
         error: null,
       };
 
-      (supabase.auth.mfa.enroll as any).mockResolvedValueOnce(mockEnrollResponse);
+      comoMock(supabase.auth.mfa.enroll).mockResolvedValueOnce(mockEnrollResponse);
 
       const result = await enrollTotpFactor('Orion Authenticator');
 
@@ -108,7 +112,7 @@ describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
     });
 
     it('deve validar desafio de ativação TOTP com código de 6 dígitos', async () => {
-      (supabase.auth.mfa.challengeAndVerify as any).mockResolvedValueOnce({
+      comoMock(supabase.auth.mfa.challengeAndVerify).mockResolvedValueOnce({
         data: { user: { id: 'user-123' } },
         error: null,
       });
@@ -123,19 +127,19 @@ describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
     });
 
     it('deve desativar o fator TOTP e limpar registros', async () => {
-      (supabase.auth.mfa.unenroll as any).mockResolvedValueOnce({
+      comoMock(supabase.auth.mfa.unenroll).mockResolvedValueOnce({
         data: { id: 'factor-totp-123' },
         error: null,
       });
 
-      (supabase.auth.getUser as any).mockResolvedValueOnce({
+      comoMock(supabase.auth.getUser).mockResolvedValueOnce({
         data: { user: { id: 'user-123' } },
       });
 
       const mockDelete = vi.fn().mockReturnValue({
         eq: vi.fn().mockResolvedValue({ error: null }),
       });
-      (supabase.from as any).mockReturnValue({ delete: mockDelete });
+      comoMock(supabase.from).mockReturnValue({ delete: mockDelete });
 
       await unenrollTotpFactor('factor-totp-123');
 
@@ -145,7 +149,7 @@ describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
     });
 
     it('deve retornar status do 2FA indicando se está ativo ou inativo e os níveis AAL', async () => {
-      (supabase.auth.mfa.listFactors as any).mockResolvedValueOnce({
+      comoMock(supabase.auth.mfa.listFactors).mockResolvedValueOnce({
         data: {
           all: [
             {
@@ -167,7 +171,7 @@ describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
         error: null,
       });
 
-      (supabase.auth.mfa.getAuthenticatorAssuranceLevel as any).mockResolvedValueOnce({
+      comoMock(supabase.auth.mfa.getAuthenticatorAssuranceLevel).mockResolvedValueOnce({
         data: {
           currentLevel: 'aal2',
           nextLevel: 'aal2',
@@ -186,7 +190,7 @@ describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
 
   describe('Armazenamento e Validação de Códigos de Recuperação', () => {
     it('deve salvar hashes de códigos de backup via RPC', async () => {
-      (supabase.rpc as any).mockResolvedValueOnce({ error: null });
+      comoMock(supabase.rpc).mockResolvedValueOnce({ error: null });
 
       const codes = ['ABCD-1234', 'EFGH-5678'];
       await saveBackupCodes(codes);
@@ -200,7 +204,7 @@ describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
     });
 
     it('deve validar e consumir código de backup com sucesso', async () => {
-      (supabase.rpc as any).mockResolvedValueOnce({ data: true, error: null });
+      comoMock(supabase.rpc).mockResolvedValueOnce({ data: true, error: null });
 
       const isValid = await verifyBackupCode('ABCD-1234');
       expect(isValid).toBe(true);
@@ -213,14 +217,14 @@ describe('MFA 2FA Utility - Testes Unitários e de Integração', () => {
     });
 
     it('deve rejeitar código de backup inválido', async () => {
-      (supabase.rpc as any).mockResolvedValueOnce({ data: false, error: null });
+      comoMock(supabase.rpc).mockResolvedValueOnce({ data: false, error: null });
 
       const isValid = await verifyBackupCode('INVALID-CODE');
       expect(isValid).toBe(false);
     });
 
     it('deve obter quantidade de códigos totais e restantes', async () => {
-      (supabase.rpc as any).mockResolvedValueOnce({
+      comoMock(supabase.rpc).mockResolvedValueOnce({
         data: { total: 8, remaining: 6 },
         error: null,
       });

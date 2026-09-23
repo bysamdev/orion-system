@@ -5,7 +5,7 @@ import { fetchWithTimeout } from '@/lib/fetch-client';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
 
-async function apiRequest<T>(path: string, method: string = 'GET', body?: any): Promise<T> {
+async function apiRequest<T>(path: string, method: string = 'GET', body?: unknown): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
   
@@ -103,7 +103,7 @@ export function useNetworkLinks(companyId?: string) {
         return await apiRequest<NetworkLink[]>(queryPath);
       } catch (err) {
         console.warn('Local API /api/monitoring/network-links error, querying Supabase directly:', err);
-        let query = (supabase as any)
+        let query = supabase
           .from('network_links')
           .select('*, companies(name)')
           .order('created_at', { ascending: false });
@@ -118,7 +118,16 @@ export function useNetworkLinks(companyId?: string) {
           return [];
         }
 
-        return (data || []).map((item: any) => ({
+        // Aceita nomes antigos de coluna (ip_address, host, latency) de linhas
+        // gravadas antes da padronização.
+        type LinhaDoBanco = (typeof data)[number] & {
+          ip_address?: string | null;
+          host?: string | null;
+          latency?: number | null;
+          company_name?: string | null;
+          updated_at?: string | null;
+        };
+        return ((data || []) as LinhaDoBanco[]).map((item) => ({
           id: item.id,
           name: item.name,
           type: item.type,
@@ -155,7 +164,7 @@ export function useCreateNetworkLink() {
           created_at: new Date().toISOString(),
         };
 
-        const { data: inserted, error } = await (supabase as any)
+        const { data: inserted, error } = await supabase
           .from('network_links')
           .insert([payload])
           .select('*, companies(name)')
@@ -193,7 +202,7 @@ export function useDeleteNetworkLink() {
         await apiRequest(`/api/monitoring/network-links/${id}`, 'DELETE');
       } catch (err) {
         console.warn(`Local API DELETE /api/monitoring/network-links/${id} error, deleting from Supabase directly:`, err);
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('network_links')
           .delete()
           .eq('id', id);

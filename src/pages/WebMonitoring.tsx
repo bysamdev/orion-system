@@ -116,7 +116,10 @@ function getLinkTypeInfo(type: string) {
 }
 
 // Custom Recharts Tooltip
-const CustomChartTooltip = ({ active, payload, label }: any) => {
+type ItemDoTooltip = { dataKey?: string | number; name?: string | number; value?: number | string | null; color?: string; stroke?: string; fill?: string; unit?: string };
+type PropsDoTooltip = { active?: boolean; payload?: ItemDoTooltip[]; label?: string | number };
+
+const CustomChartTooltip = ({ active, payload, label }: PropsDoTooltip) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-popover/95 backdrop-blur-md border border-border/80 rounded-xl p-3 shadow-xl text-xs space-y-1.5 min-w-[150px]">
@@ -124,7 +127,7 @@ const CustomChartTooltip = ({ active, payload, label }: any) => {
         <span>Horário</span>
         <span className="text-muted-foreground font-mono">{label}</span>
       </p>
-      {payload.map((p: any) => (
+      {payload.map((p) => (
         <div key={p.dataKey || p.name} className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
             <span
@@ -234,7 +237,7 @@ export default function WebMonitoring() {
       setIsWebModalOpen(false);
       setWebName('');
       setWebUrl('');
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || 'Erro ao criar monitor');
     }
   };
@@ -244,7 +247,7 @@ export default function WebMonitoring() {
     try {
       await deleteWebEndpointMutation.mutateAsync(id);
       toast.success('Monitor excluído com sucesso');
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || 'Erro ao excluir monitor');
     }
   };
@@ -274,7 +277,7 @@ export default function WebMonitoring() {
       setNetIpHost('');
       setNetStatus('online');
       setNetLatency('25');
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || 'Erro ao adicionar link de internet');
     }
   };
@@ -284,7 +287,7 @@ export default function WebMonitoring() {
     try {
       await deleteNetworkLinkMutation.mutateAsync(id);
       toast.success('Link excluído com sucesso');
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || 'Erro ao excluir link');
     }
   };

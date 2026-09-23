@@ -6,7 +6,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const formatDate = (date: any, fmt: string = 'dd/MM/yyyy', options?: any) => 
+export const formatDate = (
+  date: string | number | Date | null | undefined,
+  fmt: string = 'dd/MM/yyyy',
+  options?: Parameters<typeof format>[2],
+) => 
   date ? format(new Date(date), fmt, options) : '—';
 
 /**

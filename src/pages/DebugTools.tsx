@@ -8,6 +8,7 @@ import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { ArrowLeft, Play, Zap, Clock, FileText, RefreshCw, Loader2, Trash2, Wrench, CheckCircle2, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { invokeOrionFunction } from '@/lib/orion-functions';
@@ -43,8 +44,8 @@ interface AuditLogEntry {
   table_name: string;
   record_id: string;
   action: string;
-  old_data: any;
-  new_data: any;
+  old_data: Json | null;
+  new_data: Json | null;
   changed_by: string;
   changed_at: string;
 }
@@ -84,7 +85,7 @@ const DebugTools = () => {
   // de nome de teste for criado, em vez de precisar notar manualmente no log.
   const avisarSeTicketDeTeste = (entry: AuditLogEntry) => {
     if (entry.table_name !== 'tickets' || entry.action !== 'INSERT') return;
-    const titulo = entry.new_data?.title;
+    const titulo = (entry.new_data as { title?: string } | null)?.title;
     if (ehTituloDeTicketDeTeste(titulo)) {
       toast({
         title: 'Possível ticket de teste em produção',
@@ -273,8 +274,9 @@ const DebugTools = () => {
             // Parse error details
             errorDetails = response.error.message;
             // Try to extract status from error context
-            if (response.error.context?.status) {
-              httpStatus = response.error.context.status;
+            const contexto = response.error.context as { status?: number } | undefined;
+            if (contexto?.status) {
+              httpStatus = contexto.status;
             } else if (errorDetails?.includes('404')) {
               httpStatus = 404;
             } else if (errorDetails?.includes('500')) {
@@ -319,13 +321,13 @@ const DebugTools = () => {
               newTestIds.push(ticket.id);
             }
           }
-        } catch (innerError: any) {
+        } catch (innerError) {
           console.error(`Attempt ${i} exception:`, innerError);
           
           const result: RateLimitResult = {
             attempt: i,
             allowed: false,
-            message: innerError.message,
+            message: (innerError as Error).message,
             timestamp: new Date().toISOString(),
             httpStatus: 500,
             errorDetails: JSON.stringify(innerError, null, 2),

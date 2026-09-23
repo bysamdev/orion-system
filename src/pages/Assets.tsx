@@ -1,6 +1,11 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+
+type AssetRow = Database['public']['Tables']['assets']['Row'];
+type AssetInsert = Database['public']['Tables']['assets']['Insert'];
+type AssetUpdate = Database['public']['Tables']['assets']['Update'];
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
@@ -63,7 +68,7 @@ const Assets = () => {
 
   // Modals & Drawers State
   const [isAssetDialogOpen, setIsAssetDialogOpen] = useState(false);
-  const [editingAsset, setEditingAsset] = useState<any | null>(null);
+  const [editingAsset, setEditingAsset] = useState<AssetRow | null>(null);
   const [terminalDevice, setTerminalDevice] = useState<DeviceItem | null>(null);
   const [historyDevice, setHistoryDevice] = useState<DeviceItem | null>(null);
   const [drawerMachine, setDrawerMachine] = useState<MachineWithMetric | null>(null);
@@ -126,7 +131,7 @@ const Assets = () => {
 
   // Asset Mutations
   const createAsset = useMutation({
-    mutationFn: async (newAsset: any) => {
+    mutationFn: async (newAsset: AssetInsert) => {
       const { data, error } = await supabase.from('assets').insert([newAsset]).select().single();
       if (error) throw error;
       return data;
@@ -138,13 +143,13 @@ const Assets = () => {
       setIsAssetDialogOpen(false);
       resetForm();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(`Erro ao cadastrar dispositivo: ${err.message}`);
     }
   });
 
   const updateAsset = useMutation({
-    mutationFn: async ({ id, ...updates }: any) => {
+    mutationFn: async ({ id, ...updates }: AssetUpdate & { id: string }) => {
       const { data, error } = await supabase.from('assets').update(updates).eq('id', id).select().single();
       if (error) throw error;
       return data;
@@ -156,7 +161,7 @@ const Assets = () => {
       setIsAssetDialogOpen(false);
       resetForm();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(`Erro ao atualizar dispositivo: ${err.message}`);
     }
   });
@@ -171,7 +176,7 @@ const Assets = () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       toast.success('Dispositivo removido do inventário.');
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(`Erro ao remover dispositivo: ${err.message}`);
     }
   });
@@ -254,11 +259,13 @@ const Assets = () => {
     const list = Array.isArray(devices) ? devices : [];
     return list.filter(d => {
       const queryStr = search.toLowerCase();
-      const hostname = d.hostname || (d as any).name || '';
-      const localIp = d.local_ip || (d as any).ip_address || (d as any).internal_ip || '';
-      const mac = d.mac_address || (d as any).mac || '';
-      const serial = (d as any).serial_number || (d as any).serial || '';
-      const user = d.logged_in_user || (d as any).logged_user || (d as any).current_user || '';
+      // Nomes alternativos que versões antigas do agente gravavam.
+      const extra = d as typeof d & { internal_ip?: string; mac?: string; serial?: string; current_user?: string; type?: string };
+      const hostname = d.hostname || d.name || '';
+      const localIp = d.local_ip || d.ip_address || extra.internal_ip || '';
+      const mac = d.mac_address || extra.mac || '';
+      const serial = d.serial_number || extra.serial || '';
+      const user = d.logged_in_user || d.logged_user || extra.current_user || '';
       const compName = d.company_name || '';
       const os = d.os || '';
       const domain = d.domain || '';
@@ -274,7 +281,7 @@ const Assets = () => {
         domain.toLowerCase().includes(queryStr);
 
       const matchesCompany = companyFilter === 'all' || d.company_id === companyFilter;
-      const matchesType = typeFilter === 'all' || d.device_type === typeFilter || (d as any).type === typeFilter;
+      const matchesType = typeFilter === 'all' || d.device_type === typeFilter || extra.type === typeFilter;
       const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
 
       return matchesSearch && matchesCompany && matchesType && matchesStatus;
@@ -1078,7 +1085,7 @@ const Assets = () => {
                   </div>
                 ) : deviceTickets && deviceTickets.length > 0 ? (
                   <div className="space-y-3">
-                    {deviceTickets.map((ticket: any) => (
+                    {deviceTickets.map((ticket) => (
                       <div 
                         key={ticket.id} 
                         className="group flex items-start gap-4 p-4 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 transition-all cursor-pointer"

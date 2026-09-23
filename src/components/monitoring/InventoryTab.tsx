@@ -5,9 +5,21 @@ import { Progress } from '@/components/ui/progress';
 import { Cpu, HardDrive, Monitor, Network, Battery, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { pct, formatBytes } from '@/hooks/useMonitoring';
-import type { MachineWithMetric, HardwareRow } from '@/hooks/useMonitoring';
+import type { MachineWithMetric, HardwareRow, BatteryInfo } from '@/hooks/useMonitoring';
 
-function InfoRow({ label, value, icon: Icon }: { label: React.ReactNode; value: React.ReactNode; icon?: any }) {
+// O agente já gravou discos e interfaces com nomes de campo diferentes.
+type DiscoLido = {
+  mountpoint?: string; mount_point?: string; path?: string; name?: string;
+  fs_type?: string; fstype?: string; file_system?: string; media_type?: string;
+  size?: number; total?: number; used?: number;
+};
+type InterfaceLida = {
+  name?: string; interface_name?: string; mac?: string; mac_address?: string;
+  ips?: string[]; ip?: string; ip_address?: string;
+};
+type HardwareLido = { battery_info?: BatteryInfo; disks?: unknown; network_interfaces?: unknown };
+
+function InfoRow({ label, value, icon: Icon }: { label: React.ReactNode; value: React.ReactNode; icon?: React.ElementType }) {
   return (
     <div className="flex justify-between items-center py-2">
       <div className="flex items-center gap-2">
@@ -36,9 +48,10 @@ interface Props {
 }
 
 export const InventoryTab: React.FC<Props> = ({ machine, hardware: hw, isOnline = true }) => {
-  const battery = machine?.battery_info ?? (hw as any)?.battery_info;
-  const rawDisks = (hw as any)?.disks;
-  const rawIfaces = (hw as any)?.network_interfaces;
+  const hwLido = hw as HardwareLido | null | undefined;
+  const battery = machine?.battery_info ?? hwLido?.battery_info;
+  const rawDisks = hwLido?.disks as DiscoLido[] | undefined;
+  const rawIfaces = hwLido?.network_interfaces as InterfaceLida[] | undefined;
   const diskUsagePct = pct(machine?.disk_used, machine?.disk_total);
 
   return (
@@ -79,7 +92,7 @@ export const InventoryTab: React.FC<Props> = ({ machine, hardware: hw, isOnline 
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {Array.isArray(rawDisks) && rawDisks.length > 0 ? (
-            rawDisks.map((d: any, idx: number) => {
+            rawDisks.map((d, idx: number) => {
               const mount = d.mountpoint || d.mount_point || d.path || d.name || `Volume #${idx + 1}`;
               const fs = d.fs_type || d.fstype || d.file_system || '';
               // media_type: "SSD" ou "HD", resolvido pelo agente via WMI
@@ -223,7 +236,7 @@ export const InventoryTab: React.FC<Props> = ({ machine, hardware: hw, isOnline 
               </thead>
               <tbody className="divide-y divide-border/20">
                 {Array.isArray(rawIfaces) && rawIfaces.length > 0 ? (
-                  rawIfaces.map((iface: any, idx: number) => {
+                  rawIfaces.map((iface, idx: number) => {
                     const name = iface.name || iface.interface_name || `Interface ${idx + 1}`;
                     const mac = iface.mac || iface.mac_address || '–';
                     const ips: string[] = Array.isArray(iface.ips)

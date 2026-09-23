@@ -108,7 +108,7 @@ export const TwoFactorAuthSettings = () => {
       setIsMfaEnabled(!!verifiedTotp);
       setActiveFactorId(verifiedTotp?.id || null);
       setBackupStatus(backupInfo);
-    } catch (error: any) {
+    } catch (error) {
       console.error("[TwoFactorAuthSettings] Erro ao carregar status do 2FA:", error);
     } finally {
       setLoading(false);
@@ -128,10 +128,10 @@ export const TwoFactorAuthSettings = () => {
       const data = await enrollTotpFactor("Orion Authenticator");
       setEnrollData(data);
       setIsEnrollModalOpen(true);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Erro ao iniciar 2FA",
-        description: error.message || "Não foi possível gerar a chave de segurança.",
+        description: (error as Error).message || "Não foi possível gerar a chave de segurança.",
         variant: "destructive",
       });
     } finally {
@@ -162,7 +162,7 @@ export const TwoFactorAuthSettings = () => {
       });
 
       await loadMfaStatus();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Código inválido",
         description: "O código digitado está incorreto ou expirou. Verifique o horário do seu celular e tente novamente.",
@@ -190,10 +190,10 @@ export const TwoFactorAuthSettings = () => {
       });
 
       await loadMfaStatus();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Erro ao gerar códigos",
-        description: error.message || "Não foi possível salvar os novos códigos de backup.",
+        description: (error as Error).message || "Não foi possível salvar os novos códigos de backup.",
         variant: "destructive",
       });
     } finally {
@@ -216,10 +216,10 @@ export const TwoFactorAuthSettings = () => {
       });
 
       await loadMfaStatus();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Erro ao desativar 2FA",
-        description: error.message || "Ocorreu um erro ao desvincular o autenticador.",
+        description: (error as Error).message || "Ocorreu um erro ao desvincular o autenticador.",
         variant: "destructive",
       });
     } finally {
