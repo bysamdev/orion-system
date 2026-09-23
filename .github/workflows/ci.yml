@@ -124,12 +124,6 @@ jobs:
     name: Banco (replay das migrations e pgTAP)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Em 23/09/2026 o ghcr.io (registro padrão da CLI) recusou o download da
-    # imagem do Postgres com "toomanyrequests" quatro vezes seguidas, mesmo
-    # logado. As mesmas imagens estão no Docker Hub; a CLI usa o registro
-    # indicado nesta variável.
-    env:
-      SUPABASE_INTERNAL_IMAGE_REGISTRY: docker.io
     steps:
       - uses: actions/checkout@v4
 
@@ -137,8 +131,31 @@ jobs:
         with:
           version: latest
 
+      # Em 23/09/2026 o ghcr.io (registro que a CLI usa) recusou o download da
+      # imagem do Postgres com "toomanyrequests" cinco vezes seguidas, mesmo
+      # logado, e a CLI ignora SUPABASE_INTERNAL_IMAGE_REGISTRY. Se a primeira
+      # tentativa falhar no download, baixa a mesma imagem do Docker Hub, dá a
+      # ela o nome do ghcr.io (a CLI só baixa o que não existe localmente) e
+      # tenta de novo. Erro de migration continua falhando o job normalmente.
       - name: Replay das migrations
-        run: supabase db start
+        run: |
+          for rodada in 1 2 3 4; do
+            if supabase db start 2>&1 | tee saida.log; [ "${PIPESTATUS[0]}" -eq 0 ]; then
+              exit 0
+            fi
+            grep -o 'ghcr\.io/supabase/[a-z0-9_-]*:[A-Za-z0-9._-]*' saida.log | sort -u > imagens.txt || true
+            if [ ! -s imagens.txt ] || [ "$rodada" -eq 4 ]; then
+              echo "Falha sem relação com download de imagem, ou ainda falhando na rodada $rodada."
+              exit 1
+            fi
+            while read -r img; do
+              espelho="docker.io/${img#ghcr.io/}"
+              echo "Baixando $espelho no lugar de $img"
+              docker pull "$espelho"
+              docker tag "$espelho" "$img"
+            done < imagens.txt
+            supabase stop --no-backup || true
+          done
 
       - name: Testes pgTAP
         run: supabase test db
