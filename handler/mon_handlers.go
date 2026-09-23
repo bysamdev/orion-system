@@ -435,11 +435,6 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 		period = "1h"
 	}
 
-	// Vem do Postgres, não mais do Prometheus: o scrape só alcança máquina na
-	// mesma rede do servidor de monitoramento, então todo equipamento atrás de
-	// NAT ou em outro site ficava sem gráfico. O heartbeat chega de qualquer
-	// rede e agora alimenta machine_metrics_history (ver AppendMetricPoint).
-	// O Prometheus segue valendo pros alertas do que ele consegue scrapear.
 	janela, passo := lib.JanelaHistorico(period)
 
 	// O histórico vem do Prometheus, pelo Orion Monitor. Desde a fase 3 o
@@ -450,25 +445,10 @@ func monitoringMachineMetrics(w http.ResponseWriter, r *http.Request) {
 		lib.WriteJSON(w, http.StatusOK, pontos)
 		return
 	}
-	// Com o Monitor configurado, a série do Supabase está congelada desde a
-	// fase 3: devolvê-la mostraria um gráfico velho como se fosse atual. Sem
-	// o Monitor responder, o gráfico fica vazio, que é a verdade.
-	if monitorConfigurado() {
-		marcarFonte(w, "monitor indisponível")
-		lib.WriteJSON(w, http.StatusOK, []lib.MetricRow{})
-		return
-	}
-	marcarFonte(w, "supabase")
-	metrics, err := db.MetricsHistory(ctx, id, janela, passo)
-	if err != nil {
-		log.Printf("[ERRO] histórico de métricas para %s: %v", id, err)
-		lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Erro ao buscar métricas"})
-		return
-	}
-	if metrics == nil {
-		metrics = []lib.MetricRow{}
-	}
-	lib.WriteJSON(w, http.StatusOK, metrics)
+	// Sem resposta do Monitor o gráfico fica vazio, que é a verdade: a série
+	// antiga no Supabase foi removida (ORN-DB-06).
+	marcarFonte(w, "monitor indisponível")
+	lib.WriteJSON(w, http.StatusOK, []lib.MetricRow{})
 }
 
 func monitoringMachineAlerts(w http.ResponseWriter, r *http.Request) {
@@ -718,30 +698,10 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		_ = db.SyncCompanyDomainIfEmpty(ctx, targetCompanyID, domain)
 	}
 
-	amostra := lib.InsertMetricInput{
-		MachineID: machineID, CPUUsage: req.CPUUsage,
-		RAMTotal: req.RAMTotal, RAMUsed: req.RAMUsed,
-		DiskTotal: req.DiskTotal, DiskUsed: req.DiskUsed, Uptime: req.Uptime,
-	}
-	// Fase 3 da separação do monitoramento: com o Orion Monitor configurado,
-	// o snapshot de CPU/RAM/disco e a série do gráfico moram só lá (ver
-	// encaminharAoMonitor no fim deste handler). Eram a telemetria de alta
-	// frequência que o Supabase recebia a cada heartbeat. Sem o Monitor
-	// configurado — ambiente local, ou rollback tirando a variável na
-	// Vercel —, o caminho antigo segue valendo.
-	telemetriaNoSupabase := !monitorConfigurado()
-	if telemetriaNoSupabase {
-		if err := db.UpdateMachineSnapshot(ctx, amostra); err != nil {
-			log.Printf("[ERRO] gravar inventário da máquina: %v", err)
-			lib.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": fmt.Sprintf("Erro ao registrar métricas: %v", err)})
-			return
-		}
-		// Série histórica do gráfico de performance. Best-effort de propósito.
-		if err := db.AppendMetricPoint(ctx, amostra, deviceTypeGravado); err != nil {
-			log.Printf("[AVISO] gravar ponto histórico da máquina %s: %v", machineID, err)
-		}
-	}
-
+	// CPU/RAM/disco e a série do gráfico moram só no Orion Monitor (ver
+	// encaminharAoMonitor no fim deste handler). O caminho antigo, que
+	// gravava a telemetria no Supabase quando o Monitor não estava
+	// configurado, foi removido em 23/09/2026 (ORN-DB-06).
 	disksJSON := normalizarOrdem(arredondarUsoDosDiscos(req.Disks))
 	if len(disksJSON) == 0 {
 		disksJSON = json.RawMessage(`[]`)
@@ -765,8 +725,6 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[ERRO] heartbeat: falha ao salvar hardware para %s (%s): %v", req.Hostname, machineID, err)
 	}
 
-	hasAlert := false
-
 	// Tipos de alerta que este heartbeat prova estarem normalizados.
 	// Acumulados aqui e resolvidos num UPDATE so no fim, em vez de um
 	// round-trip por tipo — ver lib.ResolveAlertTypes.
@@ -782,7 +740,6 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	abertos, normais := monitor.AvaliarAlertas(&amostraAlertas)
 	for _, al := range abertos {
 		entrada := lib.InsertAlertInput{MachineID: machineID, Type: al.Tipo, Severity: al.Severidade, Message: al.Mensagem}
-		hasAlert = true
 		abreChamado := al.Tipo == "disk" || al.Tipo == "antivirus"
 		if !abreChamado {
 			_ = db.InsertAlertIfNotExists(ctx, entrada)
@@ -825,22 +782,6 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if deviceTypeGravado == "server" {
 		if err := db.ResolverChamadoAlertaServidor(ctx, machineID, alertaServidorOffline); err != nil {
 			log.Printf("[AVISO] resolver chamado de servidor offline (máquina %s): %v", machineID, err)
-		}
-	}
-
-	// Verifica se ainda existem alertas não resolvidos para esta máquina
-	// O status fino (online/alerta) também passa a ser calculado a partir do
-	// Monitor (statusDoEstado). Só o caminho antigo ainda o grava aqui.
-	if telemetriaNoSupabase {
-		if hasActive, err := db.HasUnresolvedAlerts(ctx, machineID); err == nil {
-			hasAlert = hasAlert || hasActive
-		}
-		novoStatus := "online"
-		if hasAlert {
-			novoStatus = "alerta"
-		}
-		if err := db.UpdateMachineStatus(ctx, machineID, novoStatus); err != nil {
-			log.Printf("[AVISO] gravar status %q da máquina %s: %v", novoStatus, machineID, err)
 		}
 	}
 

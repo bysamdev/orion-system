@@ -698,124 +698,9 @@ VALUES ($1, $2, $3, 'override manual', 'manual')`, machineID, oldType, newType);
 	return tx.Commit(ctx)
 }
 
-type InsertMetricInput struct {
-	MachineID string
-	CPUUsage  float64
-	RAMTotal  int64
-	RAMUsed   int64
-	DiskTotal int64
-	DiskUsed  int64
-	Uptime    int64
-}
-
-// UpdateMachineSnapshot grava o valor mais recente de CPU/RAM/disco direto na
-// linha de machines (UPDATE, não INSERT) — substitui InsertMetric no caminho
-// do heartbeat. Aqui fica só o "agora" que os cards de listagem precisam; a
-// série histórica vai pra machine_metrics_history (ver AppendMetricPoint).
-func (d *DB) UpdateMachineSnapshot(ctx context.Context, in InsertMetricInput) error {
-	_, err := d.pool.Exec(ctx, `
-UPDATE public.machines
-SET cpu_usage = $2, ram_total = $3, ram_used = $4, disk_total = $5, disk_used = $6, uptime = $7, metrics_collected_at = now()
-WHERE id = $1`,
-		in.MachineID, in.CPUUsage, in.RAMTotal, in.RAMUsed, in.DiskTotal, in.DiskUsed, in.Uptime)
-	return err
-}
-
-// IntervaloAmostraHistorico é o espaçamento da série histórica: o date_bin do
-// INSERT joga o heartbeat no início do slot, e a PK descarta os seguintes que
-// caírem no mesmo slot.
-//
-// Este teto só morde SERVIDOR, que manda heartbeat a cada 60s
-// (collectionIntervalSeconds): sem ele seriam 1440 linhas/dia/máquina, e com
-// ele são 480, mantendo 20 pontos na janela de 1h do gráfico.
-//
-// Estação de trabalho tem o seu próprio teto, mais largo — ver
-// IntervaloAmostraHistoricoEstacao.
+// IntervaloAmostraHistorico é o passo do gráfico na janela de 1h: o mesmo
+// espaçamento com que o Orion Monitor guarda a série de servidor.
 const IntervaloAmostraHistorico = 3 * time.Minute
-
-// IntervaloAmostraHistoricoEstacao é o espaçamento da série em desktop e
-// notebook.
-//
-// Precisa ser MAIOR que o heartbeat de 300s da estação para ter algum efeito.
-// Enquanto valeu o mesmo slot de 3 minutos do servidor, ele era inerte: o
-// heartbeat de 5 minutos é mais largo que o slot, então todo heartbeat caía
-// num slot novo e virava linha, e o volume era ditado pela cadência do
-// heartbeat (288 linhas/dia/máquina), não pelo slot.
-//
-// Com 15 minutos, um a cada três heartbeats vira linha: 96 linhas/dia/máquina,
-// um terço do anterior. Nas ~500 máquinas previstas, dentro das 24h de
-// retenção de estação, são ~48 mil linhas em vez de ~144 mil.
-//
-// A troca é resolução: o gráfico de desktop passa de 12 para 4 pontos por
-// hora. Escolhido assim de propósito — em estação de trabalho o que se olha é
-// tendência de CPU, memória e disco, e para isso 4 pontos por hora bastam. Em
-// servidor, onde se monitora disponibilidade, a resolução fina continua.
-const IntervaloAmostraHistoricoEstacao = 15 * time.Minute
-
-// intervaloAmostraDe escolhe o slot pelo tipo de equipamento. device_type
-// ausente conta como estação, igual ao resto do código: a janela generosa é
-// privilégio de quem foi classificado explicitamente como servidor.
-func intervaloAmostraDe(deviceType string) time.Duration {
-	if deviceType == "server" {
-		return IntervaloAmostraHistorico
-	}
-	return IntervaloAmostraHistoricoEstacao
-}
-
-// RetencaoHistoricoNaoServidor é o teto de histórico pra desktop/notebook —
-// bem mais curto que os 3 dias de RetencaoHistorico, que ficam reservados a
-// servidor. A imensa maioria das ~500 máquinas previstas é estação de
-// trabalho, então é aí que mora o volume: aparar pra 24h nelas é o que de
-// fato desafoga o banco, sem tirar do servidor a janela mais longa que faz
-// sentido pra quem monitora disponibilidade.
-//
-// Quem aplica esta retenção é maintain_machine_metrics_partitions, de hora em
-// hora (migração 20260917160000). A constante fica aqui como documentação do
-// contrato que MetricsHistory assume ao responder por uma máquina que não é
-// servidor; o valor efetivo é o da função.
-const RetencaoHistoricoNaoServidor = 24 * time.Hour
-
-// AppendMetricPoint grava um ponto da série histórica de performance.
-//
-// O timestamp é arredondado pro início do slot (date_bin) e faz parte da PK,
-// então os heartbeats seguintes do mesmo slot caem no ON CONFLICT DO NOTHING —
-// um INSERT por heartbeat, no máximo uma linha por slot, sem precisar de
-// SELECT antes pra saber se já gravou.
-//
-// O slot depende do tipo de equipamento (ver intervaloAmostraDe): servidor
-// guarda resolução fina, estação de trabalho grava um ponto a cada 15 minutos.
-//
-// Guarda percentuais em smallint em vez dos bytes brutos: é o que o gráfico
-// desenha, e economiza 26 bytes por linha em relação aos bigints de
-// ram_used/ram_total/disk_used/disk_total.
-//
-// A poda das linhas vencidas NÃO acontece aqui. Ela já morou neste caminho,
-// como um DELETE por heartbeat para máquina que não é servidor, e era trabalho
-// jogado fora: só havia o que apagar quando a máquina cruzava a fronteira das
-// 24h, e nas outras vezes o comando percorria o índice para não achar nada.
-// Com heartbeat de 300s em estação de trabalho, eram 288 DELETE por dia por
-// máquina — 144 mil por dia nas ~500 previstas. Agora é uma varredura por
-// hora, dentro de maintain_machine_metrics_partitions, que já era a dona da
-// retenção desta tabela (migração 20260917160000).
-func (d *DB) AppendMetricPoint(ctx context.Context, in InsertMetricInput, deviceType string) error {
-	_, err := d.pool.Exec(ctx, `
-INSERT INTO public.machine_metrics_history (machine_id, collected_at, cpu_pct, ram_pct, disk_pct)
-VALUES (
-  $1,
-  date_bin(make_interval(secs => $5), now(), TIMESTAMPTZ 'epoch'),
-  ROUND($2)::smallint,
-  $3::smallint,
-  $4::smallint
-)
-ON CONFLICT (machine_id, collected_at) DO NOTHING`,
-		in.MachineID,
-		clampPercentual(in.CPUUsage),
-		percentualDe(in.RAMUsed, in.RAMTotal),
-		percentualDe(in.DiskUsed, in.DiskTotal),
-		intervaloAmostraDe(deviceType).Seconds(),
-	)
-	return err
-}
 
 // clampPercentual mantém o valor dentro de 0–100: o agente já manda CPU em
 // porcentagem, mas um pico arredondado pra 101 estouraria a semântica da
@@ -947,8 +832,6 @@ type CapacitySnapshot struct {
 	// `supabase db reset`, um restore de dump antigo, um clique no painel —
 	// o número aqui sobe e o alerta avisa antes da fatura.
 	TabelasRealtime int `json:"tabelas_realtime"`
-
-	PontosHistorico int64 `json:"pontos_historico"`
 }
 
 // Limites do plano Free do Supabase. Ao migrar pro Pro, atualizar aqui: o
@@ -983,10 +866,9 @@ SELECT
   (SELECT setting::int FROM pg_settings WHERE name = 'max_connections'),
   COALESCE((SELECT sum((metadata->>'size')::bigint) FROM storage.objects), 0),
   (SELECT count(*) FROM pg_publication_tables WHERE pubname = 'supabase_realtime'),
-  (SELECT count(*) FROM public.machine_metrics_history),
   COALESCE((SELECT sum(bytes) FROM public.egress_diario WHERE dia >= date_trunc('month', current_date)), 0)`).Scan(
 		&s.BancoBytes, &s.ConexoesUsadas, &s.ConexoesMax,
-		&s.StorageBytes, &s.TabelasRealtime, &s.PontosHistorico, &s.EgressBytes,
+		&s.StorageBytes, &s.TabelasRealtime, &s.EgressBytes,
 	)
 	if err != nil {
 		return nil, err
@@ -1002,12 +884,8 @@ SELECT
 	return &s, nil
 }
 
-// RetencaoHistorico é por quanto tempo os pontos de SERVIDOR ficam no banco.
-// Bate com o retencao_dias da migração 20260902180000 (que derruba a
-// partição do dia vencido) — mudar aqui sem mudar lá faz a UI pedir janela
-// que não existe mais. Desktop/notebook usam RetencaoHistoricoNaoServidor
-// (24h), aparada por máquina em AppendMetricPoint — só servidor guarda os 3
-// dias inteiros, que é quem justifica a janela mais longa.
+// RetencaoHistorico é a maior janela do gráfico de desempenho (3 dias, só
+// para servidor). A série mora no Orion Monitor.
 const RetencaoHistorico = 3 * 24 * time.Hour
 
 // JanelaHistorico traduz o período pedido pelo frontend (mesmos valores de
@@ -1015,10 +893,8 @@ const RetencaoHistorico = 3 * 24 * time.Hour
 // de reamostragem. O passo cresce junto com a janela pra manter o gráfico
 // entre ~20 e ~100 pontos: mais que isso vira ruído numa área de 240px.
 //
-// Nenhuma janela passa de RetencaoHistorico — pedir 3d de uma máquina que
-// não é servidor devolve no máximo as 24h que AppendMetricPoint preserva; o
-// frontend já esconde o botão "3d" fora de servidor (PerformanceChart.tsx)
-// pra não prometer uma janela que o dado nunca preenche.
+// Nenhuma janela passa de RetencaoHistorico; o frontend esconde o botão "3d"
+// fora de servidor (PerformanceChart.tsx).
 func JanelaHistorico(period string) (janela, passo time.Duration) {
 	switch period {
 	case "6h":
@@ -1035,51 +911,6 @@ func JanelaHistorico(period string) (janela, passo time.Duration) {
 		// em vez de inventar pontos que ninguém coletou.
 		return time.Hour, IntervaloAmostraHistorico
 	}
-}
-
-// MetricsHistory devolve a série histórica de uma máquina já reamostrada no
-// passo do período pedido (ver JanelaHistorico logo acima, que traduz o
-// período do frontend em janela e passo). Agregar no banco em vez de mandar
-// tudo cru importa: 24h de pontos de 3 minutos são 480 linhas de servidor, e o
-// gráfico não desenha mais que ~300 pontos de forma legível.
-func (d *DB) MetricsHistory(ctx context.Context, machineID string, janela, passo time.Duration) ([]MetricRow, error) {
-	rows, err := d.pool.Query(ctx, `
-SELECT
-  date_bin(make_interval(secs => $3), collected_at, TIMESTAMPTZ 'epoch') AS bucket,
-  ROUND(AVG(cpu_pct))::smallint,
-  ROUND(AVG(ram_pct))::smallint,
-  ROUND(AVG(disk_pct))::smallint
-FROM public.machine_metrics_history
-WHERE machine_id = $1
-  AND collected_at > now() - make_interval(secs => $2)
-GROUP BY bucket
--- Mais recente primeiro: mesmo contrato que o frontend já consumia do
--- caminho antigo (ver o sort em queryMachineMetricsHistoryUncached), que
--- inverte a lista antes de desenhar.
-ORDER BY bucket DESC`,
-		machineID, janela.Seconds(), passo.Seconds())
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []MetricRow
-	for rows.Next() {
-		var r MetricRow
-		var cpu, ram, disk *int16
-		if err := rows.Scan(&r.CollectedAt, &cpu, &ram, &disk); err != nil {
-			return nil, err
-		}
-		r.MachineID = machineID
-		if cpu != nil {
-			v := float64(*cpu)
-			r.CPUUsage = &v
-		}
-		r.RAMPct = ram
-		r.DiskPct = disk
-		out = append(out, r)
-	}
-	return out, rows.Err()
 }
 
 type UpsertHardwareInput struct {
@@ -1256,14 +1087,6 @@ UPDATE public.machine_alerts
 SET resolved = true
 WHERE machine_id = $1 AND type = ANY($2) AND resolved = false`, machineID, tipos)
 	return err
-}
-
-func (d *DB) HasUnresolvedAlerts(ctx context.Context, machineID string) (bool, error) {
-	var count int
-	err := d.pool.QueryRow(ctx, `
-SELECT COUNT(1) FROM public.machine_alerts 
-WHERE machine_id = $1 AND resolved = false`, machineID).Scan(&count)
-	return count > 0, err
 }
 
 // UpdateMachineStatus grava o status só quando ele muda. O heartbeat chama
