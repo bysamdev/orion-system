@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"orion-api/lib"
+	"orion-api/monitor"
 )
 
 // ─── Escopo por empresa nas leituras (pentest Strix vuln-0003) ───────────────
@@ -545,6 +546,15 @@ var deviceTypesValidos = map[string]bool{
 	"desktop": true, "notebook": true, "server": true, "unknown": true,
 }
 
+// Texto do chamado automático de servidor: o do alerta, dizendo que é no
+// servidor (era assim quando o heartbeat montava as mensagens à mão).
+func mensagemDoChamadoDeServidor(al monitor.Alerta) string {
+	if al.Tipo == "disk" {
+		return strings.Replace(al.Mensagem, "Uso de disco crítico:", "Uso de disco crítico no servidor:", 1)
+	}
+	return al.Mensagem + " no servidor"
+}
+
 type securityData struct {
 	Antivirus []struct {
 		Name   string `json:"name"`
@@ -762,101 +772,38 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 	// round-trip por tipo — ver lib.ResolveAlertTypes.
 	resolver := make([]string, 0, 7)
 
-	if req.CPUUsage > 85 {
-		_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
-			MachineID: machineID, Type: "cpu", Severity: "warning",
-			Message: fmt.Sprintf("Uso de CPU alto: %.1f%%", req.CPUUsage),
-		})
+	// Quais alertas estão abertos vem da mesma função do Orion Monitor
+	// (monitor.AvaliarAlertas): antes os limiares estavam copiados à mão aqui
+	// e lá, e uma mudança num lado deixava a mesma máquina em alerta numa
+	// tela e normal na outra (ORN-DUP-03). Aqui ficam só os efeitos que são
+	// da API: gravar em machine_alerts e, em servidor, abrir ou fechar o
+	// chamado automático de disco e antivírus.
+	amostraAlertas := amostraDoHeartbeat(&req, machineID, targetCompanyID, deviceTypeGravado, time.Now())
+	abertos, normais := monitor.AvaliarAlertas(&amostraAlertas)
+	for _, al := range abertos {
+		entrada := lib.InsertAlertInput{MachineID: machineID, Type: al.Tipo, Severity: al.Severidade, Message: al.Mensagem}
 		hasAlert = true
-	} else {
-		resolver = append(resolver, "cpu")
-	}
-
-	if req.RAMTotal > 0 {
-		ramUsage := float64(req.RAMUsed) / float64(req.RAMTotal)
-		if ramUsage > 0.90 {
-			_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
-				MachineID: machineID, Type: "ram", Severity: "warning",
-				Message: fmt.Sprintf("Uso de RAM alto: %.1f%%", ramUsage*100),
-			})
-			hasAlert = true
-		} else {
-			resolver = append(resolver, "ram")
+		abreChamado := al.Tipo == "disk" || al.Tipo == "antivirus"
+		if !abreChamado {
+			_ = db.InsertAlertIfNotExists(ctx, entrada)
+			continue
 		}
-	}
-
-	if req.DiskTotal > 0 {
-		diskUsage := float64(req.DiskUsed) / float64(req.DiskTotal)
-		if diskUsage > 0.90 {
-			persisteDesde, _ := db.InsertAlertEObtemPersistencia(ctx, lib.InsertAlertInput{
-				MachineID: machineID, Type: "disk", Severity: "critical",
-				Message: fmt.Sprintf("Uso de disco crítico: %.1f%% (%d/%d bytes)", diskUsage*100, req.DiskUsed, req.DiskTotal),
-			})
-			hasAlert = true
-			// Apenas servidores abrem chamados automaticamente, e só depois do
-			// alerta persistir (não no primeiro heartbeat que vir a condição) —
-			// ver PersistenciaMinimaAlertaServidor.
-			if deviceTypeGravado == "server" && lib.AlertaPersisteHaPeloMenos(persisteDesde, time.Now(), lib.PersistenciaMinimaAlertaServidor) {
-				if dono, errDono := garantirDonoDoChamadoAutomatico(ctx, req.MachineToken, targetCompanyID, req.Hostname); errDono != nil {
-					log.Printf("[AVISO] chamado automático de disco não aberto para %s: %v", req.Hostname, errDono)
-				} else {
-					_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, dono, req.Hostname, "disk", "critical", fmt.Sprintf("Uso de disco crítico no servidor: %.1f%%", diskUsage*100))
-				}
-			}
-		} else {
-			resolver = append(resolver, "disk")
-			if deviceTypeGravado == "server" {
-				_ = db.ResolverChamadoAlertaServidor(ctx, machineID, "disk")
+		persisteDesde, _ := db.InsertAlertEObtemPersistencia(ctx, entrada)
+		// Apenas servidores abrem chamados automaticamente, e só depois do
+		// alerta persistir (não no primeiro heartbeat que vir a condição) —
+		// ver PersistenciaMinimaAlertaServidor.
+		if deviceTypeGravado == "server" && lib.AlertaPersisteHaPeloMenos(persisteDesde, time.Now(), lib.PersistenciaMinimaAlertaServidor) {
+			if dono, errDono := garantirDonoDoChamadoAutomatico(ctx, req.MachineToken, targetCompanyID, req.Hostname); errDono != nil {
+				log.Printf("[AVISO] chamado automático de %s não aberto para %s: %v", al.Tipo, req.Hostname, errDono)
+			} else {
+				_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, dono, req.Hostname, al.Tipo, al.Severidade, mensagemDoChamadoDeServidor(al))
 			}
 		}
 	}
-
-	// Avaliação de conformidade para a Zona Vermelha (Segurança & Antivírus)
-	if len(req.Security) > 0 && string(req.Security) != "null" {
-		var sec securityData
-		if err := json.Unmarshal(req.Security, &sec); err == nil {
-			hasActiveAV := false
-			for _, av := range sec.Antivirus {
-				if av.Active {
-					hasActiveAV = true
-					break
-				}
-			}
-			if !hasActiveAV {
-				persisteDesde, _ := db.InsertAlertEObtemPersistencia(ctx, lib.InsertAlertInput{
-					MachineID: machineID,
-					Type:      "antivirus",
-					Severity:  "critical",
-					Message:   "Antivírus desativado ou ausente",
-				})
-				hasAlert = true
-				// Apenas servidores abrem chamados automaticamente, e só depois do
-				// alerta persistir — ver PersistenciaMinimaAlertaServidor.
-				if deviceTypeGravado == "server" && lib.AlertaPersisteHaPeloMenos(persisteDesde, time.Now(), lib.PersistenciaMinimaAlertaServidor) {
-					if dono, errDono := garantirDonoDoChamadoAutomatico(ctx, req.MachineToken, targetCompanyID, req.Hostname); errDono != nil {
-						log.Printf("[AVISO] chamado automático de antivírus não aberto para %s: %v", req.Hostname, errDono)
-					} else {
-						_ = db.AbrirChamadoAlertaServidor(ctx, machineID, targetCompanyID, dono, req.Hostname, "antivirus", "critical", "Antivírus desativado ou ausente no servidor")
-					}
-				}
-			} else {
-				resolver = append(resolver, "antivirus")
-				if deviceTypeGravado == "server" {
-					_ = db.ResolverChamadoAlertaServidor(ctx, machineID, "antivirus")
-				}
-			}
-
-			if !sec.FirewallActive {
-				_ = db.InsertAlertIfNotExists(ctx, lib.InsertAlertInput{
-					MachineID: machineID,
-					Type:      "firewall",
-					Severity:  "warning",
-					Message:   "Firewall do Windows desativado",
-				})
-				hasAlert = true
-			} else {
-				resolver = append(resolver, "firewall")
-			}
+	for _, tipo := range normais {
+		resolver = append(resolver, tipo)
+		if deviceTypeGravado == "server" && (tipo == "disk" || tipo == "antivirus") {
+			_ = db.ResolverChamadoAlertaServidor(ctx, machineID, tipo)
 		}
 	}
 

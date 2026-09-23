@@ -16,8 +16,9 @@ type Alerta struct {
 // abrirem alerta numa amostra são dados como normalizados por ela.
 var TiposDeAlerta = []string{"cpu", "ram", "disk", "antivirus", "firewall"}
 
-// Limiares iguais aos do heartbeat da API (handler/mon_handlers.go), para os
-// dois caminhos concordarem durante a transição. Se mudar lá, muda aqui.
+// Fonte única dos limiares de alerta de máquina (ORN-DUP-03): o heartbeat da
+// API (handler/mon_handlers.go) também decide por AvaliarAlertas, então
+// mudar aqui muda nos dois caminhos.
 const (
 	limiarCPU   = 85.0
 	limiarRAM   = 90.0
