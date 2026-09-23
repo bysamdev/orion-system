@@ -77,16 +77,28 @@ func TestAutorizarComandoRemoto(t *testing.T) {
 			permitido:        false,
 		},
 		{
-			nome:             "technician de outra empresa é permitido (visão MSP-wide)",
-			escopo:           lib.UserScope{Role: "technician", CompanyID: &empresaB},
+			nome:             "technician da empresa mãe em máquina de outra empresa é permitido",
+			escopo:           lib.UserScope{Role: "technician", CompanyID: &empresaB, Interna: true},
 			machineCompanyID: &empresaA,
 			permitido:        true,
 		},
 		{
-			nome:             "admin de outra empresa é permitido (visão MSP-wide)",
-			escopo:           lib.UserScope{Role: "admin", CompanyID: &empresaB},
+			nome:             "admin da empresa mãe em máquina de outra empresa é permitido",
+			escopo:           lib.UserScope{Role: "admin", CompanyID: &empresaB, Interna: true},
 			machineCompanyID: &empresaA,
 			permitido:        true,
+		},
+		{
+			nome:             "admin de empresa cliente em máquina de outra empresa é negado (ORN-SEC-01)",
+			escopo:           lib.UserScope{Role: "admin", CompanyID: &empresaB},
+			machineCompanyID: &empresaA,
+			permitido:        false,
+		},
+		{
+			nome:             "technician de empresa cliente em máquina de outra empresa é negado (ORN-SEC-02)",
+			escopo:           lib.UserScope{Role: "technician", CompanyID: &empresaB},
+			machineCompanyID: &empresaA,
+			permitido:        false,
 		},
 		{
 			nome:             "technician da empresa correta é permitido",
@@ -102,13 +114,13 @@ func TestAutorizarComandoRemoto(t *testing.T) {
 		},
 		{
 			nome:             "developer (escopo global) é permitido em qualquer empresa",
-			escopo:           lib.UserScope{Role: "developer"},
+			escopo:           lib.UserScope{Role: "developer", Interna: true},
 			machineCompanyID: &empresaB,
 			permitido:        true,
 		},
 		{
 			nome:             "máquina órfã (sem company_id) é permitida pra escopo global",
-			escopo:           lib.UserScope{Role: "admin", CompanyID: &empresaA},
+			escopo:           lib.UserScope{Role: "admin", CompanyID: &empresaA, Interna: true},
 			machineCompanyID: nil,
 			permitido:        true,
 		},

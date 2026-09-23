@@ -68,10 +68,12 @@ func adminUpdateUser(w http.ResponseWriter, r *http.Request) {
 			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não é permitido mover o usuário para outra empresa"})
 			return
 		}
-		if req.Role != nil && strings.TrimSpace(*req.Role) == "developer" {
-			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não é permitido conceder a função developer"})
-			return
-		}
+	}
+	// Só developer concede developer, em qualquer empresa (ORN-SEC-03): o admin
+	// da empresa mãe tem escopo global, mas não pode criar acesso total.
+	if req.Role != nil && strings.TrimSpace(*req.Role) == "developer" && escopo.Role != "developer" {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Só developer pode conceder a função developer"})
+		return
 	}
 
 	// Auth update (email/password)
@@ -348,10 +350,11 @@ func createUserCredentials(w http.ResponseWriter, r *http.Request) {
 			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não é permitido criar usuários em outra empresa"})
 			return
 		}
-		if req.Role == "developer" {
-			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Não é permitido conceder a função developer"})
-			return
-		}
+	}
+	// Só developer concede developer (ORN-SEC-03).
+	if req.Role == "developer" && escopo.Role != "developer" {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "Só developer pode conceder a função developer"})
+		return
 	}
 
 	// O formato anterior era "Orion" + 4 dígitos — 9.000 valores possíveis

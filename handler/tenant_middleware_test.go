@@ -70,13 +70,13 @@ func TestRequireCompanyScope(t *testing.T) {
 		{
 			nome:     "developer sem empresa → 200 (visão global)",
 			user:     &lib.AuthUser{ID: "dev-456"},
-			scope:    lib.UserScope{CompanyID: nil, Role: "developer"},
+			scope:    lib.UserScope{CompanyID: nil, Role: "developer", Interna: true},
 			esperado: http.StatusOK,
 		},
 		{
 			nome:     "admin sem empresa → 200 (visão global)",
 			user:     &lib.AuthUser{ID: "master-789"},
-			scope:    lib.UserScope{CompanyID: nil, Role: "admin"},
+			scope:    lib.UserScope{CompanyID: nil, Role: "admin", Interna: true},
 			esperado: http.StatusOK,
 		},
 	}

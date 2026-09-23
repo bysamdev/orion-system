@@ -143,20 +143,19 @@ func (d *DB) CompanyByUserID(ctx context.Context, userID string) (*string, error
 // aplica a estas queries, então o recorte por empresa precisa ser feito aqui.
 type UserScope struct {
 	CompanyID *string // empresa do usuário; nil quando o perfil não tem empresa
-	Role      string  // customer | technician | admin | developer
+	Role      string  // papel mais alto: developer > admin > technician > customer
+	Interna   bool    // equipe interna: vê todas as empresas (public.is_equipe_interna)
 }
 
 // Global informa se o usuário enxerga todas as empresas.
 //
-// Por decisão de produto (por enquanto), technician/admin/developer têm visão
-// MSP-wide independente da empresa a que pertencem — só o papel customer é
-// restrito à própria empresa (ele só precisa ver seus próprios chamados).
-// Antes disso era decidido por ILIKE no nome da empresa ("Orion System",
-// "iBReady", "bysamdev") — qualquer papel, inclusive technician, virava
-// global só por estar numa dessas empresas; achado real de auditoria E2E
-// (técnico via máquinas de outro tenant). Trocado por checagem de papel.
+// Vem de public.is_equipe_interna(), a mesma função que as policies RLS usam:
+// developer, ou technician/admin de empresa mãe (ORN-SEC-01/02). Antes era
+// "qualquer papel diferente de customer", o que dava visão de todos os
+// clientes a um admin de empresa cliente e tornava inalcançáveis as checagens
+// de empresa escritas para ele.
 func (s UserScope) Global() bool {
-	return s.Role != "customer"
+	return s.Interna
 }
 
 // FiltroEmpresa devolve o valor a passar como parâmetro de company_id nas
@@ -181,18 +180,23 @@ func (s UserScope) PodeVerEmpresa(companyID *string) bool {
 	return *companyID == *s.CompanyID
 }
 
-// UserScopeByID resolve empresa e papel do usuário numa única ida ao banco.
+// UserScopeByID resolve empresa, papel e equipe interna numa ida ao banco.
 // LEFT JOIN em user_roles porque 'customer' é implícito: createUserCredentials
-// só grava a linha quando o papel não é customer.
+// só grava a linha quando o papel não é customer. Um usuário pode ter mais de
+// um papel (ex.: admin e developer); vale o mais alto.
 func (d *DB) UserScopeByID(ctx context.Context, userID string) (UserScope, error) {
 	var s UserScope
 	err := d.pool.QueryRow(ctx, `
 SELECT p.company_id::text,
-       COALESCE(ur.role::text, 'customer')
+       COALESCE(ur.role::text, 'customer'),
+       public.is_equipe_interna(p.id)
 FROM public.profiles p
 LEFT JOIN public.user_roles ur ON ur.user_id = p.id
 WHERE p.id = $1
-LIMIT 1`, userID).Scan(&s.CompanyID, &s.Role)
+ORDER BY CASE ur.role::text
+           WHEN 'developer' THEN 1 WHEN 'admin' THEN 2
+           WHEN 'technician' THEN 3 ELSE 4 END
+LIMIT 1`, userID).Scan(&s.CompanyID, &s.Role, &s.Interna)
 	return s, err
 }
 
