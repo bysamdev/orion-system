@@ -151,12 +151,15 @@ serve(async (req) => {
         );
       }
 
-      if (role === 'developer') {
-        return new Response(
-          JSON.stringify({ error: 'Não é permitido conceder a função developer' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    }
+
+    // Só developer concede developer, em qualquer empresa (ORN-SEC-03): o
+    // service_role ignora a RLS de user_roles, então a regra vive aqui também.
+    if (role === 'developer' && !userRoles.some(r => r.role === 'developer')) {
+      return new Response(
+        JSON.stringify({ error: 'Só developer pode conceder a função developer' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // 8. Atualizar dados no Auth (email e/ou senha)
