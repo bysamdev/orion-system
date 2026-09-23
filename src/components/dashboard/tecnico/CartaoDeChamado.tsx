@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { getPriorityLabel } from '@/lib/state-tokens';
 import type { Ticket } from '@/hooks/useTickets';
+import { respostasDoChamado } from '@/lib/perguntasPorCategoria';
 import { cn } from '@/lib/utils';
 import {
   COR_DO_PRAZO, FAIXA_DA_PRIORIDADE, categoriaDe, corDoAvatar, iniciais, prazoDe, semResponsavel,
@@ -96,6 +97,7 @@ export const CartaoDeChamado: React.FC<CartaoDeChamadoProps> = React.memo(({ tic
   );
 
   const descricao = (t.description ?? '').trim();
+  const respostasFormulario = respostasDoChamado(t.metadata, t.description);
 
   const cartao = (
     <div
@@ -163,9 +165,20 @@ export const CartaoDeChamado: React.FC<CartaoDeChamadoProps> = React.memo(({ tic
         className="max-w-sm p-3 space-y-1.5"
       >
         <p className="text-sm font-semibold text-foreground leading-snug">#{t.ticket_number} · {t.title}</p>
-        <p className="text-xs font-normal text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-[12] break-words">
-          {descricao}
-        </p>
+        {respostasFormulario.length > 0 ? (
+          <dl className="max-h-80 space-y-3 overflow-y-auto text-xs text-muted-foreground leading-relaxed">
+            {respostasFormulario.map((resposta, i) => (
+              <div key={`${i}-${resposta.pergunta}`}>
+                <dt className="font-bold text-foreground">{resposta.pergunta}</dt>
+                <dd className="whitespace-pre-wrap break-words">{resposta.resposta}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-xs font-normal text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-[12] break-words">
+            {descricao}
+          </p>
+        )}
       </TooltipContent>
     </Tooltip>
   );
