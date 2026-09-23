@@ -19,7 +19,8 @@ export const supabase = createClient<Database>(
   SUPABASE_PUBLISHABLE_KEY || 'placeholder_key', 
   {
     auth: {
-      storage: localStorage,
+      // Fora do navegador (testes no Node da CI) não existe localStorage.
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       persistSession: true,
       autoRefreshToken: true,
     }
