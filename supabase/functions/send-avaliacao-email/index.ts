@@ -15,6 +15,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 
+// Título do chamado é texto do cliente e entra no HTML do e-mail.
+const escaparHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
@@ -157,7 +162,7 @@ serve(async (req) => {
             </h2>
 
             <p style="margin: 0 0 20px 0; color: #4a5568; font-size: 16px; line-height: 1.6;">
-              O chamado <strong>#${ticket.ticket_number}</strong> &mdash; ${ticket.title} &mdash; foi concluído.
+              O chamado <strong>#${ticket.ticket_number}</strong> &mdash; ${escaparHtml(ticket.title ?? '')} &mdash; foi concluído.
               Conte para a gente como foi o atendimento: leva menos de um minuto.
             </p>
 
