@@ -123,7 +123,7 @@ export const CartaoDeChamado: React.FC<CartaoDeChamadoProps> = React.memo(({ tic
       />
 
       {variante === 'linha' ? (
-        <div className="flex flex-col md:flex-row md:items-center gap-x-4 gap-y-1.5">
+        <div className="flex flex-col xl:flex-row xl:items-center gap-x-4 gap-y-2">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">{t.title}</p>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 mt-0.5">
@@ -133,10 +133,10 @@ export const CartaoDeChamado: React.FC<CartaoDeChamadoProps> = React.memo(({ tic
               <span className="hidden lg:inline whitespace-nowrap shrink-0">· aberto {aberto}</span>
             </div>
           </div>
-          <div className="flex items-center gap-x-4 gap-y-1.5 flex-wrap md:flex-nowrap shrink-0">
-            <span className="md:w-[140px] md:text-right"><Prazo ticket={t} /></span>
-            <span className="md:w-[150px] flex md:justify-center"><StatusBadge status={t.status} /></span>
-            <div className="md:w-[180px] flex md:justify-end min-w-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 xl:justify-end">
+            <Prazo ticket={t} />
+            <StatusBadge status={t.status} />
+            <div className="min-w-0 max-w-full xl:max-w-[180px]">
               <Responsavel ticket={t} onAssume={onAssume} />
             </div>
           </div>
@@ -146,8 +146,8 @@ export const CartaoDeChamado: React.FC<CartaoDeChamadoProps> = React.memo(({ tic
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">{identificacao}</div>
           <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">{t.title}</p>
           <div className="flex items-center text-xs text-muted-foreground min-w-0">{solicitante}</div>
-          {/* Prazo e responsável na mesma linha, cada um com metade do espaço. */}
-          <div className="flex items-center justify-between gap-2 pt-0.5 min-h-7">
+          {/* Prazo e responsável quebram de linha quando a coluna fica estreita. */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5 min-h-7">
             <Prazo ticket={t} />
             <Responsavel ticket={t} onAssume={onAssume} />
           </div>
