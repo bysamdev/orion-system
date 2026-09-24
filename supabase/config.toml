@@ -44,3 +44,7 @@ verify_jwt = false
 # desenho do send-avaliacao-email.
 [functions.alerta-saude-banco]
 verify_jwt = false
+
+# Web Push: chamada só pelo trigger do banco, com x-cron-secret.
+[functions.enviar-push]
+verify_jwt = false
