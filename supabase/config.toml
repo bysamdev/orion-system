@@ -9,9 +9,6 @@ verify_jwt = false
 [functions.admin-update-user]
 verify_jwt = false
 
-[functions.invite-user-resend]
-verify_jwt = false
-
 [functions.reset-password-with-token]
 verify_jwt = false
 

@@ -4,7 +4,7 @@
 // as funções de agregação são TypeScript puro para poderem ser importadas
 // tanto pela página (src/pages/Reports.tsx) quanto, futuramente, por uma
 // Supabase Edge Function (Deno) no relatório agendado por e-mail — que é onde
-// já vive a infra de envio (invite-user-resend, send-password-changed-alert).
+// já vive a infra de envio (send-password-changed-alert).
 
 /** Modo de leitura do relatório. Controla quais blocos são exibidos/exportados. */
 export type ReportMode = 'resumido' | 'detalhado';
