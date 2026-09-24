@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlarmClock, HandHelping } from 'lucide-react';
-import { formatDistanceToNowStrict } from 'date-fns';
+import { format, formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -73,6 +73,7 @@ export const CartaoDeChamado: React.FC<CartaoDeChamadoProps> = React.memo(({ tic
   const Icone = categoria.icone;
   const abrir = () => navigate(`/ticket/${t.id}`);
   const aberto = formatDistanceToNowStrict(new Date(t.created_at), { locale: ptBR, addSuffix: true });
+  const aberturaExata = format(new Date(t.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   const prioridade = getPriorityLabel(t.priority);
 
   // Número, categoria e prioridade: o que identifica o chamado sem ler o título.
@@ -130,12 +131,12 @@ export const CartaoDeChamado: React.FC<CartaoDeChamadoProps> = React.memo(({ tic
               {identificacao}
               <span aria-hidden className="shrink-0">·</span>
               {solicitante}
-              <span className="hidden lg:inline whitespace-nowrap shrink-0">· aberto {aberto}</span>
+              <span className="hidden lg:inline whitespace-nowrap shrink-0" title={`Aberto em ${aberturaExata}`}>· aberto {aberto}</span>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 xl:justify-end">
-            <Prazo ticket={t} />
-            <StatusBadge status={t.status} />
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 xl:grid xl:grid-cols-[10rem_7rem_11.25rem] xl:gap-x-3">
+            <div className="min-w-0"><Prazo ticket={t} /></div>
+            <div className="min-w-0"><StatusBadge status={t.status} /></div>
             <div className="min-w-0 max-w-full xl:max-w-[180px]">
               <Responsavel ticket={t} onAssume={onAssume} />
             </div>
