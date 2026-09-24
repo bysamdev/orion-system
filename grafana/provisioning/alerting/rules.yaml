@@ -27,11 +27,16 @@ groups:
         title: Agente Offline
         condition: C
         data:
+          # Segundos desde o último check-in, pelo orion-monitor (heartbeats),
+          # não mais pelo scrape do agente em <IP local>:9182: esse só
+          # alcançava máquina da rede do servidor e, no agente 1.1.33, sem
+          # metrics_token a porta só responde na própria máquina. Janela de
+          # 24h: máquina desligada há mais de um dia sai do alerta sozinha.
           - refId: A
-            relativeTimeRange: { from: 600, to: 0 }
+            relativeTimeRange: { from: 86400, to: 0 }
             datasourceUid: PBFA97CFB590B2093
             model:
-              expr: 'up{job="orion_agents"}'
+              expr: 'time() - max_over_time(orion_machine_last_seen_timestamp_seconds[24h])'
               instant: true
               refId: A
           - refId: C
@@ -40,15 +45,15 @@ groups:
               type: threshold
               expression: A
               conditions:
-                - evaluator: { type: lt, params: [1] }
+                - evaluator: { type: gt, params: [600] }
               refId: C
         for: 5m
         labels:
           severity: critical
           team: infra
         annotations:
-          summary: "{{ $labels.hostname }} está offline há mais de 5 minutos"
-          description: "O agente Orion não responde. Verificar conectividade, firewall ou se o serviço está rodando."
+          summary: "{{ $labels.hostname }} está sem check-in há mais de 10 minutos"
+          description: "O agente Orion parou de enviar check-in. Verificar se a máquina está ligada, com internet e com o serviço Orion Agent rodando."
 
       - uid: orion-disco-cheio-em-breve
         title: Disco Ficará Cheio em Breve
@@ -58,7 +63,10 @@ groups:
             relativeTimeRange: { from: 600, to: 0 }
             datasourceUid: PBFA97CFB590B2093
             model:
-              expr: '(orion_disk_total_bytes - orion_disk_used_bytes) / clamp_min(deriv(orion_disk_used_bytes[6h]), 1e-9) / 86400'
+              # Dias até 100%, pelo percentual de disco que o orion-monitor
+              # recebe nos heartbeats (vale para qualquer máquina, na rede
+              # do servidor ou não).
+              expr: '(100 - orion_machine_disk_percent) / clamp_min(deriv(orion_machine_disk_percent[6h]), 1e-9) / 86400'
               instant: true
               refId: A
           - refId: C
