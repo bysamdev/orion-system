@@ -197,8 +197,6 @@ export default function WebMonitoring() {
   const [netType, setNetType] = useState<string>('link_dedicado');
   const [netCompanyId, setNetCompanyId] = useState<string>('none');
   const [netIpHost, setNetIpHost] = useState('');
-  const [netStatus, setNetStatus] = useState<string>('online');
-  const [netLatency, setNetLatency] = useState<string>('25');
 
   const refreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -266,8 +264,6 @@ export default function WebMonitoring() {
         type: netType,
         company_id: netCompanyId && netCompanyId !== 'none' ? netCompanyId : null,
         ip_or_host: netIpHost,
-        status: netStatus,
-        latency_ms: netLatency ? parseInt(netLatency, 10) : null,
       });
       toast.success('Link de internet adicionado com sucesso');
       setIsNetworkModalOpen(false);
@@ -275,8 +271,6 @@ export default function WebMonitoring() {
       setNetType('link_dedicado');
       setNetCompanyId('none');
       setNetIpHost('');
-      setNetStatus('online');
-      setNetLatency('25');
     } catch (err) {
       toast.error(err.message || 'Erro ao adicionar link de internet');
     }
@@ -1336,33 +1330,9 @@ export default function WebMonitoring() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="netStatus">Status Inicial</Label>
-                        <Select value={netStatus} onValueChange={setNetStatus}>
-                          <SelectTrigger id="netStatus" className="rounded-xl">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="online">Online</SelectItem>
-                            <SelectItem value="offline">Offline</SelectItem>
-                            <SelectItem value="pending">Pendente</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="netLatency">Latência Base (ms)</Label>
-                        <Input 
-                          id="netLatency" 
-                          type="number"
-                          placeholder="Ex: 25" 
-                          value={netLatency} 
-                          onChange={e => setNetLatency(e.target.value)} 
-                          className="rounded-xl font-mono text-sm"
-                        />
-                      </div>
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      O status e a latência aparecem após a primeira medição do monitoramento.
+                    </p>
 
                     <DialogFooter className="gap-2 sm:gap-0 pt-2">
                       <Button type="button" variant="outline" onClick={() => setIsNetworkModalOpen(false)} className="rounded-xl">
@@ -1408,7 +1378,7 @@ export default function WebMonitoring() {
                 const typeInfo = getLinkTypeInfo(link.type);
                 const TypeIcon = typeInfo.icon;
                 const isOnline = link.status === 'online';
-                const latency = link.latency_ms ?? (link.type?.toLowerCase().includes('starlink') ? 38 : 18);
+                const latency = link.latency_ms;
 
                 return (
                   <Card 
@@ -1448,7 +1418,7 @@ export default function WebMonitoring() {
                         <div className="bg-muted/30 px-2.5 py-1.5 rounded-xl">
                           <span className="text-[10px] text-muted-foreground block uppercase font-bold">Latência</span>
                           <span className="font-mono font-bold text-foreground">
-                            {isOnline ? `${latency} ms` : 'Timeout'}
+                            {isOnline ? (latency !== null ? `${latency} ms` : 'Sem medição') : link.status === 'pending' ? 'Aguardando medição' : 'Timeout'}
                           </span>
                         </div>
                       </div>
