@@ -100,9 +100,9 @@ var modoSilencioso bool
 // selfconfig.go) — line de comando é sempre uma escolha explícita de quem
 // está instalando.
 var (
-	flagAgentKey    string
-	flagAPIURL      string
-	flagCompanyName string
+	flagAgentKey      string
+	flagAPIURL        string
+	flagCompanyName   string
 	flagDiagnosticLog string
 )
 
