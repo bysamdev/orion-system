@@ -280,6 +280,11 @@ func autorizarTerminalAgente(w http.ResponseWriter, r *http.Request, machineID s
 		}
 	}
 
+	if !conferirTokenDaMaquina(r.Context(), r, machineID, "terminal-agente") {
+		http.Error(w, "token da máquina não confere", http.StatusForbidden)
+		return false
+	}
+
 	return true
 }
 

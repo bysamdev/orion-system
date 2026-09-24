@@ -1305,6 +1305,11 @@ func monitoringPollCommands(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if !conferirTokenDaMaquina(ctx, r, machineID, "commands-poll") {
+		lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "token da máquina não confere"})
+		return
+	}
+
 	cmds, err := db.GetPendingCommands(ctx, machineID)
 	if err != nil {
 		log.Printf("[ERRO] falha ao buscar comandos pendentes (machine=%s): %v", machineID, err)
@@ -1367,6 +1372,20 @@ func monitoringCommandResponse(w http.ResponseWriter, r *http.Request) {
 			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "comando não pertence à empresa desta chave"})
 			return
 		}
+	}
+
+	if r.Header.Get(cabecalhoTokenDaMaquina) != "" || exigirTokenDaMaquina {
+		machineID, errMaq := db.CommandMachineID(ctx, req.ID)
+		if errMaq != nil {
+			lib.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "comando não encontrado"})
+			return
+		}
+		if !conferirTokenDaMaquina(ctx, r, machineID, "commands-respond") {
+			lib.WriteJSON(w, http.StatusForbidden, map[string]any{"error": "token da máquina não confere"})
+			return
+		}
+	} else {
+		log.Printf("[SEC-06] commands-respond: agente sem %s (comando=%s)", cabecalhoTokenDaMaquina, req.ID)
 	}
 
 	err = db.UpdateCommandStatus(ctx, req.ID, req.Status, req.Output)

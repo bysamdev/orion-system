@@ -1134,6 +1134,14 @@ WHERE c.id = $1`, commandID).Scan(&companyID)
 	return companyID, err
 }
 
+// CommandMachineID devolve a máquina dona do comando (SEC-06: a resposta de
+// comando confere o token dessa máquina).
+func (d *DB) CommandMachineID(ctx context.Context, commandID string) (string, error) {
+	var machineID string
+	err := d.pool.QueryRow(ctx, `SELECT machine_id::text FROM public.machine_commands WHERE id = $1`, commandID).Scan(&machineID)
+	return machineID, err
+}
+
 // marcadorAutoUpdate identifica, dentro do texto do comando, um comando de
 // auto-atualização gerado pelo próprio backend (ver monitoringHeartbeat) —
 // não um "orion-install" comum disparado manualmente em Instaladores &
