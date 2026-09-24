@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useSessoes } from "@/hooks/useSessoes";
+import { CATEGORIAS_DE_AVISO, usePreferenciasDeNotificacao } from "@/hooks/usePreferenciasDeNotificacao";
 import { ListaDeDispositivos } from "@/components/settings/DispositivosConectados";
 import { LIMITE_DE_DISPOSITIVOS, sessaoDoToken } from "@/lib/sessoes";
 
@@ -51,6 +52,7 @@ export default function Settings() {
   // Notificações no navegador (Web Push): estado real da inscrição deste navegador.
   const push = usePushNotifications();
   const sessoesDaConta = useSessoes();
+  const avisos = usePreferenciasDeNotificacao();
 
   // Estados para integração
   const [copiedWebhook, setCopiedWebhook] = useState(false);
@@ -496,6 +498,35 @@ export default function Settings() {
                       aria-label="Notificações no navegador"
                     />
                   </div>
+
+                  {/* Técnicos e gestores escolhem o que recebem (no app e no navegador). */}
+                  {role && role !== 'customer' && (
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-bold">O que você quer receber</p>
+                        <p className="text-xs text-muted-foreground">
+                          Vale para os avisos no Orion e no navegador. Você nunca é avisado do que você mesmo fez.
+                        </p>
+                      </div>
+                      {CATEGORIAS_DE_AVISO.map((c) => (
+                        <div
+                          key={c.chave}
+                          className="flex items-center justify-between gap-4 p-4 rounded-xl border border-border bg-card/50 transition-all hover:border-primary/30"
+                        >
+                          <div className="space-y-0.5 min-w-0">
+                            <Label htmlFor={`aviso-${c.chave}`} className="text-sm font-semibold">{c.titulo}</Label>
+                            <p className="text-xs text-muted-foreground">{c.descricao}</p>
+                          </div>
+                          <Switch
+                            id={`aviso-${c.chave}`}
+                            checked={avisos.preferencias[c.chave]}
+                            disabled={avisos.isLoading}
+                            onCheckedChange={(val) => avisos.alternar(c.chave, val)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

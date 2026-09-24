@@ -1362,6 +1362,39 @@ export type Database = {
           },
         ]
       }
+      preferencias_de_notificacao: {
+        Row: {
+          atribuicoes: boolean
+          mudancas_de_status: boolean
+          notas_internas: boolean
+          novos_chamados: boolean
+          prioridade: boolean
+          respostas: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          atribuicoes?: boolean
+          mudancas_de_status?: boolean
+          notas_internas?: boolean
+          novos_chamados?: boolean
+          prioridade?: boolean
+          respostas?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          atribuicoes?: boolean
+          mudancas_de_status?: boolean
+          notas_internas?: boolean
+          novos_chamados?: boolean
+          prioridade?: boolean
+          respostas?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       push_inscricoes: {
         Row: {
           auth: string
