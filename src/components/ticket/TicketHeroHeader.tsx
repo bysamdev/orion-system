@@ -210,10 +210,11 @@ export const TicketHeroHeader: React.FC<TicketHeroHeaderProps> = ({
               variant="default"
               size="sm"
               onClick={onAssume}
+              disabled={isAssuming}
               className="gap-2 font-bold shadow-sm"
             >
               <User className="w-3.5 h-3.5" />
-              Assumir Chamado
+              {isAssuming ? 'Assumindo...' : 'Assumir Chamado'}
             </Button>
           )}
 
