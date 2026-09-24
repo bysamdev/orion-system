@@ -1,14 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+import { validarNovaSenha } from "../_shared/regras-de-usuario.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Tamanho mínimo da senha que a pessoa cria para si: mais que os 6 aceitos na
-// senha temporária do gestor, porque esta é a senha que fica.
-const SENHA_MINIMA = 8;
 
 const responder = (status: number, corpo: Record<string, unknown>) =>
   new Response(JSON.stringify(corpo), {
@@ -48,20 +45,16 @@ serve(async (req) => {
     }
 
     const corpo = await req.json().catch(() => null);
-    const senha = typeof corpo?.newPassword === 'string' ? corpo.newPassword : '';
-    if (senha.length < SENHA_MINIMA) {
-      return responder(400, { error: 'A senha precisa ter pelo menos 8 caracteres.' });
-    }
-    if (senha.trim() !== senha) {
-      return responder(400, { error: 'A senha não pode começar nem terminar com espaço.' });
-    }
+    const senha = corpo?.newPassword;
+    const erroNaSenha = validarNovaSenha(senha);
+    if (erroNaSenha) return responder(400, { error: erroNaSenha });
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
     const { error } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
-      password: senha,
+      password: senha as string,
       app_metadata: { deve_trocar_senha: false },
     });
     if (error) {

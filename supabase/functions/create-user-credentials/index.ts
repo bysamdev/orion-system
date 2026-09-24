@@ -1,5 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+import {
+  gerarSenhaProvisoria, podeGerirUsuarios, validarCriacaoDeUsuario,
+} from "../_shared/regras-de-usuario.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,30 +17,6 @@ interface CreateUserRequest {
   company_id: string;
 }
 
-// Gerar senha provisória forte.
-//
-// O formato anterior era "Orion" + 4 dígitos sorteados com Math.random():
-// 9.000 valores possíveis (~13 bits) e nem sequer um gerador criptográfico.
-// Como a conta nasce com email_confirm: true, dava para enumerar o espaço
-// inteiro contra o login antes do cliente trocar a senha (Strix vuln-0006).
-//
-// crypto.getRandomValues é CSPRNG. O laço de rejeição descarta bytes que
-// cairiam fora de um múltiplo exato do alfabeto — sem isso, o "% length"
-// enviesaria os primeiros caracteres do conjunto.
-function generateTempPassword(length = 16): string {
-  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-  const limite = 256 - (256 % charset.length);
-  let senha = '';
-  while (senha.length < length) {
-    const bytes = crypto.getRandomValues(new Uint8Array(length));
-    for (const b of bytes) {
-      if (b >= limite) continue; // descarta para não enviesar
-      senha += charset[b % charset.length];
-      if (senha.length === length) break;
-    }
-  }
-  return senha;
-}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -93,8 +72,8 @@ serve(async (req) => {
       );
     }
 
-    const hasPermission = userRoles.some(r => r.role === 'admin' || r.role === 'developer');
-    if (!hasPermission) {
+    const papeisDoChamador = userRoles.map(r => r.role);
+    if (!podeGerirUsuarios(papeisDoChamador)) {
       return new Response(
         JSON.stringify({ error: 'Apenas administradores podem criar usuários.' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -143,34 +122,36 @@ serve(async (req) => {
       );
     }
 
+    let empresaDoChamador: string | null = null;
     if (!isGlobalScope) {
-      const { data: callerProfile, error: callerProfileError } = await supabaseAdmin
+      const { data: callerProfile } = await supabaseAdmin
         .from('profiles')
         .select('company_id')
         .eq('id', user.id)
         .single();
-
-      if (callerProfileError || !callerProfile?.company_id || callerProfile.company_id !== company_id) {
-        console.error('Tentativa cross-tenant bloqueada ao criar usuário:', user.id, '->', company_id);
-        return new Response(
-          JSON.stringify({ error: 'Não é permitido criar usuários em outra empresa' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
+      empresaDoChamador = callerProfile?.company_id ?? null;
     }
 
-    // Só developer concede developer, em qualquer empresa (ORN-SEC-03): o
-    // service_role ignora a RLS de user_roles, então a regra vive aqui também.
-    if (role === 'developer' && !userRoles.some(r => r.role === 'developer')) {
+    // Empresa do chamador e "só developer concede developer" (ORN-SEC-03): o
+    // service_role ignora a RLS, então as regras vivem aqui (testadas em
+    // _shared/regras-de-usuario.test.ts).
+    const recusa = validarCriacaoDeUsuario({
+      papeisDoChamador,
+      escopoGlobal: !!isGlobalScope,
+      empresaDoChamador,
+      empresaNova: company_id,
+      papelNovo: role,
+    });
+    if (recusa) {
+      if (recusa.status === 403) console.error('Criação de usuário recusada:', user.id, '->', company_id, recusa.error);
       return new Response(
-        JSON.stringify({ error: 'Só developer pode conceder a função developer' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: recusa.error }),
+        { status: recusa.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Gerar senha provisória
-    const tempPassword = generateTempPassword();
+    const tempPassword = gerarSenhaProvisoria();
     console.log('Senha provisória gerada');
 
     // Passo 1: Criar usuário no Auth com email confirmado

@@ -2,6 +2,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { podeGerirUsuarios, validarAtualizacaoDeUsuario } from "../_shared/regras-de-usuario.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -75,9 +76,8 @@ serve(async (req) => {
       );
     }
 
-    const allowedRoles = ['admin', 'developer'];
-    const hasPermission = userRoles.some(r => allowedRoles.includes(r.role));
-    if (!hasPermission) {
+    const papeisDoChamador = userRoles.map(r => r.role);
+    if (!podeGerirUsuarios(papeisDoChamador)) {
       console.error('Permissão negada. Roles do chamador:', userRoles);
       return new Response(
         JSON.stringify({ error: 'Proibido: Apenas administradores e desenvolvedores podem atualizar usuários' }),
@@ -92,23 +92,7 @@ serve(async (req) => {
 
     console.log('Admin update user request for:', user_id, 'company_id:', company_id);
 
-    if (!user_id) {
-      return new Response(
-        JSON.stringify({ error: 'user_id é obrigatório' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // 7. Bloqueio de auto-escalação de role
-    if (role && user_id === callerUser.id) {
-      console.error('Tentativa de auto-escalação bloqueada:', callerUser.id);
-      return new Response(
-        JSON.stringify({ error: 'Proibido: Você não pode alterar sua própria função (role)' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // 7b. SEC-02: isolamento multitenant. `service_role` ignora RLS, então sem
+    // 7. SEC-02: isolamento multitenant. `service_role` ignora RLS, então sem
     // esta checagem um admin da Empresa A conseguiria atualizar/mover/promover
     // usuários de qualquer outra empresa via este endpoint (Account Takeover).
     const { data: isGlobalScope, error: globalScopeError } = await supabaseAdmin
@@ -122,43 +106,37 @@ serve(async (req) => {
       );
     }
 
-    if (!isGlobalScope) {
-      const { data: callerProfile, error: callerProfileError } = await supabaseAdmin
-        .from('profiles')
-        .select('company_id')
-        .eq('id', callerUser.id)
-        .single();
-
-      const { data: targetProfile, error: targetProfileError } = await supabaseAdmin
-        .from('profiles')
-        .select('company_id')
-        .eq('id', user_id)
-        .single();
-
-      if (callerProfileError || targetProfileError || !callerProfile?.company_id ||
-          !targetProfile?.company_id || targetProfile.company_id !== callerProfile.company_id) {
-        console.error('Tentativa cross-tenant bloqueada:', callerUser.id, '->', user_id);
-        return new Response(
-          JSON.stringify({ error: 'Usuário não pertence à sua empresa' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (company_id && company_id !== callerProfile.company_id) {
-        return new Response(
-          JSON.stringify({ error: 'Não é permitido mover o usuário para outra empresa' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
+    let empresaDoChamador: string | null = null;
+    let empresaDoAlvo: string | null = null;
+    if (!isGlobalScope && user_id) {
+      const [{ data: callerProfile }, { data: targetProfile }] = await Promise.all([
+        supabaseAdmin.from('profiles').select('company_id').eq('id', callerUser.id).single(),
+        supabaseAdmin.from('profiles').select('company_id').eq('id', user_id).single(),
+      ]);
+      empresaDoChamador = callerProfile?.company_id ?? null;
+      empresaDoAlvo = targetProfile?.company_id ?? null;
     }
 
-    // Só developer concede developer, em qualquer empresa (ORN-SEC-03): o
-    // service_role ignora a RLS de user_roles, então a regra vive aqui também.
-    if (role === 'developer' && !userRoles.some(r => r.role === 'developer')) {
+    // Todas as regras antes da primeira gravação (testadas em
+    // _shared/regras-de-usuario.test.ts): antes, um status inválido era
+    // recusado depois de a senha e o e-mail já terem sido trocados.
+    const recusa = validarAtualizacaoDeUsuario({
+      chamadorId: callerUser.id,
+      papeisDoChamador,
+      escopoGlobal: !!isGlobalScope,
+      empresaDoChamador,
+      empresaDoAlvo,
+      alvoId: user_id,
+      papelNovo: role,
+      empresaNova: company_id,
+      senhaNova: password,
+      statusNovo: status,
+    });
+    if (recusa) {
+      if (recusa.status === 403) console.error('Atualização recusada:', callerUser.id, '->', user_id, recusa.error);
       return new Response(
-        JSON.stringify({ error: 'Só developer pode conceder a função developer' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: recusa.error }),
+        { status: recusa.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -173,12 +151,6 @@ serve(async (req) => {
     const hasNewPassword = password && typeof password === 'string' && password.trim().length > 0;
     
     if (hasNewPassword) {
-      if (password.trim().length < 6) {
-        return new Response(
-          JSON.stringify({ error: 'A senha deve ter no mínimo 6 caracteres' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
       authUpdateData.password = password.trim();
       // Senha definida pelo gestor para outra pessoa é temporária: ela cria a
       // própria no próximo acesso (tela /trocar-senha). Quando o gestor troca
@@ -220,18 +192,6 @@ serve(async (req) => {
     }
 
     if (status) {
-      if (status !== 'active' && status !== 'inactive') {
-        return new Response(
-          JSON.stringify({ error: 'Status inválido' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (status === 'inactive' && user_id === callerUser.id) {
-        return new Response(
-          JSON.stringify({ error: 'Você não pode inativar a própria conta' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
       profileUpdateData.status = status;
     }
 

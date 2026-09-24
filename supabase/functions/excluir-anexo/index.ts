@@ -1,37 +1,19 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+import {
+  BUCKET, caminhoDeDescarteValido, caminhoNoBucket, envioRecente, idDeAnexoValido, naoEncontrado,
+} from "./regras.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const BUCKET = 'ticket-files';
-
 const responder = (status: number, corpo: Record<string, unknown>) =>
   new Response(JSON.stringify(corpo), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-
-// file_url novo já é o caminho no bucket ("<ticket>/<arquivo>"); os antigos
-// eram a URL inteira do Storage. Mesmo critério de getStoragePath no hook.
-function caminhoNoBucket(fileUrl: string): string | null {
-  if (!fileUrl) return null;
-  if (!/^https?:\/\//i.test(fileUrl)) return fileUrl.replace(/^\/+/, '');
-  try {
-    const marcador = `/${BUCKET}/`;
-    const pathname = decodeURIComponent(new URL(fileUrl).pathname);
-    const i = pathname.indexOf(marcador);
-    return i === -1 ? null : pathname.substring(i + marcador.length);
-  } catch {
-    return null;
-  }
-}
-
-// Storage devolve "not found" quando o objeto já não existe: para exclusão,
-// isso é sucesso (idempotente).
-const naoEncontrado = (msg: string | undefined) => /not.?found|does not exist|404/i.test(msg ?? '');
 
 /**
  * Exclusão de anexo de chamado, registro e arquivo juntos.
@@ -73,7 +55,7 @@ serve(async (req) => {
     // ── Desfazer upload sem registro ──────────────────────────────────────
     if (typeof corpo?.descartarCaminho === 'string') {
       const caminho = caminhoNoBucket(corpo.descartarCaminho);
-      if (!caminho || !/^[0-9a-f-]{36}\/[^/]+$/i.test(caminho)) {
+      if (!caminhoDeDescarteValido(caminho)) {
         return responder(400, { error: 'Caminho inválido' });
       }
       const [pasta, arquivo] = caminho.split('/');
@@ -90,8 +72,7 @@ serve(async (req) => {
       if (listError) return responder(500, { error: 'Não foi possível verificar o arquivo' });
       const objeto = (lista ?? []).find((o) => o.name === arquivo);
       if (!objeto) return responder(200, { success: true });
-      const criadoEm = objeto.created_at ? new Date(objeto.created_at).getTime() : 0;
-      if (!criadoEm || Date.now() - criadoEm > 15 * 60 * 1000) {
+      if (!envioRecente(objeto.created_at)) {
         return responder(403, { error: 'Só é possível descartar um envio recente' });
       }
 
@@ -110,8 +91,8 @@ serve(async (req) => {
     }
 
     // ── Excluir anexo ─────────────────────────────────────────────────────
-    const attachmentId = typeof corpo?.attachmentId === 'string' ? corpo.attachmentId : '';
-    if (!/^[0-9a-f-]{36}$/i.test(attachmentId)) {
+    const attachmentId = corpo?.attachmentId;
+    if (!idDeAnexoValido(attachmentId)) {
       return responder(400, { error: 'attachmentId inválido' });
     }
 
