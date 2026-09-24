@@ -103,6 +103,7 @@ var (
 	flagAgentKey    string
 	flagAPIURL      string
 	flagCompanyName string
+	flagDiagnosticLog string
 )
 
 func main() {
@@ -122,6 +123,8 @@ func main() {
 			flagCompanyName = strings.TrimPrefix(arg, "-company-name=")
 		case strings.HasPrefix(arg, "--company-name="):
 			flagCompanyName = strings.TrimPrefix(arg, "--company-name=")
+		case strings.HasPrefix(arg, "-diagnostic-log="):
+			flagDiagnosticLog = strings.TrimPrefix(arg, "-diagnostic-log=")
 		}
 	}
 
@@ -304,6 +307,21 @@ func instalar() error {
 
 	if err := os.MkdirAll(pastaDestino, 0755); err != nil {
 		return fmt.Errorf("criar %s: %w", pastaDestino, err)
+	}
+	// Em uma atualização silenciosa, confirme a chave antes de parar o
+	// serviço e substituir o executável. Se a configuração sumiu, o agente
+	// atual deve continuar funcionando enquanto o operador corrige a causa.
+	if modoSilencioso && strings.TrimSpace(flagAgentKey) == "" {
+		configurada, err := agentKeyConfigurada(filepath.Join(pastaDestino, "agent.yaml"))
+		if err != nil {
+			return fmt.Errorf("verificar configuração existente antes da atualização: %w", err)
+		}
+		if !configurada {
+			return fmt.Errorf("atualização silenciosa sem token da empresa nem agent.yaml válido")
+		}
+	}
+	if _, err := agenteEmbutido(); err != nil {
+		return fmt.Errorf("verificar executável embutido antes da atualização: %w", err)
 	}
 
 	// Se já existe um serviço OrionAgent rodando (reinstalação/atualização
@@ -638,6 +656,12 @@ func pausarSeInterativo(mensagem string) {
 }
 
 func falharComPausa(formato string, args ...any) {
+	if flagDiagnosticLog != "" {
+		// O MSI não captura o stderr da ação diferida. O diagnóstico opcional
+		// registra só a mensagem de erro, nunca os argumentos ou o token.
+		_ = os.MkdirAll(filepath.Dir(flagDiagnosticLog), 0700)
+		_ = os.WriteFile(flagDiagnosticLog, []byte(fmt.Sprintf(formato, args...)+"\n"), 0600)
+	}
 	imprimirCaixaFinal(corVermelha, "Falha na instalação")
 	fmt.Fprintf(os.Stderr, colorir(corVermelha, formato)+"\n", args...)
 	pausarSeInterativo("Pressione ENTER para fechar...")

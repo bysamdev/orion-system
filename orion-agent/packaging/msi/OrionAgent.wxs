@@ -43,12 +43,19 @@
     <!-- Propriedades públicas (MAIÚSCULAS = settable via linha de comando do
          msiexec ou via transform de GPO). AGENTKEY é obrigatória — sem ela
          o agente não sobe (config.Load recusa rodar com a chave vazia). -->
-    <Property Id="AGENTKEY" Secure="yes" />
+    <Property Id="AGENTKEY" Secure="yes" Hidden="yes" />
     <Property Id="APIURL" Secure="yes" />
     <Property Id="COMPANYNAME" Secure="yes" />
+    <!-- Em uma atualização, o instalador embutido reutiliza a chave já
+         configurada sem recebê-la pela linha de comando do msiexec. -->
+    <Property Id="EXISTINGAGENTCONFIG">
+      <DirectorySearch Id="ExistingOrionDir" Path="C:\Orion">
+        <FileSearch Id="ExistingAgentYaml" Name="agent.yaml" />
+      </DirectorySearch>
+    </Property>
 
-    <Condition Message="Propriedade AGENTKEY e obrigatoria. Instale com: msiexec /i OrionAgent.msi AGENTKEY=&quot;chave_da_empresa&quot; /quiet">
-      AGENTKEY &lt;&gt; ""
+    <Condition Message="AGENTKEY e obrigatoria para uma instalacao limpa. Em uma atualizacao, mantenha C:\Orion\agent.yaml configurado.">
+      AGENTKEY &lt;&gt; "" OR EXISTINGAGENTCONFIG
     </Condition>
 
     <!-- Componente "âncora" só pra dar ao MSI algo de fato registrado em
@@ -67,18 +74,12 @@
 
     <Binary Id="OrionInstallerExe" SourceFile="OrionInstaller.exe" />
 
-    <!-- Deferred custom actions não enxergam Property diretamente — o jeito
-         padrão de repassar valor é uma CustomAction imediata gravando a
-         string final na "CustomActionData" da deferred: o Property desta
-         CA imediata precisa ser exatamente o Id da CA deferred
-         (RunInstallerDeferred), que é o que a engine usa pra achar o valor
-         gravado e expandir sozinha via "[CustomActionData]" na hora de
-         rodar já elevada/em System. -->
-    <CustomAction Id="SetRunInstallerData" Property="RunInstallerDeferred" Value="-silent -agent-key=&quot;[AGENTKEY]&quot; -api-url=&quot;[APIURL]&quot; -company-name=&quot;[COMPANYNAME]&quot;" />
-    <CustomAction Id="RunInstallerDeferred" BinaryKey="OrionInstallerExe" ExeCommand="[CustomActionData]" Execute="deferred" Impersonate="no" Return="check" />
+    <!-- A ação diferida não consegue ler propriedades públicas. Copiamos os
+         argumentos para CustomActionData antes de agendá-la. -->
+    <SetProperty Id="RunInstallerDeferred" Before="RunInstallerDeferred" Sequence="execute" Value="-silent -agent-key=&quot;[AGENTKEY]&quot; -api-url=&quot;[APIURL]&quot; -company-name=&quot;[COMPANYNAME]&quot; -diagnostic-log=&quot;C:\ProgramData\OrionAgent\msi-install-error.log&quot;">NOT Installed</SetProperty>
+    <CustomAction Id="RunInstallerDeferred" BinaryKey="OrionInstallerExe" ExeCommand="[CustomActionData]" Execute="deferred" Impersonate="no" Return="check" HideTarget="yes" />
 
     <InstallExecuteSequence>
-      <Custom Action="SetRunInstallerData" Before="RunInstallerDeferred">NOT Installed</Custom>
       <Custom Action="RunInstallerDeferred" After="InstallFiles">NOT Installed</Custom>
     </InstallExecuteSequence>
   </Product>
