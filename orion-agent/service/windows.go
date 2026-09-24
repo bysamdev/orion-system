@@ -195,6 +195,8 @@ func (s *Svc) setMachineToken(t string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.machineToken = t
+	// Poll/respond de comandos mandam o token no X-Machine-Token (SEC-06).
+	sender.DefinirTokenDaMaquina(t)
 }
 
 func (s *Svc) getMachineID() string {

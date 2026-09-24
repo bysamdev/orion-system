@@ -9,6 +9,8 @@ import (
 	"os/exec"
 
 	"github.com/gorilla/websocket"
+
+	"orion-agent/sender"
 )
 
 type ResizeMessage struct {
@@ -43,6 +45,10 @@ func (s *Svc) StartRemoteTerminalSession() {
 	// header nenhum e qualquer um podia se passar pelo agente desta máquina.
 	cabecalhos := http.Header{}
 	cabecalhos.Set("X-Agent-Key", s.cfg.AgentKey)
+	// SEC-06: prova que é esta máquina, não outra da mesma empresa.
+	if tok := s.getMachineToken(); tok != "" {
+		cabecalhos.Set(sender.CabecalhoTokenDaMaquina, tok)
+	}
 
 	conn, resp, err := websocket.DefaultDialer.Dial(wsURL, cabecalhos)
 	if err != nil {

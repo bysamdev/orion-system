@@ -152,6 +152,7 @@ func doPostComIntervalo(url, agentKey string, body []byte) (string, int, error) 
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Agent-Key", agentKey)
+	colocarTokenDaMaquina(req.Header)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -229,6 +230,7 @@ func PollCommands(cfg *config.Config, machineID string) ([]Command, error) {
 		req.URL.RawQuery = q.Encode()
 
 		req.Header.Set("X-Agent-Key", cfg.AgentKey)
+		colocarTokenDaMaquina(req.Header)
 
 		resp, err := httpClient.Do(req)
 		if err != nil {
