@@ -26,7 +26,19 @@ export const usePushNotifications = () => {
       }
     } catch (erro) {
       console.error('[usePushNotifications] Falha ao ativar:', erro);
-      toast({ title: 'Não foi possível ativar as notificações', description: 'Tente novamente em instantes.', variant: 'destructive' });
+      // AbortError no subscribe = o navegador não alcançou o serviço de push.
+      // Acontece no Brave, que vem com o push do Google desligado.
+      const semServicoDePush = erro instanceof DOMException && erro.name === 'AbortError';
+      const ehBrave = 'brave' in navigator;
+      toast({
+        title: 'Não foi possível ativar as notificações',
+        description: semServicoDePush && ehBrave
+          ? 'No Brave, ligue "Usar os serviços do Google para mensagens push" em brave://settings/privacy e reinicie o navegador.'
+          : semServicoDePush
+            ? 'O navegador não conseguiu falar com o serviço de notificações. Verifique se ele não está bloqueado nas configurações.'
+            : 'Tente novamente em instantes.',
+        variant: 'destructive',
+      });
     } finally {
       setOcupado(false);
     }
