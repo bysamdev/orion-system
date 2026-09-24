@@ -21,4 +21,8 @@ log_file: agent.log
 # Exposição de métricas no padrão Prometheus (/metrics)
 metrics_enabled: true
 metrics_port: 9182
+# Sem metrics_token, as métricas só respondem nesta máquina (127.0.0.1).
+# Com token, a porta abre para a rede e exige "Authorization: Bearer <token>"
+# (é o que o Prometheus do servidor envia). Deixe vazio em máquina de cliente.
+metrics_token: ""
 

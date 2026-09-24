@@ -21,6 +21,9 @@ type Config struct {
 	LogFile         string `yaml:"log_file"`
 	MetricsEnabled  *bool  `yaml:"metrics_enabled"`
 	MetricsPort     int    `yaml:"metrics_port"`
+	// MetricsToken: vazio = métricas só em 127.0.0.1; preenchido = porta
+	// aberta na rede exigindo "Authorization: Bearer <token>" (SEC-16/28).
+	MetricsToken string `yaml:"metrics_token"`
 }
 
 // IsMetricsEnabled indica se o servidor de métricas Prometheus deve ser iniciado (padrão: true).

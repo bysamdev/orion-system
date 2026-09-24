@@ -907,15 +907,16 @@ func (s *Svc) startMetricsServer(ctx context.Context) {
 		port = 9182
 	}
 
-	addr := fmt.Sprintf(":%d", port)
+	addr := enderecoDasMetricas(s.cfg.MetricsToken, port)
 	server := &http.Server{
-		Addr:    addr,
-		Handler: NewMetricsHandler(s),
+		Addr:              addr,
+		Handler:           exigeTokenDasMetricas(s.cfg.MetricsToken, NewMetricsHandler(s)),
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	go func() {
 		if s.logger != nil {
-			s.logger.Printf("📊 Servidor de métricas Prometheus ativo em http://0.0.0.0:%d/metrics", port)
+			s.logger.Printf("📊 Servidor de métricas Prometheus ativo em http://%s/metrics", addr)
 		}
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			if s.logger != nil {
