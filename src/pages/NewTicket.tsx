@@ -750,7 +750,7 @@ const NewTicket = () => {
                               form.clearErrors('title');
                             }
                           }}
-                          className="h-14 text-lg font-bold placeholder:font-normal bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl"
+                          className="h-14 text-lg bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl"
                         />
                       </FormControl>
                       <FormMessage />
@@ -872,7 +872,7 @@ const NewTicket = () => {
                                 aria-required={p.obrigatoria}
                                 aria-invalid={!!erro}
                                 aria-describedby={descritoPor}
-                                className="min-h-[96px] text-base font-bold placeholder:font-normal bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-y leading-relaxed"
+                                className="min-h-[96px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-y leading-relaxed"
                               />
                             ) : (
                               <Input
@@ -884,7 +884,7 @@ const NewTicket = () => {
                                 aria-required={p.obrigatoria}
                                 aria-invalid={!!erro}
                                 aria-describedby={descritoPor}
-                                className="h-11 font-bold placeholder:font-normal bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl"
+                                className="h-11 bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl"
                               />
                             )}
                           </>
@@ -907,7 +907,7 @@ const NewTicket = () => {
                       maxLength={MAX_RESPOSTA}
                       onChange={(e) => setComplemento(e.target.value)}
                       placeholder="O que você já tentou, horários em que acontece, qualquer detalhe que ajude"
-                      className="min-h-[80px] text-base font-bold placeholder:font-normal bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-y leading-relaxed"
+                      className="min-h-[80px] text-base bg-background border-border/60 focus-visible:ring-primary/20 rounded-xl resize-y leading-relaxed"
                     />
                   </div>
                 </section>
