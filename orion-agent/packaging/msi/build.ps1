@@ -34,13 +34,16 @@ try {
     # recurso PE. Regerado toda build pra nunca ficar dessincronizado dos
     # PNGs fonte em tray/assets/.
     go run ./cmd/gen-icon assets\orion.ico
+    if ($LASTEXITCODE -ne 0) { throw "gen-icon falhou" }
     go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.7.0 -platform-specific=false -o resource.syso versioninfo.json
+    if ($LASTEXITCODE -ne 0) { throw "goversioninfo do agente falhou" }
     Push-Location cmd\installer
     try {
         # IconPath em versioninfo.json (../../assets/orion.ico) e relativo
         # ao diretorio de trabalho do goversioninfo, nao ao proprio JSON —
         # precisa rodar de dentro de cmd\installer pro caminho relativo bater.
         go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.7.0 -platform-specific=false -o resource.syso versioninfo.json
+        if ($LASTEXITCODE -ne 0) { throw "goversioninfo do instalador falhou" }
     } finally {
         Pop-Location
     }
@@ -55,11 +58,15 @@ try {
     $env:GOARCH = "amd64"
     New-Item -ItemType Directory -Force -Path dist | Out-Null
     go build -ldflags="-H=windowsgui -s -w" -o orion-agent.exe .
+    if ($LASTEXITCODE -ne 0) { throw "build do agente falhou" }
     # O instalador embute o agente em gzip (~40% do tamanho) e sai sem
     # tabela de símbolos (-s -w): de ~17 MB para ~9 MB por instalador gerado.
     go run ./cmd/compactar-agente orion-agent.exe cmd\installer\assets\orion-agent.exe.gz
+    if ($LASTEXITCODE -ne 0) { throw "compactar-agente falhou" }
     go build -trimpath -ldflags="-s -w" -o $instaladorOrigem ./cmd/installer
+    if ($LASTEXITCODE -ne 0) { throw "build do instalador falhou" }
     go build -trimpath -ldflags="-s -w" -o dist\OrionAgentSetup.exe ./cmd/installer
+    if ($LASTEXITCODE -ne 0) { throw "build do instalador standalone falhou" }
 } finally {
     Remove-Item Env:\GOOS -ErrorAction SilentlyContinue
     Remove-Item Env:\GOARCH -ErrorAction SilentlyContinue
