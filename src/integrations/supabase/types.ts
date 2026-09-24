@@ -1362,6 +1362,36 @@ export type Database = {
           },
         ]
       }
+      push_inscricoes: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       rate_limit_counters: {
         Row: {
           bucket_key: string
@@ -2833,6 +2863,15 @@ export type Database = {
           p_condicoes: Json
         }
         Returns: boolean
+      }
+      registrar_inscricao_push: {
+        Args: {
+          p_auth: string
+          p_endpoint: string
+          p_p256dh: string
+          p_user_agent?: string
+        }
+        Returns: undefined
       }
       resolver_chamado: {
         Args: {
