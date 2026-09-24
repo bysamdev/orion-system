@@ -2864,6 +2864,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      minhas_sessoes: {
+        Args: never
+        Returns: {
+          atual: boolean
+          criada_em: string
+          id: string
+          ip: string | null
+          ultimo_uso: string
+          user_agent: string | null
+        }[]
+      }
+      encerrar_sessao: { Args: { p_sessao: string }; Returns: boolean }
+      sessao_atual_ativa: { Args: never; Returns: boolean }
       registrar_inscricao_push: {
         Args: {
           p_auth: string

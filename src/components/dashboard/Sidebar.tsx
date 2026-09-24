@@ -123,7 +123,9 @@ export const AppSidebar: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    // Só este dispositivo: o padrão do Supabase ("global") derrubava junto
+    // os outros aparelhos da pessoa.
+    await supabase.auth.signOut({ scope: 'local' });
     toast({ title: 'Logout realizado com sucesso' });
     navigate('/auth');
   };
