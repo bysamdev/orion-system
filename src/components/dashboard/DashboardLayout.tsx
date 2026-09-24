@@ -1,6 +1,7 @@
 import React from 'react';
 import { AppSidebar } from './Sidebar';
 import { TopBar } from './TopBar';
+import { PushNotificationPrompt } from './PushNotificationPrompt';
 import { useTimerGuard } from '@/hooks/useTimerGuard';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
@@ -44,6 +45,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           className="flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-6 w-full mx-auto min-w-0"
           style={{ maxWidth }}
         >
+          <PushNotificationPrompt />
           {children}
         </main>
       </SidebarInset>

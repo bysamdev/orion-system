@@ -21,6 +21,7 @@ import { useErrorHandler } from "@/lib/useErrorHandler";
 import { invokeOrionFunction } from "@/lib/orion-functions";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -43,7 +44,9 @@ export default function Settings() {
 
   // Estados para notificações (local only — not persisted to DB profiles table)
   const [emailNotifications, setEmailNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(true);
+  const pushNotifications = true;
+  // Notificações no navegador (Web Push): estado real da inscrição deste navegador.
+  const push = usePushNotifications();
 
   // Estados para integração
   const [copiedWebhook, setCopiedWebhook] = useState(false);
@@ -442,14 +445,19 @@ export default function Settings() {
                       <Label className="flex items-center gap-2 text-sm font-bold">
                         Notificações Push
                       </Label>
-                      <p className="text-xs text-muted-foreground">Receba alertas em tempo real no seu navegador</p>
+                      <p className="text-xs text-muted-foreground">
+                        {push.estado === 'sem-suporte' && 'Este navegador não recebe notificações. No iPhone, instale o Orion na tela inicial.'}
+                        {push.estado === 'nao-configurado' && 'Notificações no navegador ainda não configuradas no servidor.'}
+                        {push.estado === 'bloqueado' && 'Bloqueadas no navegador. Libere as notificações do Orion nas configurações do site.'}
+                        {(push.estado === 'ligado' || push.estado === 'desligado' || push.estado === 'carregando') &&
+                          'Receba os avisos dos chamados neste navegador, mesmo com o site fechado'}
+                      </p>
                     </div>
-                    <Switch 
-                      checked={pushNotifications}
-                      onCheckedChange={(val) => {
-                        setPushNotifications(val);
-                        updateProfileMutation.mutate();
-                      }}
+                    <Switch
+                      checked={push.estado === 'ligado'}
+                      disabled={push.ocupado || !['ligado', 'desligado'].includes(push.estado)}
+                      onCheckedChange={(val) => (val ? push.ligar() : push.desligar())}
+                      aria-label="Notificações no navegador"
                     />
                   </div>
                 </CardContent>
