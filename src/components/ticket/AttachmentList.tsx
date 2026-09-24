@@ -65,7 +65,7 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
           className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg group overflow-hidden"
         >
           {/* Preview de imagem ou ícone */}
-          {isImage(attachment.file_type) ? (
+          {isImage(attachment.file_type) && attachment.disponibilidade === 'disponivel' ? (
             <img 
               src={attachment.file_url} 
               alt={attachment.file_name}
@@ -89,6 +89,13 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
                 addSuffix: true 
               })}
             </p>
+            {attachment.disponibilidade !== 'disponivel' && (
+              <p className="text-xs text-destructive" role="status">
+                {attachment.disponibilidade === 'ausente'
+                  ? 'Arquivo não encontrado no armazenamento. Solicite um novo envio.'
+                  : 'Arquivo indisponível no momento. Tente novamente mais tarde.'}
+              </p>
+            )}
           </div>
           
           {/* Ações */}
@@ -97,6 +104,7 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
               variant="ghost"
               size="icon-sm"
               onClick={() => handleDownload(attachment)}
+              disabled={attachment.disponibilidade !== 'disponivel'}
               aria-label="Baixar arquivo"
               title="Baixar arquivo"
             >

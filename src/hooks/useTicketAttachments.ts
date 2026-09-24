@@ -21,7 +21,11 @@ export interface TicketAttachment {
   file_type: string;
   uploaded_by: string;
   created_at: string;
+  disponibilidade?: 'disponivel' | 'ausente' | 'indisponivel';
 }
+
+export const statusDoAnexo = (codigo?: string | number): TicketAttachment['disponibilidade'] =>
+  String(codigo) === '404' ? 'ausente' : 'indisponivel';
 
 /**
  * Extrai o caminho relativo no storage a partir de um file_url.
@@ -78,6 +82,13 @@ export const useTicketAttachments = (ticketId: string) => {
 
           if (storagePath) {
             try {
+              const { error: infoError } = await supabase.storage
+                .from('ticket-files')
+                .info(storagePath);
+              if (infoError) {
+                return { ...attachment, disponibilidade: statusDoAnexo(infoError.statusCode) };
+              }
+
               const { data: urlData, error: signError } = await supabase.storage
                 .from('ticket-files')
                 .createSignedUrl(storagePath, 60 * 60 * 24);
@@ -85,15 +96,17 @@ export const useTicketAttachments = (ticketId: string) => {
               if (!signError && urlData?.signedUrl) {
                 return {
                   ...attachment,
-                  file_url: urlData.signedUrl
+                  file_url: urlData.signedUrl,
+                  disponibilidade: 'disponivel' as const
                 };
               }
+              return { ...attachment, disponibilidade: statusDoAnexo(signError?.statusCode) };
             } catch (err) {
               console.error('Erro ao gerar signed URL para anexo:', attachment.id, err);
             }
           }
 
-          return attachment as TicketAttachment;
+          return { ...attachment, disponibilidade: 'indisponivel' as const };
         })
       );
 
