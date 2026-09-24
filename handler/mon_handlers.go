@@ -1789,9 +1789,9 @@ func afetaStatusDaMaquina(alertType string) bool {
 //
 // Existe porque o primeiro sinal de que um teto foi atingido, hoje, é o
 // sistema já degradado: banco em somente-leitura ou conexão recusada, com
-// todo o parque parando de reportar ao mesmo tempo. O alerta em 80% (ver
-// grafana/provisioning/alerting/rules.yaml, grupo orion-supabase-capacity)
-// dá margem pra agir antes disso.
+// todo o parque parando de reportar ao mesmo tempo. Um alerta em 80%,
+// quando conectado a uma fonte compatível no Grafana, dará margem pra agir
+// antes disso. A fonte Infinity atual não suporta alerting.
 //
 // Autenticado pelo mesmo segredo do webhook de alertas — é o canal que já
 // existe entre Grafana e Orion, e não valia inventar uma segunda variável de
