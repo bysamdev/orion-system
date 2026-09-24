@@ -58,6 +58,10 @@ func main() {
 		Metricas:      monitor.NovasMetricas(),
 		SegredoIngest: segredo,
 	}
+	if url, segredoGrafana := os.Getenv("ORION_CAPACITY_URL"), os.Getenv("GRAFANA_WEBHOOK_SECRET"); url != "" && segredoGrafana != "" {
+		srv.Capacidade = monitor.NovaCapacidade(url, segredoGrafana, &http.Client{Timeout: 10 * time.Second})
+		go srv.Capacidade.Coletar(ctx, func(err error) { log.Printf("[AVISO] coleta de capacidade do Supabase: %v", err) })
+	}
 	if err := srv.Carregar(ctx); err != nil {
 		log.Printf("[AVISO] %v — métricas começam vazias até o próximo heartbeat", err)
 	}
