@@ -134,9 +134,9 @@ export const CartaoDeChamado: React.FC<CartaoDeChamadoProps> = React.memo(({ tic
               <span className="hidden lg:inline whitespace-nowrap shrink-0" title={`Aberto em ${aberturaExata}`}>· aberto {aberto}</span>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 xl:grid xl:grid-cols-[10rem_7rem_11.25rem] xl:gap-x-3">
-            <div className="min-w-0"><Prazo ticket={t} /></div>
-            <div className="min-w-0"><StatusBadge status={t.status} /></div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 xl:grid xl:grid-cols-[12.5rem_9rem_11.25rem] xl:gap-x-3">
+            <div className="min-w-0 flex"><Prazo ticket={t} /></div>
+            <div className="min-w-0 flex"><StatusBadge status={t.status} className="max-w-full" /></div>
             <div className="min-w-0 max-w-full xl:max-w-[180px]">
               <Responsavel ticket={t} onAssume={onAssume} />
             </div>

@@ -19,7 +19,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) =
       className={cn('h-6 gap-1.5 px-2.5 text-xs font-semibold whitespace-nowrap', config.badgeClass, className)}
     >
       <div className={cn('w-1.5 h-1.5 rounded-full shrink-0', config.dotColor)} aria-hidden="true" />
-      <span>{config.label}</span>
+      <span className="truncate">{config.label}</span>
     </Badge>
   );
 };
