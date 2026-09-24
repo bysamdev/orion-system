@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verificarAssinaturaSvix } from './svix.ts'
 import { ehErroDefinitivo, montarDescricao, montarTitulo } from './montarChamado.ts'
+import { remetenteAutenticado } from './autenticacao.ts'
 
 // =============================================================================
 // email-to-ticket — abre chamado a partir de e-mail recebido pelo Resend
@@ -338,6 +339,14 @@ serve(async (req) => {
     }
 
     const email = await respostaResend.json()
+
+    // O From pode ser forjado: só abre chamado em nome do usuário se o
+    // servidor que recebeu o e-mail validou o remetente (ORN-SEC-21).
+    if (!remetenteAutenticado(email?.authentication)) {
+      console.warn('email-to-ticket: remetente sem autenticação válida:', remetenteMascarado,
+        JSON.stringify(email?.authentication ?? null))
+      return recusar('remetente_nao_autenticado')
+    }
     const assunto = typeof dados.subject === 'string' && dados.subject.trim() ? dados.subject : email.subject
 
     // Título e descrição respeitam as constraints de tickets (mínimo de 3 e 10
