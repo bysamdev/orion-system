@@ -27,10 +27,10 @@ export const ListaDeDispositivos: React.FC<Props> = ({ sessoes, encerrando, onEn
           <div className="flex items-start gap-3 flex-1 min-w-0">
             <Icone className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" aria-hidden="true" />
             <div className="min-w-0">
-              <p className="text-sm font-semibold flex items-center gap-2 flex-wrap">
+              <div className="text-sm font-semibold flex items-center gap-2 flex-wrap">
                 {descreverDispositivo(s.user_agent)}
                 {s.atual && <Badge variant="secondary">Este dispositivo</Badge>}
-              </p>
+              </div>
               <p className="text-xs text-muted-foreground">
                 {s.ip ? `IP ${s.ip} · ` : ''}
                 usado {formatDistanceToNow(new Date(s.ultimo_uso), { addSuffix: true, locale: ptBR })}
