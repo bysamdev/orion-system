@@ -30,7 +30,12 @@ const Avatar: React.FC<{ nome: string | null | undefined }> = ({ nome }) => (
 const Prazo: React.FC<{ ticket: Ticket }> = ({ ticket }) => {
   const prazo = prazoDe(ticket);
   return (
-    <span className={cn('inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap shrink-0', COR_DO_PRAZO[prazo.tom])}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 h-6 px-2 rounded-full border text-xs font-semibold whitespace-nowrap shrink-0',
+        COR_DO_PRAZO[prazo.tom]
+      )}
+    >
       <AlarmClock className="w-3.5 h-3.5 shrink-0" aria-hidden />
       {prazo.texto}
     </span>

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTechnicianStats, useTeamWorkload } from '@/hooks/useTechnicianStats';
-import { useMyActiveTickets, useUnassignedTicketsEnhanced, useAllActiveTickets, useMyRecentClosedTickets, useActiveAgentsCount } from '@/hooks/useMyTickets';
+import { useMyActiveTickets, useUnassignedTicketsEnhanced, useAllActiveTickets, useMyRecentClosedTickets, useActiveAgentsCount, useClosedTicketsRecentes } from '@/hooks/useMyTickets';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useToast } from '@/hooks/use-toast';
 import { useAssumeTicket } from '@/hooks/useTickets';
@@ -36,7 +36,8 @@ export const TechnicianDashboard: React.FC = () => {
   const { data: teamWorkload } = useTeamWorkload(profile?.company_id);
   const assumeTicket = useAssumeTicket();
 
-  const filtros = useFiltrosDoPainel(unassigned, myTickets, allActiveTickets);
+  const { data: closedRecentes = [] } = useClosedTicketsRecentes();
+  const filtros = useFiltrosDoPainel(unassigned, myTickets, allActiveTickets, closedRecentes);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [modo, setModo] = useModoDoPainel(role);
 
@@ -102,7 +103,7 @@ export const TechnicianDashboard: React.FC = () => {
 
       {modo === 'lista' ? (
         carregandoListas ? <Carregando /> : (
-          <ModoLista filtros={filtros} recorteInicial={recorteInicial} onAssume={handleAssumeTicket} />
+          <ModoLista filtros={filtros} recorteInicial={recorteInicial} userId={user?.id} onAssume={handleAssumeTicket} />
         )
       ) : modo === 'graficos' ? (
         <div className="space-y-6">

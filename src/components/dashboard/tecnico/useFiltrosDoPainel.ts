@@ -10,7 +10,12 @@ import { criarFiltro } from './filtroDoPainel';
 // fechados. Prazo e categoria usam o mesmo cálculo que os cartões mostram
 // (urgenciaDe, identidade.ts), não o sla_status gravado, que o cron só
 // atualiza a cada 15 minutos.
-export function useFiltrosDoPainel(unassigned: Ticket[], myTickets: Ticket[], allActiveTickets: Ticket[]) {
+export function useFiltrosDoPainel(
+  unassigned: Ticket[],
+  myTickets: Ticket[],
+  allActiveTickets: Ticket[],
+  closedTickets: Ticket[] = [],
+) {
   const [searchTerm, setSearchTerm] = useState('');
   const [kpiFilter, setKpiFilter] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -28,6 +33,7 @@ export function useFiltrosDoPainel(unassigned: Ticket[], myTickets: Ticket[], al
   const filteredUnassignedTickets = useMemo(() => unassigned.filter(passa), [unassigned, passa]);
   const filteredMyTickets = useMemo(() => myTickets.filter(passa), [myTickets, passa]);
   const filteredAllTickets = useMemo(() => allActiveTickets.filter(passa), [allActiveTickets, passa]);
+  const filteredClosedTickets = useMemo(() => closedTickets.filter(passa), [closedTickets, passa]);
 
   const limparFiltros = () => {
     setPriorityFilter('all');
@@ -57,6 +63,7 @@ export function useFiltrosDoPainel(unassigned: Ticket[], myTickets: Ticket[], al
     filteredUnassignedTickets,
     filteredMyTickets,
     filteredAllTickets,
+    filteredClosedTickets,
   };
 }
 

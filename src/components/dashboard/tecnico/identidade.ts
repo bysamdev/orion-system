@@ -31,13 +31,32 @@ export function urgenciaDe(t: Ticket): Urgencia {
   return 'em_dia';
 }
 
-export interface Prazo {
-  texto: string;
-  tom: 'perigo' | 'alerta' | 'neutro' | 'pausa';
+// Seções da Lista, pela situação do atendimento (card "Dividir em seções os
+// chamados", 24/09/2026): quem ainda espera um técnico, o que está sendo
+// atendido, o que já foi atendido e só aguarda (cliente, terceiro ou o
+// encerramento) e o que foi concluído.
+export type Secao = 'fila' | 'em_atendimento' | 'atendido' | 'concluido';
+
+const ATENDIDOS = ['awaiting-customer', 'awaiting-third-party', 'resolved'];
+const CONCLUIDOS = ['closed', 'cancelled'];
+
+export function secaoDe(t: Ticket): Secao {
+  if (CONCLUIDOS.includes(t.status)) return 'concluido';
+  if (ATENDIDOS.includes(t.status)) return 'atendido';
+  if (t.status === 'open' && semResponsavel(t)) return 'fila';
+  return 'em_atendimento';
 }
 
-// "venceu há 3 dias", "vence em 2 horas", "SLA pausado", "sem prazo".
+export interface Prazo {
+  texto: string;
+  tom: 'perigo' | 'alerta' | 'ok' | 'neutro' | 'pausa';
+}
+
+// "Venceu há 3 dias", "Vence em 2 horas", "SLA pausado", "Sem prazo".
+// Concluído ou resolvido não tem mais prazo correndo.
 export function prazoDe(t: Ticket): Prazo {
+  if (CONCLUIDOS.includes(t.status)) return { texto: 'Concluído', tom: 'neutro' };
+  if (t.status === 'resolved') return { texto: 'Aguardando encerramento', tom: 'neutro' };
   const urgencia = urgenciaDe(t);
   if (urgencia === 'pausado') return { texto: 'SLA pausado', tom: 'pausa' };
   if (!t.sla_due_date) return { texto: 'Sem prazo', tom: 'neutro' };
@@ -45,14 +64,16 @@ export function prazoDe(t: Ticket): Prazo {
   const distancia = formatDistanceToNowStrict(vence, { locale: ptBR });
   if (urgencia === 'atrasado') return { texto: `Venceu há ${distancia}`, tom: 'perigo' };
   if (urgencia === 'atencao') return { texto: `Vence em ${distancia}`, tom: 'alerta' };
-  return { texto: `Vence em ${distancia}`, tom: 'neutro' };
+  return { texto: `Vence em ${distancia}`, tom: 'ok' };
 }
 
+// Selo do prazo: a cor diz a situação do SLA de relance.
 export const COR_DO_PRAZO: Record<Prazo['tom'], string> = {
-  perigo: 'text-red-600 dark:text-red-400',
-  alerta: 'text-orange-600 dark:text-orange-400',
-  neutro: 'text-muted-foreground',
-  pausa: 'text-violet-600 dark:text-violet-400',
+  perigo: 'bg-red-500/10 text-red-700 border-red-500/30 dark:text-red-300',
+  alerta: 'bg-orange-500/10 text-orange-700 border-orange-500/30 dark:text-orange-300',
+  ok: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-300',
+  neutro: 'bg-muted text-muted-foreground border-border/60',
+  pausa: 'bg-violet-500/10 text-violet-700 border-violet-500/30 dark:text-violet-300',
 };
 
 export function iniciais(nome: string | null | undefined): string {

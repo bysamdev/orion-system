@@ -116,6 +116,35 @@ export const useAllActiveTickets = () => {
   });
 };
 
+// Janela da seção "Atendimento concluído" da Lista do técnico.
+const DIAS_DE_CONCLUIDOS = 7;
+
+/**
+ * Chamados encerrados ou cancelados nos últimos 7 dias, que a RLS deixa o
+ * usuário ver. Alimenta a seção "Atendimento concluído" da Lista; o recorte
+ * "Meus chamados" filtra pelo responsável no próprio componente.
+ */
+export const useClosedTicketsRecentes = (enabled = true) => {
+  return useQuery({
+    queryKey: ['closed-tickets-recentes'],
+    queryFn: async () => {
+      const desde = new Date(Date.now() - DIAS_DE_CONCLUIDOS * 24 * 60 * 60 * 1000).toISOString();
+      const { data: tickets, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .in('status', ['closed', 'cancelled'])
+        .gte('updated_at', desde)
+        .order('updated_at', { ascending: false })
+        .limit(ACTIVE_QUEUE_SAFETY_LIMIT);
+
+      if (error) throw error;
+      return enrichTicketsWithCompany(tickets || []) as Promise<Ticket[]>;
+    },
+    enabled,
+    refetchInterval: FALLBACK_REFETCH_TICKETS,
+  });
+};
+
 /**
  * Hook para buscar tickets fechados recentes do técnico
  */

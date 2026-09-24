@@ -7,36 +7,35 @@ import { cn } from '@/lib/utils';
 import { FiltrosAvancados } from './FiltrosAvancados';
 import { FiltrosDoPainel } from './useFiltrosDoPainel';
 import { CartaoDeChamado } from './CartaoDeChamado';
-import { Urgencia, urgenciaDe } from './identidade';
+import { Secao, secaoDe } from './identidade';
 
-export type Recorte = 'fila' | 'meus' | 'sla' | 'todos';
+export type Recorte = 'fila' | 'meus' | 'todos';
 
-const slaCritico = (t: Ticket) => {
-  const u = urgenciaDe(t);
-  return u === 'atrasado' || u === 'atencao';
-};
-
-// Ordem de leitura: o que já estourou primeiro, o que está parado por último.
-const GRUPOS: { id: Urgencia; titulo: string; dica: string; ponto: string }[] = [
-  { id: 'atrasado', titulo: 'Atrasados', dica: 'prazo de SLA vencido', ponto: 'bg-red-500' },
-  { id: 'atencao', titulo: 'Precisam de atenção', dica: 'prazo perto do fim', ponto: 'bg-orange-500' },
-  { id: 'em_dia', titulo: 'Em dia', dica: 'dentro do prazo', ponto: 'bg-emerald-500' },
-  { id: 'pausado', titulo: 'Aguardando', dica: 'cliente ou terceiro, SLA pausado', ponto: 'bg-violet-500' },
+// Seções pela situação do atendimento. O prazo de cada chamado aparece no
+// selo colorido do cartão (verde, laranja, vermelho, roxo quando pausado).
+const SECOES: { id: Secao; titulo: string; dica: string; ponto: string }[] = [
+  { id: 'fila', titulo: 'Na fila', dica: 'aguardando um técnico', ponto: 'bg-sky-500' },
+  { id: 'em_atendimento', titulo: 'Em atendimento', dica: 'sendo atendidos agora', ponto: 'bg-amber-500' },
+  { id: 'atendido', titulo: 'Atendido', dica: 'pausados ou aguardando conclusão do atendimento', ponto: 'bg-violet-500' },
+  { id: 'concluido', titulo: 'Atendimento concluído', dica: 'fechados nos últimos 7 dias', ponto: 'bg-emerald-500' },
 ];
 
 const vencimento = (t: Ticket) => (t.sla_due_date ? new Date(t.sla_due_date).getTime() : Infinity);
+const maisRecenteAntes = (a: Ticket, b: Ticket) => (b.updated_at ?? '').localeCompare(a.updated_at ?? '');
 
 interface ModoListaProps {
   filtros: FiltrosDoPainel;
-  recorteInicial: Recorte;
+  recorteInicial: Recorte | 'sla';
+  userId?: string;
   onAssume: (id: string) => void;
 }
 
-// Chamados agrupados por urgência, um cartão largo por chamado.
-export const ModoLista: React.FC<ModoListaProps> = ({ filtros, recorteInicial, onAssume }) => {
-  const [recorte, setRecorte] = useState<Recorte>(recorteInicial);
+// Chamados agrupados pela situação do atendimento, um cartão largo por chamado.
+export const ModoLista: React.FC<ModoListaProps> = ({ filtros, recorteInicial, userId, onAssume }) => {
+  const [recorte, setRecorte] = useState<Recorte>(recorteInicial === 'sla' ? 'todos' : recorteInicial);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
 
+  // Ativos contam nos botões; concluídos só aparecem na última seção.
   const listas = useMemo(() => {
     // "Todos" já inclui a fila; a união cobre o caso de a fila chegar antes.
     const vistos = new Set<string>();
@@ -48,26 +47,35 @@ export const ModoLista: React.FC<ModoListaProps> = ({ filtros, recorteInicial, o
     return {
       fila: filtros.filteredUnassignedTickets,
       meus: filtros.filteredMyTickets,
-      sla: todos.filter(slaCritico),
       todos,
     };
   }, [filtros.filteredAllTickets, filtros.filteredUnassignedTickets, filtros.filteredMyTickets]);
 
-  const chips: { id: Recorte; rotulo: string; perigo?: boolean }[] = [
+  const concluidos = useMemo(() => ({
+    fila: [] as Ticket[],
+    meus: filtros.filteredClosedTickets.filter(t => t.assigned_to_user_id === userId),
+    todos: filtros.filteredClosedTickets,
+  }), [filtros.filteredClosedTickets, userId]);
+
+  const chips: { id: Recorte; rotulo: string }[] = [
     { id: 'fila', rotulo: 'Fila de espera' },
     { id: 'meus', rotulo: 'Meus chamados' },
-    { id: 'sla', rotulo: 'SLA crítico', perigo: listas.sla.length > 0 },
     { id: 'todos', rotulo: 'Todos' },
   ];
 
-  const chamados = listas[recorte];
+  const chamados = useMemo(
+    () => [...listas[recorte], ...concluidos[recorte]],
+    [listas, concluidos, recorte]
+  );
 
-  const grupos = useMemo(() => GRUPOS
-    .map(g => ({
-      ...g,
-      chamados: chamados.filter(t => urgenciaDe(t) === g.id).sort((a, b) => vencimento(a) - vencimento(b)),
+  const grupos = useMemo(() => SECOES
+    .map(s => ({
+      ...s,
+      chamados: chamados
+        .filter(t => secaoDe(t) === s.id)
+        .sort(s.id === 'concluido' ? maisRecenteAntes : (a, b) => vencimento(a) - vencimento(b)),
     }))
-    .filter(g => g.chamados.length > 0), [chamados]);
+    .filter(s => s.chamados.length > 0), [chamados]);
 
   return (
     <div className="space-y-4">
@@ -93,7 +101,7 @@ export const ModoLista: React.FC<ModoListaProps> = ({ filtros, recorteInicial, o
                   'min-w-5 h-5 px-1.5 rounded-full inline-flex items-center justify-center text-[11px] tabular-nums',
                   recorte === c.id
                     ? 'bg-primary-foreground/20'
-                    : c.perigo ? 'bg-destructive/15 text-destructive' : 'bg-muted'
+                    : 'bg-muted'
                 )}
               >
                 {listas[c.id].length}
