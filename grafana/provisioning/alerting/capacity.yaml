@@ -1,0 +1,183 @@
+apiVersion: 1
+
+# Fonte Prometheus existente; os cinco valores vêm do cache de 15 minutos do
+# Orion Monitor. Falha de coleta gera um alerta próprio, sem reutilizar dado velho.
+groups:
+  - orgId: 1
+    name: orion-supabase-capacity
+    folder: Orion
+    interval: 15m
+    rules:
+      - uid: orion-supabase-banco-cheio
+        title: Banco Supabase Perto do Limite
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_supabase_banco_percent'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+              refId: C
+        for: 15m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: 'Banco Supabase Perto do Limite'
+          description: 'Banco Supabase acima de 80% do limite; conferir retenção e espaço disponível.'
+
+      - uid: orion-supabase-conexoes
+        title: Conexões Postgres Perto do Limite
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_supabase_conexoes_percent'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+              refId: C
+        for: 15m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: 'Conexões Postgres Perto do Limite'
+          description: 'Conexões Postgres acima de 80%; conferir pooler e limites da API.'
+
+      - uid: orion-supabase-storage
+        title: Storage Supabase Perto do Limite
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_supabase_storage_percent'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+              refId: C
+        for: 15m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: 'Storage Supabase Perto do Limite'
+          description: 'Storage acima de 80%; revisar anexos e instaladores antigos.'
+
+      - uid: orion-supabase-realtime-regressao
+        title: Tabelas Realtime Acima do Esperado
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_supabase_realtime_tabelas'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [1] }
+              refId: C
+        for: 15m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: 'Tabelas Realtime Acima do Esperado'
+          description: 'Mais de uma tabela publicada no Realtime; verificar se machines voltou à publicação.'
+
+      - uid: orion-supabase-egress
+        title: Egress Estimado Perto do Limite
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_supabase_egress_percent'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+              refId: C
+        for: 15m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: 'Egress Estimado Perto do Limite'
+          description: 'Egress estimado pela API acima de 80%; o consumo oficial inclui tráfego fora da API.'
+
+      - uid: orion-supabase-coleta-falhou
+        title: Coleta de Capacidade Indisponível
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: '1 - orion_supabase_capacity_up'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.5] }
+              refId: C
+        for: 15m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: 'Coleta de Capacidade Indisponível'
+          description: 'A coleta de capacidade falhou; verificar o Orion Monitor e o endpoint da API.'

@@ -21,6 +21,7 @@ type Servidor struct {
 	Leitor        Leitor
 	Historiador   Historiador
 	Metricas      *Metricas
+	Capacidade    *Capacidade
 	SegredoIngest string
 }
 
@@ -103,6 +104,9 @@ func (s *Servidor) ingerir(w http.ResponseWriter, r *http.Request) {
 func (s *Servidor) metricas(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	s.Metricas.Escrever(w, time.Now())
+	if s.Capacidade != nil {
+		s.Capacidade.Escrever(w)
+	}
 }
 
 func (s *Servidor) saude(w http.ResponseWriter, r *http.Request) {

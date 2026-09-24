@@ -181,6 +181,8 @@ services:
     environment:
       - MONITOR_DATABASE_URL=postgres://orion_monitor:${MONITOR_DB_PASSWORD}@monitor-db:5432/orion_monitor?sslmode=disable
       - MONITOR_INGEST_SECRET=${MONITOR_INGEST_SECRET}
+      - ORION_CAPACITY_URL=https://orion.bysam.dev/api/monitoring/capacity
+      - GRAFANA_WEBHOOK_SECRET=${GRAFANA_WEBHOOK_SECRET}
     ports:
       - '127.0.0.1:9300:9300'
     depends_on:
