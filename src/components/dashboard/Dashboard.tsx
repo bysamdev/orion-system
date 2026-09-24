@@ -2,7 +2,6 @@ import React from 'react';
 import { DashboardHeader } from './DashboardHeader';
 import { TechnicianDashboard } from './TechnicianDashboard';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
-import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { Loader2 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 
@@ -10,9 +9,6 @@ export const Dashboard: React.FC = () => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: profile, isLoading: profileLoading } = useUserProfile();
   
-  // Enable real-time notifications
-  useRealtimeTickets();
-
   if (roleLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">

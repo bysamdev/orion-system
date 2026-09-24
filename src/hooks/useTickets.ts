@@ -163,6 +163,7 @@ export const useTicket = (id: string) => {
     },
     enabled: !!id,
     staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 };
 
@@ -203,6 +204,7 @@ export const useTicketUpdates = (ticketId: string) => {
     },
     enabled: !!ticketId,
     staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 };
 

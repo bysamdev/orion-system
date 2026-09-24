@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchWithTimeout } from '@/lib/fetch-client';
@@ -66,42 +65,6 @@ export interface MonitoredEndpoint {
 }
 
 export function useWebEndpoints() {
-  const queryClient = useQueryClient();
-
-  useEffect(() => {
-    const channelName = `monitored-endpoints-realtime-${Math.random().toString(36).slice(2, 7)}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'monitored_endpoints',
-        },
-        () => {
-          try {
-            queryClient.invalidateQueries({ queryKey: ['webEndpoints'] });
-          } catch (e) {
-            console.warn('[useWebEndpoints] Erro ao invalidar webEndpoints:', e);
-          }
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.warn('[useWebEndpoints] Erro no canal realtime webEndpoints');
-        }
-      });
-
-    return () => {
-      try {
-        supabase.removeChannel(channel);
-      } catch (err) {
-        console.warn('[useWebEndpoints] Erro ao remover canal realtime:', err);
-      }
-    };
-  }, [queryClient]);
-
   return useQuery({
     queryKey: ['webEndpoints'],
     queryFn: async () => {

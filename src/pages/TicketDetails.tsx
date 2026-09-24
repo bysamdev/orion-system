@@ -43,7 +43,6 @@ import { formatDistanceToNow, differenceInHours, differenceInMinutes } from 'dat
 import { ptBR } from 'date-fns/locale';
 import { z } from 'zod';
 import { ticketPrioritySchema } from '@/lib/validation';
-import { useRealtimeTicket } from '@/hooks/useRealtimeTickets';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMachineDetail, useMachineAlerts, pct, useCreateCommand } from '@/hooks/useMonitoring';
 import { Server, HardDrive, Cpu, MemoryStick, Activity, Bell, Terminal } from 'lucide-react';
@@ -232,6 +231,7 @@ const TicketDetails: React.FC = () => {
       return data || [];
     },
     enabled: !!validId,
+    refetchInterval: 60_000,
   });
 
   const [newUpdateText, setNewUpdateText] = useState('');
@@ -472,7 +472,6 @@ const TicketDetails: React.FC = () => {
 
   const { data: attachments = [], isLoading: attachmentsLoading } = useTicketAttachments(validId);
   const uploadAttachment = useUploadAttachment();
-  useRealtimeTicket(validId);
 
   const { data: technicians = [], isLoading: techniciansLoading } = useQuery({
     queryKey: ['technicians'],

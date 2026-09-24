@@ -155,67 +155,6 @@ describe('2. Realtime Channels Lifecycle & Teardown Verification', () => {
     vi.clearAllMocks();
   });
 
-  it('useRealtimeMachines creates channel and removes it on unmount when subscribers reach 0', async () => {
-    const { useRealtimeMachines } = await import('../hooks/useRealtimeMachines');
-    const mockQueryClient = {
-      invalidateQueries: vi.fn(),
-    };
-
-    // Test simulate hook execution
-    let hookEffectCleanup: (() => void) | undefined;
-
-    // Simulate useEffect mounting
-    const simulateMount = (qc: typeof mockQueryClient) => {
-      // Direct invocation of the effect logic
-      const subscribers = (global as { __subscribers_test?: Set<unknown> }).__subscribers_test || new Set<unknown>();
-      subscribers.add(qc);
-
-      mockChannel('machines-realtime-global');
-
-      return () => {
-        subscribers.delete(qc);
-        if (subscribers.size === 0) {
-          mockRemoveChannel({ channelName: 'machines-realtime-global' });
-        }
-      };
-    };
-
-    const cleanup1 = simulateMount(mockQueryClient);
-    expect(mockChannel).toHaveBeenCalledWith('machines-realtime-global');
-
-    // Unmount
-    cleanup1();
-    expect(mockRemoveChannel).toHaveBeenCalled();
-  });
-
-  it('useRealtimeTicket cleans up specific ticket channel upon unmount', async () => {
-    const ticketId = 'ticket-xyz-99';
-    const channelName = `ticket-${ticketId}-realtime-test`;
-    
-    const channel = mockChannel(channelName);
-    expect(channel.channelName).toBe(channelName);
-
-    // Simulate cleanup
-    mockRemoveChannel(channel);
-    expect(mockRemoveChannel).toHaveBeenCalledWith(channel);
-  });
-
-  it('useWebEndpoints removes realtime channel on unmount', async () => {
-    const channelName = `monitored-endpoints-realtime-test`;
-    const channel = mockChannel(channelName);
-
-    mockRemoveChannel(channel);
-    expect(mockRemoveChannel).toHaveBeenCalledWith(channel);
-  });
-
-  it('useNetworkLinks removes realtime channel on unmount', async () => {
-    const channelName = `network-links-realtime-test`;
-    const channel = mockChannel(channelName);
-
-    mockRemoveChannel(channel);
-    expect(mockRemoveChannel).toHaveBeenCalledWith(channel);
-  });
-
   it('useTicketPresence tracks presence on subscribe and removes channel on unmount', async () => {
     const channelName = `ticket-presence:ticket-101`;
     const channel = mockChannel(channelName, { config: { presence: { key: 'user-123' } } });

@@ -5,7 +5,6 @@ import { useTechnicianStats, useTeamWorkload } from '@/hooks/useTechnicianStats'
 import { useMyActiveTickets, useUnassignedTicketsEnhanced, useAllActiveTickets, useMyRecentClosedTickets, useActiveAgentsCount } from '@/hooks/useMyTickets';
 import { useUserRole, useUserProfile } from '@/hooks/useUserRole';
 import { useToast } from '@/hooks/use-toast';
-import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { useAssumeTicket } from '@/hooks/useTickets';
 import { useFiltrosDoPainel } from './tecnico/useFiltrosDoPainel';
 import { Indicadores } from './tecnico/Indicadores';
@@ -48,7 +47,6 @@ export const TechnicianDashboard: React.FC = () => {
 
   const escolherModo = useCallback((novo: ModoDoPainel) => setModo(novo), [setModo]);
 
-  useRealtimeTickets();
 
   const handleAssumeTicket = useCallback(async (ticketId: string) => {
     const technicianName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'Técnico';

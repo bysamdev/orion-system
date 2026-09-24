@@ -16,7 +16,6 @@ import { useNavigate } from 'react-router-dom';
 import { cn, formatDate } from '@/lib/utils';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
-import { useRealtimeTickets } from '@/hooks/useRealtimeTickets';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -45,9 +44,6 @@ export default function ClientPortal() {
   const { profilesMap } = useProfilesMap();
   const { data: role } = useUserRole();
   const isStaff = role === 'technician' || role === 'admin' || role === 'developer';
-
-  // Subscrição em tempo real para mudanças em tickets
-  useRealtimeTickets();
 
   // Busca todos os chamados abertos/em andamento do cliente logado (enquanto não estiverem fechados/cancelados)
   const { data: openTickets = [], isLoading: ticketsLoading } = useQuery({
@@ -343,4 +339,3 @@ export default function ClientPortal() {
     </div>
   );
 }
-

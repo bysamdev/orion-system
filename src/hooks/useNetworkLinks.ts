@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchWithTimeout } from '@/lib/fetch-client';
@@ -57,42 +56,6 @@ export interface CreateNetworkLinkInput {
 }
 
 export function useNetworkLinks(companyId?: string) {
-  const queryClient = useQueryClient();
-
-  useEffect(() => {
-    const channelName = `network-links-realtime-${Math.random().toString(36).slice(2, 7)}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'network_links',
-        },
-        () => {
-          try {
-            queryClient.invalidateQueries({ queryKey: ['networkLinks'] });
-          } catch (e) {
-            console.warn('[useNetworkLinks] Erro ao invalidar networkLinks:', e);
-          }
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.warn('[useNetworkLinks] Erro no canal realtime networkLinks');
-        }
-      });
-
-    return () => {
-      try {
-        supabase.removeChannel(channel);
-      } catch (err) {
-        console.warn('[useNetworkLinks] Erro ao remover canal realtime:', err);
-      }
-    };
-  }, [queryClient]);
-
   return useQuery({
     queryKey: ['networkLinks', companyId || 'all'],
     queryFn: async (): Promise<NetworkLink[]> => {

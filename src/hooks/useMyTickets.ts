@@ -11,12 +11,9 @@ import { Ticket } from './useTickets';
 // cresçam sem limite conforme o volume de chamados simultâneos aumenta.
 const ACTIVE_QUEUE_SAFETY_LIMIT = 500;
 
-// Fallback de segurança pras filas abaixo, que já são invalidadas por
-// useRealtimeTickets a cada INSERT/UPDATE em tickets (ver
-// src/hooks/useRealtimeTickets.ts). Com refetchInterval de 30s (igual ao
-// antigo), Realtime + polling faziam o mesmo fetch duas vezes por evento
-// na prática -- mesmo ajuste já aplicado às queries de monitoramento em
-// useMonitoring.ts.
+// Sem tickets na publicação do Realtime, este intervalo é o caminho de
+// atualização periódica das filas. A invalidação após mutações locais
+// continua imediata.
 const FALLBACK_REFETCH_TICKETS = 120_000;
 
 /**
