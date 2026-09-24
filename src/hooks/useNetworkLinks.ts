@@ -51,8 +51,6 @@ export interface CreateNetworkLinkInput {
   type: 'link_dedicado' | 'starlink' | 'roteador' | string;
   company_id?: string | null;
   ip_or_host: string;
-  status?: string;
-  latency_ms?: number | null;
 }
 
 export function useNetworkLinks(companyId?: string) {

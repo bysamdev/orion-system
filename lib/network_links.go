@@ -141,10 +141,9 @@ func (d *DB) CreateNetworkLink(ctx context.Context, in CreateNetworkLinkInput) (
 		checkInterval = *in.CheckIntervalSeconds
 	}
 
-	status := strings.TrimSpace(in.Status)
-	if status == "" {
-		status = "pending"
-	}
+	// O estado inicial não é informado pelo solicitante: só o Blackbox pode
+	// confirmar se o alvo responde. Nunca publicar "online" sem uma sonda.
+	status := "pending"
 
 	var compID *string
 	if in.CompanyID != nil && *in.CompanyID != "" {
