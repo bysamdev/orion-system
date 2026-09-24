@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { acessosAcimaDoLimite, descreverDispositivo, type SessaoDoUsuario } from '@/lib/sessoes';
+import { acessosAcimaDoLimite, descreverDispositivo, sessaoDoToken, type SessaoDoUsuario } from '@/lib/sessoes';
 
 const sessao = (id: string): SessaoDoUsuario => ({
   id, criada_em: '', ultimo_uso: '', ip: null, user_agent: null, atual: false,
@@ -14,6 +14,21 @@ describe('acessosAcimaDoLimite', () => {
   it('conta quantos passam do limite', () => {
     expect(acessosAcimaDoLimite([sessao('a'), sessao('b'), sessao('c')])).toBe(1);
     expect(acessosAcimaDoLimite(['a', 'b', 'c', 'd', 'e'].map(sessao))).toBe(3);
+  });
+});
+
+describe('sessaoDoToken', () => {
+  const token = (carga: object) =>
+    `x.${btoa(JSON.stringify(carga)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')}.y`;
+
+  it('lê o session_id da carga do JWT', () => {
+    expect(sessaoDoToken(token({ sub: 'u', session_id: 'abc-123' }))).toBe('abc-123');
+  });
+
+  it('devolve null para token inválido ou sem sessão', () => {
+    expect(sessaoDoToken(token({ sub: 'u' }))).toBeNull();
+    expect(sessaoDoToken('lixo')).toBeNull();
+    expect(sessaoDoToken(undefined)).toBeNull();
   });
 });
 

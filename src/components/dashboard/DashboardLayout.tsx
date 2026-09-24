@@ -2,6 +2,7 @@ import React from 'react';
 import { AppSidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { PushNotificationPrompt } from './PushNotificationPrompt';
+import { LimiteDeDispositivos } from './LimiteDeDispositivos';
 import { useTimerGuard } from '@/hooks/useTimerGuard';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
@@ -48,6 +49,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <PushNotificationPrompt />
           {children}
         </main>
+        <LimiteDeDispositivos />
       </SidebarInset>
     </SidebarProvider>
   );

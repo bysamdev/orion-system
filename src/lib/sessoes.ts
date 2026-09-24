@@ -12,6 +12,20 @@ export interface SessaoDoUsuario {
   atual: boolean;
 }
 
+// session_id do token de acesso do Supabase (sem validar assinatura: é só para
+// saber qual sessão encerrar depois de um novo login no mesmo aparelho).
+export function sessaoDoToken(accessToken: string | null | undefined): string | null {
+  try {
+    const carga = accessToken?.split('.')[1];
+    if (!carga) return null;
+    const base64 = carga.replace(/-/g, '+').replace(/_/g, '/');
+    const json = JSON.parse(atob(base64 + '='.repeat((4 - (base64.length % 4)) % 4)));
+    return typeof json.session_id === 'string' ? json.session_id : null;
+  } catch {
+    return null;
+  }
+}
+
 // Quantos acessos a pessoa precisa encerrar para voltar ao limite.
 export function acessosAcimaDoLimite(sessoes: SessaoDoUsuario[]): number {
   return Math.max(0, sessoes.length - LIMITE_DE_DISPOSITIVOS);

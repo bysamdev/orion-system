@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff, Settings2, Settings as SettingsIcon, FileText } from "lucide-react";
+import { User, Bell, Shield, Loader2, Building2, FolderOpen, Mail, Copy, CheckCircle2, Eye, EyeOff, Settings2, Settings as SettingsIcon, FileText, MonitorSmartphone } from "lucide-react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { TwoFactorAuthSettings } from "@/components/settings/TwoFactorAuthSettings";
@@ -22,6 +22,9 @@ import { invokeOrionFunction } from "@/lib/orion-functions";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useSessoes } from "@/hooks/useSessoes";
+import { ListaDeDispositivos } from "@/components/settings/DispositivosConectados";
+import { LIMITE_DE_DISPOSITIVOS, sessaoDoToken } from "@/lib/sessoes";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -47,6 +50,7 @@ export default function Settings() {
   const pushNotifications = true;
   // Notificações no navegador (Web Push): estado real da inscrição deste navegador.
   const push = usePushNotifications();
+  const sessoesDaConta = useSessoes();
 
   // Estados para integração
   const [copiedWebhook, setCopiedWebhook] = useState(false);
@@ -142,7 +146,11 @@ export default function Settings() {
         throw new Error('A nova senha deve ter pelo menos 6 caracteres');
       }
 
-      // Re-autenticar com a senha atual para verificar se está correta
+      // Re-autenticar com a senha atual para verificar se está correta.
+      // O novo login cria outra sessão neste aparelho; a anterior é encerrada
+      // logo depois para não ocupar uma vaga do limite de dispositivos.
+      const { data: { session: sessaoAnterior } } = await supabase.auth.getSession();
+      const idDaSessaoAnterior = sessaoDoToken(sessaoAnterior?.access_token);
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: profile?.email || '',
         password: currentPassword,
@@ -150,6 +158,10 @@ export default function Settings() {
 
       if (authError) {
         throw new Error('A senha atual está incorreta');
+      }
+
+      if (idDaSessaoAnterior) {
+        await supabase.rpc('encerrar_sessao', { p_sessao: idDaSessaoAnterior });
       }
 
       // Só atualiza a senha após re-autenticação bem-sucedida
@@ -349,6 +361,30 @@ export default function Settings() {
             <TabsContent value="security" className="space-y-6">
               {/* Gerenciamento de Autenticação em Dois Fatores (2FA) */}
               <TwoFactorAuthSettings />
+
+              {/* Dispositivos conectados (limite de 2 por conta) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MonitorSmartphone className="w-5 h-5" />
+                    Dispositivos conectados
+                  </CardTitle>
+                  <CardDescription>
+                    Sua conta pode ficar conectada em até {LIMITE_DE_DISPOSITIVOS} dispositivos. Encerre os acessos que você não reconhece.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {sessoesDaConta.isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label="Carregando" />
+                  ) : (
+                    <ListaDeDispositivos
+                      sessoes={sessoesDaConta.sessoes}
+                      encerrando={sessoesDaConta.encerrando ?? null}
+                      onEncerrar={sessoesDaConta.encerrar}
+                    />
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Alteração de Senha */}
               <Card>
