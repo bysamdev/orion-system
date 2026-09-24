@@ -6,6 +6,7 @@ import { toast } from '@/hooks/use-toast';
 // O que técnicos e gestores escolhem receber. Sem linha no banco = tudo ligado.
 export type CategoriaDeAviso =
   | 'novos_chamados'
+  | 'chamados_automaticos'
   | 'respostas'
   | 'mudancas_de_status'
   | 'notas_internas'
@@ -16,6 +17,7 @@ export type PreferenciasDeAviso = Record<CategoriaDeAviso, boolean>;
 
 export const CATEGORIAS_DE_AVISO: { chave: CategoriaDeAviso; titulo: string; descricao: string }[] = [
   { chave: 'novos_chamados', titulo: 'Chamados novos', descricao: 'Quando um chamado é aberto' },
+  { chave: 'chamados_automaticos', titulo: 'Chamados automáticos de alertas', descricao: 'Quando o monitoramento abre um chamado por alerta de servidor' },
   { chave: 'respostas', titulo: 'Respostas', descricao: 'Quando o cliente ou a equipe responde um chamado' },
   { chave: 'mudancas_de_status', titulo: 'Mudanças de status', descricao: 'Quando um chamado muda de status' },
   { chave: 'notas_internas', titulo: 'Notas internas', descricao: 'Quando alguém da equipe deixa uma nota interna' },
@@ -25,6 +27,7 @@ export const CATEGORIAS_DE_AVISO: { chave: CategoriaDeAviso; titulo: string; des
 
 const TUDO_LIGADO: PreferenciasDeAviso = {
   novos_chamados: true,
+  chamados_automaticos: true,
   respostas: true,
   mudancas_de_status: true,
   notas_internas: true,
@@ -42,7 +45,7 @@ export const usePreferenciasDeNotificacao = () => {
     queryFn: async (): Promise<PreferenciasDeAviso> => {
       const { data, error } = await supabase
         .from('preferencias_de_notificacao')
-        .select('novos_chamados, respostas, mudancas_de_status, notas_internas, atribuicoes, prioridade')
+        .select('novos_chamados, chamados_automaticos, respostas, mudancas_de_status, notas_internas, atribuicoes, prioridade')
         .eq('user_id', user!.id)
         .maybeSingle();
       if (error) throw error;

@@ -1365,6 +1365,7 @@ export type Database = {
       preferencias_de_notificacao: {
         Row: {
           atribuicoes: boolean
+          chamados_automaticos: boolean
           mudancas_de_status: boolean
           notas_internas: boolean
           novos_chamados: boolean
@@ -1375,6 +1376,7 @@ export type Database = {
         }
         Insert: {
           atribuicoes?: boolean
+          chamados_automaticos?: boolean
           mudancas_de_status?: boolean
           notas_internas?: boolean
           novos_chamados?: boolean
@@ -1385,6 +1387,7 @@ export type Database = {
         }
         Update: {
           atribuicoes?: boolean
+          chamados_automaticos?: boolean
           mudancas_de_status?: boolean
           notas_internas?: boolean
           novos_chamados?: boolean
