@@ -13,6 +13,7 @@ import (
 
 	"orion-agent/collector"
 	"orion-agent/config"
+	"orion-agent/sonda"
 )
 
 const (
@@ -91,9 +92,24 @@ func retryComBackoff(op func() error) error {
 // device_type gravado (Fase 4 do plano de escalabilidade); zero quando o
 // backend não devolveu o campo (versão antiga do backend, ou corpo vazio).
 func Send(cfg *config.Config, payload *collector.Payload) (string, int, error) {
+	r, err := EnviarHeartbeat(cfg, payload)
+	return r.MachineID, r.NextIntervalSeconds, err
+}
+
+// RespostaHeartbeat é o que o backend devolve ao heartbeat.
+type RespostaHeartbeat struct {
+	MachineID           string
+	NextIntervalSeconds int
+	// SondaLinks vem só para o servidor que mede os links de internet do
+	// cliente: o que medir até o próximo heartbeat.
+	SondaLinks *sonda.Config
+}
+
+// EnviarHeartbeat é Send com a resposta completa.
+func EnviarHeartbeat(cfg *config.Config, payload *collector.Payload) (RespostaHeartbeat, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return "", 0, fmt.Errorf("marshal payload: %w", err)
+		return RespostaHeartbeat{}, fmt.Errorf("marshal payload: %w", err)
 	}
 
 	url := cfg.APIURL
@@ -101,21 +117,19 @@ func Send(cfg *config.Config, payload *collector.Payload) (string, int, error) {
 		url = strings.TrimSuffix(url, "/") + "/api/monitoring/machines/heartbeat"
 	}
 
-	var machineID string
-	var nextInterval int
+	var resposta RespostaHeartbeat
 	err = retryComBackoff(func() error {
-		mID, interval, err := doPostComIntervalo(url, cfg.AgentKey, body)
+		r, err := doPostHeartbeat(url, cfg.AgentKey, body)
 		if err != nil {
 			return err
 		}
-		machineID = mID
-		nextInterval = interval
+		resposta = r
 		return nil
 	})
 	if err != nil {
-		return "", 0, err
+		return RespostaHeartbeat{}, err
 	}
-	return machineID, nextInterval, nil
+	return resposta, nil
 }
 
 // calcularEspera devolve o atraso antes da próxima tentativa: backoff
@@ -146,9 +160,14 @@ func doPost(url, agentKey string, body []byte) (string, error) {
 // backend a partir do device_type gravado); RespondToCommand ignora, via
 // doPost, o valor que não faz sentido nesse endpoint.
 func doPostComIntervalo(url, agentKey string, body []byte) (string, int, error) {
+	r, err := doPostHeartbeat(url, agentKey, body)
+	return r.MachineID, r.NextIntervalSeconds, err
+}
+
+func doPostHeartbeat(url, agentKey string, body []byte) (RespostaHeartbeat, error) {
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return "", 0, fmt.Errorf("criar request: %w", err)
+		return RespostaHeartbeat{}, fmt.Errorf("criar request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Agent-Key", agentKey)
@@ -156,7 +175,7 @@ func doPostComIntervalo(url, agentKey string, body []byte) (string, int, error) 
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", 0, fmt.Errorf("request: %w", err)
+		return RespostaHeartbeat{}, fmt.Errorf("request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -170,30 +189,31 @@ func doPostComIntervalo(url, agentKey string, body []byte) (string, int, error) 
 			base = fmt.Errorf("status HTTP %d: %s", resp.StatusCode, errBody.Error)
 		}
 		if resp.StatusCode == http.StatusTooManyRequests {
-			return "", 0, fmt.Errorf("%w: %s", errLimiteDeTaxa, base.Error())
+			return RespostaHeartbeat{}, fmt.Errorf("%w: %s", errLimiteDeTaxa, base.Error())
 		}
 		if statusRecusado(resp.StatusCode) {
-			return "", 0, fmt.Errorf("%w: %s", errRecusado, base.Error())
+			return RespostaHeartbeat{}, fmt.Errorf("%w: %s", errRecusado, base.Error())
 		}
-		return "", 0, base
+		return RespostaHeartbeat{}, base
 	}
 
 	var res struct {
-		MachineID           string `json:"machine_id"`
-		NextIntervalSeconds int    `json:"next_interval_seconds"`
+		MachineID           string        `json:"machine_id"`
+		NextIntervalSeconds int           `json:"next_interval_seconds"`
+		SondaLinks          *sonda.Config `json:"sonda_links"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		// Corpo vazio é resposta legítima para endpoints que não devolvem machine_id
 		// (ex: /commands/respond), então io.EOF não é erro.
 		if errors.Is(err, io.EOF) {
-			return "", 0, nil
+			return RespostaHeartbeat{}, nil
 		}
 		// Já um corpo malformado é falha real: antes desta correção o erro era
 		// descartado e o agente seguia com machineID vazio, logando "[OK] Check-in
 		// realizado" enquanto o polling de comandos nunca mais rodava.
-		return "", 0, fmt.Errorf("resposta do servidor não é JSON válido: %w", err)
+		return RespostaHeartbeat{}, fmt.Errorf("resposta do servidor não é JSON válido: %w", err)
 	}
-	return res.MachineID, res.NextIntervalSeconds, nil
+	return RespostaHeartbeat{MachineID: res.MachineID, NextIntervalSeconds: res.NextIntervalSeconds, SondaLinks: res.SondaLinks}, nil
 }
 
 // Command represents a remote command to be executed.

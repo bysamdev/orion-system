@@ -29,6 +29,7 @@ import (
 	"orion-agent/collector"
 	"orion-agent/config"
 	"orion-agent/sender"
+	"orion-agent/sonda"
 	"orion-agent/token"
 	"orion-agent/version"
 )
@@ -104,6 +105,10 @@ type Svc struct {
 	// o intervalo de agent.yaml (cfg.IntervalSeconds) nesse caso. Mesma
 	// garantia de goroutine única de bufferFalhas.
 	proximoIntervaloSegundos int
+
+	// sondaLinks: o que medir dos links de internet do cliente, recebido na
+	// resposta do último heartbeat. Nil = esta máquina não é sonda.
+	sondaLinks *sonda.Config
 
 	// lastPayload é o snapshot mais recente produzido por tick() — reaproveitado
 	// pelo endpoint /metrics (startMetricsServer) em vez de cada scrape do
@@ -447,16 +452,35 @@ func (s *Svc) tick() {
 	// atalho é o instalador (elevado) e a bandeja (sessão do usuário), ver
 	// shortcut.CreatePortalShortcut.
 
+	// Sonda de links: mede antes de enviar, para a medição ir neste heartbeat.
+	if s.sondaLinks != nil {
+		ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+		payload.Links = sonda.Medir(ctx, *s.sondaLinks, sonda.PingarICMP, sonda.IPDeSaida)
+		cancelar()
+	}
+
 	// Enviamos o relatório para o servidor.
-	mID, proximoIntervalo, err := sender.Send(s.cfg, payload)
+	resposta, err := sender.EnviarHeartbeat(s.cfg, payload)
 	if err != nil {
 		s.logger.Printf("[ERRO] Falha no check-in (Heartbeat): %v", err)
-		s.bufferizarFalha(payload)
+		// Medição de link velha não vai no reenvio: chegaria ao monitor como
+		// se fosse de agora.
+		represado := *payload
+		represado.Links = nil
+		s.bufferizarFalha(&represado)
 		s.registrarCheckin(false)
 		return
 	}
-	s.setMachineID(mID)
-	s.proximoIntervaloSegundos = intervaloValido(proximoIntervalo)
+	s.setMachineID(resposta.MachineID)
+	s.proximoIntervaloSegundos = intervaloValido(resposta.NextIntervalSeconds)
+	if (resposta.SondaLinks != nil) != (s.sondaLinks != nil) {
+		if resposta.SondaLinks != nil {
+			s.logger.Printf("[INFO] Esta máquina passou a medir os links de internet do cliente (%d alvos)", len(resposta.SondaLinks.Alvos))
+		} else {
+			s.logger.Println("[INFO] Esta máquina deixou de medir os links de internet do cliente")
+		}
+	}
+	s.sondaLinks = resposta.SondaLinks
 	s.registrarCheckin(true)
 
 	// Backend confirmadamente alcançável de novo — aproveita para tentar

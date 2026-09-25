@@ -1013,3 +1013,23 @@ func TestPollCommands_ChaveRecusada_DesisteNaPrimeiraTentativa(t *testing.T) {
 		t.Errorf("backend recebeu %d chamadas, esperado 1", got.chamadas)
 	}
 }
+
+func TestEnviarHeartbeat_LeConfiguracaoDaSonda(t *testing.T) {
+	srv := servidorQueResponde(t, http.StatusOK,
+		`{"machine_id":"abc","next_interval_seconds":60,"sonda_links":{"alvos":["1.1.1.1","1.0.0.1"],"descobrir_ip_saida":true}}`, nil)
+	r, err := EnviarHeartbeat(cfgDeTeste(srv.URL), payloadDeTeste())
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if r.SondaLinks == nil || len(r.SondaLinks.Alvos) != 2 || !r.SondaLinks.DescobrirIPSaida {
+		t.Errorf("config da sonda não lida: %+v", r.SondaLinks)
+	}
+}
+
+func TestEnviarHeartbeat_SemSondaFicaNil(t *testing.T) {
+	srv := servidorQueResponde(t, http.StatusOK, `{"machine_id":"abc"}`, nil)
+	r, err := EnviarHeartbeat(cfgDeTeste(srv.URL), payloadDeTeste())
+	if err != nil || r.SondaLinks != nil {
+		t.Errorf("máquina comum recebeu sonda: %+v %v", r.SondaLinks, err)
+	}
+}

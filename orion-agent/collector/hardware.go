@@ -14,6 +14,8 @@ import (
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
+
+	"orion-agent/sonda"
 )
 
 // tempoLimiteDisco é o prazo máximo para a varredura de partições. Existe para que
@@ -94,6 +96,10 @@ type ActivationInfo struct {
 // Payload é o corpo principal do "Check-in" enviado ao servidor Orion.
 // Contém o estado atual completo da saúde do hardware.
 type Payload struct {
+	// Links: medição dos links de internet, só no servidor que o Orion
+	// Monitor escolheu como sonda do cliente (ver pacote sonda).
+	Links *sonda.Amostra `json:"links,omitempty"`
+
 	MachineToken   string             `json:"machine_token"`
 	MachineUUID    string             `json:"machine_uuid"`
 	Hostname       string             `json:"hostname"`
