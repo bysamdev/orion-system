@@ -141,9 +141,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: 2.84.2
 
       # Em 23/09/2026 o ghcr.io (registro que a CLI usa) recusou o download da
       # imagem do Postgres com "toomanyrequests" cinco vezes seguidas, mesmo
