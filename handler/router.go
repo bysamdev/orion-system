@@ -199,7 +199,8 @@ func buildRouter() http.Handler {
 
 		// Network Links Monitoring
 		r.Get("/api/monitoring/network-links", monitoringListNetworkLinks)
-		r.Post("/api/monitoring/network-links", monitoringCreateNetworkLink)
+		r.Post("/api/monitoring/network-links", monitoringSaveNetworkLink)
+		r.Put("/api/monitoring/network-links/{id}", monitoringSaveNetworkLink)
 		r.Delete("/api/monitoring/network-links/{id}", monitoringDeleteNetworkLink)
 
 		// Web Monitoring (UptimeRobot)

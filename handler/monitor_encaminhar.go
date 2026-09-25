@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -29,20 +30,24 @@ const timeoutRepasse = 2 * time.Second
 
 var clienteRepasse = &http.Client{Timeout: timeoutRepasse}
 
-func encaminharAoMonitor(ctx context.Context, a monitor.Amostra) {
+//
+// Devolve a configuração de sonda de links quando o Monitor manda uma na
+// resposta (a máquina é o servidor que mede os links do cliente); nil nos
+// demais casos, inclusive falha.
+func encaminharAoMonitor(ctx context.Context, a monitor.Amostra) *monitor.ConfigDaSonda {
 	url := strings.TrimSpace(cfg.MonitorIngestURL)
 	if url == "" || cfg.MonitorIngestSecret == "" {
-		return
+		return nil
 	}
 	corpo, err := json.Marshal(a)
 	if err != nil {
-		return
+		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeoutRepasse)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(url, "/")+"/v1/ingest/heartbeat", bytes.NewReader(corpo))
 	if err != nil {
-		return
+		return nil
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+cfg.MonitorIngestSecret)
@@ -50,12 +55,20 @@ func encaminharAoMonitor(ctx context.Context, a monitor.Amostra) {
 	resp, err := clienteRepasse.Do(req)
 	if err != nil {
 		log.Printf("[AVISO] repasse ao monitor falhou para %s: %v", a.Hostname, err)
-		return
+		return nil
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("[AVISO] monitor respondeu %d ao repasse de %s", resp.StatusCode, a.Hostname)
+		return nil
 	}
+	var resposta struct {
+		Sonda *monitor.ConfigDaSonda `json:"sonda"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&resposta); err != nil {
+		return nil
+	}
+	return resposta.Sonda
 }
 
 // amostraDoHeartbeat monta a cópia enviada ao Monitor a partir do heartbeat já
@@ -75,6 +88,7 @@ func amostraDoHeartbeat(req *heartbeatReq, machineID, companyID, deviceType stri
 		RemoteSoftware: normalizarOrdem(req.RemoteSoftware),
 		Battery:        normalizarOrdem(req.Battery),
 		UpdateStatus:   normalizarOrdem(req.UpdateStatus),
+		Links:          req.Links,
 		RecebidaEm:     recebidaEm,
 	}
 }

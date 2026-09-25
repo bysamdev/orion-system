@@ -74,3 +74,35 @@ func TestEncaminharAoMonitor_ServidorLentoNaoPrendeOHeartbeat(t *testing.T) {
 		t.Errorf("repasse demorou %v, esperado no máximo ~%v", d, timeoutRepasse)
 	}
 }
+
+func TestEncaminharAoMonitor_DevolveConfigDaSondaEMandaAMedicao(t *testing.T) {
+	var recebida monitor.Amostra
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&recebida)
+		_, _ = w.Write([]byte(`{"ok":true,"sonda":{"alvos":["1.1.1.1","8.8.8.8"],"descobrir_ip_saida":true}}`))
+	}))
+	defer srv.Close()
+	comMonitorConfigurado(t, srv.URL, "segredo")
+
+	req := &heartbeatReq{Hostname: "SRV-AD", Links: &monitor.AmostraDeLinks{IPSaida: "200.1.1.1",
+		Testes: []monitor.TesteDeLink{{Alvo: "1.1.1.1", LatenciaMs: 12}}}}
+	cfgSonda := encaminharAoMonitor(context.Background(), amostraDoHeartbeat(req, "maq-1", "emp-1", "server", time.Now()))
+
+	if cfgSonda == nil || len(cfgSonda.Alvos) != 2 || !cfgSonda.DescobrirIPSaida {
+		t.Fatalf("config da sonda não voltou: %+v", cfgSonda)
+	}
+	if recebida.Links == nil || recebida.Links.IPSaida != "200.1.1.1" || recebida.Links.Testes[0].LatenciaMs != 12 {
+		t.Errorf("medição dos links não chegou ao monitor: %+v", recebida.Links)
+	}
+}
+
+func TestEncaminharAoMonitor_SemSondaDevolveNil(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+	comMonitorConfigurado(t, srv.URL, "segredo")
+	if cfgSonda := encaminharAoMonitor(context.Background(), monitor.Amostra{Hostname: "PC"}); cfgSonda != nil {
+		t.Errorf("máquina comum não deveria receber config de sonda: %+v", cfgSonda)
+	}
+}

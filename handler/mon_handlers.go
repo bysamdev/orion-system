@@ -486,6 +486,9 @@ func monitoringMachineAlerts(w http.ResponseWriter, r *http.Request) {
 // ─── Heartbeat ───────────────────────────────────────────────────────────────
 
 type heartbeatReq struct {
+	// Links vem só do agente que é sonda de links de internet: vai direto ao
+	// Orion Monitor, nada é gravado no Supabase.
+	Links *monitor.AmostraDeLinks `json:"links,omitempty"`
 	AgentKey         string          `json:"agent_key"`
 	MachineToken     string          `json:"machine_token"`
 	MachineUUID      string          `json:"machine_uuid"`
@@ -798,12 +801,17 @@ func monitoringHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 	// Cópia ao Orion Monitor (modo sombra). Só depois de tudo gravado, e sem
 	// afetar a resposta — ver encaminharAoMonitor.
-	encaminharAoMonitor(r.Context(), amostraDoHeartbeat(&req, machineID, targetCompanyID, deviceTypeGravado, time.Now()))
+	sonda := encaminharAoMonitor(r.Context(), amostraDoHeartbeat(&req, machineID, targetCompanyID, deviceTypeGravado, time.Now()))
 
-	lib.WriteJSON(w, http.StatusOK, map[string]any{
+	resposta := map[string]any{
 		"success": true, "machine_id": machineID,
 		"next_interval_seconds": collectionIntervalSeconds(deviceTypeGravado),
-	})
+	}
+	// O que a máquina deve medir como sonda de links até o próximo heartbeat.
+	if sonda != nil {
+		resposta["sonda_links"] = sonda
+	}
+	lib.WriteJSON(w, http.StatusOK, resposta)
 }
 
 // collectionIntervalSeconds implementa a política de coleta por tipo de
