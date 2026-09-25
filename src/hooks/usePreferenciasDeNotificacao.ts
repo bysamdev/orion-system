@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 
-// O que técnicos e gestores escolhem receber. Sem linha no banco = tudo ligado.
+// O que técnicos e gestores escolhem receber. Sem linha no banco = tudo ligado,
+// menos chamados novos (desligado por padrão, liga-se aqui).
 export type CategoriaDeAviso =
   | 'novos_chamados'
   | 'chamados_automaticos'
@@ -25,8 +26,8 @@ export const CATEGORIAS_DE_AVISO: { chave: CategoriaDeAviso; titulo: string; des
   { chave: 'prioridade', titulo: 'Prioridade', descricao: 'Quando a prioridade de um chamado muda' },
 ];
 
-const TUDO_LIGADO: PreferenciasDeAviso = {
-  novos_chamados: true,
+const PADRAO: PreferenciasDeAviso = {
+  novos_chamados: false,
   chamados_automaticos: true,
   respostas: true,
   mudancas_de_status: true,
@@ -40,7 +41,7 @@ export const usePreferenciasDeNotificacao = () => {
   const queryClient = useQueryClient();
   const chave = ['preferencias-de-notificacao', user?.id];
 
-  const { data: preferencias = TUDO_LIGADO, isLoading } = useQuery({
+  const { data: preferencias = PADRAO, isLoading } = useQuery({
     queryKey: chave,
     queryFn: async (): Promise<PreferenciasDeAviso> => {
       const { data, error } = await supabase
@@ -49,7 +50,7 @@ export const usePreferenciasDeNotificacao = () => {
         .eq('user_id', user!.id)
         .maybeSingle();
       if (error) throw error;
-      return data ?? TUDO_LIGADO;
+      return data ?? PADRAO;
     },
     enabled: !!user?.id,
   });
