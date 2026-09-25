@@ -42,6 +42,11 @@ func TestSaveTokenTo_RestringeACLDoDiretorio(t *testing.T) {
 			t.Fatalf("entrada de ACL inesperada: %q em %s", match[1], sddl)
 		}
 		principal := campos[5]
+		// No runner Windows, o SID da conta Administrator termina em -500 e
+		// o SDDL o abrevia como LA (Local Administrator).
+		if principal == "LA" && strings.HasSuffix(usuarioSID, "-500") {
+			principal = usuarioSID
+		}
 		if _, ok := esperados[principal]; !ok {
 			t.Errorf("ACL concede acesso inesperado a %s: %s", principal, sddl)
 			continue
