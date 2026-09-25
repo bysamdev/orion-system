@@ -24,6 +24,45 @@ func (s *Servidor) rotasDeLinks(mux *http.ServeMux) {
 type linkComEstado struct {
 	Link
 	Estado *EstadoDoLink `json:"estado"`
+	// DeFora é o ping do servidor de monitoramento no IP público (blackbox),
+	// lido do Prometheus. Nulo sem IP público ou sem Prometheus.
+	DeFora *PingDeFora `json:"de_fora"`
+}
+
+// PingDeFora é o último resultado do blackbox para o IP público do link.
+type PingDeFora struct {
+	Responde   bool     `json:"responde"`
+	LatenciaMs *float64 `json:"latencia_ms"`
+}
+
+// ConsultaPorRotulo é o que a listagem precisa do Prometheus.
+type ConsultaPorRotulo interface {
+	PorRotulo(ctx context.Context, consulta, rotulo string) (map[string]float64, error)
+}
+
+// pingsDeFora lê do Prometheus o resultado do ping de fora de cada link. Sem
+// Prometheus, ou com ele fora, a listagem segue só com a sonda.
+func (s *Servidor) pingsDeFora(ctx context.Context) map[string]PingDeFora {
+	if s.Consulta == nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	sucesso, err := s.Consulta.PorRotulo(ctx, `max by (link_id) (probe_success{job="blackbox_icmp"})`, "link_id")
+	if err != nil {
+		log.Printf("[AVISO] monitor: ping de fora dos links indisponível: %v", err)
+		return nil
+	}
+	duracao, _ := s.Consulta.PorRotulo(ctx, `max by (link_id) (probe_duration_seconds{job="blackbox_icmp"})`, "link_id")
+	out := make(map[string]PingDeFora, len(sucesso))
+	for id, v := range sucesso {
+		p := PingDeFora{Responde: v >= 1}
+		if d, ok := duracao[id]; ok && p.Responde {
+			p.LatenciaMs = ptr(arredondar(d * 1000))
+		}
+		out[id] = p
+	}
+	return out
 }
 
 // listarLinks devolve o cadastro com a última medição da sonda. company_id
@@ -35,6 +74,7 @@ func (s *Servidor) listarLinks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	estados := s.Links.Estados()
+	deFora := s.pingsDeFora(r.Context())
 	agora := time.Now()
 	out := []linkComEstado{}
 	for _, lk := range s.Links.Listar() {
@@ -44,6 +84,9 @@ func (s *Servidor) listarLinks(w http.ResponseWriter, r *http.Request) {
 		item := linkComEstado{Link: lk}
 		if e, ok := estados[lk.ID]; ok && agora.Sub(e.MedidoEm) <= validadeDaMedicao {
 			item.Estado = &e
+		}
+		if p, ok := deFora[lk.ID]; ok && lk.IPPublico != "" {
+			item.DeFora = &p
 		}
 		out = append(out, item)
 	}

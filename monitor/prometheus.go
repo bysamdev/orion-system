@@ -117,3 +117,50 @@ func (p *Prometheus) consultarRange(ctx context.Context, consulta string, inicio
 	}
 	return out, nil
 }
+
+type respostaInstantanea struct {
+	Status string `json:"status"`
+	Error  string `json:"error"`
+	Data   struct {
+		Result []struct {
+			Metric map[string]string  `json:"metric"`
+			Value  [2]json.RawMessage `json:"value"`
+		} `json:"result"`
+	} `json:"data"`
+}
+
+// PorRotulo roda uma consulta instantânea e devolve o valor de cada série
+// indexado pelo rótulo pedido (ex.: link_id).
+func (p *Prometheus) PorRotulo(ctx context.Context, consulta, rotulo string) (map[string]float64, error) {
+	q := url.Values{}
+	q.Set("query", consulta)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.URL+"/api/v1/query?"+q.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := p.Cliente.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("prometheus: %w", err)
+	}
+	defer resp.Body.Close()
+	var r respostaInstantanea
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return nil, fmt.Errorf("prometheus: resposta inválida: %w", err)
+	}
+	if r.Status != "success" {
+		return nil, fmt.Errorf("prometheus: %s", r.Error)
+	}
+	out := map[string]float64{}
+	for _, s := range r.Data.Result {
+		var bruto string
+		if json.Unmarshal(s.Value[1], &bruto) != nil {
+			continue
+		}
+		v, err := strconv.ParseFloat(bruto, 64)
+		if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+			continue
+		}
+		out[s.Metric[rotulo]] = v
+	}
+	return out, nil
+}

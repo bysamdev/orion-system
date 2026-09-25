@@ -261,3 +261,44 @@ func TestRotasDeLinks_ExigemSegredo(t *testing.T) {
 		t.Errorf("sem segredo deveria dar 401, deu %d", rec.Code)
 	}
 }
+
+type consultaFalsa map[string]map[string]float64
+
+func (c consultaFalsa) PorRotulo(_ context.Context, consulta, _ string) (map[string]float64, error) {
+	for trecho, valores := range c {
+		if strings.Contains(consulta, trecho) {
+			return valores, nil
+		}
+	}
+	return map[string]float64{}, nil
+}
+
+func TestListarLinks_IncluiPingDeFora(t *testing.T) {
+	srv, _ := servidorComLinks(t, linksDoCliente())
+	srv.Consulta = consultaFalsa{
+		"probe_success":          {idDedic: 1, idStar: 0},
+		"probe_duration_seconds": {idDedic: 0.0234},
+	}
+	rec := chamar(t, srv, http.MethodGet, "/v1/links", "")
+	var corpo struct {
+		Links []linkComEstado `json:"links"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &corpo); err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range corpo.Links {
+		switch l.ID {
+		case idDedic:
+			if l.DeFora == nil || !l.DeFora.Responde || *l.DeFora.LatenciaMs != 23.4 {
+				t.Errorf("ping de fora do dedicado: %+v", l.DeFora)
+			}
+		case idStar:
+			// Starlink sem IP público: não tem ping de fora, mesmo que o
+			// Prometheus tenha série velha para ela.
+			if l.DeFora != nil {
+				t.Errorf("Starlink sem IP não deveria ter ping de fora: %+v", l.DeFora)
+			}
+		}
+	}
+}
+

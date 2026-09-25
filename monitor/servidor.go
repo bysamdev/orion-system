@@ -25,6 +25,8 @@ type Servidor struct {
 	SegredoIngest string
 	// Links é opcional: sem ele o monitor não mede links de internet.
 	Links *Links
+	// Consulta lê do Prometheus o ping de fora dos links (opcional).
+	Consulta ConsultaPorRotulo
 }
 
 // RotasPublicas é o que fica exposto pelo Cloudflare Tunnel: a entrada das

@@ -51,10 +51,12 @@ func main() {
 	}
 	defer store.Close()
 
+	prometheus := &monitor.Prometheus{URL: envOu("PROMETHEUS_URL", "http://prometheus:9090"), Cliente: &http.Client{Timeout: 6 * time.Second}}
 	srv := &monitor.Servidor{
 		Store:         store,
 		Leitor:        store,
-		Historiador:   &monitor.Prometheus{URL: envOu("PROMETHEUS_URL", "http://prometheus:9090"), Cliente: &http.Client{Timeout: 6 * time.Second}},
+		Historiador:   prometheus,
+		Consulta:      prometheus,
 		Metricas:      monitor.NovasMetricas(),
 		SegredoIngest: segredo,
 		Links:         monitor.NovosLinks(store),
