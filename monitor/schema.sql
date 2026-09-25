@@ -57,3 +57,22 @@ CREATE TABLE IF NOT EXISTS maquina_alerta (
 -- ainda não existe" seguro sem SELECT antes.
 CREATE UNIQUE INDEX IF NOT EXISTS maquina_alerta_aberto_uidx
   ON maquina_alerta (machine_id, tipo) WHERE resolvido_em IS NULL;
+
+-- Links de internet dos clientes (principal e redundância). Cadastro feito
+-- pelo Orion, medição pela sonda (agente no servidor do cliente) e pelo ping
+-- de fora; o histórico fica no Prometheus.
+CREATE TABLE IF NOT EXISTS link_internet (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id        uuid NOT NULL,
+  cliente           text NOT NULL DEFAULT '',
+  nome              text NOT NULL,
+  papel             text NOT NULL CHECK (papel IN ('principal', 'backup')),
+  tipo              text NOT NULL CHECK (tipo IN ('dedicado', 'starlink', 'internet')),
+  ip_publico        text NOT NULL DEFAULT '',
+  alvo_teste        text NOT NULL DEFAULT '',
+  sonda_machine_id  uuid,
+  criado_em         timestamptz NOT NULL DEFAULT now(),
+  atualizado_em     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS link_internet_company_idx ON link_internet (company_id);

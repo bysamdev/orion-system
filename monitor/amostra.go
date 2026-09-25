@@ -54,6 +54,9 @@ type Amostra struct {
 	Battery        json.RawMessage `json:"battery"`
 	UpdateStatus   json.RawMessage `json:"update_status"`
 
+	// Links vem só do agente que é sonda de links de internet (ver links.go).
+	Links *AmostraDeLinks `json:"links,omitempty"`
+
 	// RecebidaEm é o momento em que a API aceitou o heartbeat. Vem dela, e
 	// não do relógio deste servidor, para o "visto por último" não depender
 	// de quanto o repasse demorou.

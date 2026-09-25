@@ -57,6 +57,7 @@ func main() {
 		Historiador:   &monitor.Prometheus{URL: envOu("PROMETHEUS_URL", "http://prometheus:9090"), Cliente: &http.Client{Timeout: 6 * time.Second}},
 		Metricas:      monitor.NovasMetricas(),
 		SegredoIngest: segredo,
+		Links:         monitor.NovosLinks(store),
 	}
 	if url, segredoGrafana := os.Getenv("ORION_CAPACITY_URL"), os.Getenv("GRAFANA_WEBHOOK_SECRET"); url != "" && segredoGrafana != "" {
 		srv.Capacidade = monitor.NovaCapacidade(url, segredoGrafana, &http.Client{Timeout: 10 * time.Second})

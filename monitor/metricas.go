@@ -39,7 +39,25 @@ func (m *Metricas) Registrar(a Amostra) {
 	// Os blocos de inventário não entram nas métricas; não vale segurar em
 	// memória.
 	a.Disks, a.Interfaces, a.Security, a.RemoteSoftware, a.Battery, a.UpdateStatus = nil, nil, nil, nil, nil, nil
+	a.Links = nil
 	m.amostras[a.MachineID] = a
+}
+
+// ServidorDaEmpresa escolhe a sonda padrão dos links de uma empresa: o
+// servidor dela que mandou heartbeat por último, dentro da validade.
+func (m *Metricas) ServidorDaEmpresa(companyID string, agora time.Time) string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	escolhido, maisRecente := "", time.Time{}
+	for id, a := range m.amostras {
+		if a.CompanyID != companyID || a.DeviceType != "server" || agora.Sub(a.RecebidaEm) > validadeDaAmostra {
+			continue
+		}
+		if a.RecebidaEm.After(maisRecente) || (a.RecebidaEm.Equal(maisRecente) && id < escolhido) {
+			escolhido, maisRecente = id, a.RecebidaEm
+		}
+	}
+	return escolhido
 }
 
 func (m *Metricas) contar(campo *uint64) {

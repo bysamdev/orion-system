@@ -23,6 +23,8 @@ type Servidor struct {
 	Metricas      *Metricas
 	Capacidade    *Capacidade
 	SegredoIngest string
+	// Links é opcional: sem ele o monitor não mede links de internet.
+	Links *Links
 }
 
 // RotasPublicas é o que fica exposto pelo Cloudflare Tunnel: a entrada das
@@ -34,6 +36,9 @@ func (s *Servidor) RotasPublicas() http.Handler {
 	if s.Leitor != nil {
 		s.rotasDeLeitura(mux)
 	}
+	if s.Links != nil {
+		s.rotasDeLinks(mux)
+	}
 	return mux
 }
 
@@ -44,6 +49,9 @@ func (s *Servidor) RotasPublicas() http.Handler {
 func (s *Servidor) RotasInternas() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /metrics", s.metricas)
+	if s.Links != nil {
+		mux.HandleFunc("GET /sd/links", s.sdDeLinks)
+	}
 	mux.HandleFunc("GET /healthz", s.saude)
 	return mux
 }
@@ -98,12 +106,25 @@ func (s *Servidor) ingerir(w http.ResponseWriter, r *http.Request) {
 
 	s.Metricas.Registrar(a)
 	s.Metricas.Recebida()
-	responder(w, http.StatusOK, map[string]any{"ok": true, "alertas_abertos": len(abertos)})
+	resposta := map[string]any{"ok": true, "alertas_abertos": len(abertos)}
+	if s.Links != nil {
+		// A sonda recebe na resposta o que medir até o próximo heartbeat; a
+		// API do Orion repassa isso ao agente.
+		servidor := func(empresa string) string { return s.Metricas.ServidorDaEmpresa(empresa, time.Now()) }
+		s.Links.RegistrarMedicao(a.MachineID, a.Links, a.RecebidaEm, servidor)
+		if cfg := s.Links.ConfigDaSonda(a.MachineID, servidor); cfg != nil {
+			resposta["sonda"] = cfg
+		}
+	}
+	responder(w, http.StatusOK, resposta)
 }
 
 func (s *Servidor) metricas(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	s.Metricas.Escrever(w, time.Now())
+	if s.Links != nil {
+		s.Links.Escrever(w, time.Now())
+	}
 	if s.Capacidade != nil {
 		s.Capacidade.Escrever(w)
 	}
@@ -127,6 +148,11 @@ func (s *Servidor) Carregar(ctx context.Context) error {
 	}
 	for _, a := range amostras {
 		s.Metricas.Registrar(a)
+	}
+	if s.Links != nil {
+		if err := s.Links.Carregar(ctx); err != nil {
+			return errors.Join(errors.New("carregar links do banco"), err)
+		}
 	}
 	return nil
 }
