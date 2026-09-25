@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 
 	"orion-api/lib"
 	"orion-api/monitor"
@@ -176,6 +178,26 @@ func monitoringSaveNetworkLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lk.Cliente = nome
+	if err := lk.Normalizar(); err != nil {
+		lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	if lk.SondaMachineID != "" {
+		sonda, err := db.MachineByID(ctx, lk.SondaMachineID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Sonda não encontrada"})
+			} else {
+				log.Printf("[ERRO] links: consultar sonda: %v", err)
+				lib.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "Não foi possível consultar a sonda"})
+			}
+			return
+		}
+		if !sondaPertenceAEmpresa(sonda, lk.CompanyID) {
+			lib.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "A sonda deve pertencer ao cliente do link"})
+			return
+		}
+	}
 
 	metodo, caminho := http.MethodPost, "/v1/links"
 	if id := chi.URLParam(r, "id"); id != "" {
@@ -193,6 +215,10 @@ func monitoringSaveNetworkLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responderRepasse(w, status, corpo)
+}
+
+func sondaPertenceAEmpresa(sonda *lib.MachineRow, companyID string) bool {
+	return sonda != nil && sonda.CompanyID != nil && *sonda.CompanyID == companyID
 }
 
 // DELETE /api/monitoring/network-links/{id}

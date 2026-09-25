@@ -66,6 +66,11 @@ func TestLink_Normalizar(t *testing.T) {
 		{CompanyID: empresaA, Nome: "a", Papel: "reserva", Tipo: "dedicado"},
 		{CompanyID: empresaA, Nome: "a", Papel: "principal", Tipo: "radio"},
 		{CompanyID: empresaA, Nome: "a", Papel: "principal", Tipo: "dedicado", IPPublico: "http://x"},
+		{CompanyID: empresaA, Nome: "a", Papel: "principal", Tipo: "dedicado", IPPublico: "localhost"},
+		{CompanyID: empresaA, Nome: "a", Papel: "principal", Tipo: "dedicado", IPPublico: "127.0.0.1"},
+		{CompanyID: empresaA, Nome: "a", Papel: "principal", Tipo: "dedicado", IPPublico: "192.168.1.1"},
+		{CompanyID: empresaA, Nome: "a", Papel: "principal", Tipo: "dedicado", IPPublico: "100.64.0.1"},
+		{CompanyID: empresaA, Nome: "a", Papel: "principal", Tipo: "dedicado", IPPublico: "::1"},
 		{CompanyID: empresaA, Nome: "a", Papel: "principal", Tipo: "dedicado", AlvoTeste: "gateway.local"},
 	}
 	for i, l := range ruins {
@@ -301,4 +306,3 @@ func TestListarLinks_IncluiPingDeFora(t *testing.T) {
 		}
 	}
 }
-

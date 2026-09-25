@@ -7,7 +7,7 @@ import (
 	"io"
 	"math"
 	"net"
-	"regexp"
+	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -42,8 +42,6 @@ var AlvosPadrao = []string{"1.1.1.1", "8.8.8.8"}
 // manda heartbeat a cada 60 s; 5 min são cinco perdidos.
 const validadeDaMedicao = 5 * time.Minute
 
-var hostnameValido = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-]{0,62}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,62}[a-zA-Z0-9])?)*$`)
-
 // Link é um link de internet cadastrado.
 type Link struct {
 	ID        string `json:"id"`
@@ -67,8 +65,27 @@ type Link struct {
 
 var errLinkInvalido = errors.New("link inválido")
 
-func enderecoValido(s string) bool {
-	return net.ParseIP(s) != nil || (len(s) <= 253 && hostnameValido.MatchString(s))
+// IPPublico precisa ser um IPv4 alcançável da internet. A sonda identifica
+// o link comparando esse valor com seu IPv4 de saída; o Prometheus o usa como
+// alvo de ICMP. Rejeitar redes internas evita sondar a infraestrutura local.
+func ipv4Publico(s string) bool {
+	ip, err := netip.ParseAddr(s)
+	if err != nil || !ip.Is4() || !ip.IsGlobalUnicast() || ip.IsPrivate() {
+		return false
+	}
+	for _, rede := range [...]netip.Prefix{
+		netip.MustParsePrefix("100.64.0.0/10"),
+		netip.MustParsePrefix("192.0.0.0/24"),
+		netip.MustParsePrefix("192.0.2.0/24"),
+		netip.MustParsePrefix("198.18.0.0/15"),
+		netip.MustParsePrefix("198.51.100.0/24"),
+		netip.MustParsePrefix("203.0.113.0/24"),
+	} {
+		if rede.Contains(ip) {
+			return false
+		}
+	}
+	return true
 }
 
 // Normalizar tira espaços e confere os campos. Não inventa valor: o que
@@ -89,8 +106,8 @@ func (l *Link) Normalizar() error {
 		return falha("papel deve ser principal ou backup")
 	case !tiposDeLink[l.Tipo]:
 		return falha("tipo deve ser dedicado, starlink ou internet")
-	case l.IPPublico != "" && !enderecoValido(l.IPPublico):
-		return falha("ip_publico inválido")
+	case l.IPPublico != "" && !ipv4Publico(l.IPPublico):
+		return falha("ip_publico deve ser um IPv4 público fixo")
 	case l.AlvoTeste != "" && net.ParseIP(l.AlvoTeste) == nil:
 		return falha("alvo_teste deve ser um IP")
 	case l.SondaMachineID != "" && !uuidValido.MatchString(l.SondaMachineID):
