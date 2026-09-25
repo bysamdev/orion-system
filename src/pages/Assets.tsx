@@ -287,6 +287,9 @@ const Assets = () => {
     });
   }, [devices, search, companyFilter, typeFilter, statusFilter]);
 
+  // O relatório analítico usa a mesma busca e os mesmos filtros do topo.
+  const idsFiltrados = useMemo(() => new Set(filteredDevices.map(d => d.id)), [filteredDevices]);
+
   // Resumo calculado sobre a lista JÁ FILTRADA, para os cards acompanharem o
   // filtro de cliente/tipo/status em vez de exibirem sempre o parque inteiro.
   //
@@ -693,7 +696,10 @@ const Assets = () => {
             </TabsList>
 
             <TabsContent value="relatorio" className="outline-none">
-              <RelatorioDeInventario />
+              <RelatorioDeInventario
+                idsFiltrados={idsFiltrados}
+                clienteFiltrado={companyFilter === 'all' ? undefined : companies?.find((c) => c.id === companyFilter)?.name}
+              />
             </TabsContent>
 
             <TabsContent value="lista" className="space-y-6 outline-none">
