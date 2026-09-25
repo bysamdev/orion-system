@@ -83,15 +83,6 @@ const COLUNAS: { chave: keyof LinhaDoInventario; titulo: string; valor?: (l: Lin
 const texto = (l: LinhaDoInventario, c: (typeof COLUNAS)[number]) => (c.valor ? c.valor(l) : String(l[c.chave] ?? '—'));
 const escHtml = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-function baixar(conteudo: string, nome: string, tipo: string) {
-  const url = URL.createObjectURL(new Blob([conteudo], { type: tipo }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nome;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 // PDF pela impressão do navegador ("Salvar como PDF"): página própria, em
 // paisagem, só com a lista.
 function imprimirPdf(linhas: LinhaDoInventario[], subtitulo: string) {
@@ -119,23 +110,46 @@ function imprimirPdf(linhas: LinhaDoInventario[], subtitulo: string) {
   janela.print();
 }
 
-function exportarExcel(linhas: LinhaDoInventario[], nome: string) {
+// .xlsx de verdade (o XML com extensão .xls que saía antes o Excel acusava
+// como corrompido). Duas abas: a lista de máquinas e o resumo por cliente.
+async function exportarExcel(linhas: LinhaDoInventario[], nome: string) {
+  const { default: writeXlsxFile } = await import('write-excel-file/browser');
+  const cabecalho = (titulo: string) => ({ value: titulo, fontWeight: 'bold' as const, backgroundColor: '#E5E7EB' });
   const numericas = new Set<keyof LinhaDoInventario>(['memoriaGb', 'discoGb']);
-  const celula = (l: LinhaDoInventario, c: (typeof COLUNAS)[number]) => {
-    const v = l[c.chave];
-    return numericas.has(c.chave) && typeof v === 'number'
-      ? `<Cell><Data ss:Type="Number">${v}</Data></Cell>`
-      : `<Cell><Data ss:Type="String">${escHtml(texto(l, c))}</Data></Cell>`;
-  };
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-<Styles><Style ss:ID="h"><Font ss:Bold="1"/><Interior ss:Color="#E5E7EB" ss:Pattern="Solid"/></Style></Styles>
-<Worksheet ss:Name="Inventário"><Table>
-<Row>${COLUNAS.map(c => `<Cell ss:StyleID="h"><Data ss:Type="String">${escHtml(c.titulo)}</Data></Cell>`).join('')}</Row>
-${linhas.map(l => `<Row>${COLUNAS.map(c => celula(l, c)).join('')}</Row>`).join('\n')}
-</Table></Worksheet></Workbook>`;
-  baixar(xml, `${nome}.xls`, 'application/vnd.ms-excel');
+
+  const lista = [
+    COLUNAS.map(c => cabecalho(c.titulo)),
+    ...linhas.map(l => COLUNAS.map(c => {
+      const v = l[c.chave];
+      return numericas.has(c.chave) && typeof v === 'number'
+        ? { value: v, type: Number }
+        : { value: texto(l, c), type: String };
+    })),
+  ];
+
+  const porCliente = new Map<string, { total: number; computadores: number; notebooks: number; servidores: number; online: number }>();
+  for (const l of linhas) {
+    const r = porCliente.get(l.cliente) ?? { total: 0, computadores: 0, notebooks: 0, servidores: 0, online: 0 };
+    r.total++;
+    if (l.tipo === 'Computador') r.computadores++;
+    if (l.tipo === 'Notebook') r.notebooks++;
+    if (l.tipo === 'Servidor') r.servidores++;
+    if (l.situacao === 'Online') r.online++;
+    porCliente.set(l.cliente, r);
+  }
+  const resumo = [
+    ['Cliente', 'Total', 'Computadores', 'Notebooks', 'Servidores', 'Online'].map(cabecalho),
+    ...[...porCliente.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([cliente, r]) => [
+      { value: cliente, type: String },
+      ...[r.total, r.computadores, r.notebooks, r.servidores, r.online].map(v => ({ value: v, type: Number })),
+    ]),
+  ];
+
+  const larguras = [22, 20, 14, 14, 16, 16, 36, 13, 11, 22, 16, 10, 17];
+  await writeXlsxFile([
+    { data: lista, sheet: 'Inventário', columns: larguras.map(width => ({ width })), stickyRowsCount: 1, orientation: 'landscape' },
+    { data: resumo, sheet: 'Resumo por cliente', columns: [30, 10, 14, 12, 12, 10].map(width => ({ width })), stickyRowsCount: 1 },
+  ], { fontFamily: 'Calibri', fontSize: 11 }).toFile(`${nome}.xlsx`);
 }
 
 interface RelatorioDeInventarioProps {
@@ -175,7 +189,7 @@ export const RelatorioDeInventario: React.FC<RelatorioDeInventarioProps> = ({ id
           <Button variant="outline" size="sm" className="h-9 gap-1.5" disabled={!filtradas.length} onClick={() => imprimirPdf(filtradas, recorte)}>
             <FileText className="w-4 h-4" /> PDF
           </Button>
-          <Button size="sm" className="h-9 gap-1.5" disabled={!filtradas.length} onClick={() => exportarExcel(filtradas, nomeDoArquivo)}>
+          <Button size="sm" className="h-9 gap-1.5" disabled={!filtradas.length} onClick={() => { void exportarExcel(filtradas, nomeDoArquivo); }}>
             <FileSpreadsheet className="w-4 h-4" /> Excel
           </Button>
         </div>
