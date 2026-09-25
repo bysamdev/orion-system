@@ -51,10 +51,14 @@ func RemoverAtalhos() {
 // pessoais vem em ordem de preferência: a primeira é onde o atalho fica
 // quando não pode ir para a pública.
 func garantirAtalhoUnico(publica string, pessoais []string, apiURL, machineToken string) error {
+	return garantirAtalhoUnicoComGravacao(publica, pessoais, apiURL, machineToken, criarAtalhoEm)
+}
+
+func garantirAtalhoUnicoComGravacao(publica string, pessoais []string, apiURL, machineToken string, gravarAtalho func(string, string, string) error) error {
 	if publica != "" {
 		_ = os.Remove(filepath.Join(publica, nomeAtalhoLegado))
 		caminhoPublico := filepath.Join(publica, nomeAtalho)
-		errPublico := criarAtalhoEm(caminhoPublico, apiURL, machineToken)
+		errPublico := gravarAtalho(caminhoPublico, apiURL, machineToken)
 		if _, err := os.Stat(caminhoPublico); err == nil {
 			for _, pasta := range pessoais {
 				if !mesmaPasta(pasta, publica) {
@@ -71,7 +75,7 @@ func garantirAtalhoUnico(publica string, pessoais []string, apiURL, machineToken
 	}
 	principal := pessoais[0]
 	_ = os.Remove(filepath.Join(principal, nomeAtalhoLegado))
-	if err := criarAtalhoEm(filepath.Join(principal, nomeAtalho), apiURL, machineToken); err != nil {
+	if err := gravarAtalho(filepath.Join(principal, nomeAtalho), apiURL, machineToken); err != nil {
 		return err
 	}
 	for _, pasta := range pessoais[1:] {
@@ -151,6 +155,11 @@ func mesmaPasta(a, b string) bool {
 // atalho .url só aceita um caminho de arquivo, então o .ico precisa existir
 // em disco antes.
 func criarAtalhoEm(caminho, apiURL, machineToken string) error {
+	return criarAtalhoComIconeEm(caminho, apiURL, machineToken, gravarIconeOrion)
+}
+
+// A origem do ícone é injetada nos testes para não escrever na instalação real.
+func criarAtalhoComIconeEm(caminho, apiURL, machineToken string, gravarIcone func() (string, error)) error {
 	apiURL = strings.TrimRight(strings.TrimSpace(apiURL), "/")
 	if apiURL == "" {
 		apiURL = "https://orion.bysam.dev"
@@ -162,7 +171,7 @@ func criarAtalhoEm(caminho, apiURL, machineToken string) error {
 	_ = machineToken
 	targetURL := apiURL + "/auth"
 
-	iconPath, err := gravarIconeOrion()
+	iconPath, err := gravarIcone()
 	if err != nil {
 		// Sem o .ico, o atalho ainda funciona — só cai de volta pro ícone
 		// genérico do orion-agent.exe instalado (SEMPRE em C:\Orion, nunca
@@ -200,8 +209,10 @@ func criarAtalhoEm(caminho, apiURL, machineToken string) error {
 // idempotente — grava de novo só se o conteúdo mudou (ex: ícone atualizado
 // numa nova versão do agente).
 func gravarIconeOrion() (string, error) {
-	return gravarIconeEm(`C:\Orion`)
+	return gravarIconeEm(pastaIconeOrion())
 }
+
+func pastaIconeOrion() string { return `C:\Orion` }
 
 // gravarIconeEm faz o trabalho de verdade sobre uma pasta arbitrária —
 // separada de gravarIconeOrion (que fixa C:\Orion) só pra permitir que o

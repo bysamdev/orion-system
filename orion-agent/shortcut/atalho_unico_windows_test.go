@@ -30,7 +30,7 @@ func TestGarantirAtalhoUnico_PublicaRemoveCopiasPessoais(t *testing.T) {
 	plantarAtalho(t, oneDrive, nomeAtalho)
 	plantarAtalho(t, perfil, nomeAtalhoLegado)
 
-	if err := garantirAtalhoUnico(publica, []string{oneDrive, perfil}, "https://orion.exemplo.test", "tok-1"); err != nil {
+	if err := garantirAtalhoUnicoComGravacao(publica, []string{oneDrive, perfil}, "https://orion.exemplo.test", "tok-1", atalhoDeTeste(t)); err != nil {
 		t.Fatalf("garantirAtalhoUnico: %v", err)
 	}
 
@@ -65,7 +65,7 @@ func TestGarantirAtalhoUnico_SemPublicaFicaSoNaPrimeiraPessoal(t *testing.T) {
 	oneDrive, perfil := t.TempDir(), t.TempDir()
 	plantarAtalho(t, perfil, nomeAtalho)
 
-	if err := garantirAtalhoUnico(publicaInacessivel, []string{oneDrive, perfil}, "https://orion.exemplo.test", "tok-1"); err != nil {
+	if err := garantirAtalhoUnicoComGravacao(publicaInacessivel, []string{oneDrive, perfil}, "https://orion.exemplo.test", "tok-1", atalhoDeTeste(t)); err != nil {
 		t.Fatalf("garantirAtalhoUnico: %v", err)
 	}
 

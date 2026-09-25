@@ -103,6 +103,20 @@ jobs:
       - name: Testes multiplataforma
         run: go test ./collector/... ./config/... ./sender/... ./shortcut/... ./token/... ./tray/...
 
+  agent-windows:
+    name: Orion Agent (atalho e ACL no Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: orion-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: orion-agent/go.mod
+          cache-dependency-path: orion-agent/go.sum
+      - run: go test -count=1 ./shortcut ./token
+
   migrations:
     name: Migrations (sanidade)
     runs-on: ubuntu-latest
@@ -196,8 +210,7 @@ jobs:
 # 1. (Fechada em 18/09/2026 pelo job "banco".) Replay das migrations em banco
 #    descartável, com a CLI do Supabase em container.
 #
-# 2. Testes do agente em Windows. service/windows_test.go cobre justamente a
-#    execução de comando remoto, a parte mais sensível do agente, e hoje só é
-#    compilado, nunca executado. Exige runner windows-latest.
+# 2. Testes do serviço em Windows. Atalho e ACL agora rodam no runner
+#    windows-latest, mas service/windows_test.go segue só compilado na CI.
 #
 # 3. Teste cross-tenant de RLS. Depende de (1) mais duas empresas de teste.

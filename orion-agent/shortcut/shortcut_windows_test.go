@@ -6,7 +6,7 @@ package shortcut
 // que não aceita injeção de caminho e escreveria de verdade na Área de
 // Trabalho do usuário que rodar a suíte (mesmo achado de testabilidade já
 // documentado para token.GetTokenPath). Os testes abaixo exercitam
-// criarAtalhoEm — a lógica real, sobre um caminho arbitrário em t.TempDir().
+// criarAtalhoComIconeEm — a lógica real, com caminho e ícone em t.TempDir().
 
 import (
 	"os"
@@ -16,12 +16,25 @@ import (
 	"time"
 )
 
+func iconeDeTeste(t *testing.T) func() (string, error) {
+	t.Helper()
+	pasta := t.TempDir()
+	return func() (string, error) { return gravarIconeEm(pasta) }
+}
+
+func atalhoDeTeste(t *testing.T) func(string, string, string) error {
+	gravarIcone := iconeDeTeste(t)
+	return func(caminho, apiURL, machineToken string) error {
+		return criarAtalhoComIconeEm(caminho, apiURL, machineToken, gravarIcone)
+	}
+}
+
 // TestCriarAtalhoEm_CriaArquivoComFormatoEsperado garante o formato .url e
 // que a URL embutida leva à tela de login e não carrega o token.
 func TestCriarAtalhoEm_CriaArquivoComFormatoEsperado(t *testing.T) {
 	caminho := filepath.Join(t.TempDir(), "Abrir Chamado Orion.url")
 
-	if err := criarAtalhoEm(caminho, "https://orion.exemplo.test", "tok-123"); err != nil {
+	if err := criarAtalhoComIconeEm(caminho, "https://orion.exemplo.test", "tok-123", iconeDeTeste(t)); err != nil {
 		t.Fatalf("criarAtalhoEm falhou: %v", err)
 	}
 
@@ -46,7 +59,8 @@ func TestCriarAtalhoEm_CriaArquivoComFormatoEsperado(t *testing.T) {
 func TestCriarAtalhoEm_NaoRegravaConteudoIdentico(t *testing.T) {
 	caminho := filepath.Join(t.TempDir(), "Abrir Portal de Chamados.url")
 
-	if err := criarAtalhoEm(caminho, "https://orion.exemplo.test", "tok-123"); err != nil {
+	gravarIcone := iconeDeTeste(t)
+	if err := criarAtalhoComIconeEm(caminho, "https://orion.exemplo.test", "tok-123", gravarIcone); err != nil {
 		t.Fatalf("primeira gravação falhou: %v", err)
 	}
 
@@ -60,7 +74,7 @@ func TestCriarAtalhoEm_NaoRegravaConteudoIdentico(t *testing.T) {
 	// para que uma regravação indevida seja detectável.
 	time.Sleep(20 * time.Millisecond)
 
-	if err := criarAtalhoEm(caminho, "https://orion.exemplo.test", "tok-123"); err != nil {
+	if err := criarAtalhoComIconeEm(caminho, "https://orion.exemplo.test", "tok-123", gravarIcone); err != nil {
 		t.Fatalf("segunda chamada (conteúdo idêntico) falhou: %v", err)
 	}
 
@@ -81,10 +95,11 @@ func TestCriarAtalhoEm_NaoRegravaConteudoIdentico(t *testing.T) {
 func TestCriarAtalhoEm_RegravaQuandoServidorMuda(t *testing.T) {
 	caminho := filepath.Join(t.TempDir(), "Abrir Portal de Chamados.url")
 
-	if err := criarAtalhoEm(caminho, "https://antigo.exemplo.test", "tok"); err != nil {
+	gravarIcone := iconeDeTeste(t)
+	if err := criarAtalhoComIconeEm(caminho, "https://antigo.exemplo.test", "tok", gravarIcone); err != nil {
 		t.Fatalf("primeira gravação falhou: %v", err)
 	}
-	if err := criarAtalhoEm(caminho, "https://novo.exemplo.test", "tok"); err != nil {
+	if err := criarAtalhoComIconeEm(caminho, "https://novo.exemplo.test", "tok", gravarIcone); err != nil {
 		t.Fatalf("segunda gravação (servidor novo) falhou: %v", err)
 	}
 
@@ -111,7 +126,7 @@ func TestCriarAtalhoEm_ArquivoInexistenteEhCriadoNormalmente(t *testing.T) {
 		t.Fatal("pré-condição falhou: arquivo já existia")
 	}
 
-	if err := criarAtalhoEm(caminho, "https://orion.exemplo.test", "tok-1"); err != nil {
+	if err := criarAtalhoComIconeEm(caminho, "https://orion.exemplo.test", "tok-1", iconeDeTeste(t)); err != nil {
 		t.Fatalf("criarAtalhoEm falhou na primeira execução: %v", err)
 	}
 
@@ -127,7 +142,7 @@ func TestCriarAtalhoEm_ArquivoInexistenteEhCriadoNormalmente(t *testing.T) {
 func TestCriarAtalhoEm_ApontaParaOIconeRealDoOrion(t *testing.T) {
 	caminho := filepath.Join(t.TempDir(), "atalho.url")
 
-	if err := criarAtalhoEm(caminho, "https://orion.exemplo.test", "tok-1"); err != nil {
+	if err := criarAtalhoComIconeEm(caminho, "https://orion.exemplo.test", "tok-1", iconeDeTeste(t)); err != nil {
 		t.Fatalf("criarAtalhoEm: %v", err)
 	}
 
@@ -182,21 +197,10 @@ func TestGravarIconeEm_EhIdempotente(t *testing.T) {
 // que o instalador é limpo/movido (confirmado: um atalho real apontava pra
 // "...\Temp\orion.ico", outro direto pro .exe do instalador em
 // "...\Temp\OrionInstaller-1.1.15.exe" — nenhum dos dois mais existia).
-// gravarIconeOrion() não recebe mais nenhum parâmetro nem lê
-// os.Executable() — é hardcoded pra C:\Orion, então não há mais como esse
-// caminho variar por quem chama.
+// gravarIconeOrion() usa um caminho fixo; o teste confere essa escolha sem
+// criar/apagar o ícone da instalação real.
 func TestGravarIconeOrion_IgnoraProcessoAtualEUsaSempreCOrion(t *testing.T) {
-	caminho, err := gravarIconeOrion()
-	if err != nil {
-		// Ambiente de CI sem C:\Orion gravável — não é o que este teste
-		// verifica (isso é coberto por TestGravarIconeEm_EhIdempotente
-		// sobre TempDir); só confirmamos que, quando funciona, o caminho é
-		// o certo.
-		t.Skipf("gravarIconeOrion falhou (ambiente sem acesso a C:\\Orion?): %v", err)
-	}
-	defer os.Remove(caminho)
-
-	if filepath.Dir(caminho) != `C:\Orion` {
-		t.Errorf("gravarIconeOrion() gravou em %q, esperado dentro de C:\\Orion", caminho)
+	if pasta := pastaIconeOrion(); pasta != `C:\Orion` {
+		t.Errorf("ícone seria gravado em %q, esperado C:\\Orion", pasta)
 	}
 }

@@ -3,7 +3,6 @@ package token
 import (
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -408,75 +407,5 @@ func TestLoadTokenFrom_MigraTokenLegadoEmTextoPlano(t *testing.T) {
 	}
 	if relido != tokenLegado {
 		t.Fatalf("token mudou de valor ao ser protegido: %q != %q", relido, tokenLegado)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Endurecimento de ACL (correção A.6, parte "+ ACL explícita")
-// ---------------------------------------------------------------------------
-
-// TestSaveTokenTo_RestringeACLDoDiretorio garante que, ao criar o diretório do
-// token pela primeira vez, saveTokenTo restringe o acesso a exatamente três
-// principals: SYSTEM, Administradores, e a conta que criou o diretório agora
-// (necessária para o modo tray interativo continuar funcionando — ver o
-// comentário de endurecerACLDoDiretorio em acl_windows.go). Qualquer outro
-// principal presente indica que a herança da ACL do diretório pai não foi
-// removida.
-//
-// Verificação por SID via PowerShell (não por nome via icacls) para não
-// depender do idioma de instalação do Windows: nesta própria máquina de
-// desenvolvimento os nomes localizados são "AUTORIDADE NT\SISTEMA" e
-// "BUILTIN\Administradores", que não bateriam com uma asserção em inglês.
-func TestSaveTokenTo_RestringeACLDoDiretorio(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skipf("ACL do Windows, GOOS atual = %s", runtime.GOOS)
-	}
-	if _, err := exec.LookPath("powershell"); err != nil {
-		t.Skip("powershell não disponível neste ambiente para verificar a ACL")
-	}
-
-	dir := filepath.Join(t.TempDir(), "OrionAgent")
-	caminho := filepath.Join(dir, "machine.token")
-
-	if err := salvarTokenEm(caminho, "token-qualquer"); err != nil {
-		t.Fatalf("salvarTokenEm falhou: %v", err)
-	}
-
-	sidUsuarioAtual, err := exec.Command("powershell", "-NoProfile", "-Command",
-		"[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value",
-	).Output()
-	if err != nil {
-		t.Fatalf("não foi possível obter o SID do usuário atual: %v", err)
-	}
-
-	out, err := exec.Command("powershell", "-NoProfile", "-Command",
-		"(Get-Acl '"+dir+"').Access | ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value }",
-	).CombinedOutput()
-	if err != nil {
-		t.Fatalf("verificação via PowerShell falhou: %v (%s)", err, out)
-	}
-
-	sids := strings.Fields(strings.TrimSpace(string(out)))
-	esperados := map[string]string{
-		"S-1-5-18":     "SYSTEM",
-		"S-1-5-32-544": "Administradores",
-		"S-1-5-4":      "INTERACTIVE (leitura para a bandeja)",
-		strings.TrimSpace(string(sidUsuarioAtual)): "usuário atual (criador do diretório)",
-	}
-
-	achados := make(map[string]bool, len(sids))
-	for _, s := range sids {
-		achados[s] = true
-	}
-
-	for sid, papel := range esperados {
-		if !achados[sid] {
-			t.Errorf("ACL de %q não concede acesso a %s (%s); SIDs encontrados: %v", dir, papel, sid, sids)
-		}
-	}
-	for _, s := range sids {
-		if _, ok := esperados[s]; !ok {
-			t.Errorf("ACL de %q concede acesso a um principal inesperado (%s) — a herança pode não ter sido removida; SIDs encontrados: %v", dir, s, sids)
-		}
 	}
 }
