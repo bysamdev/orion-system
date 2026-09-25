@@ -1,6 +1,7 @@
 package token
 
 import (
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -35,7 +36,11 @@ func TestSaveTokenTo_RestringeACLDoDiretorio(t *testing.T) {
 		t.Fatalf("obter SID do usuário: %v", err)
 	}
 	usuarioSID := usuario.User.Sid.String()
-	esperados := map[string]bool{"SY": false, "BA": false, "IU": false, usuarioSID: false}
+	sidServico, err := obterSIDDoServico()
+	if err != nil {
+		t.Fatalf("obter SID do serviço: %v", err)
+	}
+	esperados := map[string]bool{"SY": false, "BA": false, "IU": false, usuarioSID: false, sidServico: false}
 	for _, match := range aceDaACL.FindAllStringSubmatch(sddl, -1) {
 		campos := strings.Split(match[1], ";")
 		if len(campos) != 6 || campos[0] != "A" {
@@ -64,5 +69,52 @@ func TestSaveTokenTo_RestringeACLDoDiretorio(t *testing.T) {
 		if !encontrado {
 			t.Errorf("ACL não concede acesso a %s: %s", principal, sddl)
 		}
+	}
+	arquivo := filepath.Join(dir, "machine.token")
+	sdArquivo, err := windows.GetNamedSecurityInfo(arquivo, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
+	if err != nil {
+		t.Fatalf("ler ACL do arquivo: %v", err)
+	}
+	if !strings.Contains(sdArquivo.String(), ";;;"+sidServico+")") {
+		t.Errorf("arquivo da identidade não concede acesso ao serviço: %s", sdArquivo.String())
+	}
+}
+
+func TestGarantirPermissoesEm_ReparaArquivoExistente(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "OrionAgent", "machine.token")
+	if err := saveNewTokenTo(path, "identidade-preservada"); err != nil {
+		t.Fatal(err)
+	}
+	sidServico, err := obterSIDDoServico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Simula uma instalação antiga com DACL explícita que exclui a conta do
+	// serviço. O teste só modifica o arquivo temporário.
+	for _, args := range [][]string{{path, "/inheritance:d"}, {path, "/remove:g", "*" + sidServico}} {
+		if out, err := exec.Command("icacls", args...).CombinedOutput(); err != nil {
+			t.Fatalf("simular ACL antiga: %v (%s)", err, out)
+		}
+	}
+	antes, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(antes.String(), ";;;"+sidServico+")") {
+		t.Fatalf("a simulação ainda permite o serviço: %s", antes.String())
+	}
+	if err := garantirPermissoesEm(path); err != nil {
+		t.Fatalf("reparar ACL: %v", err)
+	}
+	depois, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(depois.String(), ";;;"+sidServico+")") {
+		t.Errorf("ACL reparada ainda nega o serviço: %s", depois.String())
+	}
+	identidade, err := loadTokenFrom(path)
+	if err != nil || identidade != "identidade-preservada" {
+		t.Fatalf("a identidade mudou após reparar ACL: %q, %v", identidade, err)
 	}
 }

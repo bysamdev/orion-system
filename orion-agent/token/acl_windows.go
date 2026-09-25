@@ -6,12 +6,32 @@ import (
 	"fmt"
 	"os/exec"
 	"os/user"
+	"regexp"
 	"syscall"
 )
 
-// endurecerACLDoDiretorio restringe leitura e escrita de dir a SYSTEM, ao grupo
-// Administradores e à conta que está criando o diretório agora, removendo a ACL
-// herdada do diretório pai.
+var sidServicoOrion = regexp.MustCompile(`S-1-5-80-(?:[0-9]+-){4}[0-9]+`)
+
+// sc showsid calcula o SID pelo nome, mesmo antes de o serviço ser criado.
+// Usar o SID evita depender do idioma do Windows ou da resolução da conta
+// virtual NT SERVICE\OrionAgent durante a primeira instalação.
+func obterSIDDoServico() (string, error) {
+	cmd := exec.Command("sc.exe", "showsid", "OrionAgent")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("consultar SID do serviço OrionAgent: %w (%s)", err, string(out))
+	}
+	sid := sidServicoOrion.FindString(string(out))
+	if sid == "" {
+		return "", fmt.Errorf("SID do serviço OrionAgent ausente na saída de sc showsid")
+	}
+	return sid, nil
+}
+
+// endurecerACLDoDiretorio restringe escrita a SYSTEM, Administradores, ao
+// serviço OrionAgent e à conta que está instalando, removendo a ACL herdada
+// do diretório pai. INTERACTIVE recebe somente leitura para a bandeja.
 //
 // Isso é necessário mesmo com o conteúdo protegido por DPAPI: o escopo usado em
 // protect/unprotect é CRYPTPROTECT_LOCAL_MACHINE (obrigatório, porque o agente
@@ -58,10 +78,15 @@ import (
 // referenciada pelo nome (DOMÍNIO\usuário) — nomes de conta não são localizados
 // como nomes de grupo embutido são.
 func endurecerACLDoDiretorio(dir string) error {
+	sidServico, err := obterSIDDoServico()
+	if err != nil {
+		return err
+	}
 	concessoes := []string{
 		`SYSTEM:(OI)(CI)F`,
-		`*S-1-5-32-544:(OI)(CI)F`, // BUILTIN\Administrators
-		`*S-1-5-4:(OI)(CI)RX`,     // NT AUTHORITY\INTERACTIVE — só leitura, para a bandeja
+		`*S-1-5-32-544:(OI)(CI)F`,       // BUILTIN\Administrators
+		`*` + sidServico + `:(OI)(CI)F`, // conta virtual do serviço OrionAgent
+		`*S-1-5-4:(OI)(CI)RX`,           // NT AUTHORITY\INTERACTIVE — só leitura, para a bandeja
 	}
 
 	if u, err := user.Current(); err == nil && u.Username != "" {
@@ -82,6 +107,18 @@ func endurecerACLDoDiretorio(dir string) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("icacls falhou ao endurecer %q: %w (saída: %s)", dir, err, string(out))
+	}
+	return nil
+}
+
+// O arquivo pode ter uma DACL explícita antiga. /reset substitui-a pela ACL
+// herdada do diretório já protegido, sem tocar no conteúdo cifrado pelo DPAPI.
+func herdarACLDoDiretorio(arquivo string) error {
+	cmd := exec.Command("icacls", arquivo, "/reset")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("icacls falhou ao reparar %q: %w (saída: %s)", arquivo, err, string(out))
 	}
 	return nil
 }

@@ -425,9 +425,12 @@ func instalar() error {
 	// Com a criação no instalador, reativar uma máquina que perdeu a
 	// identidade é rodar o instalador de novo — que pede o token da empresa.
 	//
-	// O DPAPI aqui usa escopo de MÁQUINA (CRYPTPROTECT_LOCAL_MACHINE, ver
-	// token/protect_windows.go) e a ACL libera SYSTEM, então o que o
-	// instalador grava como Administrador o serviço consegue ler como SYSTEM.
+	// O DPAPI aqui usa escopo de MÁQUINA (CRYPTPROTECT_LOCAL_MACHINE). A ACL
+	// precisa liberar a conta virtual NT SERVICE\OrionAgent que roda o serviço;
+	// acesso de Administrador/SYSTEM, sozinho, não basta para ela.
+	if err := token.GarantirPermissoesDaIdentidade(); err != nil {
+		return fmt.Errorf("reparar permissões da identidade da máquina: %w", err)
+	}
 	if _, err := token.LoadToken(); err == nil {
 		imprimirOK("Identidade da máquina já existente — mantida")
 	} else {

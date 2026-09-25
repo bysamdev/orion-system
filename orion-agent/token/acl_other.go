@@ -8,3 +8,7 @@ package token
 func endurecerACLDoDiretorio(dir string) error {
 	return nil
 }
+
+func herdarACLDoDiretorio(arquivo string) error {
+	return nil
+}

@@ -306,8 +306,8 @@ func (s *Svc) TokenDaMaquina() string {
 // run é o loop principal do agente: coleta dados → envia para o servidor → aguarda o próximo intervalo.
 func (s *Svc) run(ctx context.Context) {
 	s.logger.Println("🚀 Orion Agent iniciado com sucesso")
-	if err := token.GarantirPermissoesDoDiretorio(); err != nil {
-		s.logger.Printf("[AVISO] Não foi possível ajustar as permissões da pasta de identidade — a bandeja pode não enxergar o status: %v", err)
+	if err := token.GarantirPermissoesDaIdentidade(); err != nil {
+		s.logger.Printf("[AVISO] Não foi possível ajustar as permissões da identidade da máquina: %v", err)
 	}
 	s.startMetricsServer(ctx)
 

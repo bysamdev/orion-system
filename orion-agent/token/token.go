@@ -72,20 +72,30 @@ func SaveNewToken(token string) error {
 	return saveNewTokenTo(GetTokenPath(), token)
 }
 
-// GarantirPermissoesDoDiretorio reaplica a ACL do diretório de identidade
-// quando ele já existe. O serviço chama a cada start: instalações anteriores
-// a esta correção criaram o diretório sem a leitura para usuários
-// interativos (ver endurecerACLDoDiretorio), e SaveToken — o único ponto que
-// aplicava a ACL — não roda mais depois que a identidade existe.
-func GarantirPermissoesDoDiretorio() error {
-	dir := filepath.Dir(GetTokenPath())
+// GarantirPermissoesDaIdentidade repara a ACL do diretório e do arquivo já
+// existente. O instalador chama antes de iniciar o serviço, preservando a
+// identidade em reinstalações que antes negavam acesso à conta virtual.
+func GarantirPermissoesDaIdentidade() error {
+	return garantirPermissoesEm(GetTokenPath())
+}
+
+func garantirPermissoesEm(path string) error {
+	dir := filepath.Dir(path)
 	if _, err := os.Stat(dir); err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
 		return err
 	}
-	return endurecerACLDoDiretorio(dir)
+	if err := endurecerACLDoDiretorio(dir); err != nil {
+		return err
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return herdarACLDoDiretorio(path)
 }
 
 // prepararDiretorioDeIdentidade cria o diretório se preciso e aplica a ACL.
@@ -133,7 +143,10 @@ func saveNewTokenTo(path, token string) error {
 		_ = os.Remove(path)
 		return fmt.Errorf("write token file: %w", err)
 	}
-	return f.Close()
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return herdarACLDoDiretorio(path)
 }
 
 // loadTokenFrom lê e decifra o token de um caminho arbitrário.
@@ -181,7 +194,10 @@ func saveTokenTo(path, token string) error {
 		// Mantém o comportamento pré-existente para este caso degenerado (achado
 		// documentado em TestTokenVazioEhAceitoSemErro, não é objeto desta
 		// correção): um token vazio é aceito e grava um arquivo vazio.
-		return os.WriteFile(path, nil, 0600)
+		if err := os.WriteFile(path, nil, 0600); err != nil {
+			return err
+		}
+		return herdarACLDoDiretorio(path)
 	}
 
 	protegido, err := protect([]byte(token))
@@ -193,5 +209,5 @@ func saveTokenTo(path, token string) error {
 		return fmt.Errorf("write token file: %w", err)
 	}
 
-	return nil
+	return herdarACLDoDiretorio(path)
 }
