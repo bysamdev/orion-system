@@ -154,10 +154,7 @@ export const ModoPlanilha: React.FC<ModoPlanilhaProps> = ({ filtros, userId }) =
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          {chamados.length} chamado(s). Arraste o cabeçalho para mudar a ordem das colunas e a borda para mudar a largura.
-        </p>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <div className="flex items-center gap-2">
           <div role="radiogroup" aria-label="Altura das linhas" className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/40 border border-border/50">
             {ALTURAS.map(a => (
