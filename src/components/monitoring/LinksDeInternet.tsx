@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCompanies } from '@/hooks/useCompanies';
+import { useAllMachines } from '@/hooks/useMonitoring';
 import {
   useDeleteNetworkLink, useNetworkLinks, useSalvarLink,
   type NetworkLink, type PapelDoLink, type TipoDeLink,
@@ -28,7 +29,7 @@ import { cn } from '@/lib/utils';
 //  - De fora: ping do servidor de monitoramento no IP público do link.
 // O histórico completo fica no Grafana (painel "Links de Internet").
 
-const PAINEL_DO_GRAFANA = 'https://monitor-orion.bysam.de/d/orion-links';
+const PAINEL_DO_GRAFANA = 'https://monitor-orion.bysam.dev/d/orion-links';
 
 const TIPOS: Record<TipoDeLink, { rotulo: string; icone: React.ElementType }> = {
   dedicado: { rotulo: 'Link dedicado', icone: Server },
@@ -125,17 +126,20 @@ interface Formulario {
   papel: PapelDoLink;
   ip_publico: string;
   alvo_teste: string;
+  sonda_machine_id: string;
 }
 
-const VAZIO: Formulario = { company_id: '', nome: '', tipo: 'dedicado', papel: 'principal', ip_publico: '', alvo_teste: '' };
+const VAZIO: Formulario = { company_id: '', nome: '', tipo: 'dedicado', papel: 'principal', ip_publico: '', alvo_teste: '', sonda_machine_id: '' };
 
 export const LinksDeInternet: React.FC = () => {
   const { data: companies } = useCompanies();
+  const { data: machines = [] } = useAllMachines();
   const [empresa, setEmpresa] = useState('all');
   const { data: links = [], isLoading, isError, error } = useNetworkLinks(empresa !== 'all' ? empresa : undefined);
   const salvar = useSalvarLink();
   const apagar = useDeleteNetworkLink();
   const [form, setForm] = useState<Formulario | null>(null);
+  const sondasDoCliente = useMemo(() => machines.filter(m => m.company_id === form?.company_id), [machines, form?.company_id]);
 
   const porCliente = useMemo(() => {
     const grupos = new Map<string, NetworkLink[]>();
@@ -266,7 +270,7 @@ export const LinksDeInternet: React.FC = () => {
                     onApagar={() => excluir(l)}
                     onEditar={() => setForm({
                       id: l.id, company_id: l.company_id ?? '', nome: l.name, tipo: l.type, papel: l.papel,
-                      ip_publico: l.ip_or_host, alvo_teste: l.alvo_teste,
+                      ip_publico: l.ip_or_host, alvo_teste: l.alvo_teste, sonda_machine_id: l.sonda_machine_id,
                     })} />
                 ))}
               </div>
@@ -276,7 +280,7 @@ export const LinksDeInternet: React.FC = () => {
       )}
 
       <Dialog open={form !== null} onOpenChange={aberto => { if (!aberto) setForm(null); }}>
-        <DialogContent className="rounded-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-lg sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{form?.id ? 'Editar link' : 'Novo link de internet'}</DialogTitle>
             <DialogDescription>
@@ -288,7 +292,7 @@ export const LinksDeInternet: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2 col-span-2">
                   <Label htmlFor="link-cliente">Cliente</Label>
-                  <Select value={form.company_id} onValueChange={v => setForm({ ...form, company_id: v })}>
+                  <Select value={form.company_id} onValueChange={v => setForm({ ...form, company_id: v, sonda_machine_id: '' })}>
                     <SelectTrigger id="link-cliente" className="rounded-xl"><SelectValue placeholder="Selecione o cliente" /></SelectTrigger>
                     <SelectContent>
                       {companies?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -318,6 +322,19 @@ export const LinksDeInternet: React.FC = () => {
                       <SelectItem value="backup">Backup (redundância)</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="link-sonda">Máquina sonda <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  <Select value={form.sonda_machine_id || 'automatica'} onValueChange={v => setForm({ ...form, sonda_machine_id: v === 'automatica' ? '' : v })}>
+                    <SelectTrigger id="link-sonda" className="rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="automatica">Automática — servidor do cliente</SelectItem>
+                      {sondasDoCliente.map(m => (
+                        <SelectItem key={m.id} value={m.id}>{m.hostname} · {m.device_type === 'server' ? 'Servidor' : 'Máquina'} · {m.status === 'online' ? 'online' : 'offline'}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Se não houver servidor com agente, selecione uma máquina desta empresa. Ela precisa estar online e usar o agente 1.1.34 para medir.</p>
                 </div>
                 <div className="space-y-2 col-span-2">
                   <Label htmlFor="link-ip">IP público fixo <span className="text-muted-foreground font-normal">(opcional)</span></Label>
