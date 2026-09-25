@@ -30,7 +30,6 @@ const timeoutRepasse = 2 * time.Second
 
 var clienteRepasse = &http.Client{Timeout: timeoutRepasse}
 
-//
 // Devolve a configuração de sonda de links quando o Monitor manda uma na
 // resposta (a máquina é o servidor que mede os links do cliente); nil nos
 // demais casos, inclusive falha.
