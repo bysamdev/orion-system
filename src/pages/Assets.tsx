@@ -603,16 +603,8 @@ const Assets = () => {
               filtrado, que vale igualmente para a lista e para a topologia.
               Grade uniforme: todos os cards com a mesma estrutura e altura, em
               vez de o quinto card usar um layout próprio e quebrar a linha. */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              {
-                rotulo: 'Total de Dispositivos',
-                valor: summaryStats.totalDevices,
-                icone: HardDrive,
-                cor: 'text-primary',
-                fundo: 'bg-primary/10',
-                borda: 'hover:border-primary/40',
-              },
               {
                 rotulo: 'Computadores',
                 valor: summaryStats.desktopsCount,
@@ -638,12 +630,12 @@ const Assets = () => {
                 borda: 'hover:border-indigo-500/40',
               },
               {
-                rotulo: 'Alertas Abertos',
-                valor: summaryStats.alertCount,
-                icone: AlertTriangle,
-                cor: 'text-amber-700 dark:text-amber-400',
-                fundo: 'bg-amber-500/10',
-                borda: 'hover:border-amber-500/40',
+                rotulo: 'Total de Máquinas',
+                valor: summaryStats.totalDevices,
+                icone: HardDrive,
+                cor: 'text-primary',
+                fundo: 'bg-primary/10',
+                borda: 'hover:border-primary/40',
               },
             ].map((c) => (
               <Card
