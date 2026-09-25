@@ -46,6 +46,7 @@ import { MachineWithMetric } from '@/hooks/useMonitoring';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AssetTopologyGraph } from '@/components/assets/AssetTopologyGraph';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { RelatorioDeInventario } from '@/components/assets/RelatorioDeInventario';
 
 const deviceIcons: Record<string, React.ElementType> = {
   'Computador': Monitor,
@@ -684,11 +685,16 @@ const Assets = () => {
             </CardContent>
           </Card>
 
-          <Tabs defaultValue="lista" className="w-full space-y-6">
-            <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+          <Tabs defaultValue="relatorio" className="w-full space-y-6">
+            <TabsList className="grid w-full grid-cols-3 max-w-[560px]">
+              <TabsTrigger value="relatorio">Relatório analítico</TabsTrigger>
               <TabsTrigger value="lista">Lista de Ativos</TabsTrigger>
               <TabsTrigger value="topologia">Topologia de Rede</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="relatorio" className="outline-none">
+              <RelatorioDeInventario />
+            </TabsContent>
 
             <TabsContent value="lista" className="space-y-6 outline-none">
 
