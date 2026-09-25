@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useWebEndpoints, useCreateWebEndpoint, useDeleteWebEndpoint } from '@/hooks/useWebMonitoring';
-import { useNetworkLinks, useCreateNetworkLink, useDeleteNetworkLink } from '@/hooks/useNetworkLinks';
-import { useCompanies } from '@/hooks/useCompanies';
+import { useNetworkLinks } from '@/hooks/useNetworkLinks';
+import { LinksDeInternet } from '@/components/monitoring/LinksDeInternet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
 import {
   AreaChart,
   Area,
@@ -28,8 +26,6 @@ import {
   Clock,
   Zap,
   Radio,
-  Router,
-  Building2,
   ShieldCheck,
   ExternalLink,
   RefreshCw,
@@ -92,29 +88,6 @@ function formatDurationShort(seconds?: number | null) {
   return `${hours}h${remMinutes ? ` ${remMinutes}min` : ''}`;
 }
 
-function getLinkTypeInfo(type: string) {
-  const normalized = type?.toLowerCase().replace(/[\s_]+/g, '') || '';
-  if (normalized.includes('starlink')) {
-    return {
-      label: 'Starlink',
-      icon: Radio,
-      color: 'text-primary bg-primary/10 border-primary/20',
-    };
-  }
-  if (normalized.includes('roteador') || normalized.includes('router')) {
-    return {
-      label: 'Roteador',
-      icon: Router,
-      color: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-    };
-  }
-  return {
-    label: 'Link Dedicado',
-    icon: Zap,
-    color: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
-  };
-}
-
 // Custom Recharts Tooltip
 type ItemDoTooltip = { dataKey?: string | number; name?: string | number; value?: number | string | null; color?: string; stroke?: string; fill?: string; unit?: string };
 type PropsDoTooltip = { active?: boolean; payload?: ItemDoTooltip[]; label?: string | number };
@@ -152,7 +125,6 @@ export default function WebMonitoring() {
 
   // Expandable diagnostics states
   const [expandedEndpointIds, setExpandedEndpointIds] = useState<Set<string>>(new Set());
-  const [expandedLinkIds, setExpandedLinkIds] = useState<Set<string>>(new Set());
 
   const toggleExpandEndpoint = (id: string) => {
     setExpandedEndpointIds(prev => {
@@ -163,14 +135,6 @@ export default function WebMonitoring() {
     });
   };
 
-  const toggleExpandLink = (id: string) => {
-    setExpandedLinkIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   // Tab 1 (Web Endpoints) states & hooks
   const { data: endpoints = [], isLoading: isLoadingEndpoints, refetch: refetchWeb } = useWebEndpoints();
@@ -181,22 +145,9 @@ export default function WebMonitoring() {
   const [webName, setWebName] = useState('');
   const [webUrl, setWebUrl] = useState('');
 
-  // Tab 2 (Network Links) states & hooks
-  const { data: companies } = useCompanies();
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('all');
-  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
-
-  const { data: networkLinks = [], isLoading: isLoadingNetworkLinks, refetch: refetchNetwork } = useNetworkLinks(
-    selectedCompanyId !== 'all' ? selectedCompanyId : undefined
-  );
-  const createNetworkLinkMutation = useCreateNetworkLink();
-  const deleteNetworkLinkMutation = useDeleteNetworkLink();
-
-  const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
-  const [netName, setNetName] = useState('');
-  const [netType, setNetType] = useState<string>('link_dedicado');
-  const [netCompanyId, setNetCompanyId] = useState<string>('none');
-  const [netIpHost, setNetIpHost] = useState('');
+  // Aba 2: links de internet (componente próprio). Aqui só a contagem da aba
+  // e o botão Atualizar.
+  const { data: networkLinks = [], isLoading: isLoadingNetworkLinks, refetch: refetchNetwork } = useNetworkLinks();
 
   const refreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -250,42 +201,6 @@ export default function WebMonitoring() {
     }
   };
 
-  // Network Link Handlers
-  const handleCreateNetworkLink = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!netName || !netIpHost) {
-      toast.error('Preencha o nome e o IP/Hostname do link');
-      return;
-    }
-
-    try {
-      await createNetworkLinkMutation.mutateAsync({
-        name: netName,
-        type: netType,
-        company_id: netCompanyId && netCompanyId !== 'none' ? netCompanyId : null,
-        ip_or_host: netIpHost,
-      });
-      toast.success('Link de internet adicionado com sucesso');
-      setIsNetworkModalOpen(false);
-      setNetName('');
-      setNetType('link_dedicado');
-      setNetCompanyId('none');
-      setNetIpHost('');
-    } catch (err) {
-      toast.error(err.message || 'Erro ao adicionar link de internet');
-    }
-  };
-
-  const handleDeleteNetworkLink = async (id: string, name: string) => {
-    if (!confirm(`Deseja realmente excluir o link "${name}"?`)) return;
-    try {
-      await deleteNetworkLinkMutation.mutateAsync(id);
-      toast.success('Link excluído com sucesso');
-    } catch (err) {
-      toast.error(err.message || 'Erro ao excluir link');
-    }
-  };
-
   // Computed Web Stats
   const webStats = useMemo(() => {
     const total = endpoints.length;
@@ -307,44 +222,6 @@ export default function WebMonitoring() {
 
     return { total, online, offline, pending, httpsCount, uptimePct, sslPct, avgResponseTime };
   }, [endpoints]);
-
-  // Computed Network Stats
-  const filteredNetworkLinks = useMemo(() => {
-    if (!networkLinks) return [];
-    if (selectedTypeFilter === 'all') return networkLinks;
-    return (networkLinks || []).filter(link => {
-      const info = getLinkTypeInfo(link.type);
-      return info.label.toLowerCase() === selectedTypeFilter.toLowerCase() ||
-             link.type.toLowerCase().includes(selectedTypeFilter.toLowerCase());
-    });
-  }, [networkLinks, selectedTypeFilter]);
-
-  // Os cartões seguem o mesmo filtro de tipo que a lista. Média de latência
-  // só com medições reais: sem nenhuma, o cartão mostra "sem dados" em vez de
-  // um número fixo (antes caía em 38 ms / 18 ms inventados).
-  const networkStats = useMemo(() => {
-    const links = filteredNetworkLinks;
-    const media = (lista: typeof links) => {
-      const medidas = lista
-        .filter(l => l.status === 'online' && l.latency_ms !== null)
-        .map(l => l.latency_ms as number);
-      return medidas.length > 0 ? Math.round(medidas.reduce((a, b) => a + b, 0) / medidas.length) : null;
-    };
-
-    const starlinkLinks = links.filter(l => l.type?.toLowerCase().includes('starlink'));
-    const dedicatedLinks = links.filter(l => !l.type?.toLowerCase().includes('starlink') && !l.type?.toLowerCase().includes('roteador'));
-
-    return {
-      total: links.length,
-      online: links.filter(l => l.status === 'online').length,
-      offline: links.filter(l => l.status === 'offline').length,
-      avgLatency: media(links),
-      starlinkCount: starlinkLinks.length,
-      starlinkAvg: media(starlinkLinks),
-      dedicatedCount: dedicatedLinks.length,
-      dedicatedAvg: media(dedicatedLinks),
-    };
-  }, [filteredNetworkLinks]);
 
   // Série do gráfico a partir das checagens reais (recent_checks de cada
   // endpoint, vindas do Prometheus). O período corta as checagens e divide a
@@ -422,7 +299,7 @@ export default function WebMonitoring() {
               className="rounded-lg text-xs font-semibold px-4 h-9 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs"
             >
               <Radio className="w-3.5 h-3.5 mr-2" />
-              Links & Redes ({networkStats.total})
+              Links de Internet ({networkLinks.length})
             </TabsTrigger>
           </TabsList>
 
@@ -1084,450 +961,7 @@ export default function WebMonitoring() {
             ABA 2: LINKS DE INTERNET & REDES
         ══════════════════════════════════════════════════════════════════ */}
         <TabsContent value="network" className="space-y-6 mt-0">
-          {/* Network KPI Cards (Compact & Minimal) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
-              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Total de Links
-                  </span>
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                    <Radio className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-                    {networkStats.online}/{networkStats.total}
-                  </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.5 text-primary bg-primary/10 border-primary/30">
-                    Conexões
-                  </Badge>
-                </div>
-                <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>{networkStats.offline} inativos</span>
-                  <span className="text-primary font-medium">ICMP Ping</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
-              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Latência Média
-                  </span>
-                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <Zap className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
-                    {networkStats.avgLatency !== null ? `${networkStats.avgLatency} ms` : '–'}
-                  </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.5 text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
-                    Ping Ativo
-                  </Badge>
-                </div>
-                <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Ida e volta</span>
-                  <span className="text-emerald-600 font-medium">RTT</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* KPI 3: Starlink Satélite */}
-            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
-              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Starlink Satélite
-                  </span>
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                    <Radio className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-                    {networkStats.starlinkCount > 0 ? `${networkStats.starlinkCount} Link(s)` : '0 Links'}
-                  </span>
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.5 text-primary bg-primary/10 border-primary/30">
-                    {networkStats.starlinkAvg ? `${networkStats.starlinkAvg} ms` : 'Satélite LEO'}
-                  </Badge>
-                </div>
-                <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Baixa órbita</span>
-                  <span className="text-primary font-medium">Satélite</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* KPI 4: Monitoramento de Quedas de Rede */}
-            <Card className="border-border/40 bg-card hover:shadow-xs transition-all">
-              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Quedas de Rede
-                  </span>
-                  <div className={cn("p-1.5 rounded-lg", networkStats.offline === 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600")}>
-                    {networkStats.offline === 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                  </div>
-                </div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className={cn("text-xl sm:text-2xl font-bold tracking-tight", networkStats.offline === 0 ? "text-foreground" : "text-red-600 dark:text-red-400")}>
-                    {networkStats.offline === 0 ? '0 Quedas' : `${networkStats.offline} Inativo(s)`}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[10px] font-bold px-1.5 py-0.5",
-                      networkStats.offline === 0
-                        ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/30"
-                        : "text-red-600 bg-red-500/10 border-red-500/30"
-                    )}
-                  >
-                    {networkStats.offline === 0 ? 'Rede Estável' : 'Queda Detectada'}
-                  </Badge>
-                </div>
-                <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/20">
-                  <span>Ping Contínuo</span>
-                  <span className={cn("font-medium", networkStats.offline === 0 ? "text-emerald-600" : "text-red-600")}>
-                    {networkStats.offline === 0 ? 'Sem perdas de pacote' : 'Host inacessível'}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Banner de Quedas de Rede */}
-          {networkStats.offline > 0 && (
-            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3 text-red-950 dark:text-red-200">
-              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <h4 className="text-sm font-bold text-red-600 dark:text-red-400">
-                  Alerta de Queda de Link ({networkStats.offline} {networkStats.offline === 1 ? 'circuito fora do ar' : 'circuitos fora do ar'})
-                </h4>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Os seguintes links não responderam às sondas ICMP/Ping:
-                  {' '}
-                  <span className="font-semibold text-foreground">
-                    {filteredNetworkLinks.filter(l => l.status === 'offline').map(l => l.name).join(', ')}
-                  </span>
-                  . Verifique o roteador, operadora ou cabo de rede do local.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Network Links Controls & Dialog */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2">
-            <div>
-              <h2 className="text-xl font-bold tracking-tight text-foreground">
-                Links &amp; Interfaces Registradas
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Roteadores, antenas Starlink e circuitos de internet por cliente.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-              <div className="flex items-center gap-2 min-w-[200px]">
-                <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
-                <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-                  <SelectTrigger className="rounded-xl text-xs h-9">
-                    <SelectValue placeholder="Empresa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as Empresas</SelectItem>
-                    {companies?.map(c => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="w-[160px]">
-                <Select value={selectedTypeFilter} onValueChange={setSelectedTypeFilter}>
-                  <SelectTrigger className="rounded-xl text-xs h-9">
-                    <SelectValue placeholder="Tipo de Link" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os Tipos</SelectItem>
-                    <SelectItem value="link dedicado">Link Dedicado</SelectItem>
-                    <SelectItem value="starlink">Starlink</SelectItem>
-                    <SelectItem value="roteador">Roteador</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Dialog open={isNetworkModalOpen} onOpenChange={setIsNetworkModalOpen}>
-                <DialogTrigger asChild>
-                  <Button className="rounded-xl font-semibold gap-2 shadow-xs">
-                    <Plus className="w-4 h-4" />
-                    Novo Link
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="rounded-lg">
-                  <DialogHeader>
-                    <DialogTitle>Novo Link de Internet</DialogTitle>
-                    <DialogDescription>Cadastre um link dedicado, conexão Starlink ou roteador de rede.</DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleCreateNetworkLink} className="space-y-4 py-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="netName">Nome do Link</Label>
-                      <Input 
-                        id="netName" 
-                        placeholder="Ex: Link Dedicado - Matriz" 
-                        value={netName} 
-                        onChange={e => setNetName(e.target.value)} 
-                        className="rounded-xl"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="netType">Tipo</Label>
-                        <Select value={netType} onValueChange={setNetType}>
-                          <SelectTrigger id="netType" className="rounded-xl">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="link_dedicado">Link Dedicado</SelectItem>
-                            <SelectItem value="starlink">Starlink</SelectItem>
-                            <SelectItem value="roteador">Roteador</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="netCompany">Cliente / Empresa</Label>
-                        <Select value={netCompanyId} onValueChange={setNetCompanyId}>
-                          <SelectTrigger id="netCompany" className="rounded-xl">
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Nenhuma (Geral)</SelectItem>
-                            {companies?.map(c => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="netIpHost">IP ou Hostname</Label>
-                      <Input 
-                        id="netIpHost" 
-                        placeholder="Ex: 200.150.10.1 ou gateway.empresa.com.br" 
-                        value={netIpHost} 
-                        onChange={e => setNetIpHost(e.target.value)} 
-                        className="rounded-xl font-mono text-sm"
-                      />
-                    </div>
-
-                    <p className="text-sm text-muted-foreground">
-                      O status e a latência aparecem após a primeira medição do monitoramento.
-                    </p>
-
-                    <DialogFooter className="gap-2 sm:gap-0 pt-2">
-                      <Button type="button" variant="outline" onClick={() => setIsNetworkModalOpen(false)} className="rounded-xl">
-                        Cancelar
-                      </Button>
-                      <Button type="submit" disabled={createNetworkLinkMutation.isPending} className="rounded-xl font-semibold">
-                        {createNetworkLinkMutation.isPending ? 'Salvando...' : 'Salvar Link'}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-
-          {/* Network Links Cards Grid */}
-          {isLoadingNetworkLinks ? (
-            <div className="text-center py-12 text-muted-foreground flex flex-col items-center gap-3">
-              <RefreshCw className="w-6 h-6 animate-spin text-primary" />
-              <p className="text-sm">Carregando links de rede...</p>
-            </div>
-          ) : filteredNetworkLinks.length === 0 ? (
-            <Card className="border-dashed border-2 border-border/60 bg-muted/20">
-              <CardContent className="p-12 text-center flex flex-col items-center justify-center space-y-3">
-                <div className="p-4 rounded-lg bg-muted/60 text-muted-foreground">
-                  <Radio className="w-8 h-8" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base">Nenhum link de internet cadastrado</h3>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                    Adicione links dedicados, roteadores de borda ou conexões Starlink para monitorar latência e estabilidade.
-                  </p>
-                </div>
-                <Button onClick={() => setIsNetworkModalOpen(true)} className="rounded-xl font-semibold mt-2">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Cadastrar Primeiro Link
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredNetworkLinks.map(link => {
-                const typeInfo = getLinkTypeInfo(link.type);
-                const TypeIcon = typeInfo.icon;
-                const isOnline = link.status === 'online';
-                const latency = link.latency_ms;
-
-                return (
-                  <Card 
-                    key={link.id} 
-                    className="border-border/40 bg-card hover:bg-muted/20 transition-all shadow-xs flex flex-col justify-between space-y-4"
-                  >
-                    <CardContent className="p-5 flex flex-col justify-between h-full space-y-3.5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={cn('p-2.5 rounded-xl border shrink-0', typeInfo.color)}>
-                            <TypeIcon className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <h3 className="font-bold text-base text-foreground leading-tight truncate">{link.name}</h3>
-                            <p className="text-xs text-muted-foreground mt-0.5 font-mono truncate">{link.ip_or_host}</p>
-                          </div>
-                        </div>
-
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl shrink-0" 
-                          onClick={() => handleDeleteNetworkLink(link.id, link.name)}
-                          title="Excluir"
-                          aria-label={`Excluir link ${link.name}`}
-                          disabled={deleteNetworkLinkMutation.isPending}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/30 text-xs">
-                        <div className="bg-muted/30 px-2.5 py-1.5 rounded-xl">
-                          <span className="text-[10px] text-muted-foreground block uppercase font-bold">Tipo</span>
-                          <span className="font-semibold text-foreground">{typeInfo.label}</span>
-                        </div>
-                        <div className="bg-muted/30 px-2.5 py-1.5 rounded-xl">
-                          <span className="text-[10px] text-muted-foreground block uppercase font-bold">Latência</span>
-                          <span className="font-mono font-bold text-foreground">
-                            {isOnline ? (latency !== null ? `${latency} ms` : 'Sem medição') : link.status === 'pending' ? 'Aguardando medição' : 'Timeout'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1">
-                        <div className="text-[11px] text-muted-foreground">
-                          {link.company_name ? (
-                            <Badge variant="secondary" className="text-[10px] font-semibold">
-                              {link.company_name}
-                            </Badge>
-                          ) : (
-                            <span>Geral / Corporativo</span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => toggleExpandLink(link.id)}
-                            className={cn(
-                              'h-7 px-2 rounded-lg text-[11px] font-semibold gap-1 transition-colors',
-                              expandedLinkIds.has(link.id)
-                                ? 'bg-primary/10 text-primary border-primary/30'
-                                : 'text-muted-foreground hover:text-foreground border-border/40 hover:bg-muted/60'
-                            )}
-                          >
-                            <Activity className="w-3 h-3" />
-                            <span>Estabilidade</span>
-                            {expandedLinkIds.has(link.id) ? (
-                              <ChevronUp className="w-3 h-3" />
-                            ) : (
-                              <ChevronDown className="w-3 h-3" />
-                            )}
-                          </Button>
-
-                          <Badge 
-                            variant={isOnline ? 'default' : 'destructive'} 
-                            className={cn(
-                              'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase',
-                              isOnline ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30' : ''
-                            )}
-                          >
-                            <span className={cn('w-1.5 h-1.5 rounded-full mr-1.5 shrink-0', isOnline ? 'bg-emerald-500' : 'bg-red-500')} />
-                            {statusLabel(link.status)}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-
-                    {/* Network Link Collapsible Diagnostics */}
-                    {expandedLinkIds.has(link.id) && (
-                      <div className="border-t border-border/40 bg-muted/20 p-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="bg-card p-2.5 rounded-xl border border-border/40">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase block">Perda de Pacotes</span>
-                            <span className={cn(
-                              "text-xs font-mono font-bold",
-                              isOnline ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                            )}>
-                              {isOnline ? '0.0% (Zero perdas)' : '100% (Host inalcançável)'}
-                            </span>
-                          </div>
-                          <div className="bg-card p-2.5 rounded-xl border border-border/40">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase block">Jitter (Oscilação)</span>
-                            <span className="text-xs font-mono font-bold text-foreground">
-                              {isOnline ? '± 2 ms' : '– (Sem sinal ICMP)'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Recent ICMP Pings */}
-                        <div className="bg-card rounded-xl border border-border/40 p-3 space-y-2">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
-                              <History className="w-3 h-3" />
-                              Histórico de Pings ICMP (Últimas sondas)
-                            </span>
-                            <span className={cn(
-                              "font-mono font-bold",
-                              isOnline ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                            )}>
-                              {isOnline ? '100% sucesso' : '100% perda'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1 pt-0.5">
-                            {Array.from({ length: 16 }).map((_, i) => (
-                              <div
-                                key={i}
-                                className={cn(
-                                  "h-4 flex-1 rounded-xs transition-all hover:scale-110",
-                                  isOnline ? "bg-emerald-500" : "bg-red-500"
-                                )}
-                                title={
-                                  isOnline
-                                    ? `Ping #${i + 1}: ${latency + (i % 3) - 1} ms - Sucesso`
-                                    : `Ping #${i + 1}: Timeout / 100% Packet Loss`
-                                }
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+          <LinksDeInternet />
         </TabsContent>
       </Tabs>
     </div>
