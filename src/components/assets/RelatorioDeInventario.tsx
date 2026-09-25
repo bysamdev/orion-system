@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { OsIcon } from '@/components/monitoring/MachineCard';
 import { parseOsInfo } from '@/lib/monitoring/sistemaOperacional';
+import { exportarPlanilhaDoInventario } from './planilhaDoInventario';
 
 // Relatório analítico do inventário: uma linha por máquina, com o hardware e o
 // antivírus, e exportação para PDF (impressão) e Excel. Os filtros e a busca
@@ -14,7 +15,7 @@ import { parseOsInfo } from '@/lib/monitoring/sistemaOperacional';
 type Disco = { total?: number };
 type Seguranca = { antivirus?: { name?: string; active?: boolean }[] };
 
-interface LinhaDoInventario {
+export interface LinhaDoInventario {
   id: string;
   cliente: string;
   maquina: string;
@@ -31,6 +32,9 @@ interface LinhaDoInventario {
   versaoAgente: string;
   situacao: 'Online' | 'Offline';
   ultimoContato: string | null;
+  mac: string;
+  dominio: string;
+  criadoEm: string | null;
 }
 
 const GB = 1024 ** 3;
@@ -61,6 +65,9 @@ function montarLinha(m: Record<string, any>): LinhaDoInventario {
     versaoAgente: m.agent_version ?? '—',
     situacao: m.status === 'online' ? 'Online' : 'Offline',
     ultimoContato: m.last_seen,
+    mac: m.mac_address ?? '—',
+    dominio: m.domain || '—',
+    criadoEm: m.created_at,
   };
 }
 
@@ -110,48 +117,6 @@ function imprimirPdf(linhas: LinhaDoInventario[], subtitulo: string) {
   janela.print();
 }
 
-// .xlsx de verdade (o XML com extensão .xls que saía antes o Excel acusava
-// como corrompido). Duas abas: a lista de máquinas e o resumo por cliente.
-async function exportarExcel(linhas: LinhaDoInventario[], nome: string) {
-  const { default: writeXlsxFile } = await import('write-excel-file/browser');
-  const cabecalho = (titulo: string) => ({ value: titulo, fontWeight: 'bold' as const, backgroundColor: '#E5E7EB' });
-  const numericas = new Set<keyof LinhaDoInventario>(['memoriaGb', 'discoGb']);
-
-  const lista = [
-    COLUNAS.map(c => cabecalho(c.titulo)),
-    ...linhas.map(l => COLUNAS.map(c => {
-      const v = l[c.chave];
-      return numericas.has(c.chave) && typeof v === 'number'
-        ? { value: v, type: Number }
-        : { value: texto(l, c), type: String };
-    })),
-  ];
-
-  const porCliente = new Map<string, { total: number; computadores: number; notebooks: number; servidores: number; online: number }>();
-  for (const l of linhas) {
-    const r = porCliente.get(l.cliente) ?? { total: 0, computadores: 0, notebooks: 0, servidores: 0, online: 0 };
-    r.total++;
-    if (l.tipo === 'Computador') r.computadores++;
-    if (l.tipo === 'Notebook') r.notebooks++;
-    if (l.tipo === 'Servidor') r.servidores++;
-    if (l.situacao === 'Online') r.online++;
-    porCliente.set(l.cliente, r);
-  }
-  const resumo = [
-    ['Cliente', 'Total', 'Computadores', 'Notebooks', 'Servidores', 'Online'].map(cabecalho),
-    ...[...porCliente.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([cliente, r]) => [
-      { value: cliente, type: String },
-      ...[r.total, r.computadores, r.notebooks, r.servidores, r.online].map(v => ({ value: v, type: Number })),
-    ]),
-  ];
-
-  const larguras = [22, 20, 14, 14, 16, 16, 36, 13, 11, 22, 16, 10, 17];
-  await writeXlsxFile([
-    { data: lista, sheet: 'Inventário', columns: larguras.map(width => ({ width })), stickyRowsCount: 1, orientation: 'landscape' },
-    { data: resumo, sheet: 'Resumo por cliente', columns: [30, 10, 14, 12, 12, 10].map(width => ({ width })), stickyRowsCount: 1 },
-  ], { fontFamily: 'Calibri', fontSize: 11 }).toFile(`${nome}.xlsx`);
-}
-
 interface RelatorioDeInventarioProps {
   // Máquinas que passaram nos filtros do topo da tela.
   idsFiltrados: Set<string>;
@@ -165,7 +130,7 @@ export const RelatorioDeInventario: React.FC<RelatorioDeInventarioProps> = ({ id
     queryFn: async () => {
       const { data, error } = await supabase
         .from('machines')
-        .select('id, hostname, os, os_version, device_type, logged_in_user, current_user, local_ip, ip_address, ram_total, agent_version, status, last_seen, companies(name), machine_hardware(cpu_model, disks, security_info)')
+        .select('id, hostname, os, os_version, device_type, logged_in_user, current_user, local_ip, ip_address, ram_total, agent_version, status, last_seen, mac_address, domain, created_at, companies(name), machine_hardware(cpu_model, disks, security_info)')
         .eq('approval_status', 'approved')
         .order('hostname');
       if (error) throw error;
@@ -189,7 +154,7 @@ export const RelatorioDeInventario: React.FC<RelatorioDeInventarioProps> = ({ id
           <Button variant="outline" size="sm" className="h-9 gap-1.5" disabled={!filtradas.length} onClick={() => imprimirPdf(filtradas, recorte)}>
             <FileText className="w-4 h-4" /> PDF
           </Button>
-          <Button size="sm" className="h-9 gap-1.5" disabled={!filtradas.length} onClick={() => { void exportarExcel(filtradas, nomeDoArquivo); }}>
+          <Button size="sm" className="h-9 gap-1.5" disabled={!filtradas.length} onClick={() => { void exportarPlanilhaDoInventario(filtradas, nomeDoArquivo); }}>
             <FileSpreadsheet className="w-4 h-4" /> Excel
           </Button>
         </div>
