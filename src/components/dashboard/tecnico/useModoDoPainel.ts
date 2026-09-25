@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
 
-export type ModoDoPainel = 'lista' | 'padrao' | 'graficos';
+export type ModoDoPainel = 'lista' | 'padrao' | 'planilha' | 'graficos';
 
 const CHAVE = 'orion.painel.modo';
-const MODOS: ModoDoPainel[] = ['lista', 'padrao', 'graficos'];
+const MODOS: ModoDoPainel[] = ['lista', 'padrao', 'planilha', 'graficos'];
 
 // Técnico abre na lista, que é onde ele trabalha; admin e developer abrem
 // no quadro, com os números e a visão por situação. ('padrao' é o Quadro;

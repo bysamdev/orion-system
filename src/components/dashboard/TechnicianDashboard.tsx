@@ -13,6 +13,7 @@ import { SeletorDeModo } from './tecnico/SeletorDeModo';
 import { useModoDoPainel, ModoDoPainel } from './tecnico/useModoDoPainel';
 import { ModoLista, Recorte } from './tecnico/ModoLista';
 import { ModoQuadro } from './tecnico/ModoQuadro';
+import { ModoPlanilha } from './tecnico/ModoPlanilha';
 
 // recharts só entra quando alguém abre o modo Gráficos.
 const ModoGraficos = lazy(() => import('./tecnico/ModoGraficos'));
@@ -105,6 +106,8 @@ export const TechnicianDashboard: React.FC = () => {
         carregandoListas ? <Carregando /> : (
           <ModoLista filtros={filtros} recorteInicial={recorteInicial} userId={user?.id} onAssume={handleAssumeTicket} />
         )
+      ) : modo === 'planilha' ? (
+        carregandoListas ? <Carregando /> : <ModoPlanilha filtros={filtros} userId={user?.id} />
       ) : modo === 'graficos' ? (
         <div className="space-y-6">
           <Indicadores stats={stats} />
