@@ -197,6 +197,32 @@ func TestIngest_EstacaoNaoViraSonda(t *testing.T) {
 	}
 }
 
+func TestIngest_EstacaoEscolhidaManualmenteViraSonda(t *testing.T) {
+	links := linksDoCliente()
+	estacao := "66666666-6666-6666-6666-666666666666"
+	links[0].SondaMachineID = estacao
+	srv, _ := servidorComLinks(t, links)
+
+	a := amostraDoServidor()
+	a.MachineID, a.DeviceType, a.Hostname = estacao, "desktop", "PC-SONDA"
+	rec := enviar(t, srv, "Bearer "+segredo, a)
+	var resp struct {
+		Sonda *ConfigDaSonda `json:"sonda"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil || resp.Sonda == nil {
+		t.Fatalf("estação escolhida manualmente deveria receber config de sonda: %s", rec.Body.String())
+	}
+	if !resp.Sonda.DescobrirIPSaida || strings.Join(resp.Sonda.Alvos, ",") != "1.1.1.1,8.8.8.8" {
+		t.Fatalf("configuração da sonda manual errada: %+v", resp.Sonda)
+	}
+
+	// O servidor automático mede apenas o link sem sonda explícita.
+	enviar(t, srv, "Bearer "+segredo, amostraDoServidor())
+	if got := srv.Links.linksDaSonda(servidor, func(string) string { return servidor }); len(got) != 1 || got[0].ID != idStar {
+		t.Fatalf("servidor automático assumiu link da sonda manual: %+v", got)
+	}
+}
+
 func TestLinks_MedicaoVelhaSaiDasMetricas(t *testing.T) {
 	srv, _ := servidorComLinks(t, linksDoCliente())
 	srv.Links.RegistrarMedicao(servidor, &AmostraDeLinks{IPSaida: "200.1.1.1", Testes: []TesteDeLink{{Alvo: "1.1.1.1", LatenciaMs: 5}}},
