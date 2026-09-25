@@ -416,40 +416,6 @@ func instalar() error {
 		imprimirOK(rotulo)
 	}
 
-	// A identidade da máquina passa a nascer AQUI, na instalação, e não mais
-	// sozinha no serviço. O serviço só lê.
-	//
-	// Era a auto-geração que transformava "perdeu o arquivo de token" em "nova
-	// máquina no painel": cada VM descartável de sandbox do VirusTotal subia
-	// sem token, o serviço gerava um na hora e registrava mais um fantasma.
-	// Com a criação no instalador, reativar uma máquina que perdeu a
-	// identidade é rodar o instalador de novo — que pede o token da empresa.
-	//
-	// O DPAPI aqui usa escopo de MÁQUINA (CRYPTPROTECT_LOCAL_MACHINE). A ACL
-	// precisa liberar a conta virtual NT SERVICE\OrionAgent que roda o serviço;
-	// acesso de Administrador/SYSTEM, sozinho, não basta para ela.
-	if err := token.GarantirPermissoesDaIdentidade(); err != nil {
-		return fmt.Errorf("reparar permissões da identidade da máquina: %w", err)
-	}
-	if _, err := token.LoadToken(); err == nil {
-		imprimirOK("Identidade da máquina já existente — mantida")
-	} else {
-		nova, errGerar := token.GenerateRandomIdentity()
-		if errGerar != nil {
-			return fmt.Errorf("gerar identidade da máquina: %w", errGerar)
-		}
-		switch errSalvar := token.SaveNewToken(nova); {
-		case errSalvar == nil:
-			imprimirOK("Identidade da máquina criada")
-		case errors.Is(errSalvar, token.ErrIdentidadeJaExiste):
-			// Corrida com outra instância (bandeja subindo junto): quem gravou
-			// primeiro vale, e é essa que o serviço vai usar.
-			imprimirOK("Identidade da máquina já existente — mantida")
-		default:
-			return fmt.Errorf("salvar identidade da máquina: %w", errSalvar)
-		}
-	}
-
 	imprimirPasso(3, totalPassos, "Verificando configuração...")
 	chaveConfigurada, err := agentKeyConfigurada(destinoConfig)
 	if err != nil {
@@ -467,7 +433,31 @@ func instalar() error {
 	}
 	imprimirOK("agent_key configurada")
 
-	if err := registrarEIniciarServico(destinoExe); err != nil {
+	if err := registrarServico(destinoExe); err != nil {
+		return err
+	}
+	// A conta virtual só é resolvida pelo Windows após o registro do serviço.
+	// A identidade nasce na instalação, nunca automaticamente no serviço.
+	if err := token.GarantirPermissoesDaIdentidade(); err != nil {
+		return fmt.Errorf("reparar permissões da identidade da máquina após registrar o serviço: %w", err)
+	}
+	if _, err := token.LoadToken(); err == nil {
+		imprimirOK("Identidade da máquina já existente — mantida")
+	} else {
+		nova, errGerar := token.GenerateRandomIdentity()
+		if errGerar != nil {
+			return fmt.Errorf("gerar identidade da máquina: %w", errGerar)
+		}
+		switch errSalvar := token.SaveNewToken(nova); {
+		case errSalvar == nil:
+			imprimirOK("Identidade da máquina criada")
+		case errors.Is(errSalvar, token.ErrIdentidadeJaExiste):
+			imprimirOK("Identidade da máquina já existente — mantida")
+		default:
+			return fmt.Errorf("salvar identidade da máquina: %w", errSalvar)
+		}
+	}
+	if err := iniciarServico(); err != nil {
 		return err
 	}
 
@@ -552,7 +542,7 @@ func servicoJaRegistrado() bool {
 // SERVICE_START/SERVICE_STOP ao SID da própria conta virtual do serviço
 // (ver concederAutoGerenciamento) — direito escopado a ESTE serviço
 // específico, não ao gerenciador inteiro.
-func registrarEIniciarServico(caminhoExe string) error {
+func registrarServico(caminhoExe string) error {
 	imprimirPasso(4, totalPassos, "Registrando e iniciando o serviço Windows...")
 
 	if servicoJaRegistrado() {
@@ -569,7 +559,13 @@ func registrarEIniciarServico(caminhoExe string) error {
 			}
 		}
 	}
+	if !servicoJaRegistrado() {
+		return fmt.Errorf("serviço OrionAgent não foi registrado")
+	}
+	return nil
+}
 
+func iniciarServico() error {
 	startCmd := comandoOculto("sc", "start", "OrionAgent")
 	out, err := startCmd.CombinedOutput()
 	if err != nil {

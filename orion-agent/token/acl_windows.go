@@ -78,15 +78,20 @@ func obterSIDDoServico() (string, error) {
 // referenciada pelo nome (DOMÍNIO\usuário) — nomes de conta não são localizados
 // como nomes de grupo embutido são.
 func endurecerACLDoDiretorio(dir string) error {
-	sidServico, err := obterSIDDoServico()
-	if err != nil {
-		return err
-	}
 	concessoes := []string{
 		`SYSTEM:(OI)(CI)F`,
-		`*S-1-5-32-544:(OI)(CI)F`,       // BUILTIN\Administrators
-		`*` + sidServico + `:(OI)(CI)F`, // conta virtual do serviço OrionAgent
-		`*S-1-5-4:(OI)(CI)RX`,           // NT AUTHORITY\INTERACTIVE — só leitura, para a bandeja
+		`*S-1-5-32-544:(OI)(CI)F`, // BUILTIN\Administrators
+		`*S-1-5-4:(OI)(CI)RX`,     // NT AUTHORITY\INTERACTIVE — só leitura, para a bandeja
+	}
+	// O SID calculado por sc showsid só é aceito pelo icacls depois que o
+	// serviço existe na SCM. Testes e gravações anteriores ao registro não
+	// devem falhar por isso; o instalador registra antes de criar a identidade.
+	if exec.Command("sc.exe", "query", "OrionAgent").Run() == nil {
+		sidServico, err := obterSIDDoServico()
+		if err != nil {
+			return err
+		}
+		concessoes = append(concessoes, `*`+sidServico+`:(OI)(CI)F`)
 	}
 
 	if u, err := user.Current(); err == nil && u.Username != "" {

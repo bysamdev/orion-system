@@ -40,7 +40,11 @@ func TestSaveTokenTo_RestringeACLDoDiretorio(t *testing.T) {
 	if err != nil {
 		t.Fatalf("obter SID do serviço: %v", err)
 	}
-	esperados := map[string]bool{"SY": false, "BA": false, "IU": false, usuarioSID: false, sidServico: false}
+	servicoRegistrado := exec.Command("sc.exe", "query", "OrionAgent").Run() == nil
+	esperados := map[string]bool{"SY": false, "BA": false, "IU": false, usuarioSID: false}
+	if servicoRegistrado {
+		esperados[sidServico] = false
+	}
 	for _, match := range aceDaACL.FindAllStringSubmatch(sddl, -1) {
 		campos := strings.Split(match[1], ";")
 		if len(campos) != 6 || campos[0] != "A" {
@@ -75,12 +79,15 @@ func TestSaveTokenTo_RestringeACLDoDiretorio(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ler ACL do arquivo: %v", err)
 	}
-	if !strings.Contains(sdArquivo.String(), ";;;"+sidServico+")") {
+	if servicoRegistrado && !strings.Contains(sdArquivo.String(), ";;;"+sidServico+")") {
 		t.Errorf("arquivo da identidade não concede acesso ao serviço: %s", sdArquivo.String())
 	}
 }
 
 func TestGarantirPermissoesEm_ReparaArquivoExistente(t *testing.T) {
+	if exec.Command("sc.exe", "query", "OrionAgent").Run() != nil {
+		t.Skip("a conta virtual só pode ser concedida após registrar o serviço")
+	}
 	path := filepath.Join(t.TempDir(), "OrionAgent", "machine.token")
 	if err := saveNewTokenTo(path, "identidade-preservada"); err != nil {
 		t.Fatal(err)
