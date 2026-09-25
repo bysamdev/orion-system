@@ -1,59 +1,37 @@
-import React, { useState } from 'react';
-import { useUserProfile, useUserRole } from '@/hooks/useUserRole';
-import { Card, CardContent } from '@/components/ui/card';
+import React, { useMemo } from 'react';
+import { useUserRole } from '@/hooks/useUserRole';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ButtonPrimary } from '@/components/ui/button-primary';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Package, Plus, ShieldCheck, RefreshCw, Clock, Lock, Layers } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { CheckCircle2, Layers, Loader2, Lock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useSoftwarePackages, usePackageDeployments, useDeletePackage, type SoftwarePackage } from '@/hooks/usePatchManagement';
-import { PackageCard } from '@/components/patch/PackageCard';
 import { AgentInstallerCard } from '@/components/patch/AgentInstallerCard';
-import { NewPackageDialog } from '@/components/patch/NewPackageDialog';
-import { DeployDialog } from '@/components/patch/DeployDialog';
-import { useQueryClient } from '@tanstack/react-query';
+import { ForceUpdateButton } from '@/components/monitoring/ForceUpdateButton';
+import { useAllMachines, useMonitoringDashboard } from '@/hooks/useMonitoring';
 import { PageHeader } from '@/components/shared/PageHeader';
 
-const STATUS_STYLE: Record<string, string> = {
-  pending:    'bg-amber-500/10 text-amber-600 border-amber-500/30',
-  dispatched: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
-  completed:  'bg-green-500/10 text-green-600 border-green-500/30',
-  failed:     'bg-red-500/10 text-red-600 border-red-500/30',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  pending:    'Pendente',
-  dispatched: 'Despachado',
-  completed:  'Concluído',
-  failed:     'Falhou',
-};
-
+// Tela só do agente do Orion: gerar instalador e acompanhar a versão da frota.
+// Pacotes de terceiros saíram para não guardar binários no banco.
 const PatchManagement: React.FC = () => {
-  const { toast } = useToast();
-  const qc = useQueryClient();
   const { data: role, isLoading: roleLoading } = useUserRole();
-  const { data: profile } = useUserProfile();
-  const isMasterOrDev = role === 'developer' || role === 'admin';
-  const effectiveCompanyId = isMasterOrDev ? undefined : (profile?.company_id || undefined);
+  const { data: machines = [], isLoading: machinesLoading } = useAllMachines();
+  const { data: dashboard } = useMonitoringDashboard();
+  const ultima = dashboard?.latest_agent_version;
 
-  const [newDialogOpen, setNewDialogOpen] = useState(false);
-  const [deployingPkg, setDeployingPkg] = useState<SoftwarePackage | null>(null);
+  const porVersao = useMemo(() => {
+    const contagem = new Map<string, number>();
+    for (const m of machines) {
+      const v = m.agent_version ?? 'desconhecida';
+      contagem.set(v, (contagem.get(v) ?? 0) + 1);
+    }
+    return [...contagem.entries()].sort((a, b) => b[1] - a[1]);
+  }, [machines]);
 
-  const { data: packages = [], isLoading: pkgsLoading } = useSoftwarePackages(effectiveCompanyId);
-  const { data: deployments = [], isLoading: deplLoading } = usePackageDeployments(effectiveCompanyId);
-  const deleteMutation = useDeletePackage(effectiveCompanyId);
-
-  const handleDelete = (id: string) => {
-    deleteMutation.mutate(id, {
-      onSuccess: () => toast({ title: 'Pacote removido' }),
-      onError: (err: Error) => toast({ title: 'Erro ao remover', description: err.message, variant: 'destructive' }),
-    });
-  };
+  const desatualizadas = useMemo(
+    () => (ultima ? machines.filter(m => m.agent_version !== ultima) : []),
+    [machines, ultima]
+  );
 
   if (roleLoading) {
     return (
@@ -71,7 +49,7 @@ const PatchManagement: React.FC = () => {
         </div>
         <h2 className="text-2xl font-bold">Acesso Restrito</h2>
         <p className="text-muted-foreground text-center max-w-md">
-          O gerenciamento de Instaladores & Updates requer privilégios de Administrador, Desenvolvedor ou Técnico.
+          Instaladores & Updates requer privilégios de Administrador, Desenvolvedor ou Técnico.
         </p>
       </div>
     );
@@ -79,127 +57,77 @@ const PatchManagement: React.FC = () => {
 
   return (
     <div className="w-full space-y-6">
-      {/* Header */}
       <PageHeader
         icon={Layers}
-        badge="AGENT & PATCHES"
+        badge="AGENTE ORION"
         title="Instaladores & Updates"
-        description="Geração de instaladores parametrizados por empresa e implantação de patches remotos."
-        actions={
-          <ButtonPrimary onClick={() => setNewDialogOpen(true)} className="gap-2 font-bold" icon={<Plus className="w-4 h-4" />}>
-            Novo Pacote
-          </ButtonPrimary>
-        }
+        description="Gere o instalador do agente por empresa e acompanhe a versão instalada nas máquinas."
+        actions={<ForceUpdateButton />}
       />
 
-        {/* Security banner */}
-        <div className="mb-8 p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-lg flex items-start gap-3">
-          <ShieldCheck className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
+      <AgentInstallerCard />
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <Card className="p-5 space-y-4 border-border/50">
           <div>
-            <p className="text-sm font-bold text-indigo-700 dark:text-indigo-400">Verificação de Segurança Ativa</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Todos os pacotes exigem hash SHA-256. O agente Orion valida o arquivo antes de qualquer execução.
-              Acesso restrito a <strong>Administradores</strong> e <strong>Desenvolvedores</strong>.
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Versão mais recente</p>
+            <p className="text-2xl font-bold font-mono mt-1">{ultima ? `v${ultima}` : '—'}</p>
           </div>
-        </div>
-
-        <AgentInstallerCard />
-
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          {/* Package list */}
-          <div className="xl:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-sm">Pacotes Cadastrados</h2>
-              <Badge variant="secondary">{packages.length}</Badge>
-            </div>
-
-            {pkgsLoading ? (
-              <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary/50" /></div>
-            ) : packages.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-                  <div className="p-4 bg-muted/30 rounded-full"><Package className="w-8 h-8 text-muted-foreground/40" /></div>
-                  <div>
-                    <p className="font-bold">Nenhum pacote cadastrado</p>
-                    <p className="text-sm text-muted-foreground mt-1 max-w-xs">Cadastre scripts ou instaladores para implantação remota.</p>
-                  </div>
-                  <ButtonPrimary onClick={() => setNewDialogOpen(true)} className="gap-2" icon={<Plus className="w-4 h-4" />}>
-                    Cadastrar Primeiro Pacote
-                  </ButtonPrimary>
-                </CardContent>
-              </Card>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Máquinas por versão</p>
+            {machinesLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-primary/50" />
+            ) : porVersao.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma máquina cadastrada.</p>
             ) : (
-              <div className="space-y-3">
-                {(packages || []).map(pkg => (
-                  <PackageCard key={pkg.id} pkg={pkg} onDeploy={setDeployingPkg} onDelete={handleDelete} />
+              <ul className="space-y-1.5">
+                {porVersao.map(([versao, total]) => (
+                  <li key={versao} className="flex items-center justify-between text-sm">
+                    <span className="font-mono">{versao === 'desconhecida' ? versao : `v${versao}`}</span>
+                    <Badge variant={versao === ultima ? 'default' : 'secondary'}>{total}</Badge>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
+        </Card>
 
-          {/* Deployment log */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-sm">Log de Implantações</h2>
-              <Button variant="ghost" size="icon" aria-label="Atualizar implantações" className="h-7 w-7" onClick={() => qc.invalidateQueries({ queryKey: ['package-deployments'] })}>
-                <RefreshCw className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-
-            <Card className="border-border/50">
-              <ScrollArea className="h-[500px]">
-                {deplLoading ? (
-                  <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary/50" /></div>
-                ) : (deployments || []).length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-40 gap-2 text-center p-4">
-                    <Clock className="w-8 h-8 text-muted-foreground/20" />
-                    <p className="text-xs text-muted-foreground">Nenhuma implantação realizada ainda</p>
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-[9px] font-black uppercase tracking-widest">Pacote</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase tracking-widest">Status</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase tracking-widest">Quando</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(deployments || []).map(dep => (
-                        <TableRow key={dep.id} className="hover:bg-muted/10">
-                          <TableCell className="text-xs font-semibold max-w-[120px] truncate">
-                            {dep.software_packages?.name ?? '—'}
-                          </TableCell>
-                          <TableCell>
-                            <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded border', STATUS_STYLE[dep.status] ?? 'border-border text-muted-foreground')}>
-                              {STATUS_LABEL[dep.status] ?? dep.status}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-[10px] text-muted-foreground whitespace-nowrap">
-                            {formatDistanceToNow(new Date(dep.dispatched_at), { locale: ptBR, addSuffix: true })}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </ScrollArea>
-            </Card>
+        <Card className="xl:col-span-2 border-border/50 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
+            <h2 className="font-bold text-sm">Máquinas desatualizadas</h2>
+            <Badge variant="secondary">{desatualizadas.length}</Badge>
           </div>
-        </div>
-
-      <NewPackageDialog
-        open={newDialogOpen}
-        companyId={effectiveCompanyId}
-        userId={profile?.id}
-        onClose={() => setNewDialogOpen(false)}
-      />
-      <DeployDialog
-        pkg={deployingPkg}
-        deployedBy={{ id: profile?.id, name: profile?.full_name }}
-        onClose={() => setDeployingPkg(null)}
-      />
+          {desatualizadas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+              <CheckCircle2 className="w-8 h-8 text-emerald-500/60" />
+              <p className="text-sm text-muted-foreground">Todas as máquinas estão na versão mais recente.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Máquina</TableHead>
+                  <TableHead>Versão</TableHead>
+                  <TableHead>Situação</TableHead>
+                  <TableHead>Último contato</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {desatualizadas.map(m => (
+                  <TableRow key={m.id}>
+                    <TableCell className="font-semibold">{m.hostname}</TableCell>
+                    <TableCell className="font-mono text-xs">{m.agent_version ? `v${m.agent_version}` : '—'}</TableCell>
+                    <TableCell className="text-xs">{m.status === 'online' ? 'Online' : 'Offline'}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {m.last_seen ? formatDistanceToNow(new Date(m.last_seen), { locale: ptBR, addSuffix: true }) : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Card>
+      </div>
     </div>
   );
 };
