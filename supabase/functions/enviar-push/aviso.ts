@@ -32,13 +32,20 @@ function linkInterno(link: string | null): string {
   return link
 }
 
+// Validade do aviso no serviço de push. Com o navegador fechado o aviso fica
+// na fila e chega quando ele abre; 24 h fazia chegar uma leva de avisos velhos.
+// Passado este prazo o aviso é descartado (o sino continua com o histórico).
+export const VALIDADE_DO_PUSH_SEGUNDOS = 15 * 60
+
 export function montarAviso(n: NotificacaoParaPush): AvisoPush {
+  const url = linkInterno(n.link)
   return {
     title: cortar(n.title || 'Orion System', LIMITE_TITULO),
     body: cortar(n.message || '', LIMITE_CORPO),
-    url: linkInterno(n.link),
-    // Mesma notificação reenviada substitui a anterior em vez de empilhar.
-    tag: `orion-${n.id}`,
+    url,
+    // Um aviso por chamado: o novo substitui o anterior do mesmo chamado em
+    // vez de empilhar. Sem link, cada notificação tem o seu.
+    tag: url === '/' ? `orion-${n.id}` : `orion-${url}`,
   }
 }
 

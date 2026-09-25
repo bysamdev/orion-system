@@ -13,7 +13,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.0'
 import webpush from 'npm:web-push@3.6.7'
-import { inscricaoExpirada, montarAviso } from './aviso.ts'
+import { VALIDADE_DO_PUSH_SEGUNDOS, inscricaoExpirada, montarAviso } from './aviso.ts'
 
 const json = (corpo: unknown, status = 200) =>
   new Response(JSON.stringify(corpo), { status, headers: { 'Content-Type': 'application/json' } })
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       await webpush.sendNotification(
         { endpoint: i.endpoint, keys: { p256dh: i.p256dh, auth: i.auth } },
         aviso,
-        { TTL: 60 * 60 * 24 },
+        { TTL: VALIDADE_DO_PUSH_SEGUNDOS, urgency: 'high' },
       )
       enviados++
     } catch (erro) {

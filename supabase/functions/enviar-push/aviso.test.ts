@@ -9,8 +9,13 @@ describe('montarAviso', () => {
       title: 'Chamado #12 em andamento',
       body: 'O técnico começou o atendimento.',
       url: '/tickets/12',
-      tag: 'orion-abc',
+      tag: 'orion-/tickets/12',
     })
+  })
+
+  it('avisos do mesmo chamado substituem um ao outro', () => {
+    expect(montarAviso({ ...base, id: 'outro' }).tag).toBe(montarAviso(base).tag)
+    expect(montarAviso({ ...base, link: null }).tag).toBe('orion-abc')
   })
 
   it('troca link externo ou vazio pela página inicial', () => {
