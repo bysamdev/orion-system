@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Download, FileIcon, ImageIcon, FileText, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { TicketAttachment, useDeleteAttachment } from '@/hooks/useTicketAttachments';
 import { formatDistanceToNow } from 'date-fns';
@@ -20,6 +21,7 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
   isLoading = false
 }) => {
   const deleteAttachment = useDeleteAttachment();
+  const [anexoParaExcluir, setAnexoParaExcluir] = useState<TicketAttachment | null>(null);
 
   const getFileIcon = (type: string) => {
     if (type.startsWith('image/')) return <ImageIcon className="w-5 h-5 text-blue-500" />;
@@ -33,10 +35,12 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
     window.open(attachment.file_url, '_blank');
   };
 
-  const handleDelete = (attachmentId: string) => {
-    if (confirm('Tem certeza que deseja remover este anexo?')) {
-      deleteAttachment.mutate({ attachmentId, ticketId });
-    }
+  const handleDelete = () => {
+    if (!anexoParaExcluir) return;
+    deleteAttachment.mutate(
+      { attachmentId: anexoParaExcluir.id, ticketId },
+      { onSuccess: () => setAnexoParaExcluir(null) }
+    );
   };
 
   const isImage = (type: string) => type.startsWith('image/');
@@ -114,7 +118,7 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => handleDelete(attachment.id)}
+                onClick={() => setAnexoParaExcluir(attachment)}
                 disabled={deleteAttachment.isPending}
                 aria-label="Excluir anexo"
                 title="Excluir anexo"
@@ -126,6 +130,34 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
           </div>
         </div>
       ))}
+      <AlertDialog
+        open={anexoParaExcluir !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteAttachment.isPending) setAnexoParaExcluir(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir anexo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O arquivo “{anexoParaExcluir?.file_name}” será removido permanentemente deste chamado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteAttachment.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteAttachment.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                handleDelete();
+              }}
+            >
+              {deleteAttachment.isPending ? 'Excluindo...' : 'Excluir anexo'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
