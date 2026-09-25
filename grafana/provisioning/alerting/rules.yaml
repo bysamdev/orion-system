@@ -332,3 +332,209 @@ groups:
         annotations:
           summary: "Container {{ $labels.name }} pode estar em crash/restart loop"
           description: "Container parou de reportar métricas por mais de 2 minutos. Verificar logs com 'docker logs'."
+
+  # ══════════════════════════════════════════════════════════════
+  # Grupo 5: Links de internet dos clientes (Orion Monitor + blackbox)
+  # Principal (dedicado) e redundância (Starlink ou internet comum).
+  # ══════════════════════════════════════════════════════════════
+  - orgId: 1
+    name: link-alerts
+    folder: Orion
+    interval: 1m
+    rules:
+      - uid: link-principal-fora-de-fora
+        title: Link principal sem resposta (ping de fora)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'probe_success{job="blackbox_icmp",papel="principal"}'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        noDataState: OK
+        execErrState: Error
+        for: 3m
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: "{{ $labels.cliente }}: link principal {{ $labels.nome }} não responde"
+          description: "O IP público {{ $labels.instance }} parou de responder ao ping do servidor de monitoramento. Se o backup assumiu, o cliente segue navegando pela redundância."
+      - uid: link-rodando-no-backup
+        title: Cliente rodando no link de backup
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_link_ativo{papel="backup"}'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+              refId: C
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: "{{ $labels.cliente }}: tráfego saindo pelo backup ({{ $labels.nome }})"
+          description: "A sonda do cliente está saindo pelo link de backup: o link principal caiu ou o roteador trocou de link."
+      - uid: link-backup-fora
+        title: Link de backup fora do ar
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_link_up{papel="backup"}'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "{{ $labels.cliente }}: backup {{ $labels.nome }} fora do ar"
+          description: "O cliente está sem redundância. Verificar a antena ou o link de backup."
+      - uid: link-backup-fora-de-fora
+        title: Link de backup sem resposta (ping de fora)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'probe_success{job="blackbox_icmp",papel="backup"}'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "{{ $labels.cliente }}: backup {{ $labels.nome }} não responde de fora"
+          description: "O IP público {{ $labels.instance }} do backup parou de responder. O cliente pode estar sem redundância."
+      - uid: link-latencia-alta
+        title: Latência alta no link
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_link_latencia_ms'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [150] }
+              refId: C
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "{{ $labels.cliente }}: latência alta em {{ $labels.nome }}"
+          description: "Latência média de {{ $value | printf \"%.0f\" }} ms nos últimos 10 minutos."
+      - uid: link-perda-alta
+        title: Perda de pacotes no link
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'orion_link_perda_pct'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [5] }
+              refId: C
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "{{ $labels.cliente }}: perda de pacotes em {{ $labels.nome }}"
+          description: "Perda de {{ $value | printf \"%.0f\" }}% nos últimos 10 minutos."
+      - uid: link-sem-medicao
+        title: Link sem medição da sonda
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: 'count by (link_id, cliente, nome) (orion_link_info) unless on (link_id) count by (link_id) (orion_link_medido_em_timestamp_seconds)'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+              refId: C
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "{{ $labels.cliente }}: sem medição do link {{ $labels.nome }}"
+          description: "Nenhum servidor do cliente está medindo este link. Conferir se o agente do servidor está online e atualizado."

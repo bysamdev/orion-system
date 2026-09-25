@@ -59,14 +59,17 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox:9115
 
+  # Ping de fora dos links de internet dos clientes. Os alvos (IP público de
+  # cada link, com cliente, nome, papel e tipo como rótulos) vêm do cadastro
+  # no Orion Monitor, não mais do Supabase.
   - job_name: blackbox_icmp
     metrics_path: /probe
+    scrape_interval: 30s
     params:
       module: [icmp]
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/targets/network_links.json
-        refresh_interval: 15s
+    http_sd_configs:
+      - url: http://orion-monitor:9301/sd/links
+        refresh_interval: 60s
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
