@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 import { OsIcon } from '@/components/monitoring/MachineCard';
 import { parseOsInfo } from '@/lib/monitoring/sistemaOperacional';
 import { exportarPlanilhaDoInventario } from './planilhaDoInventario';
+import { COLUNAS, texto, type LinhaDoInventario } from './colunasDoInventario';
+
+export type { LinhaDoInventario };
 
 // Relatório analítico do inventário: uma linha por máquina, com o hardware e o
 // antivírus, e exportação para PDF (impressão) e Excel. Os filtros e a busca
@@ -15,27 +18,6 @@ import { exportarPlanilhaDoInventario } from './planilhaDoInventario';
 type Disco = { total?: number };
 type Seguranca = { antivirus?: { name?: string; active?: boolean }[] };
 
-export interface LinhaDoInventario {
-  id: string;
-  cliente: string;
-  maquina: string;
-  tipo: string;
-  os: string | null;
-  osVersion: string | null;
-  sistema: string;
-  usuario: string;
-  ip: string;
-  processador: string;
-  memoriaGb: number | null;
-  discoGb: number | null;
-  antivirus: string;
-  versaoAgente: string;
-  situacao: 'Online' | 'Offline';
-  ultimoContato: string | null;
-  mac: string;
-  dominio: string;
-  criadoEm: string | null;
-}
 
 const GB = 1024 ** 3;
 const TIPOS: Record<string, string> = { desktop: 'Computador', notebook: 'Notebook', server: 'Servidor' };
@@ -71,23 +53,6 @@ function montarLinha(m: Record<string, any>): LinhaDoInventario {
   };
 }
 
-const COLUNAS: { chave: keyof LinhaDoInventario; titulo: string; valor?: (l: LinhaDoInventario) => string }[] = [
-  { chave: 'cliente', titulo: 'Cliente' },
-  { chave: 'maquina', titulo: 'Máquina' },
-  { chave: 'tipo', titulo: 'Tipo' },
-  { chave: 'sistema', titulo: 'Sistema' },
-  { chave: 'usuario', titulo: 'Usuário' },
-  { chave: 'ip', titulo: 'IP' },
-  { chave: 'processador', titulo: 'Processador' },
-  { chave: 'memoriaGb', titulo: 'Memória (GB)', valor: l => (l.memoriaGb ?? '—').toString() },
-  { chave: 'discoGb', titulo: 'Disco (GB)', valor: l => (l.discoGb ?? '—').toString() },
-  { chave: 'antivirus', titulo: 'Antivírus' },
-  { chave: 'versaoAgente', titulo: 'Versão do agente' },
-  { chave: 'situacao', titulo: 'Situação' },
-  { chave: 'ultimoContato', titulo: 'Último contato', valor: l => (l.ultimoContato ? format(new Date(l.ultimoContato), 'dd/MM/yyyy HH:mm') : '—') },
-];
-
-const texto = (l: LinhaDoInventario, c: (typeof COLUNAS)[number]) => (c.valor ? c.valor(l) : String(l[c.chave] ?? '—'));
 const escHtml = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // PDF pela impressão do navegador ("Salvar como PDF"): página própria, em
@@ -154,7 +119,7 @@ export const RelatorioDeInventario: React.FC<RelatorioDeInventarioProps> = ({ id
           <Button variant="outline" size="sm" className="h-9 gap-1.5" disabled={!filtradas.length} onClick={() => imprimirPdf(filtradas, recorte)}>
             <FileText className="w-4 h-4" /> PDF
           </Button>
-          <Button size="sm" className="h-9 gap-1.5" disabled={!filtradas.length} onClick={() => { void exportarPlanilhaDoInventario(filtradas, nomeDoArquivo); }}>
+          <Button size="sm" className="h-9 gap-1.5" disabled={!filtradas.length} onClick={() => { void exportarPlanilhaDoInventario(filtradas, recorte, nomeDoArquivo); }}>
             <FileSpreadsheet className="w-4 h-4" /> Excel
           </Button>
         </div>
