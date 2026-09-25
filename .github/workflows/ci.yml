@@ -145,6 +145,22 @@ jobs:
         with:
           version: 2.84.2
 
+      # Duas migrations históricas têm BOM UTF-8. A CLI 2.84.2 o envia ao
+      # Postgres como parte do primeiro comando e o replay falha antes dos
+      # testes. Remova-o apenas da cópia descartável do checkout na CI;
+      # os arquivos versionados e o histórico de produção permanecem intactos.
+      - name: Normalizar BOM no checkout de teste
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          for migration in Path('supabase/migrations').glob('*.sql'):
+              content = migration.read_bytes()
+              if content.startswith(b'\xef\xbb\xbf'):
+                  migration.write_bytes(content[3:])
+                  print(f'BOM removido do checkout: {migration.name}')
+          PY
+
       # Em 23/09/2026 o ghcr.io (registro que a CLI usa) recusou o download da
       # imagem do Postgres com "toomanyrequests" cinco vezes seguidas, mesmo
       # logado, e a CLI ignora SUPABASE_INTERNAL_IMAGE_REGISTRY. Se a primeira
