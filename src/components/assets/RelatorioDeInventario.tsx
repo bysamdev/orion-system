@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { OsIcon } from '@/components/monitoring/MachineCard';
+import { useAllMachines } from '@/hooks/useMonitoring';
 import { parseOsInfo } from '@/lib/monitoring/sistemaOperacional';
 import { exportarPlanilhaDoInventario } from './planilhaDoInventario';
 import { COLUNAS, texto, type LinhaDoInventario } from './colunasDoInventario';
@@ -41,7 +42,7 @@ function montarLinha(m: Record<string, any>): LinhaDoInventario {
     usuario: m.logged_in_user ?? m.current_user ?? '—',
     ip: m.local_ip ?? m.ip_address ?? '—',
     processador: hw.cpu_model || '—',
-    memoriaGb: m.ram_total ? Math.round((m.ram_total / GB) * 10) / 10 : null,
+    memoriaGb: null,
     discoGb: total ? Math.round(total / GB) : null,
     antivirus: seg.antivirus ? av || 'Nenhum ativo' : '—',
     versaoAgente: m.agent_version ?? '—',
@@ -90,12 +91,15 @@ interface RelatorioDeInventarioProps {
 }
 
 export const RelatorioDeInventario: React.FC<RelatorioDeInventarioProps> = ({ idsFiltrados, clienteFiltrado }) => {
+  // O snapshot de RAM não é mais gravado no Supabase; a API já combina o
+  // cadastro escopado por empresa com a última leitura do Orion Monitor.
+  const { data: maquinasMonitor = [], isLoading: carregandoMonitor } = useAllMachines();
   const { data: linhas = [], isLoading } = useQuery({
     queryKey: ['inventario', 'relatorio'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('machines')
-        .select('id, hostname, os, os_version, device_type, logged_in_user, current_user, local_ip, ip_address, ram_total, agent_version, status, last_seen, mac_address, domain, created_at, companies(name), machine_hardware(cpu_model, disks, security_info)')
+        .select('id, hostname, os, os_version, device_type, logged_in_user, current_user, local_ip, ip_address, agent_version, status, last_seen, mac_address, domain, created_at, companies(name), machine_hardware(cpu_model, disks, security_info)')
         .eq('approval_status', 'approved')
         .order('hostname');
       if (error) throw error;
@@ -104,7 +108,13 @@ export const RelatorioDeInventario: React.FC<RelatorioDeInventarioProps> = ({ id
     staleTime: 60_000,
   });
 
-  const filtradas = useMemo(() => linhas.filter(l => idsFiltrados.has(l.id)), [linhas, idsFiltrados]);
+  const filtradas = useMemo(() => {
+    const memoriaPorId = new Map(maquinasMonitor.map(m => [m.id, m.ram_total]));
+    return linhas.filter(l => idsFiltrados.has(l.id)).map(l => {
+      const bytes = memoriaPorId.get(l.id);
+      return { ...l, memoriaGb: typeof bytes === 'number' && Number.isFinite(bytes) && bytes > 0 ? Math.round(bytes / GB) : null };
+    });
+  }, [linhas, idsFiltrados, maquinasMonitor]);
 
   const recorte = clienteFiltrado ?? 'Todos os clientes';
   const nomeDoArquivo = `inventario_${recorte.replace(/\W+/g, '-').toLowerCase()}_${format(new Date(), 'yyyy-MM-dd')}`;
@@ -126,7 +136,7 @@ export const RelatorioDeInventario: React.FC<RelatorioDeInventarioProps> = ({ id
       </div>
 
       <div className="overflow-auto rounded-lg border border-border/60 bg-card max-h-[65vh]">
-        {isLoading ? (
+        {isLoading || carregandoMonitor ? (
           <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary/50" /></div>
         ) : (
           <table className="w-full text-sm whitespace-nowrap">
